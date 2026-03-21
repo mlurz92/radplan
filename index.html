@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="RadPlan — Digitaler Dienstplan für die Klinik für Radiologie & Nuklearmedizin">
+  <meta name="theme-color" content="#0B1929">
+  <title>RadPlan — Klinik für Radiologie & Nuklearmedizin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+  <header id="app-header">
+    <div class="brand">
+      <div class="brand-icon" aria-hidden="true">RP</div>
+      <div class="brand-text">
+        <div class="brand-name">RadPlan</div>
+      </div>
+    </div>
+
+    <nav class="month-nav" aria-label="Monatsnavigation">
+      <button class="nav-btn" id="btn-prev" title="Vorheriger Monat (Alt+←)" aria-label="Vorheriger Monat">‹</button>
+      <span id="month-label" aria-live="polite" aria-atomic="true">Januar 2026</span>
+      <button class="nav-btn" id="btn-next" title="Nächster Monat (Alt+→)" aria-label="Nächster Monat">›</button>
+    </nav>
+
+    <div class="header-actions" role="toolbar" aria-label="Aktionen">
+      <button id="btn-today" title="Zum heutigen Tag" aria-label="Zum heutigen Monat springen">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="18" rx="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8"  y1="2" x2="8"  y2="6"/>
+          <line x1="3"  y1="10" x2="21" y2="10"/>
+          <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+
+      <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
+
+      <button class="hbtn hbtn-accent" id="btn-dept" title="Abteilungsübersicht für alle Mitarbeitenden">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="2" y="7" width="20" height="14" rx="2"/>
+          <path d="M16" y1="7" x2="16" y2="5" stroke-linecap="round"/>
+          <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+          <line x1="12" y1="12" x2="12" y2="17"/>
+          <line x1="9"  y1="14.5" x2="15" y2="14.5"/>
+        </svg>
+        <span class="hbtn-lbl">Abteilung</span>
+      </button>
+
+      <button class="hbtn hbtn-ghost" id="btn-plan" title="Planungsmodus starten — unabhängige Planung ohne Hauptdaten zu verändern">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+        <span class="hbtn-lbl">Planung</span>
+      </button>
+
+      <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
+
+      <button class="hbtn hbtn-ghost" id="btn-employees" title="Mitarbeitende verwalten">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <span class="hbtn-lbl">Mitarbeitende</span>
+      </button>
+
+      <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
+
+      <button class="hbtn hbtn-ghost" id="btn-export" title="Alle Daten als JSON exportieren (Strg+S)">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span class="hbtn-lbl">Export</span>
+      </button>
+
+      <button class="hbtn hbtn-ghost" id="btn-import" title="Daten aus JSON-Datei importieren">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span class="hbtn-lbl">Import</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="plan-bar" role="alert" aria-live="polite" aria-label="Planungsmodus aktiv" hidden style="display:none">
+
+    <div class="plan-bar-left">
+      <div class="plan-badge" aria-hidden="true">
+        <span class="plan-badge-pulse"></span>
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+        Planungsmodus aktiv
+      </div>
+      <span class="plan-bar-month" id="plan-bar-month"></span>
+      <span class="plan-bar-hint">— Änderungen sind unabhängig vom Hauptplan</span>
+    </div>
+
+    <div class="plan-bar-center">
+      <button class="plan-hist-btn" id="btn-plan-undo" disabled title="Rückgängig (Strg+Z)" aria-label="Rückgängig">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="9 14 4 9 9 4"/>
+          <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
+        </svg>
+        Rückgängig
+      </button>
+      <button class="plan-hist-btn" id="btn-plan-redo" disabled title="Vorwärts (Strg+Y)" aria-label="Vorwärts">
+        Vorwärts
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="15 14 20 9 15 4"/>
+          <path d="M4 20v-7a4 4 0 0 1 4-4h12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="plan-bar-right">
+      <button class="plan-btn plan-btn-auto" id="btn-plan-auto"
+              title="Automatische Diensteinteilung nach fairen Kriterien berechnen"
+              aria-label="Auto-Planung starten">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+        Auto-Plan
+      </button>
+
+      <div class="plan-btn-divider" aria-hidden="true"></div>
+
+      <button class="plan-btn plan-btn-abort" id="btn-plan-abort"
+              title="Alle nicht gespeicherten Änderungen verwerfen und zum letzten Speicherstand zurücksetzen"
+              aria-label="Änderungen abbrechen">
+        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="1 4 1 10 7 10"/>
+          <path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
+        </svg>
+        Abbrechen
+      </button>
+
+      <button class="plan-btn plan-btn-save" id="btn-plan-save"
+              title="Planung als Entwurf speichern — wird nicht in den Hauptplan übernommen"
+              aria-label="Planung speichern">
+        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
+        </svg>
+        Speichern
+      </button>
+
+      <div class="plan-btn-divider" aria-hidden="true"></div>
+
+      <button class="plan-btn plan-btn-close" id="btn-plan-close"
+              title="Planungsmodus verlassen — Hauptplan bleibt unverändert"
+              aria-label="Planungsmodus schließen">
+        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6"  y1="6" x2="18" y2="18"/>
+        </svg>
+        Schließen
+      </button>
+
+      <button class="plan-btn plan-btn-apply" id="btn-plan-apply"
+              title="Planungsentwurf in den Hauptplan übernehmen und Planungsmodus beenden"
+              aria-label="Planung in Hauptplan übernehmen">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Übernehmen
+      </button>
+    </div>
+
+  </div>
+
+  <div id="stats-bar" role="status" aria-label="Monatsstatistik" aria-live="polite"></div>
+
+  <main>
+    <div id="grid-wrapper" role="region" aria-label="Dienstplan-Tabelle">
+      <table id="plan-table" role="grid" aria-label="Monatlicher Dienstplan">
+        <thead id="plan-thead"></thead>
+        <tbody id="plan-tbody"></tbody>
+        <tfoot id="plan-tfoot"></tfoot>
+      </table>
+    </div>
+  </main>
+
+
+  <div class="overlay" id="modal-profile" role="dialog" aria-modal="true" aria-labelledby="pm-name" hidden style="display:none">
+    <div class="modal" style="max-width:640px">
+
+      <div class="modal-hd">
+        <div class="profile-hd-inner">
+          <div class="profile-avatar-lg" id="pm-avatar" aria-hidden="true">MA</div>
+          <div>
+            <div class="modal-hd-title" id="pm-name">Mitarbeiter</div>
+            <div class="modal-hd-sub"   id="pm-sub">Monat · Werktage</div>
+            <div class="pm-meta-row"    id="pm-meta-row" role="list" aria-label="Positionsinformationen"></div>
+          </div>
+        </div>
+        <button class="modal-x" data-close="modal-profile" aria-label="Profil schließen">✕</button>
+      </div>
+
+      <div class="pm-body" id="pm-body">
+
+        <div class="pm-sect-hd">Monatsübersicht</div>
+        <div class="kpi-grid" id="pm-kpi" role="list" aria-label="Kennzahlen aktueller Monat"></div>
+
+        <div class="pm-sect-hd" id="pm-wp-hd">Arbeitsplatz-Verteilung</div>
+        <div id="pm-wp-chart" class="dist-chart" aria-label="Arbeitsplatz-Statistik aktueller Monat"></div>
+
+        <div class="pm-sect-hd" id="pm-st-hd">Status-Übersicht</div>
+        <div id="pm-st-chart" class="dist-chart" aria-label="Status-Statistik aktueller Monat"></div>
+
+        <div class="pm-sect-hd" id="pm-duty-hd">Dienste &amp; Hintergrund</div>
+        <div id="pm-duty-detail" class="duty-detail-area" aria-label="Dienstdetails aktueller Monat"></div>
+
+        <div class="pm-sect-hd">
+          Monatskalender
+          <span class="pm-sect-hint">— Klick auf einen Tag öffnet den Editor</span>
+        </div>
+        <div id="pm-cal" aria-label="Monatskalender"></div>
+
+        <div class="pm-sect-hd">Jahresauswertung</div>
+        <div id="pm-yearly" aria-label="Jahresauswertung"></div>
+
+      </div>
+
+      <div class="modal-ft">
+        <button class="mbtn mbtn-ghost" data-close="modal-profile">Schließen</button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <div class="overlay" id="modal-editor" role="dialog" aria-modal="true" aria-labelledby="ed-title" hidden style="display:none">
+    <div class="modal" style="max-width:490px">
+
+      <div class="modal-hd" id="ed-modal-hd">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div class="modal-hd-title" id="ed-title">Zuweisung bearbeiten</div>
+            <span id="ed-plan-badge" class="ed-plan-badge" style="display:none" aria-hidden="true">
+              <span class="plan-badge-pulse" style="width:5px;height:5px"></span>
+              PLANUNG
+            </span>
+          </div>
+          <div class="modal-hd-sub" id="ed-sub"></div>
+        </div>
+        <button class="modal-x" data-close="modal-editor" aria-label="Editor schließen">✕</button>
+      </div>
+
+      <div class="modal-bd">
+
+        <div id="ed-day-label"></div>
+
+        <div class="preview-box" aria-label="Vorschau der aktuellen Auswahl">
+          <div>
+            <div class="preview-box-lbl">Vorschau</div>
+            <div class="preview-box-val" id="ed-preview-val" aria-live="polite">—</div>
+          </div>
+          <div class="preview-box-duties" id="ed-preview-duties" aria-live="polite"></div>
+        </div>
+
+        <div class="sect-hd">
+          Arbeitsplatz
+          <span class="sect-hint">— Mehrfachauswahl möglich, z.&thinsp;B. MR/CT</span>
+        </div>
+        <div class="chip-row" id="ed-wp" role="group" aria-label="Arbeitsplatz auswählen"></div>
+
+        <div class="sect-hd">
+          Status
+          <span class="sect-hint">— exklusiv, deaktiviert Arbeitsplatz-Auswahl</span>
+        </div>
+        <div class="chip-row" id="ed-st" role="group" aria-label="Status auswählen"></div>
+
+        <div class="sect-hd">Dienst &amp; Hintergrund</div>
+        <div class="chip-row" id="ed-duty" role="group" aria-label="Dienst auswählen"></div>
+        <div class="duty-warn" id="ed-duty-warn" role="alert" aria-live="assertive" style="display:none"></div>
+
+        <div class="sect-hd" id="ed-wish-hd" style="display:none">
+          Dienstwunsch
+          <span class="sect-hint">— nur im Planungsmodus, für Auto-Planung</span>
+        </div>
+        <div class="chip-row" id="ed-wish" role="group" aria-label="Dienstwunsch auswählen" style="display:none"></div>
+
+      </div>
+
+      <div class="modal-ft">
+        <button class="mbtn mbtn-danger"  id="ed-clear"  title="Eintrag vollständig löschen">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6M14 11v6"/>
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+          </svg>
+          Löschen
+        </button>
+        <button class="mbtn mbtn-ghost"   id="ed-cancel">Abbrechen</button>
+        <button class="mbtn mbtn-primary" id="ed-save">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Speichern
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <div class="overlay" id="modal-emps" role="dialog" aria-modal="true" aria-labelledby="emp-title" hidden style="display:none">
+    <div class="modal" style="max-width:420px">
+
+      <div class="modal-hd">
+        <div>
+          <div class="modal-hd-title" id="emp-title">Mitarbeitende</div>
+          <div class="modal-hd-sub"   id="emp-sub"></div>
+        </div>
+        <button class="modal-x" data-close="modal-emps" aria-label="Mitarbeitende schließen">✕</button>
+      </div>
+
+      <div class="modal-bd">
+        <div class="emp-list-inner" id="emp-list" role="list" aria-label="Mitarbeitendenliste"></div>
+        <div class="emp-add-row">
+          <input
+            type="text"
+            class="text-input"
+            id="emp-input"
+            placeholder="Name (z.B. Dr. Müller)…"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="80"
+            aria-label="Name des neuen Mitarbeiters eingeben"
+          >
+          <button class="mbtn mbtn-primary" id="emp-add-btn" type="button">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5"  y1="12" x2="19" y2="12"/>
+            </svg>
+            Hinzufügen
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-ft">
+        <button class="mbtn mbtn-ghost" data-close="modal-emps">Schließen</button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <div class="overlay" id="modal-import" role="dialog" aria-modal="true" aria-labelledby="import-title" hidden style="display:none">
+    <div class="modal" style="max-width:480px">
+
+      <div class="modal-hd">
+        <div>
+          <div class="modal-hd-title" id="import-title">Daten importieren</div>
+          <div class="modal-hd-sub">Datei ablegen, klicken oder JSON einfügen — Vorhandene Daten werden zusammengeführt</div>
+        </div>
+        <button class="modal-x" data-close="modal-import" aria-label="Import schließen">✕</button>
+      </div>
+
+      <div class="modal-bd">
+
+        <div
+          id="import-dropzone"
+          class="dropzone"
+          role="button"
+          tabindex="0"
+          aria-label="JSON-Datei per Drag & Drop ablegen oder klicken zum Auswählen"
+          aria-describedby="dz-hint-text"
+        >
+          <input
+            type="file"
+            id="import-file-input"
+            accept=".json,application/json"
+            style="display:none"
+            aria-hidden="true"
+            tabindex="-1"
+          >
+          <div class="dz-icon" aria-hidden="true">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="12" y1="18" x2="12" y2="12"/>
+              <line x1="9"  y1="15" x2="15" y2="15"/>
+            </svg>
+          </div>
+          <p class="dz-main">JSON-Datei hier ablegen</p>
+          <p class="dz-hint" id="dz-hint-text">.json &middot; Drag &amp; Drop oder klicken zum Durchsuchen</p>
+          <span class="dz-filename" id="dz-filename" aria-live="polite"></span>
+        </div>
+
+        <div class="or-divider" role="separator" aria-label="oder"><span>oder JSON-Text direkt einfügen</span></div>
+
+        <textarea
+          class="json-ta"
+          id="import-ta"
+          spellcheck="false"
+          autocorrect="off"
+          autocapitalize="off"
+          aria-label="JSON-Daten manuell eingeben"
+          aria-describedby="import-err"
+          placeholder='{ "main": { "2026-0": { "employees": ["Dr. Müller"], "assignments": { "Dr. Müller": { "5": { "assignment": "MR", "duty": "HG" } } } } } }'
+        ></textarea>
+        <div class="import-err" id="import-err" role="alert" aria-live="assertive" style="display:none"></div>
+
+      </div>
+
+      <div class="modal-ft">
+        <button class="mbtn mbtn-ghost"   data-close="modal-import">Abbrechen</button>
+        <button class="mbtn mbtn-primary" id="import-confirm">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Importieren
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <div class="overlay" id="modal-dept" role="dialog" aria-modal="true" aria-labelledby="dept-modal-title" hidden style="display:none">
+    <div class="modal" style="max-width:820px">
+
+      <div class="modal-hd dept-modal-hd">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <div>
+              <div class="modal-hd-title" id="dept-modal-title">Abteilungsübersicht</div>
+              <div class="modal-hd-sub"   id="dept-modal-sub">Klinik für Radiologie &amp; Nuklearmedizin</div>
+            </div>
+            <button class="modal-x" data-close="modal-dept" aria-label="Abteilungsübersicht schließen" style="margin-top:0;flex-shrink:0">✕</button>
+          </div>
+          <div class="dept-context-line" id="dept-context-line" aria-live="polite"></div>
+          <div class="dept-tabs" role="tablist" aria-label="Auswertungszeitraum">
+            <button
+              class="dept-tab active"
+              id="dept-tab-month"
+              role="tab"
+              aria-selected="true"
+              aria-controls="dept-body"
+            >
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8"  y1="2" x2="8"  y2="6"/>
+                <line x1="3"  y1="10" x2="21" y2="10"/>
+              </svg>
+              Aktueller Monat
+            </button>
+            <button
+              class="dept-tab"
+              id="dept-tab-year"
+              role="tab"
+              aria-selected="false"
+              aria-controls="dept-body"
+            >
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+              Jahresübersicht
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="dept-body"
+        id="dept-body"
+        role="tabpanel"
+        aria-label="Abteilungsstatistik"
+      ></div>
+
+      <div class="modal-ft">
+        <button class="mbtn mbtn-ghost" data-close="modal-dept">Schließen</button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <div class="overlay" id="modal-autoplan" role="dialog" aria-modal="true" aria-labelledby="ap-title" hidden style="display:none">
+    <div class="modal" style="max-width:720px">
+      <div class="modal-hd" style="background:linear-gradient(180deg,#3B0A00 0%,#78350F 100%)">
+        <div>
+          <div class="modal-hd-title" id="ap-title">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:-2px;margin-right:6px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            Auto-Planung
+          </div>
+          <div class="modal-hd-sub" id="ap-sub">Optimale Dienstverteilung berechnet</div>
+        </div>
+        <button class="modal-x" data-close="modal-autoplan" aria-label="Auto-Plan schließen">✕</button>
+      </div>
+      <div class="modal-bd" id="ap-body" style="max-height:55vh;overflow-y:auto;padding:20px;"></div>
+      <div class="modal-ft">
+        <button class="mbtn mbtn-ghost" data-close="modal-autoplan">Abbrechen</button>
+        <button class="mbtn mbtn-ghost" id="ap-report-btn" style="display:none; color:#0EA5E9; border-color:rgba(14,165,233,0.4);">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-right:4px;">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+          Abschlussbericht
+        </button>
+        <button class="mbtn" id="ap-apply" style="background:linear-gradient(135deg,#F59E0B,#D97706);color:#451a03;font-weight:700">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          In Planung übernehmen
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-ap-report" role="dialog" aria-modal="true" aria-labelledby="ap-report-title" hidden style="display:none">
+    <div class="modal" style="max-width:800px">
+      <div class="modal-hd" style="background:linear-gradient(180deg,#0F172A 0%,#1E293B 100%); border-bottom: 1px solid rgba(14,165,233,0.3);">
+        <div>
+          <div class="modal-hd-title" id="ap-report-title" style="color:#E0F2FE;">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:-3px;margin-right:6px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            Detaillierter Abschlussbericht
+          </div>
+          <div class="modal-hd-sub" id="ap-report-sub" style="color:#BAE6FD;">Begründungen für jede generierte Dienstzuweisung</div>
+        </div>
+        <button class="modal-x" data-close="modal-ap-report" aria-label="Bericht schließen">✕</button>
+      </div>
+      <div class="modal-bd" id="ap-report-body" style="max-height:65vh;overflow-y:auto;padding:0;">
+        <!-- Dynamically populated by JS -->
+      </div>
+      <div class="modal-ft" style="background:#0F172A; border-top: 1px solid rgba(255,255,255,0.1);">
+        <button class="mbtn mbtn-ghost" data-close="modal-ap-report" style="color:#E2E8F0; border-color:rgba(255,255,255,0.2);">Zurück zur Übersicht</button>
+      </div>
+    </div>
+  </div>
+
+  <div
+    id="toast"
+    role="status"
+    aria-live="polite"
+    aria-atomic="true"
+  ></div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
