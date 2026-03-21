@@ -495,18 +495,18 @@
 
 
   <div class="overlay" id="modal-autoplan" role="dialog" aria-modal="true" aria-labelledby="ap-title" hidden style="display:none">
-    <div class="modal" style="max-width:720px">
+    <div class="modal" style="max-width:880px">
       <div class="modal-hd" style="background:linear-gradient(180deg,#3B0A00 0%,#78350F 100%)">
         <div>
           <div class="modal-hd-title" id="ap-title">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:-2px;margin-right:6px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-            Auto-Planung
+            Auto-Planung Engine
           </div>
-          <div class="modal-hd-sub" id="ap-sub">Optimale Dienstverteilung berechnet</div>
+          <div class="modal-hd-sub" id="ap-sub">Algorithmische Dienstverteilung gemäß klinischer Restriktionen</div>
         </div>
         <button class="modal-x" data-close="modal-autoplan" aria-label="Auto-Plan schließen">✕</button>
       </div>
-      <div class="modal-bd" id="ap-body" style="max-height:55vh;overflow-y:auto;padding:20px;"></div>
+      <div class="modal-bd" id="ap-body" style="max-height:65vh;overflow-y:auto;padding:24px;"></div>
       <div class="modal-ft">
         <button class="mbtn mbtn-ghost" data-close="modal-autoplan">Abbrechen</button>
         <button class="mbtn mbtn-ghost" id="ap-report-btn" style="display:none; color:#0EA5E9; border-color:rgba(14,165,233,0.4);">
@@ -528,20 +528,19 @@
   </div>
 
   <div class="overlay" id="modal-ap-report" role="dialog" aria-modal="true" aria-labelledby="ap-report-title" hidden style="display:none">
-    <div class="modal" style="max-width:800px">
+    <div class="modal" style="max-width:900px">
       <div class="modal-hd" style="background:linear-gradient(180deg,#0F172A 0%,#1E293B 100%); border-bottom: 1px solid rgba(14,165,233,0.3);">
         <div>
           <div class="modal-hd-title" id="ap-report-title" style="color:#E0F2FE;">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:-3px;margin-right:6px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-            Detaillierter Abschlussbericht
+            Algorithmischer Abschlussbericht
           </div>
-          <div class="modal-hd-sub" id="ap-report-sub" style="color:#BAE6FD;">Begründungen für jede generierte Dienstzuweisung</div>
+          <div class="modal-hd-sub" id="ap-report-sub" style="color:#BAE6FD;">Präzise Dokumentation der Allokationsentscheidungen</div>
         </div>
         <button class="modal-x" data-close="modal-ap-report" aria-label="Bericht schließen">✕</button>
       </div>
-      <div class="modal-bd" id="ap-report-body" style="max-height:65vh;overflow-y:auto;padding:0;">
-        <!-- Dynamically populated by JS -->
-      </div>
+      <div class="modal-bd" id="ap-report-body" style="max-height:70vh;overflow-y:auto;padding:0;">
+        </div>
       <div class="modal-ft" style="background:#0F172A; border-top: 1px solid rgba(255,255,255,0.1);">
         <button class="mbtn mbtn-ghost" data-close="modal-ap-report" style="color:#E2E8F0; border-color:rgba(255,255,255,0.2);">Zurück zur Übersicht</button>
       </div>

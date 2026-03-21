@@ -2390,7 +2390,9 @@ function computeAutoPlan(customTargets) {
       return false;
     if (d === 1 && prevMonthLastDayBD[emp]) return false;
     if (wouldCreateDFDF(emp, d, result)) return false;
+    
     if (!relaxed) {
+      if (currentBD[emp] >= bdTarget[emp]) return false;
       const weCount = countWeekendDuties(y, m, emp, result);
       if (weCount >= 2) return false;
       if (emp === "Dr. Becker" && wd === 6) return false;
@@ -2411,7 +2413,13 @@ function computeAutoPlan(customTargets) {
     const isWE = wd === 5 || wd === 6 || wd === 0;
     const tags = [];
 
-    score += (bdTarget[emp] - currentBD[emp]) * 30;
+    if (currentBD[emp] >= bdTarget[emp]) {
+      score -= 5000 * (currentBD[emp] - bdTarget[emp] + 1);
+      tags.push("Soll überschritten");
+    } else {
+      score += (bdTarget[emp] - currentBD[emp]) * 50;
+    }
+
     if (wishes[emp]?.[d] === "BD_WISH") {
       score += 200;
       tags.push("Wunsch");
@@ -2451,7 +2459,9 @@ function computeAutoPlan(customTargets) {
       if (i !== d && result[emp]?.[i]?.duty === "D")
         minDistD = Math.min(minDistD, Math.abs(i - d));
     }
-    if (minDistD < 5) score -= (5 - minDistD) * 40;
+    if (minDistD < 4) {
+      score -= (4 - minDistD) * 150; 
+    }
 
     if (isHoliday(y, m, d, hols)) {
       const holAvg =
@@ -2589,12 +2599,14 @@ function computeAutoPlan(customTargets) {
     msg: "Starte Swap-Optimierung zur Fairness-Glättung...",
     pct: 62,
   });
+  
   function fairnessScore() {
     let score = 0;
     dutyEmps.forEach((e) => {
       const diff = currentBD[e] - bdTarget[e];
-      score += diff * diff * 10;
-      score += Math.pow(countWeekendDuties(y, m, e, result), 2) * 8;
+      if (diff > 0) score += diff * 5000;
+      else score += diff * diff * 20;
+      score += Math.pow(countWeekendDuties(y, m, e, result), 2) * 10;
     });
     return score;
   }

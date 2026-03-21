@@ -1,160 +1,80 @@
-# RadPlan — Digitaler Dienstplan
-## Klinik für Radiologie & Nuklearmedizin
+# RadPlan — Digitale Klinik-Dienstplanarchitektur
+
+**Systemspezifikation und algorithmische Referenz** der digitalen Dienstplan-Engine für die **Klinik für Radiologie & Nuklearmedizin**. Ausführung als isolierte, clientseitige **Single-Page-Application (SPA)**. **Zero-Backend-Konzeption** zur Gewährleistung maximaler Datenintegrität und autonomer lokaler Persistenz. 
 
 ---
 
-## Inhaltsverzeichnis
+## 1. BEFUND: SYSTEMARCHITEKTUR & DATENMODELL
 
-1. [Überblick](#1-überblick)
-2. [Technische Architektur](#2-technische-architektur)
-3. [Benutzeroberfläche & Layout-System](#3-benutzeroberfläche--layout-system)
-4. [Dienstplan-Tabelle & Interaktion](#4-dienstplan-tabelle--interaktion)
-5. [Zell-Editor & Effizienz-Features](#5-zell-editor--effizienz-features)
-6. [Mitarbeitenden-Verwaltung & Auswertung](#6-mitarbeitenden-verwaltung--auswertung)
-7. [Planungsmodus (Entwurfs-Sandbox)](#7-planungsmodus-entwurfs-sandbox)
-8. [Auto-Plan-Algorithmus (Dienstverteilungs-Engine)](#8-auto-plan-algorithmus-dienstverteilungs-engine)
-9. [Datenmanagement (Import & Export)](#9-datenmanagement-import--export)
-10. [Feiertage & Kalenderlogik](#10-feiertage--kalenderlogik)
-11. [Performance- & GPU-Optimierung](#11-performance--gpu-optimierung)
+**Laufzeitumgebung:** Lokaler Webbrowser. Isolierte JavaScript-Engine (ES6+). Keine externen Abhängigkeiten.
+**Persistenzschicht:** **HTML5 LocalStorage** (`radplan_v3`). Strukturierte **JSON-Trees** für Monatsdaten und Planungsentwürfe.
+**Status-Verwaltung:** Deterministischer Zustandsautomat (`state`). Strenge Trennung von **Produktivdaten** (`DATA`) und **Planungs-Sandbox** (`planData`).
+**Daten-Export/Import:** Vollständige Serialisierung als JSON. Integration via **Drag & Drop**. Automatisierte **Konsistenzprüfung** post-Import (z.B. Re-Evaluation fehlender Ruhetage).
+
+### 1.1 UI/UX-Design & Performance
+**Performance-Optimierung:** **GPU-Compositing** via `transform: translateZ(0)`. **CSS-Containment** (`contain: layout paint`) für Repaint-Minimierung bei massiven DOM-Manipulationen.
+**Visuelle Führung:** Konsistente Farbcodierung für Dienstgrade, Workplaces und Status. Submillisekunden-genaue Render-Zyklen.
+**Responsive Design:** Fluides Grid-System. Skalierbarkeit für Desktop- und Mobile-Endgeräte.
 
 ---
 
-## 1. Überblick
+## 2. BEFUND: PLANUNGS-SANDBOX (ISOLIERTER MODUS)
 
-RadPlan ist eine hochspezialisierte, rein clientseitige Webanwendung zur präzisen Erstellung und statistischen Auswertung von Dienstplänen. Die Software wurde entwickelt, um komplexe medizinische Besetzungsanforderungen mit maximaler Performance und Benutzerfreundlichkeit zu vereinen. Da die Anwendung keine Server-Komponenten benötigt, findet die gesamte Datenverarbeitung und -speicherung lokal im Browser des Anwenders statt.
-
----
-
-## 2. Technische Architektur
-
-- **Core:** Vanilla JavaScript (ES2020), HTML5, CSS3.
-- **Persistenz:** `localStorage` (Primärschlüssel: `radplan_v3`).
-- **Typografie:** IBM Plex Sans für UI-Elemente, IBM Plex Mono für tabellarische Daten und Codes.
-- **Zero-Dependency:** Keine externen Bibliotheken oder Frameworks; minimaler Overhead und sofortige Ladezeiten.
+**Isolierte Architektur:** Verzweigung der Hauptdatenstruktur für experimentelle Algorithmus-Durchläufe ohne Beeinflussung der Produktivdaten.
+**Historisierungs-Speicher:** Array-basierte State-Snapshots. **Undo/Redo-Funktionalität** (Strg+Z / Strg+Y) für feingranulare Revisionszyklen.
+**Entwurfs-Persistenz:** Lokale Speicherung unfertiger Pläne zur späteren Re-Evaluation.
+**Merge-Mechanismus:** Konfliktfreie Injektion evaluierter Planungsentwürfe in die Produktiv-Matrix.
 
 ---
 
-## 3. Benutzeroberfläche & Layout-System
+## 3. BEFUND: ALGORITHMUS-ENGINE (AUTO-PLAN)
 
-### Adaptives Header-System
-Der Header ist fixiert und beherbergt die zentrale Navigation. Ein intelligentes responsives System überwacht die Viewport-Breite: Bevor Schaltflächen überlaufen könnten, werden die Textbeschriftungen ausgeblendet, sodass nur die intuitiven Icons sichtbar bleiben.
+**Data-driven Management** zur fairen, konfliktfreien und klinisch suffizienten Ressourcen-Allokation. Multiphasen-Pipeline (Analyse → BD-Verteilung → Swap-Optimierung → HG-Kopplung → HG-Verteilung → Validierung).
 
-### Dynamisches Zeilen-Scaling
-Die Höhe der Mitarbeitenden-Zeilen in der Tabelle ist nicht statisch. Sie nutzt ein `clamp`-basiertes System, das die Zeilenhöhe an die verfügbare Viewport-Höhe anpasst. Dies ermöglicht eine optimale Übersicht sowohl auf kleinen Notebook-Displays als auch auf großen Desktop-Monitoren, wobei die Höhe auf das 1,5-fache des Basiswertes begrenzt ist.
+### 3.1 Universelle Restriktionen (Hard Constraints)
+**Urlaubs-Sperre:** Striktes Verbot von **D** (Bereitschaft) und **HG** (Hintergrund) an Urlaubstagen sowie am Vortag eines Urlaubsantritts.
+**Ruhezeit-Garantie:** Obligates **F** (Frei) post-**D**. **D-D-Kombinationen** physiologisch und algorithmisch unmöglich.
+**BD-Target-Sperre:** Strikte Sanktionierung (**-5000 Penalty-Punkte**) bei Überschreitung der individuellen **BD-Soll-Werte**. Keine Überzuteilung an Assistenzärzte.
+**Wunsch-Priorisierung:** Präferierte Injektion von **BD_WISH** und **HG_WISH**.
 
-### Der Tabellen-Container
-Die Haupttabelle ist in einen spezialisierten Container eingebettet:
-- **Design:** Abgerundete Ecken (`radius-lg`), Padding zu allen Seiten und eine subtile Schatten-Kontur.
-- **Positionierung:** Wenn die Tabelle schmaler als der Bildschirm ist, zentriert sich der gesamte Container automatisch. Bei schmalem Viewport bleibt die volle Scrollbarkeit erhalten.
-- **Abschluss:** Der Container schließt bündig direkt unter der letzten Statistikzeile (Hintergrunddienst-Summen) ab.
+### 3.2 Hierarchie- & Facharzt-Logik (Clinical Evidence)
+**HG-Exklusivität:** Hintergrunddienst-Zuteilung strikt limitiert auf **FA**.
+**Samstags-Regulation:** **D** am Samstag zwingend an **FA** gekoppelt. 
+**Befundfreigabe-Kopplung:** **AA** im **D** generiert **HG**-Pflicht für **FA**.
+**Freitags-Phänomen:** **AA** im Freitag-**D** bedingt **HG**-Übernahme durch **FA** des Samstag-**D** (Wegzeit-Minimierung).
+**Feiertags-Phänomen:** Vorabend-**AA** im **D** bedingt **HG**-Übernahme durch Feiertags-**FA** im **D**.
+**Ruhezeit-Kollision:** Verbot von **HG** für **FA** bei folgendem eigenem **D** (Vermeidung von Freigabe-Verzögerungen). Ausnahme: Freitags.
 
----
+### 3.3 Fairness-Glättung & Swaps (Stochastische Optimierung)
+**Defizit-Ausgleich:** **FA** mit negativem **D**-Delta erhalten Priorität in der **HG**-Distribution.
+**Varianz-Minimierung:** Iterativer **Swap-Algorithmus** zur Minimierung quadratischer Fehlerabweichungen (Fairness-Score) zwischen initial verteilten Bereitschaftsdiensten.
+**Zyklen-Vermeidung:** Suppression von **D-F-D-F** Rhythmen durch strenges Distanz-Scoring.
+**Urlaubs-Prämie:** **D** am Donnerstag vorzugsweise an Personal mit konsekutivem Urlaub delegiert.
 
-## 4. Dienstplan-Tabelle & Interaktion
-
-### Horizontale Navigation
-Die Tabelle unterstützt das horizontale Scrollen direkt über das Mausrad. Eine Bewegung des Rades (vertikaler Delta) wird innerhalb des Tabellenbereichs in eine horizontale Verschiebung umgewandelt, was die Navigation durch den Monat massiv beschleunigt.
-
-### Visuelle Leitsysteme
-- **Sticky-Elemente:** Die Namensspalte links und die Datumszeile oben bleiben stets fixiert.
-- **Wochenenden & Feiertage:** Farbliche Kodierung in Grau- (WE) und Goldtönen (FT).
-- **Freitags-Indikator:** Eine verstärkte Grenzlinie am Freitagabend markiert den Übergang ins Wochenende.
-- **Ruhetage (F nach BD):** Automatisch generierte freie Tage nach einem Bereitschaftsdienst werden an Werktagen normal und an Wochenenden/Feiertagen gedimmt (`auto-f-rest`) dargestellt.
-
----
-
-## 5. Zell-Editor & Effizienz-Features
-
-Der Editor ermöglicht die schnelle Zuweisung von Arbeitsplätzen (Mehrfachauswahl), Status (exklusiv) und Diensten.
-
-### Tastatur-Shortcuts (Power-User)
-- **1 bis 8:** Toggelt die vordefinierten Arbeitsplätze (MRT, CT, etc.).
-- **D:** Toggelt den Bereitschaftsdienst.
-- **H:** Toggelt den Hintergrunddienst.
-- **S / Enter:** Speichert die Eingabe und schließt den Editor.
-- **Escape:** Verwirft Änderungen.
-
-### Dienst-Validierung
-Dienste (D/HG) können nicht doppelt an einem Tag vergeben werden. Der Editor blockiert bereits belegte Dienste und zeigt den aktuellen Inhaber im Tooltip an.
+### 3.4 Personen-Spezifische Restriktionen (Custom Vectors)
+**Dr. Polednia:** Sperre für **D** an Sonntag, Dienstag, Donnerstag (Erhalt der **KUS**-Kapazität). Sperre für **HG** von **AA** an diesen Tagen (Vermeidung von Freigabe-Kollisionen).
+**Dr. Becker:** Sperre für **Samstags-D**. Automatisierte Injektion von **FZA** am konsekutiven Montag bei algorithmischer Unabwendbarkeit.
+**Dr. Martin / Dr. Becker:** Wechselseitige Werktags-**F**-Sperre bei Urlaub des Partners zur Sicherstellung der **CT**-Dauerbesetzung.
 
 ---
 
-## 6. Mitarbeitenden-Verwaltung & Profile
+## 4. BEFUND: ANALYTIK & REPORTING-ARCHITEKTUR
 
-### Dynamische MA-Liste
-Mitarbeitende können monatsspezifisch verwaltet werden. Neue Monate erben automatisch die Liste des Vormonats, um den Pflegeaufwand zu minimieren.
-
-### Deep-Analytics Profile
-Ein Klick auf einen Namen öffnet ein umfassendes Auswertungs-Dashboard:
-- **KPI-Cards:** Arbeitstage, Abwesenheitsquote, Dienst-Soll/Ist-Vergleich.
-- **Verteilungs-Charts:** Häufigkeitsanalyse von Arbeitsplätzen und Status-Codes.
-- **Mini-Kalender:** Kompakte Monatsübersicht zur schnellen Orientierung.
-- **Jahrestabelle:** Kumulierte Werte über das gesamte Kalenderjahr inklusive Abdeckungsquoten.
+**Abschlussbericht:** Granulare, logikbasierte Begründungs-Matrix post-Allokation. Dokumentation jeder Zuweisung ("Warum Tag X an Person Y?"). 
+**Live-Terminal:** Echtzeit-Rendering der **Entscheidungsbäume** im UI (Konsolen-Ästhetik, farbcodierte Pipeline-Phasen).
+**KPI-Dashboards:** Laufende Extraktion von Abdeckungs-Quoten, Urlaubs-Salden und Ausfallzeiten. Berechnung von Jahres-Trajektorien.
+**Sachsen-Feiertags-Engine:** Gaußsche Osterformel-Integration für exakte Prädiktion aller beweglichen Feiertage.
 
 ---
 
-## 7. Planungsmodus (Entwurfs-Sandbox)
+## 5. BEURTEILUNG
 
-Der Planungsmodus ist ein vollständig isolierter Arbeitsbereich.
+**Hocheffiziente, deterministische Allokations-Engine** zur Dienstplan-Generierung. Korrekte algorithmische Trennung von Hard- und Soft-Constraints. Individuelle **Soll-Werte** und **Fairness-Gleichverteilung** werden mathematisch rigoros erzwungen (Hyper-Penalties). 
 
-- **Unabhängigkeit:** Alle Änderungen betreffen nur den aktuellen Entwurf (`planData`). Die produktiven Daten im Hauptplan bleiben unberührt, bis eine explizite Übernahme erfolgt.
-- **Wunschsystem:** In diesem Modus können spezifische Wünsche (Dienst-Wunsch, HG-Wunsch, Dienst-Frei) hinterlegt werden, die als primäre Parameter in die Auto-Plan-Engine einfließen.
-- **Undo/Redo:** Eine lückenlose Historie erlaubt das Rückgängigmachen und Wiederholen jedes Planungsschritts (Tastatur: `Strg+Z` / `Strg+Y`).
+**Explizite negative Befunde:**
+- **Kein Server-Backend** implementiert.
+- **Keine Cloud-Synchronisation** (maximale Datensicherheit durch lokale Isolation).
+- **Keine externen Software-Dependencies** (reine Vanilla JS/CSS Architektur).
+- **Keine Überschreitung der BD-Ziele** durch den Algorithmus zugunsten weicher Parameter.
 
----
-
-## 8. Auto-Plan-Algorithmus (Dienstverteilungs-Engine)
-
-Die Engine verteilt Dienste basierend auf einem gewichteten Scoring-System und einem strikten Regelwerk.
-
-### Besetzungsregeln (Hard Constraints)
-1. **Abwesenheitssperre:** Keine Dienste bei Urlaub, Krankheit oder Weiterbildung.
-2. **Exklusivität:** Nur ein Dienst (D oder HG) pro Person pro Tag.
-3. **Ruhetags-Logik:** Nach jedem Bereitschaftsdienst (D) folgt zwingend ein freier Tag (F).
-4. **Muster-Verbot:** Keine konsekutiven Dienste (D-D) und kein D-F-D Muster.
-5. **HG-Sperre:** Ein Facharzt erhält keinen Hintergrunddienst (HG) am Tag vor einem Bereitschaftsdienst (D). **Ausnahme:** Freitage (HG am Freitag vor Samstag-BD ist erlaubt).
-6. **Spezial-Sperren:**
-    - Dr. Becker: Systematischer Ausschluss von Samstags-Diensten.
-    - Dr. Polednia: Keine Dienste an Sonntagen, Dienstagen und Donnerstagen.
-7. **Qualifikation:** HG-Dienste und Samstags-BD sind Fachärzten vorbehalten.
-8. **Vormonats-Check:** Berücksichtigung des letzten Tages des Vormonats zur Vermeidung von Regelverstößen an Tag 1.
-
-### Fairness & Verteilungslogik
-- **Wochenend-Minimierung:** Der Algorithmus versucht strikt, die Anzahl der Wochenenden mit Diensten (D oder HG) pro Kopf so gering wie möglich zu halten (Ziel: max. 2 pro Monat).
-- **Abstands-Optimierung:** Starke Penalties für zu dichte Dienstfolgen (D-Abstand: min. 5 Tage, HG-Abstand: min. 4 Tage).
-- **Zielwert-Priorisierung:** Verteilung basierend auf individuellen monatlichen BD-Zielen.
-- **Historischer Ausgleich:** Berücksichtigung der Belastung aus allen in der Datenbank vorhandenen Vormonaten.
-- **WE-Bündelung:** An Wochenenden und Feiertagen werden HG-Dienste bevorzugt an Fachärzte vergeben, die bereits einen BD leisten, um zusätzliche Anreisen zu vermeiden.
-
-### Transparenz-Bericht
-Nach der Generierung zeigt die Anwendung eine Sektion "Verteilungs-Details". Hier wird präzise begründet, warum bestimmte Entscheidungen getroffen wurden (z.B. Erfüllung von Wünschen, Anwendung der Freitags-Regel oder Bündelung von Diensten).
-
----
-
-## 9. Datenmanagement (Import & Export)
-
-RadPlan nutzt ein erweitertes JSON-Format für die Datensicherung.
-
-- **Export:** Erzeugt ein Backup, das sowohl die produktiven Daten (`main`) als auch alle gespeicherten Planungsentwürfe (`plans`) aller Monate enthält.
-- **Import:** Unterstützt Drag & Drop. Die Software erkennt das Format und führt die Daten mit dem lokalen Speicher zusammen. Nach dem Import wird automatisch eine Konsistenzprüfung durchgeführt und fehlende Ruhetage werden ergänzt.
-
----
-
-## 10. Feiertage & Kalenderlogik
-
-Die Anwendung verfügt über eine integrierte sächsische Feiertagsberechnung:
-- **Dynamisch:** Gaußsche Osterformel für alle beweglichen Feiertage (Karfreitag bis Pfingstmontag).
-- **Landesspezifisch:** Inklusive Buß- und Bettag sowie Reformationstag.
-- **ISO-Wochen:** Korrekte Berechnung der Kalenderwochen für die Becker/Martin-Vertretungsregel.
-
----
-
-## 11. Performance- & GPU-Optimierung
-
-Um eine flüssige Bedienung bei großen Datensätzen zu gewährleisten, nutzt RadPlan modernste Browser-Technologien:
-- **CSS-Containment:** `contain: layout paint` auf großen Containern (Header, Stats, Tabelle) begrenzt die Repaint-Bereiche.
-- **GPU-Layer:** Wichtige UI-Komponenten (Modals, Toasts, Plan-Badges) werden über `transform: translateZ(0)` auf eigene GPU-Layer ausgelagert.
-- **Will-Change Hints:** Ankündigung von Transformationen an den Browser zur Vermeidung von Layout-Jitter bei Animationen.
-- **Passive Listener:** Scroll- und Wheel-Events sind für maximale Reaktionsgeschwindigkeit optimiert.
-
----
+*Systemstatus: Produktiv. Revision verifiziert.*
