@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="description" content="RadPlan — Digitaler Dienstplan für die Klinik für Radiologie & Nuklearmedizin">
   <meta name="theme-color" content="#0B1929">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>RadPlan — Klinik für Radiologie & Nuklearmedizin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,13 +24,13 @@
     </div>
 
     <nav class="month-nav" aria-label="Monatsnavigation">
-      <button class="nav-btn" id="btn-prev" title="Vorheriger Monat (Alt+←)" aria-label="Vorheriger Monat">‹</button>
+      <button type="button" class="nav-btn" id="btn-prev" title="Vorheriger Monat (Alt+←)" aria-label="Vorheriger Monat">‹</button>
       <span id="month-label" aria-live="polite" aria-atomic="true">Januar 2026</span>
-      <button class="nav-btn" id="btn-next" title="Nächster Monat (Alt+→)" aria-label="Nächster Monat">›</button>
+      <button type="button" class="nav-btn" id="btn-next" title="Nächster Monat (Alt+→)" aria-label="Nächster Monat">›</button>
     </nav>
 
     <div class="header-actions" role="toolbar" aria-label="Aktionen">
-      <button id="btn-today" title="Zum heutigen Tag" aria-label="Zum heutigen Monat springen">
+      <button type="button" id="btn-today" title="Zum heutigen Tag" aria-label="Zum heutigen Monat springen">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <rect x="3" y="4" width="18" height="18" rx="2"/>
           <line x1="16" y1="2" x2="16" y2="6"/>
@@ -40,10 +42,9 @@
 
       <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
 
-      <button class="hbtn hbtn-accent" id="btn-dept" title="Abteilungsübersicht für alle Mitarbeitenden">
+      <button type="button" class="hbtn hbtn-accent" id="btn-dept" title="Abteilungsübersicht für alle Mitarbeitenden">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <rect x="2" y="7" width="20" height="14" rx="2"/>
-          <path d="M16" y1="7" x2="16" y2="5" stroke-linecap="round"/>
           <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
           <line x1="12" y1="12" x2="12" y2="17"/>
           <line x1="9"  y1="14.5" x2="15" y2="14.5"/>
@@ -51,7 +52,7 @@
         <span class="hbtn-lbl">Abteilung</span>
       </button>
 
-      <button class="hbtn hbtn-ghost" id="btn-plan" title="Planungsmodus starten — unabhängige Planung ohne Hauptdaten zu verändern">
+      <button type="button" class="hbtn hbtn-ghost" id="btn-plan" title="Planungsmodus starten — unabhängige Planung ohne Hauptdaten zu verändern">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -61,7 +62,7 @@
 
       <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
 
-      <button class="hbtn hbtn-ghost" id="btn-employees" title="Mitarbeitende verwalten">
+      <button type="button" class="hbtn hbtn-ghost" id="btn-employees" title="Mitarbeitende verwalten">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
           <circle cx="9" cy="7" r="4"/>
@@ -72,7 +73,7 @@
 
       <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
 
-      <button class="hbtn hbtn-ghost" id="btn-export" title="Alle Daten als JSON exportieren (Strg+S)">
+      <button type="button" class="hbtn hbtn-ghost" id="btn-export" title="Alle Daten als JSON exportieren (Strg+S)">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7 10 12 15 17 10"/>
@@ -81,7 +82,7 @@
         <span class="hbtn-lbl">Export</span>
       </button>
 
-      <button class="hbtn hbtn-ghost" id="btn-import" title="Daten aus JSON-Datei importieren">
+      <button type="button" class="hbtn hbtn-ghost" id="btn-import" title="Daten aus JSON-Datei importieren">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="17 8 12 3 7 8"/>
@@ -108,14 +109,14 @@
     </div>
 
     <div class="plan-bar-center">
-      <button class="plan-hist-btn" id="btn-plan-undo" disabled title="Rückgängig (Strg+Z)" aria-label="Rückgängig">
+      <button type="button" class="plan-hist-btn" id="btn-plan-undo" disabled title="Rückgängig (Strg+Z)" aria-label="Rückgängig">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
           <polyline points="9 14 4 9 9 4"/>
           <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
         </svg>
         Rückgängig
       </button>
-      <button class="plan-hist-btn" id="btn-plan-redo" disabled title="Vorwärts (Strg+Y)" aria-label="Vorwärts">
+      <button type="button" class="plan-hist-btn" id="btn-plan-redo" disabled title="Vorwärts (Strg+Y)" aria-label="Vorwärts">
         Vorwärts
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
           <polyline points="15 14 20 9 15 4"/>
@@ -125,7 +126,7 @@
     </div>
 
     <div class="plan-bar-right">
-      <button class="plan-btn plan-btn-auto" id="btn-plan-auto"
+      <button type="button" class="plan-btn plan-btn-auto" id="btn-plan-auto"
               title="Automatische Diensteinteilung nach fairen Kriterien berechnen"
               aria-label="Auto-Planung starten">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
@@ -138,7 +139,7 @@
 
       <div class="plan-btn-divider" aria-hidden="true"></div>
 
-      <button class="plan-btn plan-btn-abort" id="btn-plan-abort"
+      <button type="button" class="plan-btn plan-btn-abort" id="btn-plan-abort"
               title="Alle nicht gespeicherten Änderungen verwerfen und zum letzten Speicherstand zurücksetzen"
               aria-label="Änderungen abbrechen">
         <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
@@ -148,7 +149,7 @@
         <span>Abbrechen</span>
       </button>
 
-      <button class="plan-btn plan-btn-save" id="btn-plan-save"
+      <button type="button" class="plan-btn plan-btn-save" id="btn-plan-save"
               title="Planung als Entwurf speichern — wird nicht in den Hauptplan übernommen"
               aria-label="Planung speichern">
         <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
@@ -161,7 +162,7 @@
 
       <div class="plan-btn-divider" aria-hidden="true"></div>
 
-      <button class="plan-btn plan-btn-close" id="btn-plan-close"
+      <button type="button" class="plan-btn plan-btn-close" id="btn-plan-close"
               title="Planungsmodus verlassen — Hauptplan bleibt unverändert"
               aria-label="Planungsmodus schließen">
         <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -171,7 +172,7 @@
         <span>Schließen</span>
       </button>
 
-      <button class="plan-btn plan-btn-apply" id="btn-plan-apply"
+      <button type="button" class="plan-btn plan-btn-apply" id="btn-plan-apply"
               title="Planungsentwurf in den Hauptplan übernehmen und Planungsmodus beenden"
               aria-label="Planung in Hauptplan übernehmen">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
@@ -195,18 +196,23 @@
     </div>
   </main>
 
+  <div id="mobile-view" class="mobile-view">
+    <div id="mobile-month-summary" class="mobile-month-summary" role="status" aria-label="Monatsstatistik" aria-live="polite"></div>
+    <div id="mobile-day-list" class="mobile-day-list" role="list" aria-label="Tagesübersicht"></div>
+  </div>
+
   <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile Navigation">
-    <button class="mnav-btn" id="mnav-dept" aria-label="Abteilung">
+    <button type="button" class="mnav-btn" id="mnav-dept" aria-label="Abteilung">
       <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="17"/><line x1="9" y1="14.5" x2="15" y2="14.5"/></svg>
       <span>Abteilung</span>
     </button>
-    <button class="mnav-btn mnav-plan" id="mnav-plan" aria-label="Planung">
+    <button type="button" class="mnav-btn mnav-plan" id="mnav-plan" aria-label="Planung">
       <div class="mnav-plan-icon">
         <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       </div>
       <span>Planung</span>
     </button>
-    <button class="mnav-btn" id="mnav-menu" aria-label="Menü">
+    <button type="button" class="mnav-btn" id="mnav-menu" aria-label="Menü">
       <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       <span>Menü</span>
     </button>
@@ -216,21 +222,38 @@
     <div class="modal mobile-sheet" style="max-width:100%; margin-top:auto; border-bottom-left-radius:0; border-bottom-right-radius:0;">
       <div class="modal-hd">
         <div class="modal-hd-title" id="mm-title">Aktionen</div>
-        <button class="modal-x" data-close="modal-mobile-menu" aria-label="Menü schließen">✕</button>
+        <button type="button" class="modal-x" data-close="modal-mobile-menu" aria-label="Menü schließen">✕</button>
       </div>
       <div class="modal-bd" style="display:flex; flex-direction:column; gap:10px;">
-        <button class="mbtn mbtn-ghost" id="mbtn-employees" style="justify-content:flex-start; padding:14px; font-size: 14px;">
+        <button type="button" class="mbtn mbtn-ghost" id="mbtn-employees" style="justify-content:flex-start; padding:14px; font-size: 14px;">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Mitarbeitende verwalten
         </button>
-        <button class="mbtn mbtn-ghost" id="mbtn-export" style="justify-content:flex-start; padding:14px; font-size: 14px;">
+        <button type="button" class="mbtn mbtn-ghost" id="mbtn-export" style="justify-content:flex-start; padding:14px; font-size: 14px;">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Daten exportieren
         </button>
-        <button class="mbtn mbtn-ghost" id="mbtn-import" style="justify-content:flex-start; padding:14px; font-size: 14px;">
+        <button type="button" class="mbtn mbtn-ghost" id="mbtn-import" style="justify-content:flex-start; padding:14px; font-size: 14px;">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Daten importieren
         </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-mobile-day" role="dialog" aria-modal="true" aria-labelledby="mday-title" hidden style="display:none">
+    <div class="modal mobile-sheet mobile-day-sheet" style="max-width:100%;margin-top:auto;border-bottom-left-radius:0;border-bottom-right-radius:0;max-height:90vh;display:flex;flex-direction:column;">
+      <div class="mday-handle" aria-hidden="true"></div>
+      <div class="modal-hd mday-hd">
+        <div style="flex:1;min-width:0">
+          <div class="modal-hd-title" id="mday-title"></div>
+          <div class="mday-duty-badges" id="mday-duty-badges"></div>
+        </div>
+        <button type="button" class="modal-x" data-close="modal-mobile-day" aria-label="Tag schließen">✕</button>
+      </div>
+      <div class="modal-bd mday-body" id="mday-body" style="padding:0;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;min-height:0;"></div>
+      <div class="modal-ft mday-footer" id="mday-footer">
+        <button type="button" class="mbtn mbtn-ghost" data-close="modal-mobile-day">Schließen</button>
       </div>
     </div>
   </div>
@@ -247,7 +270,7 @@
             <div class="pm-meta-row"    id="pm-meta-row" role="list" aria-label="Positionsinformationen"></div>
           </div>
         </div>
-        <button class="modal-x" data-close="modal-profile" aria-label="Profil schließen">✕</button>
+        <button type="button" class="modal-x" data-close="modal-profile" aria-label="Profil schließen">✕</button>
       </div>
 
       <div class="pm-body" id="pm-body">
@@ -276,7 +299,7 @@
       </div>
 
       <div class="modal-ft">
-        <button class="mbtn mbtn-ghost" data-close="modal-profile">Schließen</button>
+        <button type="button" class="mbtn mbtn-ghost" data-close="modal-profile">Schließen</button>
       </div>
 
     </div>
@@ -296,7 +319,7 @@
           </div>
           <div class="modal-hd-sub" id="ed-sub"></div>
         </div>
-        <button class="modal-x" data-close="modal-editor" aria-label="Editor schließen">✕</button>
+        <button type="button" class="modal-x" data-close="modal-editor" aria-label="Editor schließen">✕</button>
       </div>
 
       <div class="modal-bd">
@@ -336,7 +359,7 @@
       </div>
 
       <div class="modal-ft">
-        <button class="mbtn mbtn-danger"  id="ed-clear"  title="Eintrag vollständig löschen">
+        <button type="button" class="mbtn mbtn-danger"  id="ed-clear"  title="Eintrag vollständig löschen">
           <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
             <polyline points="3 6 5 6 21 6"/>
             <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -345,8 +368,8 @@
           </svg>
           Löschen
         </button>
-        <button class="mbtn mbtn-ghost"   id="ed-cancel">Abbrechen</button>
-        <button class="mbtn mbtn-primary" id="ed-save">
+        <button type="button" class="mbtn mbtn-ghost"   id="ed-cancel">Abbrechen</button>
+        <button type="button" class="mbtn mbtn-primary" id="ed-save">
           <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
             <polyline points="20 6 9 17 4 12"/>
           </svg>
@@ -365,7 +388,7 @@
           <div class="modal-hd-title" id="emp-title">Mitarbeitende</div>
           <div class="modal-hd-sub"   id="emp-sub"></div>
         </div>
-        <button class="modal-x" data-close="modal-emps" aria-label="Mitarbeitende schließen">✕</button>
+        <button type="button" class="modal-x" data-close="modal-emps" aria-label="Mitarbeitende schließen">✕</button>
       </div>
 
       <div class="modal-bd">
@@ -381,7 +404,7 @@
             maxlength="80"
             aria-label="Name des neuen Mitarbeiters eingeben"
           >
-          <button class="mbtn mbtn-primary" id="emp-add-btn" type="button">
+          <button type="button" class="mbtn mbtn-primary" id="emp-add-btn">
             <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
               <line x1="12" y1="5" x2="12" y2="19"/>
               <line x1="5"  y1="12" x2="19" y2="12"/>
@@ -392,7 +415,7 @@
       </div>
 
       <div class="modal-ft">
-        <button class="mbtn mbtn-ghost" data-close="modal-emps">Schließen</button>
+        <button type="button" class="mbtn mbtn-ghost" data-close="modal-emps">Schließen</button>
       </div>
 
     </div>
@@ -406,7 +429,7 @@
           <div class="modal-hd-title" id="import-title">Daten importieren</div>
           <div class="modal-hd-sub">Datei ablegen, klicken oder JSON einfügen — Vorhandene Daten werden zusammengeführt</div>
         </div>
-        <button class="modal-x" data-close="modal-import" aria-label="Import schließen">✕</button>
+        <button type="button" class="modal-x" data-close="modal-import" aria-label="Import schließen">✕</button>
       </div>
 
       <div class="modal-bd">
@@ -457,8 +480,8 @@
       </div>
 
       <div class="modal-ft">
-        <button class="mbtn mbtn-ghost"   data-close="modal-import">Abbrechen</button>
-        <button class="mbtn mbtn-primary" id="import-confirm">
+        <button type="button" class="mbtn mbtn-ghost"   data-close="modal-import">Abbrechen</button>
+        <button type="button" class="mbtn mbtn-primary" id="import-confirm">
           <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
             <polyline points="20 6 9 17 4 12"/>
           </svg>
@@ -479,11 +502,12 @@
               <div class="modal-hd-title" id="dept-modal-title">Abteilungsübersicht</div>
               <div class="modal-hd-sub"   id="dept-modal-sub">Klinik für Radiologie &amp; Nuklearmedizin</div>
             </div>
-            <button class="modal-x" data-close="modal-dept" aria-label="Abteilungsübersicht schließen" style="margin-top:0;flex-shrink:0">✕</button>
+            <button type="button" class="modal-x" data-close="modal-dept" aria-label="Abteilungsübersicht schließen" style="margin-top:0;flex-shrink:0">✕</button>
           </div>
           <div class="dept-context-line" id="dept-context-line" aria-live="polite"></div>
           <div class="dept-tabs" role="tablist" aria-label="Auswertungszeitraum">
             <button
+              type="button"
               class="dept-tab active"
               id="dept-tab-month"
               role="tab"
@@ -499,6 +523,7 @@
               Aktueller Monat
             </button>
             <button
+              type="button"
               class="dept-tab"
               id="dept-tab-year"
               role="tab"
@@ -522,7 +547,7 @@
       ></div>
 
       <div class="modal-ft">
-        <button class="mbtn mbtn-ghost" data-close="modal-dept">Schließen</button>
+        <button type="button" class="mbtn mbtn-ghost" data-close="modal-dept">Schließen</button>
       </div>
 
     </div>
@@ -538,12 +563,12 @@
           </div>
           <div class="modal-hd-sub" id="ap-sub">Algorithmische Dienstverteilung gemäß klinischer Restriktionen</div>
         </div>
-        <button class="modal-x" data-close="modal-autoplan" aria-label="Auto-Plan schließen">✕</button>
+        <button type="button" class="modal-x" data-close="modal-autoplan" aria-label="Auto-Plan schließen">✕</button>
       </div>
-      <div class="modal-bd" id="ap-body" style="max-height:65vh;overflow-y:auto;padding:24px;"></div>
+      <div class="modal-bd" id="ap-body" style="max-height:65vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:24px;"></div>
       <div class="modal-ft">
-        <button class="mbtn mbtn-ghost" data-close="modal-autoplan">Abbrechen</button>
-        <button class="mbtn mbtn-ghost" id="ap-report-btn" style="display:none; color:#0EA5E9; border-color:rgba(14,165,233,0.4);">
+        <button type="button" class="mbtn mbtn-ghost" data-close="modal-autoplan">Abbrechen</button>
+        <button type="button" class="mbtn mbtn-ghost" id="ap-report-btn" style="display:none; color:#0EA5E9; border-color:rgba(14,165,233,0.4);">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-right:4px;">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
@@ -553,7 +578,7 @@
           </svg>
           Abschlussbericht
         </button>
-        <button class="mbtn" id="ap-apply" style="background:linear-gradient(135deg,#F59E0B,#D97706);color:#451a03;font-weight:700">
+        <button type="button" class="mbtn" id="ap-apply" style="background:linear-gradient(135deg,#F59E0B,#D97706);color:#451a03;font-weight:700">
           <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
           In Planung übernehmen
         </button>
@@ -571,11 +596,11 @@
           </div>
           <div class="modal-hd-sub" id="ap-report-sub" style="color:#BAE6FD;">Präzise Dokumentation der Allokationsentscheidungen</div>
         </div>
-        <button class="modal-x" data-close="modal-ap-report" aria-label="Bericht schließen">✕</button>
+        <button type="button" class="modal-x" data-close="modal-ap-report" aria-label="Bericht schließen">✕</button>
       </div>
-      <div class="modal-bd" id="ap-report-body" style="max-height:70vh;overflow-y:auto;padding:0;"></div>
+      <div class="modal-bd" id="ap-report-body" style="max-height:70vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0;"></div>
       <div class="modal-ft" style="background:#0F172A; border-top: 1px solid rgba(255,255,255,0.1);">
-        <button class="mbtn mbtn-ghost" data-close="modal-ap-report" style="color:#E2E8F0; border-color:rgba(255,255,255,0.2);">Zurück zur Übersicht</button>
+        <button type="button" class="mbtn mbtn-ghost" data-close="modal-ap-report" style="color:#E2E8F0; border-color:rgba(255,255,255,0.2);">Zurück zur Übersicht</button>
       </div>
     </div>
   </div>

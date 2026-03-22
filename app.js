@@ -424,6 +424,7 @@ const today = new Date();
 const TOD_Y = today.getFullYear(),
   TOD_M = today.getMonth(),
   TOD_D = today.getDate();
+const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 const state = {
   year: 2026,
   month: new Date().getMonth(),
@@ -583,6 +584,10 @@ function render() {
       planBar.style.display = "none";
       document.body.classList.remove("plan-mode-active");
     }
+  }
+  if (IS_MOBILE) {
+    renderMobileView();
+    return;
   }
   renderStatsBar(y, m, dim, hols, md);
   renderThead(y, m, dim, hols);
@@ -929,6 +934,375 @@ function buildYearlyStats(emp, year) {
   return { months, totals, year };
 }
 
+function openProfileModal(empName) {
+  const { year: y, month: m } = state;
+  const meta = getEmpMeta(empName);
+  const pc = posColor(meta.position);
+  const ini = empInitials(empName);
+  const hols = getSaxonyHolidays(y);
+  const s = buildProfileStats(y, m, empName);
+  const ys = buildYearlyStats(empName, y);
+  const avatarEl = document.getElementById("pm-avatar");
+  if (avatarEl) {
+    avatarEl.textContent = ini;
+    avatarEl.style.background = `linear-gradient(135deg,${pc.border},${pc.fg})`;
+  }
+  const nameEl = document.getElementById("pm-name");
+  if (nameEl) nameEl.textContent = meta.fullName !== empName ? meta.fullName : empName;
+  const subEl = document.getElementById("pm-sub");
+  if (subEl) subEl.textContent = `${MONTHS[m]} ${y} · ${s.totalWorkdays} Werktage`;
+  const metaRow = document.getElementById("pm-meta-row");
+  if (metaRow) {
+    let metaHtml = "";
+    if (meta.position !== "—")
+      metaHtml += `<span class="pm-pos-pill" style="background:${pc.bg};color:${pc.fg}">${meta.position} · ${meta.posLabel}</span>`;
+    if (meta.area)
+      metaHtml += `<span class="pm-meta-chip pm-chip-area">${meta.area}</span>`;
+    if (meta.deputy)
+      metaHtml += `<span class="pm-meta-chip pm-chip-deputy">V: ${meta.deputy}</span>`;
+    metaRow.innerHTML = metaHtml;
+  }
+  const kpiEl = document.getElementById("pm-kpi");
+  if (kpiEl) {
+    const vac = VACATION_CODES.reduce((sum, c) => sum + (s.stCounts[c] || 0), 0);
+    const sick = (s.stCounts["K"] || 0) + (s.stCounts["KK"] || 0);
+    const fza = s.stCounts["FZA"] || 0;
+    const covPct = s.totalWorkdays > 0 ? Math.round((s.coveredWorkdays / s.totalWorkdays) * 100) : 0;
+    const kpis = [
+      { label: "Werktage", val: s.totalWorkdays, sub: `${s.coveredWorkdays} belegt`, color: "#1D4ED8", pct: covPct },
+      { label: "Nicht geplant", val: s.uncovered, sub: "offen", color: s.uncovered > 0 ? "#F97316" : "#15803D", pct: 0 },
+      { label: "D-Dienste", val: s.dutyD.length, sub: `${s.dutyD.map(d => d + ".").join(" ") || "—"}`, color: "#EF4444", pct: 0 },
+      { label: "HG-Dienste", val: s.dutyHG.length, sub: `${s.dutyHG.map(d => d + ".").join(" ") || "—"}`, color: "#0EA5E9", pct: 0 },
+      { label: "Urlaub", val: vac, sub: "U/ZU/SU/§15c", color: "#7C3AED", pct: 0 },
+      { label: "Krank", val: sick, sub: "K / KK", color: "#DC2626", pct: 0 },
+      { label: "FZA", val: fza, sub: "Freizeitausgleich", color: "#3730A3", pct: 0 },
+      { label: "Frei", val: s.frei, sub: "F-Tage", color: "#475569", pct: 0 },
+    ];
+    kpiEl.innerHTML = kpis.map(k => `<div class="kpi-card" style="border-top-color:${k.color}"><div class="kpi-head"><span class="kpi-label">${k.label}</span><span class="kpi-icon"><svg width="12" height="12" fill="none" stroke="${k.color}" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></span></div><div class="kpi-value" style="color:${k.color}">${k.val}</div><div class="kpi-sub">${k.sub}</div>${k.pct > 0 ? `<div class="kpi-bar-wrap"><div class="kpi-bar-fill" style="width:${k.pct}%;background:${k.color}"></div></div>` : ""}</div>`).join("");
+  }
+  const wpChartEl = document.getElementById("pm-wp-chart");
+  const wpHdEl = document.getElementById("pm-wp-hd");
+  if (wpChartEl) {
+    const wpEntries = Object.entries(s.wpCounts).sort((a, b) => b[1] - a[1]);
+    if (wpEntries.length) {
+      if (wpHdEl) wpHdEl.style.display = "";
+      const maxV = wpEntries[0][1];
+      wpChartEl.innerHTML = wpEntries.map(([code, cnt]) => {
+        const meta2 = CODE_MAP[code];
+        return `<div class="dist-row"><span class="dist-code" style="background:${meta2?.bg||"#f1f5f9"};color:${meta2?.fg||"#475569"}">${code}</span><div class="dist-bar-bg"><div class="dist-bar-fill" style="width:${Math.round((cnt/maxV)*100)}%;background:${meta2?.fg||"#94a3b8"}"></div></div><span class="dist-count">${cnt}</span><span class="dist-pct">${s.totalWP > 0 ? Math.round((cnt/s.totalWP)*100) : 0}%</span></div>`;
+      }).join("");
+    } else {
+      if (wpHdEl) wpHdEl.style.display = "none";
+      wpChartEl.innerHTML = "";
+    }
+  }
+  const stChartEl = document.getElementById("pm-st-chart");
+  const stHdEl = document.getElementById("pm-st-hd");
+  if (stChartEl) {
+    const stEntries = Object.entries(s.stCounts).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    if (stEntries.length) {
+      if (stHdEl) stHdEl.style.display = "";
+      const maxSt = stEntries[0][1];
+      stChartEl.innerHTML = stEntries.map(([code, cnt]) => {
+        const meta2 = CODE_MAP[code];
+        return `<div class="dist-row"><span class="dist-code" style="background:${meta2?.bg||"#f1f5f9"};color:${meta2?.fg||"#475569"}">${code}</span><div class="dist-bar-bg"><div class="dist-bar-fill" style="width:${Math.round((cnt/maxSt)*100)}%;background:${meta2?.fg||"#94a3b8"}"></div></div><span class="dist-count">${cnt}</span><span class="dist-pct"></span></div>`;
+      }).join("");
+    } else {
+      if (stHdEl) stHdEl.style.display = "none";
+      stChartEl.innerHTML = "";
+    }
+  }
+  const dutyDetailEl = document.getElementById("pm-duty-detail");
+  const dutyHdEl = document.getElementById("pm-duty-hd");
+  if (dutyDetailEl) {
+    if (s.dutyD.length || s.dutyHG.length) {
+      if (dutyHdEl) dutyHdEl.style.display = "";
+      let dHtml = "";
+      if (s.dutyD.length) {
+        const dayBadges = s.dutyD.map(d => {
+          const wd = weekday(y, m, d);
+          const hol = isHoliday(y, m, d, hols);
+          const cls = (wd === 5 || wd === 6 || wd === 0 || hol) ? " style=\"background:#FEF3C7;color:#78350F;border-color:#FDE68A\"" : "";
+          return `<span class="duty-day-badge"${cls}>${DOW_ABBR[wd]} ${d}.</span>`;
+        }).join("");
+        dHtml += `<div class="duty-detail-group"><span class="duty-group-lbl badge-D">D</span><div><div class="duty-group-label">Bereitschaftsdienst</div><div class="duty-group-days">${dayBadges}</div></div></div>`;
+      }
+      if (s.dutyHG.length) {
+        const dayBadges = s.dutyHG.map(d => {
+          const wd = weekday(y, m, d);
+          const hol = isHoliday(y, m, d, hols);
+          const cls = (wd === 5 || wd === 6 || wd === 0 || hol) ? " style=\"background:#E0F2FE;color:#0369A1;border-color:#7DD3FC\"" : "";
+          return `<span class="duty-day-badge"${cls}>${DOW_ABBR[wd]} ${d}.</span>`;
+        }).join("");
+        dHtml += `<div class="duty-detail-group"><span class="duty-group-lbl badge-HG">HG</span><div><div class="duty-group-label">Hintergrunddienst</div><div class="duty-group-days">${dayBadges}</div></div></div>`;
+      }
+      dutyDetailEl.innerHTML = dHtml;
+    } else {
+      if (dutyHdEl) dutyHdEl.style.display = "none";
+      dutyDetailEl.innerHTML = "";
+    }
+  }
+  const calEl = document.getElementById("pm-cal");
+  if (calEl) {
+    const dim = daysInMonth(y, m);
+    const firstWd = weekday(y, m, 1);
+    let calHtml = `<div class="mcd-grid">`;
+    DOW_ABBR.forEach((d, i) => calHtml += `<div class="mcd-dow${(i === 0 || i === 6) ? " is-we" : ""}">${d}</div>`);
+    const offset = firstWd;
+    for (let i = 0; i < offset; i++) calHtml += `<div class="mcd-ph"></div>`;
+    for (let d = 1; d <= dim; d++) {
+      const wd = weekday(y, m, d);
+      const hol = isHoliday(y, m, d, hols);
+      const cell = getCell(y, m, empName, d);
+      const isToday = isTodayCol(y, m, d);
+      let cls = "mcd";
+      if (hol) cls += " mcd-hol";
+      else if (wd === 0 || wd === 6) cls += " mcd-we";
+      else if (!cell.assignment && !cell.duty) cls += " mcd-empty";
+      if (isToday) cls += " mcd-today";
+      const assign = cell.assignment || "";
+      const duty = cell.duty || "";
+      const { bg: cbg, fg: cfg } = cellColor(assign);
+      const bgStyle = assign ? `background:${cbg}` : "";
+      const interactive = (!hol && wd !== 0 && wd !== 6) ? ` role="button" tabindex="0"` : "";
+      calHtml += `<div class="${cls}" style="${bgStyle}"${interactive} data-day="${d}"><span class="mcd-num">${d}</span><span class="mcd-assign" style="color:${cfg}">${assign}</span>${duty ? `<span class="mcd-duty badge-${duty}">${duty}</span>` : ""}</div>`;
+    }
+    calHtml += `</div>`;
+    calEl.innerHTML = calHtml;
+    calEl.querySelectorAll(".mcd[data-day]").forEach(el => {
+      const wd = weekday(y, m, parseInt(el.dataset.day));
+      const hol = isHoliday(y, m, parseInt(el.dataset.day), hols);
+      if (!hol && wd !== 0 && wd !== 6) {
+        el.addEventListener("click", () => {
+          hideOverlay("modal-profile");
+          setTimeout(() => openEditor(empName, parseInt(el.dataset.day)), 180);
+        });
+      }
+    });
+  }
+  const yrEl = document.getElementById("pm-yearly");
+  if (yrEl) {
+    const kpiVals = [
+      { lbl: "AP", val: ys.totals.totalWP, color: "#1D4ED8" },
+      { lbl: "Urlaub", val: ys.totals.vacationDays, color: "#7C3AED" },
+      { lbl: "Krank", val: ys.totals.sickDays, color: "#DC2626" },
+      { lbl: "FZA", val: ys.totals.fzaDays, color: "#3730A3" },
+      { lbl: "D", val: ys.totals.dutyD, color: "#EF4444" },
+      { lbl: "HG", val: ys.totals.dutyHG, color: "#0EA5E9" },
+    ];
+    let yrHtml = `<div class="yr-kpi-strip">${kpiVals.map((k, i) => `${i > 0 ? '<div class="yr-kpi-div"></div>' : ""}<div class="yr-kpi-item"><div class="yr-kpi-val" style="color:${k.color}">${k.val}</div><div class="yr-kpi-lbl">${k.lbl}</div></div>`).join("")}</div>`;
+    yrHtml += `<div class="yr-table-wrap"><table class="yr-table"><thead><tr><th class="yr-th yr-th-month">Monat</th><th class="yr-th">AP</th><th class="yr-th yr-th-vac">U</th><th class="yr-th yr-th-sick">K</th><th class="yr-th">FZA</th><th class="yr-th">WB</th><th class="yr-th yr-th-d">D</th><th class="yr-th yr-th-hg">HG</th></tr></thead><tbody>`;
+    ys.months.forEach(mon => {
+      const isCur = mon.m === m;
+      const vac = VACATION_CODES.reduce((s2, c) => s2 + (mon.stCounts[c] || 0), 0);
+      const sick = (mon.stCounts["K"] || 0) + (mon.stCounts["KK"] || 0);
+      const fza2 = mon.stCounts["FZA"] || 0;
+      const wb = mon.stCounts["WB"] || 0;
+      const rc = mon.hasData ? "" : " yr-row-empty";
+      yrHtml += `<tr class="yr-row${isCur ? " yr-row-current" : ""}${rc}"><td class="yr-td-month">${MONTHS_SHORT[mon.m]}</td><td class="yr-td yr-td-num">${mon.hasData && mon.totalWorkdays > 0 ? (Object.values(mon.wpCounts).reduce((a, b) => a + b, 0) || "—") : "—"}</td><td class="yr-td yr-td-num yr-vac">${mon.hasData && vac ? vac : "—"}</td><td class="yr-td yr-td-num yr-sick">${mon.hasData && sick ? sick : "—"}</td><td class="yr-td yr-td-num">${mon.hasData && fza2 ? fza2 : "—"}</td><td class="yr-td yr-td-num">${mon.hasData && wb ? wb : "—"}</td><td class="yr-td yr-td-num yr-duty-d">${mon.hasData && mon.dutyD ? mon.dutyD : "—"}</td><td class="yr-td yr-td-num yr-duty-hg">${mon.hasData && mon.dutyHG ? mon.dutyHG : "—"}</td></tr>`;
+    });
+    yrHtml += `<tr class="yr-total-row"><td class="yr-total-lbl">Gesamt</td><td class="yr-td yr-td-num yr-total">${ys.totals.totalWP || "—"}</td><td class="yr-td yr-td-num yr-vac yr-total">${ys.totals.vacationDays || "—"}</td><td class="yr-td yr-td-num yr-sick yr-total">${ys.totals.sickDays || "—"}</td><td class="yr-td yr-td-num yr-total">${ys.totals.fzaDays || "—"}</td><td class="yr-td yr-td-num yr-total">${ys.totals.wbDays || "—"}</td><td class="yr-td yr-td-num yr-duty-d yr-total">${ys.totals.dutyD || "—"}</td><td class="yr-td yr-td-num yr-duty-hg yr-total">${ys.totals.dutyHG || "—"}</td></tr>`;
+    yrHtml += `</tbody></table></div>`;
+    yrEl.innerHTML = yrHtml;
+  }
+  showOverlay("modal-profile");
+}
+
+function renderMobileView() {
+  const { year: y, month: m } = state;
+  document.body.classList.add("is-mobile");
+  renderMobileSummary(y, m);
+  renderMobileDayList(y, m);
+}
+
+function renderMobileSummary(y, m) {
+  const summaryEl = document.getElementById("mobile-month-summary");
+  if (!summaryEl) return;
+  const md = getMonthData(y, m);
+  const dim = daysInMonth(y, m);
+  const totals = {};
+  [...WORKPLACES.map(w => w.code), ...STATUSES.map(s => s.code), "D", "HG"].forEach(c => { totals[c] = 0; });
+  for (let d = 1; d <= dim; d++) {
+    md.employees.forEach(emp => {
+      const cell = md.assignments?.[emp]?.[d] || {};
+      if (cell.assignment) cell.assignment.split("/").map(x => x.trim()).forEach(c => { if (c in totals) totals[c]++; });
+      if (cell.duty && cell.duty in totals) totals[cell.duty]++;
+    });
+  }
+  const order = ["D", "HG", "U", "K", "F", "MR", "CT", "US", "WB", "FZA", "ZU", "SU", "KK", "§15c", "AN", "MA", "KUS", "W", "T"];
+  let html = `<div class="mms-item mms-item-emp"><span class="mms-val">${md.employees.length}</span><span class="mms-code">MA</span></div>`;
+  order.forEach(code => {
+    const v = totals[code];
+    if (!v) return;
+    const meta = CODE_MAP[code];
+    const isD = code === "D", isHG = code === "HG";
+    const bg = isD ? "#EF4444" : isHG ? "#0EA5E9" : meta?.bg || "#E2E8F0";
+    const fg = isD || isHG ? "#fff" : meta?.fg || "#374151";
+    html += `<div class="mms-item"><span class="mms-code" style="background:${bg};color:${fg};padding:1px 5px;border-radius:3px;font-size:8px;font-weight:700;font-family:var(--font-mono)">${code}</span><span class="mms-val">${v}</span></div>`;
+  });
+  summaryEl.innerHTML = html;
+}
+
+function renderMobileDayList(y, m) {
+  const listEl = document.getElementById("mobile-day-list");
+  if (!listEl) return;
+  const hols = getSaxonyHolidays(y);
+  const md = getMonthData(y, m);
+  const dim = daysInMonth(y, m);
+  listEl.innerHTML = "";
+  let prevKW = -1;
+  for (let d = 1; d <= dim; d++) {
+    const wd = weekday(y, m, d);
+    const hol = isHoliday(y, m, d, hols);
+    const holName = hols[dateKey(y, m, d)] || "";
+    const isToday = isTodayCol(y, m, d);
+    const kw = isoWeekNumber(y, m, d);
+    if (wd === 1 && kw !== prevKW) {
+      prevKW = kw;
+      const sep = document.createElement("div");
+      sep.className = "mobile-week-sep";
+      sep.textContent = `KW ${kw}`;
+      listEl.appendChild(sep);
+    }
+    const bdHolder = md.employees.find(e => md.assignments?.[e]?.[d]?.duty === "D") || null;
+    const hgHolder = md.employees.find(e => md.assignments?.[e]?.[d]?.duty === "HG") || null;
+    const allAssigns = [];
+    md.employees.forEach(emp => {
+      const cell = md.assignments?.[emp]?.[d] || {};
+      if (cell.assignment) {
+        cell.assignment.split("/").map(x => x.trim()).filter(Boolean).forEach(code => {
+          if (!allAssigns.find(a => a.code === code)) {
+            const meta = CODE_MAP[code];
+            if (meta) allAssigns.push({ code, bg: meta.bg, fg: meta.fg });
+          }
+        });
+      }
+    });
+    const card = document.createElement("div");
+    let cardCls = "mobile-day-card";
+    if (hol) cardCls += " mdc-hol";
+    else if (wd === 0 || wd === 6) cardCls += " mdc-we";
+    if (isToday) cardCls += " mdc-today";
+    card.className = cardCls;
+    card.setAttribute("role", "button");
+    card.setAttribute("tabindex", "0");
+    const kwLabel = wd === 1 ? "" : "";
+    let dutyHtml = "";
+    if (bdHolder) {
+      const shortName = bdHolder.split(" ").pop();
+      dutyHtml += `<span class="mdc-duty-badge mdc-d"><span class="mdc-duty-letter">D</span><span class="mdc-duty-name">${shortName}</span></span>`;
+    }
+    if (hgHolder) {
+      const shortName = hgHolder.split(" ").pop();
+      dutyHtml += `<span class="mdc-duty-badge mdc-hg"><span class="mdc-duty-letter">H</span><span class="mdc-duty-name">${shortName}</span></span>`;
+    }
+    if (!bdHolder && !hgHolder) dutyHtml = `<span class="mdc-empty-duty">kein Dienst</span>`;
+    let assignHtml = "";
+    const shown = allAssigns.slice(0, 5);
+    shown.forEach(a => {
+      assignHtml += `<span class="mdc-assign-chip" style="background:${a.bg};color:${a.fg}">${a.code}</span>`;
+    });
+    if (allAssigns.length > 5) assignHtml += `<span class="mdc-assign-more">+${allAssigns.length - 5}</span>`;
+    const planWishIndicator = planMode ? `<span class="mdc-plan-badge"></span>` : "";
+    card.innerHTML = `
+      <div class="mdc-date">
+        <span class="mdc-day-num">${d}</span>
+        <span class="mdc-day-dow">${DOW_ABBR[wd]}</span>
+        ${d === 1 || wd === 1 ? `<span class="mdc-day-kw">KW${kw}</span>` : ""}
+      </div>
+      <div class="mdc-divider"></div>
+      <div class="mdc-content">
+        ${hol ? `<div class="mdc-hol-label">${holName}</div>` : ""}
+        <div class="mdc-duties">${dutyHtml}</div>
+        ${allAssigns.length ? `<div class="mdc-assigns">${assignHtml}</div>` : ""}
+      </div>
+      <div class="mdc-arrow"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+      ${planWishIndicator}
+    `;
+    card.addEventListener("click", () => openMobileDay(d));
+    card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openMobileDay(d); } });
+    listEl.appendChild(card);
+    if (isToday) setTimeout(() => card.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
+  }
+}
+
+function openMobileDay(day) {
+  const { year: y, month: m } = state;
+  const hols = getSaxonyHolidays(y);
+  const md = getMonthData(y, m);
+  const wd = weekday(y, m, day);
+  const hol = isHoliday(y, m, day, hols);
+  const holName = hols[dateKey(y, m, day)] || "";
+  const isToday = isTodayCol(y, m, day);
+  const titleEl = document.getElementById("mday-title");
+  if (titleEl) {
+    titleEl.textContent = `${DOW_LONG[wd]}, ${day}. ${MONTHS[m]} ${y}${holName ? " · " + holName : ""}`;
+    if (isToday) titleEl.style.color = "#67D4FF";
+    else if (hol) titleEl.style.color = "#FCD34D";
+    else titleEl.style.color = "";
+  }
+  const dutyBadgesEl = document.getElementById("mday-duty-badges");
+  if (dutyBadgesEl) {
+    let html = "";
+    const bdH = md.employees.find(e => md.assignments?.[e]?.[day]?.duty === "D");
+    const hgH = md.employees.find(e => md.assignments?.[e]?.[day]?.duty === "HG");
+    if (bdH) html += `<span class="mday-duty-pill d"><span class="mday-duty-pill-letter">D</span>${bdH}</span>`;
+    if (hgH) html += `<span class="mday-duty-pill hg"><span class="mday-duty-pill-letter">H</span>${hgH}</span>`;
+    dutyBadgesEl.innerHTML = html;
+  }
+  const bodyEl = document.getElementById("mday-body");
+  if (!bodyEl) { showOverlay("modal-mobile-day"); return; }
+  const faList = md.employees.filter(e => isFacharzt(e));
+  const aaList = md.employees.filter(e => isAssistenzarzt(e));
+  const sections = [
+    { label: "Fachärzte", emps: faList },
+    { label: "Assistenzärzte", emps: aaList },
+  ].filter(s => s.emps.length > 0);
+  let bodyHtml = "";
+  sections.forEach(sec => {
+    bodyHtml += `<div class="mday-section-hd">${sec.label}</div>`;
+    sec.emps.forEach(emp => {
+      const cell = md.assignments?.[emp]?.[day] || {};
+      const meta = getEmpMeta(emp);
+      const pc = posColor(meta.position);
+      const isEditable = planMode || !hol;
+      let badgesHtml = "";
+      if (cell.assignment) {
+        cell.assignment.split("/").map(x => x.trim()).filter(Boolean).forEach(code => {
+          const cm = CODE_MAP[code];
+          if (cm) badgesHtml += `<span class="mday-assign-badge" style="background:${cm.bg};color:${cm.fg}">${code}</span>`;
+        });
+      }
+      if (cell.duty) badgesHtml += `<span class="mday-duty-tag ${cell.duty.toLowerCase()}">${cell.duty}</span>`;
+      if (planMode && getWish(emp, day)) {
+        const w = getWish(emp, day);
+        const wMap = { BD_WISH: "bd", HG_WISH: "hg", NO_DUTY: "no" };
+        const wLabel = { BD_WISH: "D-Wunsch", HG_WISH: "HG-Wunsch", NO_DUTY: "Kein D" };
+        badgesHtml += `<span class="mday-wish-tag ${wMap[w] || ""}">${wLabel[w] || w}</span>`;
+      }
+      if (!cell.assignment && !cell.duty) badgesHtml = `<span class="mday-empty-assign">—</span>`;
+      bodyHtml += `<div class="mday-emp-row${isEditable ? " mday-editable" : ""}" data-emp="${emp}">
+        <span class="mday-pos-dot" style="background:${pc.border}"></span>
+        <div class="mday-emp-info">
+          <span class="mday-emp-name">${emp}</span>
+          <span class="mday-emp-sub">${meta.posLabel !== "—" ? meta.posLabel : meta.position}</span>
+        </div>
+        <div class="mday-badges">${badgesHtml}</div>
+        ${isEditable ? `<span class="mday-edit-icon"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>` : ""}
+      </div>`;
+    });
+  });
+  bodyEl.innerHTML = bodyHtml;
+  bodyEl.querySelectorAll(".mday-editable[data-emp]").forEach(row => {
+    row.addEventListener("click", () => {
+      const emp = row.dataset.emp;
+      hideOverlay("modal-mobile-day");
+      setTimeout(() => openEditor(emp, day), 200);
+    });
+  });
+  showOverlay("modal-mobile-day");
+}
+
 function openEditor(emp, day) {
   const { year: y, month: m } = state;
   const cell = getCell(y, m, emp, day);
@@ -1006,6 +1380,7 @@ function refreshEditorChips() {
     kbdHint.innerHTML = `<svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;opacity:.6"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M6 16h12"/></svg><span>Ziffern 1–8 für Arbeitsplatz · D für Bereitschaft · H für Hintergrund · S oder ↵ zum Speichern</span>`;
     wpC.parentNode.insertBefore(kbdHint, wpC.nextSibling);
   }
+  kbdHint.style.display = IS_MOBILE ? "none" : "flex";
   const stC = document.getElementById("ed-st");
   stC.innerHTML = "";
   STATUSES.forEach((s) => {
@@ -1106,15 +1481,13 @@ function saveEditor() {
   });
   if (duty === "D") {
     const next = nextCalendarDay(y, m, day);
-    if (next.y === y || next.m >= 0) {
-      const ex = getCell(next.y, next.m, emp, next.d);
-      if (!ex.assignment) {
-        setCell(next.y, next.m, emp, next.d, {
-          assignment: "F",
-          duty: ex.duty || null,
-        });
-        showToast(`F automatisch gesetzt`);
-      }
+    const ex = getCell(next.y, next.m, emp, next.d);
+    if (!ex.assignment) {
+      setCell(next.y, next.m, emp, next.d, {
+        assignment: "F",
+        duty: ex.duty || null,
+      });
+      showToast("F automatisch gesetzt");
     }
   }
   if (planMode) recordPlanHistory();
@@ -1479,6 +1852,13 @@ function scrollToToday() {
     state.month = TOD_M;
     render();
   }
+  if (IS_MOBILE) {
+    setTimeout(() => {
+      const card = document.querySelector(".mobile-day-card.mdc-today");
+      if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+    return;
+  }
   setTimeout(() => {
     const todayTh = document.querySelector(".th-day.today");
     if (todayTh)
@@ -1661,7 +2041,8 @@ function wireEvents() {
         "modal-dept",
         "modal-autoplan",
         "modal-ap-report",
-        "modal-mobile-menu"
+        "modal-mobile-menu",
+        "modal-mobile-day"
       ].forEach((id) => {
         const el = document.getElementById(id);
         if (el && !el.hasAttribute("hidden")) hideOverlay(id);
@@ -1799,6 +2180,7 @@ function collectHistoricalDutyStats(upToYear, upToMonth) {
     if (ky > upToYear || (ky === upToYear && km >= upToMonth)) continue;
     const hols = getSaxonyHolidays(ky);
     const dim = daysInMonth(ky, km);
+    const weMapPerEmp = {};
     for (const emp of mData.employees) {
       if (!stats[emp])
         stats[emp] = {
@@ -1811,28 +2193,46 @@ function collectHistoricalDutyStats(upToYear, upToMonth) {
           hgForFA: 0,
           satBd: 0
         };
-      for (let d = 1; d <= dim; d++) {
+      weMapPerEmp[emp] = {};
+    }
+    for (let d = 1; d <= dim; d++) {
+      const wd = weekday(ky, km, d);
+      const hol = isHoliday(ky, km, d, hols);
+      const isWEDay = wd === 5 || wd === 6 || wd === 0;
+      for (const emp of mData.employees) {
         const cell = mData.assignments?.[emp]?.[d];
         if (!cell?.duty) continue;
-        const wd = weekday(ky, km, d);
-        const hol = isHoliday(ky, km, d, hols);
         if (cell.duty === "D") {
           stats[emp].bd++;
-          if (wd === 5 || wd === 6 || wd === 0) stats[emp].weDuty += 1;
           if (hol) stats[emp].holDuty++;
           if (wd === 4) stats[emp].thuBd++;
           if (wd === 6) stats[emp].satBd++;
+          if (isWEDay) {
+            const kw = isoWeekNumber(ky, km, d);
+            if (!weMapPerEmp[emp][kw]) weMapPerEmp[emp][kw] = { hasD: false, hasHG: false };
+            weMapPerEmp[emp][kw].hasD = true;
+          }
         }
         if (cell.duty === "HG") {
           stats[emp].hg++;
-          if (wd === 5 || wd === 6 || wd === 0) stats[emp].weDuty += 0.5;
           if (hol) stats[emp].holDuty++;
+          if (isWEDay) {
+            const kw = isoWeekNumber(ky, km, d);
+            if (!weMapPerEmp[emp][kw]) weMapPerEmp[emp][kw] = { hasD: false, hasHG: false };
+            if (!weMapPerEmp[emp][kw].hasD) weMapPerEmp[emp][kw].hasHG = true;
+          }
           const bdHolder = mData.employees.find(
             (e2) => mData.assignments?.[e2]?.[d]?.duty === "D",
           );
           if (bdHolder && isAssistenzarzt(bdHolder)) stats[emp].hgForAA++;
           else stats[emp].hgForFA++;
         }
+      }
+    }
+    for (const emp of mData.employees) {
+      for (const { hasD, hasHG } of Object.values(weMapPerEmp[emp] || {})) {
+        if (hasD) stats[emp].weDuty += 1;
+        else if (hasHG) stats[emp].weDuty += 0.5;
       }
     }
   }
@@ -1915,30 +2315,39 @@ function beckerMartinConflict(y, m, emp, day) {
   const next = nextCalendarDay(y, m, day);
   if (!isWorkday(next.y, next.m, next.d, getSaxonyHolidays(next.y)))
     return false;
-  const partnerKWs = new Set();
-  const dim = daysInMonth(y, m);
-  for (let d = 1; d <= dim; d++) {
-    const cell = getCell(y, m, partner, d);
-    if (
-      cell.assignment &&
-      cell.assignment
-        .split("/")
-        .map((x) => x.trim())
-        .some((c) => VACATION_CODES.includes(c))
-    )
-      partnerKWs.add(isoWeekNumber(y, m, d));
+  let partnerCell;
+  if (next.y === y && next.m === m) {
+    partnerCell = getCell(y, m, partner, next.d);
+  } else {
+    const nk = monthKey(next.y, next.m);
+    partnerCell = DATA[nk]?.assignments?.[partner]?.[next.d] || {};
   }
-  return partnerKWs.has(isoWeekNumber(y, m, day));
+  return !!(
+    partnerCell.assignment &&
+    partnerCell.assignment
+      .split("/")
+      .map((x) => x.trim())
+      .some((c) => VACATION_CODES.includes(c))
+  );
 }
 
 function countWeekendDuties(y, m, emp, assignments) {
+  const weMap = {};
   const dim = daysInMonth(y, m);
-  let count = 0;
   for (let d = 1; d <= dim; d++) {
     const wd = weekday(y, m, d);
+    if (wd !== 5 && wd !== 6 && wd !== 0) continue;
     const cell = assignments[emp]?.[d];
     if (!cell?.duty) continue;
-    if (wd === 5 || wd === 6 || wd === 0) count += cell.duty === "D" ? 1 : 0.5;
+    const kw = isoWeekNumber(y, m, d);
+    if (!weMap[kw]) weMap[kw] = { hasD: false, hasHG: false };
+    if (cell.duty === "D") weMap[kw].hasD = true;
+    else if (cell.duty === "HG") weMap[kw].hasHG = true;
+  }
+  let count = 0;
+  for (const { hasD, hasHG } of Object.values(weMap)) {
+    if (hasD) count += 1;
+    else if (hasHG) count += 0.5;
   }
   return count;
 }
@@ -2307,10 +2716,22 @@ function computeAutoPlan(customTargets) {
         reason += ` Samstags-Belastung ausgeglichen.`;
       if (chosen.emp === "Dr. Becker" && weekday(y, m, d) === 6) {
         reason += ` Samstags-Dienst unvermeidbar -> FZA am Montag eingetragen.`;
-        const mon = d + 2;
-        if (mon <= dim) {
-          if (!result[chosen.emp][mon]) result[chosen.emp][mon] = {};
-          result[chosen.emp][mon].assignment = "FZA";
+        const sunDay = nextCalendarDay(y, m, d);
+        const monDay = nextCalendarDay(sunDay.y, sunDay.m, sunDay.d);
+        if (monDay.y === y && monDay.m === m) {
+          if (!result[chosen.emp][monDay.d]) result[chosen.emp][monDay.d] = {};
+          result[chosen.emp][monDay.d].assignment = "FZA";
+        } else {
+          const monK = monthKey(monDay.y, monDay.m);
+          if (DATA[monK]) {
+            if (!DATA[monK].assignments) DATA[monK].assignments = {};
+            if (!DATA[monK].assignments[chosen.emp])
+              DATA[monK].assignments[chosen.emp] = {};
+            DATA[monK].assignments[chosen.emp][monDay.d] =
+              DATA[monK].assignments[chosen.emp][monDay.d] || {};
+            if (!DATA[monK].assignments[chosen.emp][monDay.d].assignment)
+              DATA[monK].assignments[chosen.emp][monDay.d].assignment = "FZA";
+          }
         }
       }
 
@@ -2621,15 +3042,15 @@ function computeAutoPlan(customTargets) {
       if (wishes[emp]?.[d] === "NO_DUTY") return false;
       const wd = weekday(y, m, d);
       const isWE = wd === 6 || wd === 0;
-      if (emp === "Dr. Polednia" && (wd === 0 || wd === 2 || wd === 4)) {
-        const bdOnDay = dutyEmps.find((e) => result[e]?.[d]?.duty === "D");
-        if (bdOnDay && isAssistenzarzt(bdOnDay)) return false;
-      }
       if (result[emp]?.[d]?.assignment === "F" && !isWE) return false;
       if (d < dim && result[emp]?.[d + 1]?.duty === "D" && wd !== 5)
         return false;
 
       if (!relaxed) {
+        if (emp === "Dr. Polednia" && (wd === 0 || wd === 2 || wd === 4)) {
+          const bdOnDay = dutyEmps.find((e) => result[e]?.[d]?.duty === "D");
+          if (bdOnDay && isAssistenzarzt(bdOnDay)) return false;
+        }
         const curWeCount = countWeekendDuties(y, m, emp, result);
         if (curWeCount >= 2) return false;
         let minDistHG = Infinity;
@@ -2658,11 +3079,19 @@ function computeAutoPlan(customTargets) {
 
       const bdHolder = dutyEmps.find((e) => result[e]?.[d]?.duty === "D");
       if (bdHolder && isAssistenzarzt(bdHolder)) {
-        const avgCurHGForAA =
-          hgFAs.reduce((s, e) => s + currentHGForAA[e], 0) /
+        const totalHGForAA = (hist[emp]?.hgForAA || 0) + currentHGForAA[emp];
+        const avgTotalHGForAA =
+          hgFAs.reduce((s, e) => s + (hist[e]?.hgForAA || 0) + currentHGForAA[e], 0) /
           Math.max(1, hgFAs.length);
-        const devAA = currentHGForAA[emp] - avgCurHGForAA;
+        const devAA = totalHGForAA - avgTotalHGForAA;
         score -= devAA * Math.abs(devAA) * 35;
+      } else if (bdHolder && !isAssistenzarzt(bdHolder)) {
+        const totalHGForFA = (hist[emp]?.hgForFA || 0) + currentHGForFA[emp];
+        const avgTotalHGForFA =
+          hgFAs.reduce((s, e) => s + (hist[e]?.hgForFA || 0) + currentHGForFA[e], 0) /
+          Math.max(1, hgFAs.length);
+        const devFA = totalHGForFA - avgTotalHGForFA;
+        score -= devFA * Math.abs(devFA) * 20;
       }
 
       if (wishes[emp]?.[d] === "HG_WISH") {
@@ -2812,26 +3241,40 @@ function computeAutoPlan(customTargets) {
   emps.forEach((e) => {
     let bd = 0,
       hg = 0,
-      weDuty = 0,
       holDuty = 0;
     const bdDays = [],
       hgDays = [];
+    const weMapSummary = {};
     for (let d = 1; d <= dim; d++) {
       const cell = result[e]?.[d];
       const wd = weekday(y, m, d);
       const hol = isHoliday(y, m, d, hols);
+      const isWEDay = wd === 5 || wd === 6 || wd === 0;
       if (cell?.duty === "D") {
         bd++;
         bdDays.push(d);
-        if (wd === 5 || wd === 6 || wd === 0) weDuty++;
         if (hol) holDuty++;
+        if (isWEDay) {
+          const kw = isoWeekNumber(y, m, d);
+          if (!weMapSummary[kw]) weMapSummary[kw] = { hasD: false, hasHG: false };
+          weMapSummary[kw].hasD = true;
+        }
       }
       if (cell?.duty === "HG") {
         hg++;
         hgDays.push(d);
-        if (wd === 6 || wd === 0) weDuty += 0.5;
         if (hol) holDuty++;
+        if (isWEDay) {
+          const kw = isoWeekNumber(y, m, d);
+          if (!weMapSummary[kw]) weMapSummary[kw] = { hasD: false, hasHG: false };
+          if (!weMapSummary[kw].hasD) weMapSummary[kw].hasHG = true;
+        }
       }
+    }
+    let weDuty = 0;
+    for (const { hasD, hasHG } of Object.values(weMapSummary)) {
+      if (hasD) weDuty += 1;
+      else if (hasHG) weDuty += 0.5;
     }
     summary.bd[e] = {
       count: bd,
@@ -2951,7 +3394,7 @@ function renderAutoPlanModal() {
       0,
     );
     html += `</tbody><tfoot><tr class="ap-total-row"><td class="ap-td-name" colspan="4" style="font-weight:700;color:var(--gray-700);padding-left:12px">Σ Gesamt-Ziel</td><td class="ap-td ap-td-num" style="font-weight:800" id="ap-total-target">${totalTarget}</td></tr></tfoot></table></div>`;
-    html += `<div class="ap-config-actions"><button class="mbtn mbtn-ghost" id="ap-reset-defaults">Standard</button><button class="mbtn" id="ap-compute" style="background:linear-gradient(135deg,#F59E0B,#D97706);color:#451a03;font-weight:700">Berechnen</button></div>`;
+    html += `<div class="ap-config-actions"><button type="button" class="mbtn mbtn-ghost" id="ap-reset-defaults">Standard</button><button type="button" class="mbtn" id="ap-compute" style="background:linear-gradient(135deg,#F59E0B,#D97706);color:#451a03;font-weight:700;cursor:pointer;-webkit-appearance:none">Berechnen</button></div>`;
     body.innerHTML = html;
     body.querySelectorAll(".ap-target-input").forEach((inp) => {
       inp.addEventListener("change", () => {
@@ -2960,6 +3403,15 @@ function renderAutoPlanModal() {
           Math.min(10, parseInt(inp.value, 10) || 0),
         );
         inp.value = autoPlanTargets[inp.dataset.emp];
+        const tot = dutyEmps.reduce((s, e) => s + (autoPlanTargets[e] ?? 0), 0);
+        const totEl = document.getElementById("ap-total-target");
+        if (totEl) totEl.textContent = tot;
+      });
+      inp.addEventListener("input", () => {
+        autoPlanTargets[inp.dataset.emp] = Math.max(
+          0,
+          Math.min(10, parseInt(inp.value, 10) || 0),
+        );
         const tot = dutyEmps.reduce((s, e) => s + (autoPlanTargets[e] ?? 0), 0);
         const totEl = document.getElementById("ap-total-target");
         if (totEl) totEl.textContent = tot;
@@ -2981,7 +3433,7 @@ function renderAutoPlanModal() {
             0,
           );
       });
-    document.getElementById("ap-compute")?.addEventListener("click", () => {
+    function doCompute() {
       body.querySelectorAll(".ap-target-input").forEach((inp) => {
         autoPlanTargets[inp.dataset.emp] = Math.max(
           0,
@@ -2993,13 +3445,23 @@ function renderAutoPlanModal() {
       });
       const result = computeAutoPlan(autoPlanTargets);
       if (!result) {
-        showToast("Fehler");
+        showToast("Fehler bei der Berechnung");
         return;
       }
       autoPlanResult = result;
       apViewMode = "progress";
       renderProgressAndThenResult(result);
-    });
+    }
+    const computeBtn = document.getElementById("ap-compute");
+    if (computeBtn) {
+      computeBtn.addEventListener("click", doCompute);
+      if (IS_MOBILE) {
+        computeBtn.addEventListener("touchend", (e) => {
+          e.preventDefault();
+          doCompute();
+        }, { passive: false });
+      }
+    }
   } else if (apViewMode === "result") {
     renderResultView();
   }
@@ -3298,6 +3760,7 @@ function applyAutoPlan() {
 }
 
 function init() {
+  if (IS_MOBILE) document.body.classList.add("is-mobile");
   loadFromStorage();
   const repaired = ensurePostBDFreiDays();
   if (!Object.keys(DATA).length) {
