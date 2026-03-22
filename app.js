@@ -2976,9 +2976,9 @@ function computeAutoPlan(customTargets) {
       if (!currentEmp) continue;
       const candidateOrder = [...dutyEmps].sort((a, b) => {
         const aScore =
-          Math.abs((currentBD[a] - 1) - bdTarget[a]) + projectedWeekendDutyCount(y, m, a, result, "D", day);
+          Math.abs((currentBD[a] + 1) - bdTarget[a]) + projectedWeekendDutyCount(y, m, a, result, "D", day);
         const bScore =
-          Math.abs((currentBD[b] - 1) - bdTarget[b]) + projectedWeekendDutyCount(y, m, b, result, "D", day);
+          Math.abs((currentBD[b] + 1) - bdTarget[b]) + projectedWeekendDutyCount(y, m, b, result, "D", day);
         return aScore - bScore;
       });
       for (const candidate of candidateOrder) {
