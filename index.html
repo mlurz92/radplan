@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="description" content="RadPlan — Digitaler Dienstplan für die Klinik für Radiologie & Nuklearmedizin">
   <meta name="theme-color" content="#0B1929">
   <title>RadPlan — Klinik für Radiologie & Nuklearmedizin</title>
@@ -133,7 +133,7 @@
           <path d="M2 17l10 5 10-5"/>
           <path d="M2 12l10 5 10-5"/>
         </svg>
-        Auto-Plan
+        <span>Auto-Plan</span>
       </button>
 
       <div class="plan-btn-divider" aria-hidden="true"></div>
@@ -145,7 +145,7 @@
           <polyline points="1 4 1 10 7 10"/>
           <path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
         </svg>
-        Abbrechen
+        <span>Abbrechen</span>
       </button>
 
       <button class="plan-btn plan-btn-save" id="btn-plan-save"
@@ -156,7 +156,7 @@
           <polyline points="17 21 17 13 7 13 7 21"/>
           <polyline points="7 3 7 8 15 8"/>
         </svg>
-        Speichern
+        <span>Speichern</span>
       </button>
 
       <div class="plan-btn-divider" aria-hidden="true"></div>
@@ -168,7 +168,7 @@
           <line x1="18" y1="6" x2="6" y2="18"/>
           <line x1="6"  y1="6" x2="18" y2="18"/>
         </svg>
-        Schließen
+        <span>Schließen</span>
       </button>
 
       <button class="plan-btn plan-btn-apply" id="btn-plan-apply"
@@ -177,7 +177,7 @@
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
           <polyline points="20 6 9 17 4 12"/>
         </svg>
-        Übernehmen
+        <span>Übernehmen</span>
       </button>
     </div>
 
@@ -195,6 +195,45 @@
     </div>
   </main>
 
+  <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile Navigation">
+    <button class="mnav-btn" id="mnav-dept" aria-label="Abteilung">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="17"/><line x1="9" y1="14.5" x2="15" y2="14.5"/></svg>
+      <span>Abteilung</span>
+    </button>
+    <button class="mnav-btn mnav-plan" id="mnav-plan" aria-label="Planung">
+      <div class="mnav-plan-icon">
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </div>
+      <span>Planung</span>
+    </button>
+    <button class="mnav-btn" id="mnav-menu" aria-label="Menü">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      <span>Menü</span>
+    </button>
+  </nav>
+
+  <div class="overlay" id="modal-mobile-menu" role="dialog" aria-modal="true" aria-labelledby="mm-title" hidden style="display:none">
+    <div class="modal mobile-sheet" style="max-width:100%; margin-top:auto; border-bottom-left-radius:0; border-bottom-right-radius:0;">
+      <div class="modal-hd">
+        <div class="modal-hd-title" id="mm-title">Aktionen</div>
+        <button class="modal-x" data-close="modal-mobile-menu" aria-label="Menü schließen">✕</button>
+      </div>
+      <div class="modal-bd" style="display:flex; flex-direction:column; gap:10px;">
+        <button class="mbtn mbtn-ghost" id="mbtn-employees" style="justify-content:flex-start; padding:14px; font-size: 14px;">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Mitarbeitende verwalten
+        </button>
+        <button class="mbtn mbtn-ghost" id="mbtn-export" style="justify-content:flex-start; padding:14px; font-size: 14px;">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Daten exportieren
+        </button>
+        <button class="mbtn mbtn-ghost" id="mbtn-import" style="justify-content:flex-start; padding:14px; font-size: 14px;">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Daten importieren
+        </button>
+      </div>
+    </div>
+  </div>
 
   <div class="overlay" id="modal-profile" role="dialog" aria-modal="true" aria-labelledby="pm-name" hidden style="display:none">
     <div class="modal" style="max-width:640px">
@@ -242,7 +281,6 @@
 
     </div>
   </div>
-
 
   <div class="overlay" id="modal-editor" role="dialog" aria-modal="true" aria-labelledby="ed-title" hidden style="display:none">
     <div class="modal" style="max-width:490px">
@@ -319,7 +357,6 @@
     </div>
   </div>
 
-
   <div class="overlay" id="modal-emps" role="dialog" aria-modal="true" aria-labelledby="emp-title" hidden style="display:none">
     <div class="modal" style="max-width:420px">
 
@@ -360,7 +397,6 @@
 
     </div>
   </div>
-
 
   <div class="overlay" id="modal-import" role="dialog" aria-modal="true" aria-labelledby="import-title" hidden style="display:none">
     <div class="modal" style="max-width:480px">
@@ -433,7 +469,6 @@
     </div>
   </div>
 
-
   <div class="overlay" id="modal-dept" role="dialog" aria-modal="true" aria-labelledby="dept-modal-title" hidden style="display:none">
     <div class="modal" style="max-width:820px">
 
@@ -493,7 +528,6 @@
     </div>
   </div>
 
-
   <div class="overlay" id="modal-autoplan" role="dialog" aria-modal="true" aria-labelledby="ap-title" hidden style="display:none">
     <div class="modal" style="max-width:880px">
       <div class="modal-hd" style="background:linear-gradient(180deg,#3B0A00 0%,#78350F 100%)">
@@ -539,20 +573,14 @@
         </div>
         <button class="modal-x" data-close="modal-ap-report" aria-label="Bericht schließen">✕</button>
       </div>
-      <div class="modal-bd" id="ap-report-body" style="max-height:70vh;overflow-y:auto;padding:0;">
-        </div>
+      <div class="modal-bd" id="ap-report-body" style="max-height:70vh;overflow-y:auto;padding:0;"></div>
       <div class="modal-ft" style="background:#0F172A; border-top: 1px solid rgba(255,255,255,0.1);">
         <button class="mbtn mbtn-ghost" data-close="modal-ap-report" style="color:#E2E8F0; border-color:rgba(255,255,255,0.2);">Zurück zur Übersicht</button>
       </div>
     </div>
   </div>
 
-  <div
-    id="toast"
-    role="status"
-    aria-live="polite"
-    aria-atomic="true"
-  ></div>
+  <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <script src="app.js" defer></script>
 </body>

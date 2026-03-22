@@ -928,287 +928,7 @@ function buildYearlyStats(emp, year) {
   totals.totalWP = Object.values(totals.wpCounts).reduce((s, v) => s + v, 0);
   return { months, totals, year };
 }
-function openProfileModal(emp) {
-  const { year: y, month: m } = state;
-  const stats = buildProfileStats(y, m, emp);
-  const meta = getEmpMeta(emp);
-  const pc = posColor(meta.position);
-  const avatarEl = document.getElementById("pm-avatar");
-  avatarEl.textContent = empInitials(emp);
-  avatarEl.style.background = `linear-gradient(135deg, ${pc.border} 0%, ${pc.fg} 100%)`;
-  document.getElementById("pm-name").textContent = emp;
-  document.getElementById("pm-sub").textContent =
-    `${MONTHS[m]} ${y} · ${stats.totalWorkdays} Werktage`;
-  const metaRow = document.getElementById("pm-meta-row");
-  if (metaRow) {
-    const parts = [];
-    if (meta.position !== "—")
-      parts.push(
-        `<span class="pm-pos-pill" style="background:${pc.bg};color:${pc.fg};border:1px solid ${pc.border}">${meta.position}&ensp;${meta.posLabel}</span>`,
-      );
-    if (meta.type !== "—")
-      parts.push(`<span class="pm-meta-chip">${meta.type}</span>`);
-    if (meta.area)
-      parts.push(`<span class="pm-meta-chip pm-chip-area">${meta.area}</span>`);
-    if (meta.deputy)
-      parts.push(
-        `<span class="pm-meta-chip pm-chip-deputy">Vtg: ${meta.deputy}</span>`,
-      );
-    metaRow.innerHTML = parts.join("");
-  }
-  renderProfileKPIs(stats, y, m);
-  renderProfileWPChart(stats);
-  renderProfileStatus(stats);
-  renderProfileDuty(stats, y, m);
-  renderProfileCalendar(stats, y, m, emp);
-  renderProfileYearly(emp, y);
-  requestAnimationFrame(() =>
-    requestAnimationFrame(() => {
-      document.querySelectorAll(".pm-bar-fill[data-w]").forEach((el) => {
-        el.style.width = el.dataset.w;
-      });
-    }),
-  );
-  showOverlay("modal-profile");
-}
-function renderProfileKPIs(stats, y, m) {
-  const { totalWorkdays, uncovered, totalWP, totalAbs, dutyD, dutyHG } = stats;
-  const wpPct =
-    totalWorkdays > 0 ? Math.round((totalWP / totalWorkdays) * 100) : 0;
-  const absPct =
-    totalWorkdays > 0 ? Math.round((totalAbs / totalWorkdays) * 100) : 0;
-  const uncPct =
-    totalWorkdays > 0 ? Math.round((uncovered / totalWorkdays) * 100) : 0;
-  const kpis = [
-    {
-      label: "Arbeitstage",
-      value: totalWP,
-      sub: `von ${totalWorkdays} Werktagen`,
-      pct: wpPct,
-      barColor: "#1D4ED8",
-      accent: "#1D4ED8",
-      icon: `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`,
-    },
-    {
-      label: "Abwesend",
-      value: totalAbs,
-      sub: `${absPct}% der Werktage`,
-      pct: absPct,
-      barColor: "#7C3AED",
-      accent: "#7C3AED",
-      icon: `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
-    },
-    {
-      label: "Dienste",
-      valueSplit: [dutyD.length, dutyHG.length],
-      sub: "D Bereitschaft · HG Hintergrund",
-      pct: null,
-      accent: "#EF4444",
-      icon: `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>`,
-    },
-    {
-      label: "Nicht belegt",
-      value: uncovered,
-      sub: uncovered === 0 ? "vollständig verplant ✓" : `${uncPct}% offen`,
-      pct: uncPct,
-      barColor: uncovered > 0 ? "#F97316" : "#22C55E",
-      accent: uncovered > 0 ? "#F97316" : "#22C55E",
-      icon: `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
-    },
-  ];
-  document.getElementById("pm-kpi").innerHTML = kpis
-    .map((k) => {
-      let valueHtml;
-      if (k.valueSplit)
-        valueHtml = `<div class="kpi-value"><span style="color:#EF4444;font-size:22px">${k.valueSplit[0]}</span><span class="kpi-v-unit" style="color:#EF4444">D</span><span class="kpi-v-sep">/</span><span style="color:#0EA5E9;font-size:22px">${k.valueSplit[1]}</span><span class="kpi-v-unit" style="color:#0EA5E9">HG</span></div>`;
-      else
-        valueHtml = `<div class="kpi-value" style="color:${k.accent}">${k.value}</div>`;
-      const barHtml =
-        k.pct !== null
-          ? `<div class="kpi-bar-wrap"><div class="pm-bar-fill kpi-bar-fill" data-w="${k.pct}%" style="width:0;background:${k.barColor}"></div></div>`
-          : "";
-      return `<div class="kpi-card" style="border-top-color:${k.accent}"><div class="kpi-head"><span class="kpi-icon" style="color:${k.accent}">${k.icon}</span><span class="kpi-label">${k.label}</span></div>${valueHtml}<div class="kpi-sub">${k.sub}</div>${barHtml}</div>`;
-    })
-    .join("");
-}
-function renderProfileWPChart(stats) {
-  const { wpCounts, totalWP } = stats;
-  const c = document.getElementById("pm-wp-chart");
-  const hd = document.getElementById("pm-wp-hd");
-  if (!totalWP) {
-    hd.style.display = "none";
-    c.style.display = "none";
-    return;
-  }
-  hd.style.display = "";
-  c.style.display = "";
-  const sorted = Object.entries(wpCounts).sort((a, b) => b[1] - a[1]);
-  const maxVal = sorted[0][1];
-  c.innerHTML = sorted
-    .map(([code, count]) => {
-      const meta = CODE_MAP[code];
-      const pct = Math.round((count / totalWP) * 100);
-      const barW = Math.round((count / maxVal) * 100);
-      return `<div class="dist-row"><span class="dist-code" style="background:${meta.bg};color:${meta.fg}">${code}</span><div class="dist-bar-bg"><div class="pm-bar-fill dist-bar-fill" data-w="${barW}%" style="width:0;background:${meta.fg}"></div></div><span class="dist-count">${count}</span><span class="dist-pct">${pct}%</span></div>`;
-    })
-    .join("");
-}
-function renderProfileStatus(stats) {
-  const { stCounts, totalWorkdays } = stats;
-  const c = document.getElementById("pm-st-chart");
-  const hd = document.getElementById("pm-st-hd");
-  const nz = Object.entries(stCounts).filter(([, v]) => v > 0);
-  if (!nz.length) {
-    hd.style.display = "none";
-    c.style.display = "none";
-    return;
-  }
-  hd.style.display = "";
-  c.style.display = "";
-  const sorted = nz.sort((a, b) => b[1] - a[1]);
-  const maxVal = sorted[0][1];
-  c.innerHTML = sorted
-    .map(([code, count]) => {
-      const meta = CODE_MAP[code];
-      const pct =
-        totalWorkdays > 0 ? Math.round((count / totalWorkdays) * 100) : 0;
-      const barW = Math.round((count / maxVal) * 100);
-      return `<div class="dist-row"><span class="dist-code" style="background:${meta.bg};color:${meta.fg}">${code}</span><div class="dist-bar-bg"><div class="pm-bar-fill dist-bar-fill" data-w="${barW}%" style="width:0;background:${meta.fg}"></div></div><span class="dist-count">${count}</span><span class="dist-pct">${pct}%</span></div>`;
-    })
-    .join("");
-}
-function renderProfileDuty(stats, y, m) {
-  const { dutyD, dutyHG } = stats;
-  const c = document.getElementById("pm-duty-detail");
-  const hd = document.getElementById("pm-duty-hd");
-  if (!dutyD.length && !dutyHG.length) {
-    hd.style.display = "none";
-    c.style.display = "none";
-    return;
-  }
-  hd.style.display = "";
-  c.style.display = "";
-  const fmtDays = (days) =>
-    days
-      .map(
-        (d) =>
-          `<span class="duty-day-badge">${DOW_ABBR[weekday(y, m, d)]}&thinsp;${d}.</span>`,
-      )
-      .join("");
-  let html = "";
-  if (dutyD.length)
-    html += `<div class="duty-detail-group"><span class="duty-group-lbl badge-D">D</span><span class="duty-group-label">Bereitschaft</span><div class="duty-group-days">${fmtDays(dutyD)}</div></div>`;
-  if (dutyHG.length)
-    html += `<div class="duty-detail-group"><span class="duty-group-lbl badge-HG">HG</span><span class="duty-group-label">Hintergrund</span><div class="duty-group-days">${fmtDays(dutyHG)}</div></div>`;
-  c.innerHTML = html;
-}
-function renderProfileCalendar(stats, y, m, emp) {
-  const hols = getSaxonyHolidays(y);
-  const dim = daysInMonth(y, m);
-  const c = document.getElementById("pm-cal");
-  const dows = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-  const dowHtml = dows
-    .map((d, i) => `<div class="mcd-dow${i >= 5 ? " is-we" : ""}">${d}</div>`)
-    .join("");
-  const fd = weekday(y, m, 1);
-  const off = fd === 0 ? 6 : fd - 1;
-  let cells = Array(off).fill('<div class="mcd-ph"></div>').join("");
-  for (let d = 1; d <= dim; d++) {
-    const we = isWeekend(y, m, d);
-    const hol = isHoliday(y, m, d, hols);
-    const isT = isTodayCol(y, m, d);
-    const cell = getCell(y, m, emp, d);
-    const { bg, fg } = cellColor(cell.assignment);
-    const isAutoFRest = cell.assignment === "F" && (we || hol);
-    let cls = "mcd";
-    if (hol) cls += " mcd-hol";
-    else if (we) cls += " mcd-we";
-    else if (!cell.assignment && !cell.duty) cls += " mcd-empty";
-    if (isT) cls += " mcd-today";
-    const bgStyle = cell.assignment && !isAutoFRest ? `background:${bg}` : "";
-    const fgStyle = isAutoFRest ? "color:rgba(71,85,105,0.35)" : `color:${fg}`;
-    cells += `<div class="${cls}" style="${bgStyle}" data-d="${d}" tabindex="${we || hol ? -1 : 0}"><span class="mcd-num">${d}</span>${cell.assignment ? `<span class="mcd-assign" style="${fgStyle}">${cell.assignment}</span>` : ""}${cell.duty ? `<span class="mcd-duty badge-${cell.duty}">${cell.duty}</span>` : ""}</div>`;
-  }
-  c.innerHTML = `<div class="mcd-grid">${dowHtml}${cells}</div>`;
-  c.querySelectorAll(".mcd[data-d]:not(.mcd-we):not(.mcd-hol)").forEach(
-    (el) => {
-      el.addEventListener("click", () => {
-        hideOverlay("modal-profile");
-        setTimeout(() => openEditor(emp, parseInt(el.dataset.d, 10)), 180);
-      });
-      el.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          hideOverlay("modal-profile");
-          setTimeout(() => openEditor(emp, parseInt(el.dataset.d, 10)), 180);
-        }
-      });
-    },
-  );
-}
-function renderProfileYearly(emp, year) {
-  const container = document.getElementById("pm-yearly");
-  if (!container) return;
-  const ys = buildYearlyStats(emp, year);
-  const { totals, months } = ys;
-  const covPct =
-    totals.totalWorkdays > 0
-      ? Math.round((totals.coveredWorkdays / totals.totalWorkdays) * 100)
-      : 0;
-  const covColor =
-    covPct >= 80
-      ? "#15803D"
-      : covPct >= 60
-        ? "#854D0E"
-        : covPct > 0
-          ? "#991B1B"
-          : "#94A3B8";
-  const vacTotal = VACATION_CODES.reduce(
-    (s, c) => s + (totals.stCounts[c] || 0),
-    0,
-  );
-  const kpiStripHtml = `<div class="yr-kpi-strip"><div class="yr-kpi-item"><span class="yr-kpi-val" style="color:#1D4ED8">${totals.totalWP}</span><span class="yr-kpi-lbl">Arbeitstage</span></div><span class="yr-kpi-div"></span><div class="yr-kpi-item"><span class="yr-kpi-val" style="color:#5B21B6">${vacTotal}</span><span class="yr-kpi-lbl">Urlaub (Werktage)</span><span class="yr-kpi-detail">${VACATION_CODES.map(
-    (c) => ((totals.stCounts[c] || 0) > 0 ? `${c}×${totals.stCounts[c]}` : ""),
-  )
-    .filter(Boolean)
-    .join(
-      " ",
-    )}</span></div><span class="yr-kpi-div"></span><div class="yr-kpi-item"><span class="yr-kpi-val" style="color:#991B1B">${totals.sickDays}</span><span class="yr-kpi-lbl">Krank</span></div><span class="yr-kpi-div"></span><div class="yr-kpi-item"><span class="yr-kpi-val" style="color:#3730A3">${totals.fzaDays}</span><span class="yr-kpi-lbl">FZA</span></div><span class="yr-kpi-div"></span><div class="yr-kpi-item"><span class="yr-kpi-val"><span style="color:#EF4444">${totals.dutyD}</span><span class="yr-kpi-sep">/</span><span style="color:#0EA5E9">${totals.dutyHG}</span></span><span class="yr-kpi-lbl">D&thinsp;/&thinsp;HG</span></div><span class="yr-kpi-div"></span><div class="yr-kpi-item"><span class="yr-kpi-val" style="color:${covColor}">${covPct}%</span><span class="yr-kpi-lbl">Abdeckung</span></div></div>`;
-  const hasAnyData = months.some((mo) => mo.hasData);
-  if (!hasAnyData) {
-    container.innerHTML =
-      kpiStripHtml + `<p class="yr-no-data-msg">Keine Daten vorhanden.</p>`;
-    return;
-  }
-  const tableRows = months
-    .map((mo) => {
-      const isCurrent = mo.m === state.month && year === state.year;
-      if (!mo.hasData)
-        return `<tr class="yr-row yr-row-empty${isCurrent ? " yr-row-current" : ""}"><td class="yr-td-month">${MONTHS_SHORT[mo.m]}</td><td class="yr-td yr-no-data" colspan="8">—</td></tr>`;
-      const wp = Object.values(mo.wpCounts).reduce((s, v) => s + v, 0);
-      const vac = VACATION_CODES.reduce((s, c) => s + (mo.stCounts[c] || 0), 0);
-      const sick = (mo.stCounts["K"] || 0) + (mo.stCounts["KK"] || 0);
-      const fza = mo.stCounts["FZA"] || 0;
-      const frei = mo.stCounts["F"] || 0;
-      const pct =
-        mo.totalWorkdays > 0
-          ? Math.round((mo.coveredWorkdays / mo.totalWorkdays) * 100)
-          : 0;
-      const pctCls =
-        pct >= 80
-          ? "pct-good"
-          : pct >= 50
-            ? "pct-mid"
-            : pct > 0
-              ? "pct-low"
-              : "";
-      return `<tr class="yr-row${isCurrent ? " yr-row-current" : ""}"><td class="yr-td-month">${MONTHS_SHORT[mo.m]}</td><td class="yr-td yr-td-num">${wp || ""}</td><td class="yr-td yr-td-num yr-vac">${vac || ""}</td><td class="yr-td yr-td-num yr-sick">${sick || ""}</td><td class="yr-td yr-td-num">${fza || ""}</td><td class="yr-td yr-td-num yr-duty-d">${mo.dutyD || ""}</td><td class="yr-td yr-td-num yr-duty-hg">${mo.dutyHG || ""}</td><td class="yr-td yr-td-num">${frei || ""}</td><td class="yr-td yr-td-num ${pctCls}">${mo.totalWorkdays > 0 ? pct + "%" : "—"}</td></tr>`;
-    })
-    .join("");
-  const totalFrei = totals.stCounts["F"] || 0;
-  const tableHtml = `<div class="yr-table-wrap"><table class="yr-table"><thead><tr><th class="yr-th-month">Monat</th><th class="yr-th">AP</th><th class="yr-th yr-th-vac">Urlaub</th><th class="yr-th yr-th-sick">Krank</th><th class="yr-th">FZA</th><th class="yr-th yr-th-d">D</th><th class="yr-th yr-th-hg">HG</th><th class="yr-th">Frei</th><th class="yr-th">Abdeckung</th></tr></thead><tbody>${tableRows}</tbody><tfoot><tr class="yr-total-row"><td class="yr-td-month yr-total-lbl">Σ ${year}</td><td class="yr-td yr-td-num yr-total">${totals.totalWP || "—"}</td><td class="yr-td yr-td-num yr-total yr-vac">${vacTotal || "—"}</td><td class="yr-td yr-td-num yr-total yr-sick">${totals.sickDays || "—"}</td><td class="yr-td yr-td-num yr-total">${totals.fzaDays || "—"}</td><td class="yr-td yr-td-num yr-total yr-duty-d">${totals.dutyD || "—"}</td><td class="yr-td yr-td-num yr-total yr-duty-hg">${totals.dutyHG || "—"}</td><td class="yr-td yr-td-num yr-total">${totalFrei || "—"}</td><td class="yr-td yr-td-num yr-total ${covPct >= 80 ? "pct-good" : covPct >= 50 ? "pct-mid" : "pct-low"}">${totals.totalWorkdays > 0 ? covPct + "%" : "—"}</td></tr></tfoot></table></div>`;
-  container.innerHTML = kpiStripHtml + tableHtml;
-}
+
 function openEditor(emp, day) {
   const { year: y, month: m } = state;
   const cell = getCell(y, m, emp, day);
@@ -1842,6 +1562,26 @@ function wireEvents() {
       enterPlanMode();
     }
   });
+
+  document.getElementById("mnav-dept")?.addEventListener("click", openDeptOverview);
+  document.getElementById("mnav-plan")?.addEventListener("click", () => {
+    if (planMode) closePlanMode(); else enterPlanMode();
+  });
+  document.getElementById("mnav-menu")?.addEventListener("click", () => showOverlay("modal-mobile-menu"));
+
+  document.getElementById("mbtn-employees")?.addEventListener("click", () => {
+    hideOverlay("modal-mobile-menu");
+    setTimeout(openEmployeeModal, 180);
+  });
+  document.getElementById("mbtn-export")?.addEventListener("click", () => {
+    hideOverlay("modal-mobile-menu");
+    setTimeout(doExport, 180);
+  });
+  document.getElementById("mbtn-import")?.addEventListener("click", () => {
+    hideOverlay("modal-mobile-menu");
+    setTimeout(openImportModal, 180);
+  });
+
   document.getElementById("btn-plan-apply")?.addEventListener("click", () => {
     if (!confirm("Planungsentwurf in den Hauptplan übernehmen?")) return;
     applyPlanToMain();
@@ -1921,6 +1661,7 @@ function wireEvents() {
         "modal-dept",
         "modal-autoplan",
         "modal-ap-report",
+        "modal-mobile-menu"
       ].forEach((id) => {
         const el = document.getElementById(id);
         if (el && !el.hasAttribute("hidden")) hideOverlay(id);
@@ -2047,6 +1788,7 @@ function collectHistoricalDutyStats(upToYear, upToMonth) {
       thuBd: 0,
       hgForAA: 0,
       hgForFA: 0,
+      satBd: 0
     };
   });
   for (const [k, mData] of Object.entries(DATA)) {
@@ -2067,6 +1809,7 @@ function collectHistoricalDutyStats(upToYear, upToMonth) {
           thuBd: 0,
           hgForAA: 0,
           hgForFA: 0,
+          satBd: 0
         };
       for (let d = 1; d <= dim; d++) {
         const cell = mData.assignments?.[emp]?.[d];
@@ -2078,6 +1821,7 @@ function collectHistoricalDutyStats(upToYear, upToMonth) {
           if (wd === 5 || wd === 6 || wd === 0) stats[emp].weDuty += 1;
           if (hol) stats[emp].holDuty++;
           if (wd === 4) stats[emp].thuBd++;
+          if (wd === 6) stats[emp].satBd++;
         }
         if (cell.duty === "HG") {
           stats[emp].hg++;
@@ -2302,17 +2046,23 @@ function computeAutoPlan(customTargets) {
   const currentBD = {},
     currentHG = {},
     currentHGForAA = {},
-    currentHGForFA = {};
+    currentHGForFA = {},
+    currentSatBD = {};
   emps.forEach((e) => {
     currentBD[e] = 0;
     currentHG[e] = 0;
     currentHGForAA[e] = 0;
     currentHGForFA[e] = 0;
+    currentSatBD[e] = 0;
   });
   for (let d = 1; d <= dim; d++) {
     for (const e of emps) {
       if (!result[e]?.[d]) continue;
-      if (result[e][d].duty === "D") currentBD[e]++;
+      const wd = weekday(y, m, d);
+      if (result[e][d].duty === "D") {
+        currentBD[e]++;
+        if (wd === 6) currentSatBD[e]++;
+      }
       if (result[e][d].duty === "HG") {
         currentHG[e]++;
         const bdHolder = emps.find(
@@ -2449,6 +2199,13 @@ function computeAutoPlan(customTargets) {
         score -= 50;
     }
 
+    if (wd === 6 && isFacharzt(emp)) {
+      const avgSat = hgFAs.reduce((s, e) => s + (hist[e]?.satBd || 0), 0) / Math.max(1, hgFAs.length);
+      const mySat = (hist[emp]?.satBd || 0) + currentSatBD[emp];
+      score += (avgSat - mySat) * 800;
+      tags.push("Samstags-Ausgleich");
+    }
+
     if (emp === "Dr. Becker" && wd === 6 && relaxed) {
       score -= 2000;
       tags.push("Notlösung");
@@ -2538,6 +2295,7 @@ function computeAutoPlan(customTargets) {
       if (!result[chosen.emp][d]) result[chosen.emp][d] = {};
       result[chosen.emp][d].duty = "D";
       currentBD[chosen.emp]++;
+      if (weekday(y, m, d) === 6) currentSatBD[chosen.emp]++;
       updateAutoF(chosen.emp, d);
 
       let reason = `Bester Score (${Math.round(chosen.score)}).`;
@@ -2545,6 +2303,8 @@ function computeAutoPlan(customTargets) {
         reason = `Wunschdienst berücksichtigt.`;
       if (chosen.tags.includes("Vor Urlaub"))
         reason = `Donnerstags-Dienst vor Urlaub priorisiert.`;
+      if (chosen.tags.includes("Samstags-Ausgleich"))
+        reason += ` Samstags-Belastung ausgeglichen.`;
       if (chosen.emp === "Dr. Becker" && weekday(y, m, d) === 6) {
         reason += ` Samstags-Dienst unvermeidbar -> FZA am Montag eingetragen.`;
         const mon = d + 2;
@@ -2607,6 +2367,10 @@ function computeAutoPlan(customTargets) {
       if (diff > 0) score += diff * 5000;
       else score += diff * diff * 20;
       score += Math.pow(countWeekendDuties(y, m, e, result), 2) * 10;
+      if (isFacharzt(e)) {
+        const totalSat = (hist[e]?.satBd || 0) + currentSatBD[e];
+        score += Math.pow(totalSat, 2) * 500;
+      }
     });
     return score;
   }
@@ -2621,18 +2385,24 @@ function computeAutoPlan(customTargets) {
       for (let d2 = d1 + 1; d2 <= dim; d2++) {
         const emp2 = dutyEmps.find((e) => result[e]?.[d2]?.duty === "D");
         if (!emp2 || emp1 === emp2) continue;
+        const wd1 = weekday(y, m, d1), wd2 = weekday(y, m, d2);
+        
         result[emp1][d1].duty = undefined;
         result[emp2][d2].duty = undefined;
         if (!result[emp1][d2]) result[emp1][d2] = {};
         if (!result[emp2][d1]) result[emp2][d1] = {};
         result[emp1][d2].duty = "D";
         result[emp2][d1].duty = "D";
+        
+        if (wd1 === 6) { currentSatBD[emp1]--; currentSatBD[emp2]++; }
+        if (wd2 === 6) { currentSatBD[emp2]--; currentSatBD[emp1]++; }
 
         const valid =
           canDoBD(emp1, d2, true) &&
           canDoBD(emp2, d1, true) &&
           countWeekendDuties(y, m, emp1, result) <= 3 &&
           countWeekendDuties(y, m, emp2, result) <= 3;
+          
         if (valid) {
           const newF = fairnessScore();
           if (newF < bestFairness) {
@@ -2680,6 +2450,9 @@ function computeAutoPlan(customTargets) {
             continue;
           }
         }
+        
+        if (wd1 === 6) { currentSatBD[emp1]++; currentSatBD[emp2]--; }
+        if (wd2 === 6) { currentSatBD[emp2]++; currentSatBD[emp1]--; }
         result[emp1][d2].duty = undefined;
         result[emp2][d1].duty = undefined;
         if (!Object.values(result[emp1][d2] || {}).some(Boolean))
@@ -2694,10 +2467,14 @@ function computeAutoPlan(customTargets) {
   }
   emps.forEach((e) => {
     currentBD[e] = 0;
+    currentSatBD[e] = 0;
   });
   for (let d = 1; d <= dim; d++)
     emps.forEach((e) => {
-      if (result[e]?.[d]?.duty === "D") currentBD[e]++;
+      if (result[e]?.[d]?.duty === "D") {
+        currentBD[e]++;
+        if (weekday(y, m, d) === 6) currentSatBD[e]++;
+      }
     });
   log.push({
     phase: "bd_optimize",
@@ -3102,6 +2879,9 @@ function computeAutoPlan(customTargets) {
     `Wochenend-Dienste wurden minimiert (Maximum pro Kopf: ${maxWe} WE-Äquivalente).`,
   );
   summary.infos.push(
+    `Samstags-Dienste für FA wurden priorisiert gleichverteilt.`,
+  );
+  summary.infos.push(
     `Die Regel 'Kein HG vor D (außer Freitags)' wurde strikt angewendet.`,
   );
 
@@ -3158,13 +2938,13 @@ function renderAutoPlanModal() {
     if (DUTY_EXEMPT.length)
       html += `<div class="ap-exempt-note"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>Befreit: <strong>${DUTY_EXEMPT.join(", ")}</strong></span></div>`;
     html += `<div class="ap-sect-hd"><span class="ap-sect-badge" style="background:#EF4444;color:#fff">D</span>BD-Ziele</div>`;
-    html += `<div class="ap-table-wrap"><table class="ap-table"><thead><tr><th class="ap-th-name">Mitarbeitende</th><th class="ap-th">Position</th><th class="ap-th">Hist. BD</th><th class="ap-th">Hist. WE</th><th class="ap-th ap-th-target">Ziel BD</th></tr></thead><tbody>`;
+    html += `<div class="ap-table-wrap"><table class="ap-table"><thead><tr><th class="ap-th-name">Mitarbeitende</th><th class="ap-th">Position</th><th class="ap-th">Hist. BD</th><th class="ap-th">Hist. Sa-D</th><th class="ap-th ap-th-target">Ziel BD</th></tr></thead><tbody>`;
     dutyEmps.forEach((e) => {
       const meta = getEmpMeta(e);
       const pc = posColor(meta.position);
-      const h = hist[e] || { bd: 0, weDuty: 0 };
+      const h = hist[e] || { bd: 0, weDuty: 0, satBd: 0 };
       const target = autoPlanTargets[e] ?? defaultBDTarget(e);
-      html += `<tr><td class="ap-td-name" style="border-left:3px solid ${pc.border}"><span>${e}</span><span class="ap-pos" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span></td><td class="ap-td ap-td-num" style="font-size:10px;color:var(--gray-500)">${meta.posLabel}</td><td class="ap-td ap-td-num" style="color:var(--gray-500)">${h.bd}</td><td class="ap-td ap-td-num" style="color:var(--gray-500)">${h.weDuty}</td><td class="ap-td ap-td-num"><input type="number" class="ap-target-input" data-emp="${e}" value="${target}" min="0" max="10" step="1"></td></tr>`;
+      html += `<tr><td class="ap-td-name" style="border-left:3px solid ${pc.border}"><span>${e}</span><span class="ap-pos" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span></td><td class="ap-td ap-td-num" style="font-size:10px;color:var(--gray-500)">${meta.posLabel}</td><td class="ap-td ap-td-num" style="color:var(--gray-500)">${h.bd}</td><td class="ap-td ap-td-num" style="color:var(--gray-500)">${h.satBd}</td><td class="ap-td ap-td-num"><input type="number" class="ap-target-input" data-emp="${e}" value="${target}" min="0" max="10" step="1"></td></tr>`;
     });
     const totalTarget = dutyEmps.reduce(
       (s, e) => s + (autoPlanTargets[e] ?? defaultBDTarget(e)),

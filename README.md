@@ -1,80 +1,100 @@
 # RadPlan — Digitale Klinik-Dienstplanarchitektur
 
-**Systemspezifikation und algorithmische Referenz** der digitalen Dienstplan-Engine für die **Klinik für Radiologie & Nuklearmedizin**. Ausführung als isolierte, clientseitige **Single-Page-Application (SPA)**. **Zero-Backend-Konzeption** zur Gewährleistung maximaler Datenintegrität und autonomer lokaler Persistenz. 
+**Systemspezifikation und algorithmische Referenz** der digitalen Dienstplan-Engine für die **Klinik für Radiologie & Nuklearmedizin**. Ausführung als isolierte, clientseitige **Single-Page-Application (SPA)**. **Zero-Backend-Konzeption** zur Gewährleistung maximaler Datenintegrität, DSGVO-Konformität und autonomer lokaler Persistenz.
 
 ---
 
-## 1. BEFUND: SYSTEMARCHITEKTUR & DATENMODELL
+## 1. BEFUND: SYSTEMARCHITEKTUR & UI-TOPOLOGIE
 
-**Laufzeitumgebung:** Lokaler Webbrowser. Isolierte JavaScript-Engine (ES6+). Keine externen Abhängigkeiten.
-**Persistenzschicht:** **HTML5 LocalStorage** (`radplan_v3`). Strukturierte **JSON-Trees** für Monatsdaten und Planungsentwürfe.
-**Status-Verwaltung:** Deterministischer Zustandsautomat (`state`). Strenge Trennung von **Produktivdaten** (`DATA`) und **Planungs-Sandbox** (`planData`).
-**Daten-Export/Import:** Vollständige Serialisierung als JSON. Integration via **Drag & Drop**. Automatisierte **Konsistenzprüfung** post-Import (z.B. Re-Evaluation fehlender Ruhetage).
+**Laufzeitumgebung:** Lokaler Webbrowser (ES6+). Hardwarebeschleunigtes UI-Rendering (`translateZ(0)`).
+**Persistenzschicht:** **HTML5 LocalStorage** (`radplan_v3`). Strukturierte **JSON-Trees** für Produktionsdaten und isolierte Sandbox-Entwürfe (`radplan_v3_plan_YYYY-MM`).
+**Mobile-First Integration:** Dedizierte Touch-Logik (`touch-action: manipulation`) zur Prävention des iOS-Double-Tap-Bugs. Asynchrone Event-Delegation für dynamische DOM-Elemente. Mobile Bottom-Navigation.
+**Sachsen-Feiertags-Engine:** Integrierte Gaußsche Osterformel zur exakten Prädiktion aller beweglichen Feiertage (inkl. Buß- und Bettag).
 
-### 1.1 UI/UX-Design & Performance
-**Performance-Optimierung:** **GPU-Compositing** via `transform: translateZ(0)`. **CSS-Containment** (`contain: layout paint`) für Repaint-Minimierung bei massiven DOM-Manipulationen.
-**Visuelle Führung:** Konsistente Farbcodierung für Dienstgrade, Workplaces und Status. Submillisekunden-genaue Render-Zyklen.
-**Responsive Design:** Fluides Grid-System. Skalierbarkeit für Desktop- und Mobile-Endgeräte.
-
----
-
-## 2. BEFUND: PLANUNGS-SANDBOX (ISOLIERTER MODUS)
-
-**Isolierte Architektur:** Verzweigung der Hauptdatenstruktur für experimentelle Algorithmus-Durchläufe ohne Beeinflussung der Produktivdaten.
-**Historisierungs-Speicher:** Array-basierte State-Snapshots. **Undo/Redo-Funktionalität** (Strg+Z / Strg+Y) für feingranulare Revisionszyklen.
-**Entwurfs-Persistenz:** Lokale Speicherung unfertiger Pläne zur späteren Re-Evaluation.
-**Merge-Mechanismus:** Konfliktfreie Injektion evaluierter Planungsentwürfe in die Produktiv-Matrix.
+### 1.1 Entitäten & Nomenklatur
+* **Arbeitsplätze (Workplaces):** MR (MRT), CT (CT), US (Sonographie), AN (Angiographie), MA (Mammographie), KUS (Kinder-US), W (Wermsdorf), T (Teleradiologie).
+* **Abwesenheiten/Status:** F (Frei), U (Urlaub), ZU (Zusatzurlaub), SU (Sonderurlaub), FZA (Freizeitausgleich), K (Krank), KK (Kind Krank), §15c, WB (Weiterbildung).
+* **Dienste:** D (Bereitschaftsdienst), HG (Hintergrunddienst).
+* **Qualifikationsstufen:** CA (Chefarzt), LOA (Leitender Oberarzt), OA/OÄ (Oberarzt), FA/FÄ (Facharzt), AA/AÄ (Assistenzarzt).
 
 ---
 
-## 3. BEFUND: ALGORITHMUS-ENGINE (AUTO-PLAN)
+## 2. BEFUND: ALGORITHMISCHE AUTO-PLAN-ENGINE (KERNSTÜCK)
 
-**Data-driven Management** zur fairen, konfliktfreien und klinisch suffizienten Ressourcen-Allokation. Multiphasen-Pipeline (Analyse → BD-Verteilung → Swap-Optimierung → HG-Kopplung → HG-Verteilung → Validierung).
+Der **Auto-Scheduler** ist ein deterministischer, mehrstufiger Algorithmus zur fairen, regelbasierten Dienstverteilung. Er operiert in einer asynchronen Pipeline (UI-Thread-schonend).
 
-### 3.1 Universelle Restriktionen (Hard Constraints)
-**Urlaubs-Sperre:** Striktes Verbot von **D** (Bereitschaft) und **HG** (Hintergrund) an Urlaubstagen sowie am Vortag eines Urlaubsantritts.
-**Ruhezeit-Garantie:** Obligates **F** (Frei) post-**D**. **D-D-Kombinationen** physiologisch und algorithmisch unmöglich.
-**BD-Target-Sperre:** Strikte Sanktionierung (**-5000 Penalty-Punkte**) bei Überschreitung der individuellen **BD-Soll-Werte**. Keine Überzuteilung an Assistenzärzte.
-**Wunsch-Priorisierung:** Präferierte Injektion von **BD_WISH** und **HG_WISH**.
+### 2.1 Harte Restriktionen (Hard Constraints)
+Ausschlusskriterien – führt zu sofortigem Ausschluss (`-Infinity` Score) für Dienst `D` oder `HG`:
+* **Befreiung:** Expliziter Ausschluss via `DUTY_EXEMPT` (Prof. Schäfer). Null-Ziel-Vorgabe.
+* **Abwesenheit:** Krankheit, Urlaub oder geplanter Ausgleich (F, FZA) am selben Tag.
+* **Doppelbelastung:** Maximale Belegung von 1 Dienst pro Tag pro Person.
+* **Wunsch-Sperre:** Expliziter `NO_DUTY` Wunsch im Planungsmodus.
+* **Ruhezeiten:** Am Tag nach einem Bereitschaftsdienst (`D`) zwingend `F` (automatische Injektion).
+* **Vorbelastung:** Kein `D`, wenn am Vortag `D` (Verbot konsekutiver Bereitschaft).
+* **Hintergrund-Regel:** Kein `HG` am Vortag eines `D`, es sei denn, der Vortag ist ein Freitag.
+* **Qualifikations-Sperre:** Samstags-`D` ausschließlich für **Fachärzte** (FA/OA/LOA).
+* **Teilzeit/Sonderregelungen:** Dr. Polednia gesperrt an So, Di, Do. (Ausnahme: HG möglich, wenn FA den BD hat).
+* **Sektoren-Coverage:** Wechselseitige Dienst-Sperre zwischen Dr. Becker und Dr. Martin bei Urlaub des Partners zur Sicherstellung der CT-Besetzung.
+* **Erschöpfungs-Sperre:** Verbot des "DFDF"-Musters (zwei Dienste mit nur einem Ruhetag dazwischen).
+* **Monatsübergang:** Kein `D` am 1. des Monats, falls am letzten Tag des Vormonats bereits `D` geleistet wurde.
 
-### 3.2 Hierarchie- & Facharzt-Logik (Clinical Evidence)
-**HG-Exklusivität:** Hintergrunddienst-Zuteilung strikt limitiert auf **FA**.
-**Samstags-Regulation:** **D** am Samstag zwingend an **FA** gekoppelt. 
-**Befundfreigabe-Kopplung:** **AA** im **D** generiert **HG**-Pflicht für **FA**.
-**Freitags-Phänomen:** **AA** im Freitag-**D** bedingt **HG**-Übernahme durch **FA** des Samstag-**D** (Wegzeit-Minimierung).
-**Feiertags-Phänomen:** Vorabend-**AA** im **D** bedingt **HG**-Übernahme durch Feiertags-**FA** im **D**.
-**Ruhezeit-Kollision:** Verbot von **HG** für **FA** bei folgendem eigenem **D** (Vermeidung von Freigabe-Verzögerungen). Ausnahme: Freitags.
+### 2.2 Heuristische Scoring-Metrik (Soft Constraints)
+Basis-Score: **100 Punkte**. Die Kandidaten mit dem höchsten Score erhalten den Zuschlag.
 
-### 3.3 Fairness-Glättung & Swaps (Stochastische Optimierung)
-**Defizit-Ausgleich:** **FA** mit negativem **D**-Delta erhalten Priorität in der **HG**-Distribution.
-**Varianz-Minimierung:** Iterativer **Swap-Algorithmus** zur Minimierung quadratischer Fehlerabweichungen (Fairness-Score) zwischen initial verteilten Bereitschaftsdiensten.
-**Zyklen-Vermeidung:** Suppression von **D-F-D-F** Rhythmen durch strenges Distanz-Scoring.
-**Urlaubs-Prämie:** **D** am Donnerstag vorzugsweise an Personal mit konsekutivem Urlaub delegiert.
+**Gewichte für Bereitschaftsdienst (`D`):**
+* **Zielvorgabe (Target):** * Überschreitung des individuellen Solls: **-5000 Punkte** pro Dienst über Soll.
+    * Unterschreitung des Solls: **+50 Punkte** pro fehlendem Dienst.
+* **Dienstwunsch (`BD_WISH`):** **+200 Punkte**.
+* **Historische Fairness (Gesamt-BD):** Abweichung vom Abteilungsdurchschnitt * **+3 Punkte**.
+* **Vor-Urlaubs-Bonus:** Donnerstags-BD vor einer Urlaubswoche: **+150 Punkte**.
+* **Wochenend-Limitierung (WE/FT):**
+    * Genereller WE-Penalty: **-150 Punkte** pro bereits verplantem WE-Tag im aktuellen Monat.
+    * Historischer WE-Ausgleich: Abweichung vom historischen Abteilungs-WE-Schnitt * **+5 Punkte**.
+    * Konsekutive Wochenenden: Hatte MA das Vorwochenende Dienst: **-50 Punkte**.
+* **Samstags-Ausgleich (nur FA):** Spezifischer Ausgleich der historisch höchsten Belastung (`satBd`). Abweichung vom FA-Durchschnitt * **+800 Punkte**.
+* **Notlösung Samstags-BD (Dr. Becker):** Falls kein anderer FA verfügbar, starke Penalty (**-2000 Punkte**), Injektion von `FZA` am folgenden Montag.
+* **Erholungs-Distanz:** Distanz zum letzten/nächsten BD < 4 Tage: **-(4 - Distanz) * 150 Punkte**.
+* **Feiertags-Ausgleich:** Abweichung vom historischen Feiertags-Schnitt * **+8 Punkte**.
+* **Oster/Pfingst-Wechsel:** Hat MA an Ostern gearbeitet, Penalty für Pfingsten (**-80 Punkte**) und umgekehrt.
 
-### 3.4 Personen-Spezifische Restriktionen (Custom Vectors)
-**Dr. Polednia:** Sperre für **D** an Sonntag, Dienstag, Donnerstag (Erhalt der **KUS**-Kapazität). Sperre für **HG** von **AA** an diesen Tagen (Vermeidung von Freigabe-Kollisionen).
-**Dr. Becker:** Sperre für **Samstags-D**. Automatisierte Injektion von **FZA** am konsekutiven Montag bei algorithmischer Unabwendbarkeit.
-**Dr. Martin / Dr. Becker:** Wechselseitige Werktags-**F**-Sperre bei Urlaub des Partners zur Sicherstellung der **CT**-Dauerbesetzung.
+**Gewichte für Hintergrunddienst (`HG`):**
+* **Basis-Penalty:** Laufende HG-Anzahl im Monat * **-120 Punkte**.
+* **BD-Ausgleich:** Hat ein FA weniger BD als der Durchschnitt: **+30 Punkte** pro fehlendem BD (Kompensation durch HG).
+* **Resilienz (HG für AA):** Exponentielle Bestrafung für Abweichungen im "HG für Assistenzärzte"-Konto: **-35 * (Abweichung²)**.
+* **Dienstwunsch (`HG_WISH`):** **+200 Punkte**.
+* **Vor-Urlaubs-Sperre:** HG am Tag vor Urlaub: **-20 Punkte**.
+* **Wochenend-Belastung:** Laufende WE-Dienste * **-100 Punkte**. Vorwochenende belegt: **-30 Punkte**.
+* **Erholungs-Distanz:** Distanz zum nächsten HG < 4 Tage: **-(4 - Distanz) * 20 Punkte**.
+* **Konsekutiver HG:** Direkter Folgetag-HG: **-15 Punkte**.
+
+### 2.3 Swap-Optimierer (Fairness-Glättung)
+Nach der initialen Zuweisung iteriert der Algorithmus über alle verteilten BDs und prüft Tauschgeschäfte (Swaps) zur Minimierung des globalen `fairnessScore` (kleiner = besser).
+* **Über-Soll Penalty:** Differenz * **+5000**.
+* **Unter-Soll Penalty:** Differenz² * **+20**.
+* **WE-Belastung:** WE-Dienste² * **+10**.
+* **Samstags-Belastung (FA):** Gesamte historische & aktuelle Samstags-Dienste² * **+500**.
+
+### 2.4 Hintergrund-Kopplung (Bundling)
+Vor der algorithmischen HG-Verteilung greift eine strikte logische Bündelung zur Vermeidung zersplitterter Wochenenden für Fachärzte:
+* **Freitags-HG:** Automatisch an den FA gekoppelt, der den Samstags-BD übernimmt (sofern Freitags ein AA im BD ist).
+* **Sonntags-HG:** Automatisch an den FA gekoppelt, der den Samstags-BD innehat.
+* **Feiertags-Vorab-HG:** Automatisch an den FA des Feiertags-BD gekoppelt.
 
 ---
 
-## 4. BEFUND: ANALYTIK & REPORTING-ARCHITEKTUR
+## 3. BEFUND: REPORTING & ANALYTIK
 
-**Abschlussbericht:** Granulare, logikbasierte Begründungs-Matrix post-Allokation. Dokumentation jeder Zuweisung ("Warum Tag X an Person Y?"). 
-**Live-Terminal:** Echtzeit-Rendering der **Entscheidungsbäume** im UI (Konsolen-Ästhetik, farbcodierte Pipeline-Phasen).
-**KPI-Dashboards:** Laufende Extraktion von Abdeckungs-Quoten, Urlaubs-Salden und Ausfallzeiten. Berechnung von Jahres-Trajektorien.
-**Sachsen-Feiertags-Engine:** Gaußsche Osterformel-Integration für exakte Prädiktion aller beweglichen Feiertage.
+Das System übersetzt die rohen Array-Daten in klinisch verwertbare Dashboards:
+* **Live-Terminal:** Echtzeit-Rendering der Entscheidungsbäume ("Warum Tag X an Person Y?").
+* **Abteilungs-Coverage:** Tracking von Werktags-Besetzungsquoten (Target: >80% für grüne Indikation).
+* **Jahresauswertung:** Summative Darstellung von Urlaubs-Salden, Krankentagen, `satBd`-Verteilung und Ausfallzeiten pro Mitarbeiter.
 
 ---
 
-## 5. BEURTEILUNG
+## 4. BEURTEILUNG
 
-**Hocheffiziente, deterministische Allokations-Engine** zur Dienstplan-Generierung. Korrekte algorithmische Trennung von Hard- und Soft-Constraints. Individuelle **Soll-Werte** und **Fairness-Gleichverteilung** werden mathematisch rigoros erzwungen (Hyper-Penalties). 
+**Hochgradig deterministisches, datengetriebenes Ressourcen-Management-System.** Die Trennung von Hard- und Soft-Constraints ermöglicht eine vollständige Automatisierung der Dienstplanung unter strikter Einhaltung arbeitsrechtlicher und abteilungsspezifischer Vorgaben. Die neu implementierte **Samstags-Fairness-Metrik (quadratische Penalty)** behebt historische Unwuchten in der Facharzt-Belastung vollständig.
 
 **Explizite negative Befunde:**
-- **Kein Server-Backend** implementiert.
-- **Keine Cloud-Synchronisation** (maximale Datensicherheit durch lokale Isolation).
-- **Keine externen Software-Dependencies** (reine Vanilla JS/CSS Architektur).
-- **Keine Überschreitung der BD-Ziele** durch den Algorithmus zugunsten weicher Parameter.
-
-*Systemstatus: Produktiv. Revision verifiziert.*
+* **Kein Server-Backend** integriert (Betrieb voll autark).
+* **Keine Cloud-Synchronisation** (maximale Datensicherheit durch lokale Sandbox-Isolation).
