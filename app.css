@@ -83,8 +83,8 @@ body::before {
   will-change: transform;
   pointer-events: none;
 }
-button, a, .td-cell, .td-name, .chip-wp, .chip-st, .chip-duty, .chip-wish { 
-  touch-action: manipulation; 
+button, a, .td-cell, .td-name, .chip-wp, .chip-st, .chip-duty, .chip-wish {
+  touch-action: manipulation;
 }
 button { cursor: pointer; font-family: inherit; }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-xs); }
@@ -110,14 +110,10 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; bo
 .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; min-width: 0; }
 .brand-icon {
   width: 30px; height: 30px;
-  background: linear-gradient(135deg, rgba(42,80,128,.6), rgba(14,165,233,.5));
-  backdrop-filter: blur(8px);
   border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
-  color: #fff; flex-shrink: 0;
-  border: 1px solid rgba(255,255,255,.12);
-  box-shadow: 0 2px 10px rgba(14,165,233,.2), inset 0 1px 0 rgba(255,255,255,.1);
+  flex-shrink: 0;
+  object-fit: contain;
+  box-shadow: 0 2px 10px rgba(14,165,233,.2);
   transition: transform .2s cubic-bezier(.34,1.2,.64,1), box-shadow .2s;
   will-change: transform;
 }
@@ -966,7 +962,6 @@ tr:hover .emp-del { opacity: 1; }
   transform: translateY(-1px);
 }
 .plan-btn-apply:active { transform: none; box-shadow: 0 1px 4px rgba(245,158,11,.3); }
-.plan-btn-divider { width: 1px; height: 20px; background: rgba(255,255,255,.14); margin: 0 2px; flex-shrink: 0; }
 body.plan-mode-active #app-header::after {
   background: linear-gradient(90deg, transparent 0%, rgba(245,158,11,.4) 15%, #F59E0B 35%, #FCD34D 50%, #F59E0B 65%, rgba(245,158,11,.4) 85%, transparent 100%);
   opacity: .8;
@@ -1440,7 +1435,7 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
 }
 @media (max-width: 480px) {
   :root { --header-h: 44px; --name-w: 110px; --cell-w: 36px; --row-h: clamp(32px, 4.5vh, 44px); --foot-h: 26px; }
-  .brand-icon { width: 28px; height: 28px; font-size: 10px; }
+  .brand-icon { width: 28px; height: 28px; }
   .month-nav { padding: 3px 4px; }
   #month-label { min-width: 70px; font-size: 11px; }
   .nav-btn { padding: 2px 4px; font-size: 14px; }
