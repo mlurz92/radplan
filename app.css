@@ -408,7 +408,7 @@ tr:hover .emp-del { opacity: 1; }
 .empty-title { font-size: 14px; font-weight: 600; color: var(--gray-500); }
 .empty-hint { font-size: 12px; line-height: 1.6; color: var(--gray-400); }
 .overlay {
-  position: fixed; inset: 0; z-index: 200;
+  position: fixed; inset: 0; z-index: 1100;
   background: rgba(6,13,22,.55);
   display: flex; align-items: center; justify-content: center;
   backdrop-filter: blur(12px) saturate(1.2);
@@ -2167,6 +2167,14 @@ body.is-mobile .ap-pn-label {
 body.is-mobile #modal-editor .modal-ft,
 body.is-mobile #modal-autoplan .modal-ft,
 body.is-mobile #modal-emps .modal-ft,
-body.is-mobile #modal-import .modal-ft {
+body.is-mobile #modal-import .modal-ft,
+body.is-mobile #modal-dept .modal-ft,
+body.is-mobile #modal-profile .modal-ft,
+body.is-mobile #modal-ap-report .modal-ft,
+body.is-mobile .mday-footer {
   padding-bottom: max(12px, env(safe-area-inset-bottom, 12px)) !important;
+}
+body.is-mobile #modal-mobile-menu .modal-bd {
+  padding-bottom: max(20px, calc(var(--safe-bottom) + 16px)) !important;
+  overflow-y: auto;
 }

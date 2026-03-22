@@ -1953,6 +1953,10 @@ function wireEvents() {
     hideOverlay("modal-mobile-menu");
     setTimeout(openEmployeeModal, 180);
   });
+  document.getElementById("mbtn-today")?.addEventListener("click", () => {
+    hideOverlay("modal-mobile-menu");
+    setTimeout(scrollToToday, 180);
+  });
   document.getElementById("mbtn-export")?.addEventListener("click", () => {
     hideOverlay("modal-mobile-menu");
     setTimeout(doExport, 180);
