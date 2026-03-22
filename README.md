@@ -1,1164 +1,1400 @@
-# RadPlan — Vollständige Anwendungsdokumentation
+# RadPlan
 
-**Digitale Dienstplan-Engine für die Klinik für Radiologie & Nuklearmedizin, Klinikum St. Georg Leipzig.**
-Clientseitige Single-Page-Application (SPA) ohne Backend, ohne Cloud, ohne externe Laufzeit-Abhängigkeiten. Alle Daten verbleiben lokal im Browser des Nutzers. Vollständige automatische Erkennung und separate Bedienoberfläche für iOS- und Android-Smartphones. Progressive Web App (PWA) mit Homescreen-Installation und eigenem App-Icon.
+RadPlan ist eine vollständig clientseitige Progressive-Web-App zur Monats- und Dienstplanung für eine radiologische Klinik. Die Anwendung läuft ohne Backend, speichert alle Daten lokal im Browser und kombiniert drei Ebenen in einer einzigen Oberfläche:
+
+1. **operativen Monatsplan** für Arbeitsplätze, Statuscodes und Dienste,
+2. **Planungsmodus** mit separatem Entwurf, Wünschen, Undo/Redo und Auto-Planung,
+3. **Auswertungen** für einzelne Mitarbeitende, die Abteilung und die automatische Dienstverteilung.
+
+Diese README ist keine Änderungsnotiz, sondern eine **vollständige Anwendungsbeschreibung entlang des aktuellen Implementierungsstands** in `index.html`, `app.css`, `app.js` und `manifest.json`. Sie beschreibt bewusst auch kleine und unscheinbare Details, weil genau diese Details das Verhalten der Anwendung bestimmen.
 
 ---
 
 ## Inhaltsverzeichnis
 
-1. [Systemarchitektur](#1-systemarchitektur)
-2. [Dateistruktur & Technologiestack](#2-dateistruktur--technologiestack)
-3. [Progressive Web App & Icon-System](#3-progressive-web-app--icon-system)
-4. [Datenbankmodell & Persistenz](#4-datenbankmodell--persistenz)
-5. [Entitäten & Nomenklatur](#5-entitäten--nomenklatur)
-6. [Mitarbeitende & Qualifikationsstufen](#6-mitarbeitende--qualifikationsstufen)
-7. [Desktop-Benutzeroberfläche](#7-desktop-benutzeroberfläche)
-8. [Mobile Benutzeroberfläche](#8-mobile-benutzeroberfläche)
+1. [Produktüberblick](#1-produktüberblick)
+2. [Architektur und Laufzeitmodell](#2-architektur-und-laufzeitmodell)
+3. [Dateistruktur](#3-dateistruktur)
+4. [Datenmodell und Persistenz](#4-datenmodell-und-persistenz)
+5. [Stammdaten der Anwendung](#5-stammdaten-der-anwendung)
+6. [Desktop-Oberfläche](#6-desktop-oberfläche)
+7. [Mobile Oberfläche](#7-mobile-oberfläche)
+8. [Manuelle Bearbeitung im Zelleditor](#8-manuelle-bearbeitung-im-zelleditor)
 9. [Planungsmodus](#9-planungsmodus)
-10. [Zelleditor](#10-zelleditor)
-11. [Dienstwunsch-System](#11-dienstwunsch-system)
-12. [Mitarbeiterprofil-Modal](#12-mitarbeiterprofil-modal)
-13. [Abteilungsübersicht](#13-abteilungsübersicht)
-14. [Export & Import](#14-export--import)
-15. [Sächsische Feiertags-Engine](#15-sächsische-feiertags-engine)
-16. [Auto-Planung: Überblick & Pipeline](#16-auto-planung-überblick--pipeline)
-17. [Auto-Planung: Harte Restriktionen (Hard Constraints)](#17-auto-planung-harte-restriktionen-hard-constraints)
-18. [Auto-Planung: Scoring für Bereitschaftsdienst (D)](#18-auto-planung-scoring-für-bereitschaftsdienst-d)
-19. [Auto-Planung: Scoring für Hintergrunddienst (HG)](#19-auto-planung-scoring-für-hintergrunddienst-hg)
-20. [Auto-Planung: HG-Kopplung (Bundling)](#20-auto-planung-hg-kopplung-bundling)
-21. [Auto-Planung: Swap-Optimierer](#21-auto-planung-swap-optimierer)
-22. [Auto-Planung: Abschlussvalidierung & Ausgabe](#22-auto-planung-abschlussvalidierung--ausgabe)
-23. [Personenspezifische Sonderregeln](#23-personenspezifische-sonderregeln)
-24. [Historische Fairness-Statistik](#24-historische-fairness-statistik)
-25. [Wochenend-Äquivalente: Block-basierte Zählung](#25-wochenend-äquivalente-block-basierte-zählung)
-26. [Keyboard-Shortcuts & Tastatursteuerung](#26-keyboard-shortcuts--tastatursteuerung)
-27. [Fehlerbehandlung & Reparaturmechanismen](#27-fehlerbehandlung--reparaturmechanismen)
-28. [Technische Designentscheidungen](#28-technische-designentscheidungen)
+10. [Wünsche im Planungsmodus](#10-wünsche-im-planungsmodus)
+11. [Mitarbeiterverwaltung und Profildialog](#11-mitarbeiterverwaltung-und-profildialog)
+12. [Abteilungsübersicht](#12-abteilungsübersicht)
+13. [Import, Export und Reparaturlogik](#13-import-export-und-reparaturlogik)
+14. [Feiertags- und Kalenderlogik](#14-feiertags--und-kalenderlogik)
+15. [Auto-Planung: Gesamtpipeline](#15-auto-planung-gesamtpipeline)
+16. [Auto-Planung: feste Stammlogik und Ziele](#16-auto-planung-feste-stammlogik-und-ziele)
+17. [Auto-Planung: historische Statistik](#17-auto-planung-historische-statistik)
+18. [Auto-Planung: harte Regeln für BD](#18-auto-planung-harte-regeln-für-bd)
+19. [Auto-Planung: BD-Scoring und Gewichte](#19-auto-planung-bd-scoring-und-gewichte)
+20. [Auto-Planung: BD-Optimierung nach Erstvergabe](#20-auto-planung-bd-optimierung-nach-erstvergabe)
+21. [Auto-Planung: harte Regeln für HG](#21-auto-planung-harte-regeln-für-hg)
+22. [Auto-Planung: HG-Scoring und Gewichte](#22-auto-planung-hg-scoring-und-gewichte)
+23. [Auto-Planung: HG-Kopplung](#23-auto-planung-hg-kopplung)
+24. [Auto-Planung: HG-Optimierung nach Erstvergabe](#24-auto-planung-hg-optimierung-nach-erstvergabe)
+25. [Auto-Planung: Validierung, Warnungen und Berichte](#25-auto-planung-validierung-warnungen-und-berichte)
+26. [Regelabweichungen zwischen Textwunsch und Code](#26-regelabweichungen-zwischen-textwunsch-und-code)
+27. [PWA-, Design- und Bedienungsdetails](#27-pwa--design--und-bedienungsdetails)
+28. [Tastaturkürzel und Interaktionen](#28-tastaturkürzel-und-interaktionen)
+29. [Grenzen der aktuellen Implementierung](#29-grenzen-der-aktuellen-implementierung)
+30. [Kurzfazit](#30-kurzfazit)
 
 ---
 
-## 1. Systemarchitektur
+## 1. Produktüberblick
 
-RadPlan ist eine vollständig clientseitige Single-Page-Application. Kein Server, keine API-Endpunkte, keine Cloud-Synchronisation, keine externen Laufzeit-Abhängigkeiten.
+RadPlan verwaltet pro Tag und pro Mitarbeitendem zwei unabhängige Informationsebenen:
 
-**Laufzeitumgebung:** Moderner Webbrowser mit ES6+-Unterstützung. Hardwarebeschleunigtes Rendering durch gezielten `translateZ(0)`- und `will-change`-Einsatz. `contain: layout paint` auf kritischen Elementen für Render-Performance.
+- **Assignment**: Arbeitsplatz oder Status, z. B. `MR`, `CT`, `U`, `FZA`, `WB`.
+- **Duty**: Diensttyp, aktuell `D` für Bereitschaftsdienst und `HG` für Hintergrunddienst.
 
-**Persistenzschicht:** HTML5 `localStorage`. Produktionsdaten unter Schlüssel `radplan_v3`. Planungsentwürfe unter monatsspezifischen Schlüsseln `radplan_v3_plan_YYYY-M`.
+Ein Tagesfeld kann also gleichzeitig einen Arbeitsplatz und einen Dienst tragen. Genau deshalb ist z. B. `MR + D` oder `F + HG` technisch möglich, solange die jeweilige Logik das zulässt.
 
-**Mobile Erkennung:** User-Agent-Prüfung beim Initialisieren via regulärem Ausdruck `/iPhone|iPad|iPod|Android/i`. Bei positivem Match wird `IS_MOBILE = true` gesetzt — die globale Konstante steuert alle branching-Entscheidungen in JavaScript und CSS. `document.body` erhält sofort die Klasse `is-mobile`, wodurch das komplette CSS-Layout automatisch in den Mobile-Modus wechselt.
+Die App richtet sich funktional an einen Monatsplan mit:
 
-**Zero-Backend:** Maximale Datensicherheit, volle DSGVO-Konformität durch ausschließlich lokale Datenhaltung. Kein Datentransfer an externe Server.
+- Mitarbeitendenliste pro Monat,
+- Tagesraster mit Dienst- und Einsatzcodes,
+- Monats- und Jahresauswertungen,
+- Wunschsystem für Auto-Planung,
+- Auto-Verteilung von `D` und `HG` nach Regeln und Fairnesskriterien,
+- mobiler Ansicht für Smartphone-Nutzung,
+- PWA-Installation auf dem Homescreen.
 
-**PWA-Fähigkeit:** Web App Manifest (`manifest.json`) ermöglicht die Installation als eigenständige App auf dem Homescreen. SVG-basiertes Vektorsymbol skaliert verlustfrei auf alle Displaygrößen und -auflösungen. `display: standalone` entfernt Browser-Chrome für ein natives App-Erlebnis.
-
-**Fonts:** IBM Plex Sans (UI-Text) und IBM Plex Mono (Codes, Badges, Terminal-Ausgaben). Laden via Google Fonts mit `preconnect`-Optimierung. Systemschrift-Fallbacks für Offline-Nutzung.
+Wichtig: Es existiert **kein Serverzustand**. Alles passiert lokal im Browser.
 
 ---
 
-## 2. Dateistruktur & Technologiestack
+## 2. Architektur und Laufzeitmodell
 
-```
+### 2.1 Grundprinzip
+
+Die Anwendung besteht aus einer einzigen HTML-Seite mit statischen Modalstrukturen und einem großen globalen JavaScript-Skript. Es gibt:
+
+- kein Build-System,
+- keine npm-Abhängigkeiten,
+- keine Module,
+- keine API-Aufrufe,
+- keine externe Datenbank.
+
+### 2.2 Technische Grundlage
+
+- **HTML** liefert alle festen Oberflächencontainer und Modals.
+- **CSS** enthält das komplette visuelle System für Desktop und Mobile.
+- **JavaScript** hält den gesamten Zustand, die Persistenz, die Berechnungen und die Renderlogik.
+- **localStorage** ist die einzige Persistenzschicht.
+- **Manifest + Icons** machen die Seite installierbar als PWA.
+
+### 2.3 Zustandsmodell
+
+Der operative Laufzeitzustand verteilt sich im Wesentlichen auf:
+
+- `DATA`: Hauptdaten aller Monate,
+- `state`: aktuell ausgewählter Monat, laufende Editierposition und Editorzustand,
+- `planMode`, `planData`, `planBaseline`, `planHistory`, `planHistoryIdx`: Planungsmodus und dessen Undo/Redo-Historie,
+- `autoPlanTargets`, `autoPlanResult`, `apViewMode`: Zustand der Auto-Planung.
+
+### 2.4 Mobile Detection
+
+Die App prüft den `navigator.userAgent` gegen `/iPhone|iPad|iPod|Android/i`. Bei Treffer wird `IS_MOBILE = true` gesetzt. Diese eine Konstante beeinflusst anschließend:
+
+- welche Hauptansicht gerendert wird,
+- welche Navigation sichtbar ist,
+- ob Keyboard-Hinweise im Editor gezeigt werden,
+- wie „heutiger Tag“ gescrollt wird,
+- welche Bedienelemente im Alltag dominieren.
+
+---
+
+## 3. Dateistruktur
+
+```text
 radplan/
-├── index.html        — Vollständiges HTML mit allen Modal-Strukturen
-├── app.css           — Gesamtes Styling + vollständiges Mobile-System
-├── app.js            — Gesamte Applikationslogik, 86 Funktionen
-├── manifest.json     — Web App Manifest für PWA-Installation
+├── index.html
+├── app.css
+├── app.js
+├── manifest.json
+├── README.md
+├── Algorithmusregeln.txt
+├── Algorithm_check.md
 └── img/
-    ├── icon.svg              — Statisches App-Icon (Favicon, Homescreen, Manifest)
-    └── icon_animated.svg     — Animiertes App-Icon (Header-Branding)
+    ├── icon.svg
+    └── icon_animated.svg
 ```
 
-Kein Build-Prozess. Keine npm-Pakete. Keine Abhängigkeiten zur Laufzeit. Alle Dateien werden direkt vom Browser geladen und ausgeführt. Alle Buttons tragen `type="button"` um unerwünschtes Form-Submit-Verhalten in allen Browser-Umgebungen — speziell iOS Safari — zuverlässig zu verhindern.
+### 3.1 Bedeutung der Hauptdateien
 
-**JavaScript:** `"use strict"` am Dateianfang. Globale Konstanten und Variablen, keine Module, kein Bundling. Alle 86 Funktionen sind im globalen Scope.
-
-**CSS:** Custom Properties (`--var`-System) für alle Farben, Abstände, Maße. Glassmorphism via `backdrop-filter`. Responsive via `@media`-Queries bei 1200px, 768px, 480px. Mobile-spezifisches System via `body.is-mobile`-Selektoren.
-
-**HTML:** Semantisches HTML5 mit ARIA-Attributen für Barrierefreiheit. Alle Modals inline im DOM als Overlay-Container. Keine dynamische Template-Engine — alle Strukturen sind statisch im Markup, Inhalte werden via JavaScript befüllt.
+- `index.html`: komplette DOM-Struktur inklusive Header, Tabellen, Mobile-Ansichten und sämtlicher Modals.
+- `app.css`: komplettes Designsystem, Tabellenlayout, Modal-Design, Mobile-Komponenten und Auto-Plan-Visualisierung.
+- `app.js`: Stammdaten, Persistenz, Rendering, Editor, Import/Export, Profile, Abteilungsübersichten und der gesamte Auto-Planungsalgorithmus.
+- `manifest.json`: PWA-Metadaten für Homescreen-Installation.
+- `Algorithmusregeln.txt`: textliche Sollregeln.
+- `Algorithm_check.md`: bereits vorhandene technische Gegenüberstellung zwischen Regelwunsch und Code.
 
 ---
 
-## 3. Progressive Web App & Icon-System
+## 4. Datenmodell und Persistenz
 
-### 3.1 Icon-Architektur
+### 4.1 Hauptspeicher
 
-RadPlan verwendet ein duales SVG-Icon-System:
+Der produktive Datenspeicher liegt unter dem Key:
 
-| Datei | Typ | Verwendung | Eigenschaften |
-|-------|-----|-----------|---------------|
-| `img/icon.svg` | Statisch | Favicon, Apple-Touch-Icon, Manifest-Icon, Homescreen | 1024×1024 Viewbox, Vektor, verlustfrei skalierbar |
-| `img/icon_animated.svg` | Animiert | Header-Branding im App-Header | 1024×1024 Viewbox, CSS-Animationen via `stroke-dasharray`/`stroke-dashoffset` |
+- `radplan_v3`
 
-**Icon-Design:** Dunkler Hintergrund mit abgerundeten Ecken (rx="224"), konzentrische Ringe in Cyan-Gradienten, zentrale Karten-Darstellung eines Dienstplan-Rasters mit farbigen Zellen (Rot für BD, Blau für HG), Glassmorphism-Lichtreflexe, dezente Glow-Effekte in Cyan und Indigo.
+Er enthält ein Objekt mit Monatsschlüsseln im Format `YYYY-M`, also mit **nullbasiertem Monat**:
 
-**Animiertes Icon:** Verwendet Vivus-Instant-Stil CSS-Animationen. Jedes SVG-Path-Element hat eine individuelle `stroke-dasharray`/`stroke-dashoffset`-Animation über 5200ms Dauer mit gestaffelten Startzeiten. Die Animation zeichnet alle Pfade sequenziell nach und faded sie am Ende aus. Läuft als `infinite`-Loop.
+- `2026-0` = Januar 2026
+- `2026-2` = März 2026
 
-### 3.2 Web App Manifest (`manifest.json`)
+### 4.2 Struktur eines Monats
 
 ```json
 {
-  "name": "RadPlan — Klinik für Radiologie & Nuklearmedizin",
-  "short_name": "RadPlan",
-  "description": "Digitaler Dienstplan für die Klinik für Radiologie & Nuklearmedizin, Klinikum St. Georg Leipzig",
-  "start_url": ".",
-  "display": "standalone",
-  "orientation": "any",
-  "background_color": "#060D16",
-  "theme_color": "#0B1929",
-  "icons": [
-    { "src": "img/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" },
-    { "src": "img/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "maskable" }
-  ]
-}
-```
-
-**Manifest-Felder im Detail:**
-
-| Feld | Wert | Funktion |
-|------|------|----------|
-| `name` | Vollständiger Titel | Angezeigt im Installationsdialog und App-Info |
-| `short_name` | „RadPlan" | Angezeigt unter dem Homescreen-Icon (max. ~12 Zeichen) |
-| `start_url` | `"."` | Relative URL, ermöglicht Deployment in beliebigem Verzeichnis |
-| `display` | `"standalone"` | Entfernt Browser-Adressleiste, natives App-Gefühl |
-| `orientation` | `"any"` | Hoch- und Querformat erlaubt |
-| `background_color` | `#060D16` | Splash-Screen-Hintergrund beim App-Start (Navy-900) |
-| `theme_color` | `#0B1929` | Statusleisten-Farbe auf Android (abgestimmt auf Header) |
-
-**Icon-Purpose `maskable`:** Ermöglicht adaptives Beschneiden auf Android (runde, quadratische oder Squircle-Masken je nach Launcher). Das SVG-Icon hat ausreichend Safe-Area durch die `rx="224"`-Abrundung und den 40px Innenabstand des Hintergrund-Rechtecks.
-
-### 3.3 HTML-Integration
-
-Im `<head>` von `index.html`:
-
-| Element | Funktion |
-|---------|----------|
-| `<link rel="icon" type="image/svg+xml" href="img/icon.svg">` | Browser-Tab-Favicon (SVG-fähige Browser) |
-| `<link rel="apple-touch-icon" href="img/icon.svg">` | iOS Homescreen-Icon beim „Zum Home-Bildschirm"-Dialog |
-| `<link rel="manifest" href="manifest.json">` | PWA-Manifest-Verknüpfung |
-| `<meta name="apple-mobile-web-app-title" content="RadPlan">` | iOS-spezifischer App-Titel unter dem Homescreen-Icon |
-| `<meta name="apple-mobile-web-app-capable" content="yes">` | iOS Standalone-Modus aktivieren |
-| `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">` | Transparente iOS-Statusleiste |
-| `<meta name="theme-color" content="#0B1929">` | Android-Statusleisten-Farbe |
-
-### 3.4 Header-Brand-Icon
-
-Im App-Header wird das animierte SVG als `<img>` eingebunden:
-
-```html
-<img class="brand-icon" src="img/icon_animated.svg" alt="RadPlan" aria-hidden="true" width="30" height="30">
-```
-
-**CSS-Styling (`.brand-icon`):**
-- Feste Größe: 30×30px (Desktop), 28×28px (≤480px)
-- `border-radius: var(--radius-sm)` (6px) — abgerundete Ecken passend zum Gesamt-Design
-- `object-fit: contain` — SVG wird proportional eingepasst
-- `box-shadow: 0 2px 10px rgba(14,165,233,.2)` — dezenter Cyan-Glow
-- Hover-Effekt: `transform: scale(1.05)` mit verstärktem Glow
-- `will-change: transform` für GPU-beschleunigte Animation
-- `aria-hidden="true"` — rein dekoratives Element, kein Screenreader-Inhalt
-
----
-
-## 4. Datenbankmodell & Persistenz
-
-### 4.1 Haupt-Datenspeicher (`radplan_v3`)
-
-Wurzelobjekt `DATA` — flaches Dictionary mit Monatsschlüsseln.
-
-**Monatsschlüssel-Format:** `"YYYY-M"` — Jahr vierstellig, Monat nullbasiert (0 = Januar, 11 = Dezember). Beispiel: `"2026-2"` für März 2026.
-
-**Monatsdaten-Struktur:**
-```json
-{
-  "2026-2": {
-    "employees": ["Dr. Lurz", "Dr. Polednia"],
-    "assignments": {
-      "Dr. Lurz": {
-        "5":  { "assignment": "MR",    "duty": "D"  },
-        "6":  { "assignment": "F"                   },
-        "14": {                         "duty": "HG" }
-      }
+  "employees": ["Dr. Lurz", "Dr. Becker"],
+  "assignments": {
+    "Dr. Lurz": {
+      "5": { "assignment": "MR", "duty": "D" },
+      "6": { "assignment": "F" }
     }
   }
 }
 ```
 
-**Tages-Zell-Objekt** pro `assignments[empName][dayNumber]`:
-- `assignment` (String, optional): Arbeitsplatz-Codes via `/` kombinierbar (`"MR/CT"`) oder ein einzelner Status-Code (`"U"`, `"F"`, …)
-- `duty` (String, optional): `"D"` oder `"HG"`
+### 4.3 Bedeutung der Zellobjekte
 
-Beide Felder sind vollständig unabhängig — ein Mitarbeiter kann gleichzeitig einen Arbeitsplatz und einen Dienst haben.
+Ein Zellobjekt kann enthalten:
 
-### 4.2 Planungsentwürfe (`radplan_v3_plan_YYYY-M`)
+- `assignment`: Arbeitsplatz- oder Statusstring,
+- `duty`: `D` oder `HG`.
 
-Isolierter localStorage-Eintrag pro Monat, erzeugt beim Aktivieren des Planungsmodus:
+`assignment` darf auch mehrere Arbeitsplätze enthalten, getrennt durch `/`, z. B. `MR/CT`.
+
+### 4.4 Planungsentwürfe
+
+Planungsentwürfe werden getrennt gespeichert unter:
+
+- `radplan_v3_plan_YYYY-M`
+
+Dort liegt zusätzlich ein `wishes`-Block:
+
 ```json
 {
   "employees": ["..."],
-  "assignments": { "...": { "5": { "assignment": "MR" } } },
+  "assignments": { "...": {} },
   "wishes": {
-    "Dr. Lurz": { "5": "BD_WISH", "12": "NO_DUTY" }
+    "Dr. Lurz": {
+      "5": "BD_WISH",
+      "9": "NO_DUTY"
+    }
   }
 }
 ```
 
-Das `wishes`-Objekt existiert ausschließlich in Planungsentwürfen und wird beim Übernehmen in den Hauptplan nicht mit übertragen. Wünsche dienen ausschließlich als Steuerungsinput für den Auto-Planungs-Algorithmus.
+Diese Wünsche werden **nicht** in die Hauptdaten übernommen. Sie sind reine Planungssteuerung.
 
-### 4.3 Export-Format
+### 4.5 Initialisierung fehlender Monate
 
-Vollständiger Export enthält Produktionsdaten und alle gespeicherten Planungsentwürfe:
-```json
-{
-  "main":  { "2026-2": { ... } },
-  "plans": { "2026-2": { ... } }
-}
-```
+`getMonthData(y, m)` erzeugt einen Monatsdatensatz automatisch, wenn er noch nicht existiert. Dabei wird die Mitarbeitendenliste des Vormonats übernommen. Das bedeutet:
 
-Beim Import: `Object.assign`-Merge (vorhandene Daten bleiben erhalten, neue Daten werden hinzugefügt). Anschließend automatische Reparatur fehlender F-Tage nach BD.
+- neue Monate starten nicht leer,
+- die Mitarbeiterstruktur „vererbt“ sich standardmäßig weiter,
+- nur die Belegungen beginnen leer.
 
-### 4.4 Datenzugriffsfunktionen
+### 4.6 Speicherung und Fehlerbehandlung
 
-| Funktion | Beschreibung |
-|---------|-------------|
-| `getMonthData(y, m)` | Liefert Monatsdaten; erzeugt neuen Eintrag mit Vormonats-Mitarbeiterliste wenn fehlend |
-| `getCell(y, m, emp, day)` | Liefert Zell-Objekt oder `{}` |
-| `setCell(y, m, emp, day, patch)` | Merged Patch in Zell-Objekt; löscht leere Objekte |
-| `clearCell(y, m, emp, day)` | Löscht gesamten Tageseintrag |
-| `dutyOwner(y, m, day, dt)` | Name des D/HG-Inhabers oder `null` |
-| `dayCodeCount(y, m, day, code)` | Zählt Einträge eines Codes an einem Tag |
+`loadFromStorage()` und `saveToStorage()` kapseln den Zugriff auf `localStorage`. Beim Laden wird JSON geparst; bei Fehlern wird auf `{}` zurückgefallen. Beim Speichern werden Fehler still geschluckt.
+
+Das ist robust gegen defekte Einträge, aber nicht dialogisch: die App zeigt bei kaputten Hauptdaten keine gesonderte Diagnose an.
 
 ---
 
-## 5. Entitäten & Nomenklatur
+## 5. Stammdaten der Anwendung
 
-### 5.1 Arbeitsplätze (Workplaces)
+### 5.1 Arbeitsplätze
 
-Acht Arbeitsplätze mit festen Farb-Tokens für konsistentes UI in Tabelle, Chips, Profil-Charts:
+Aktuell sind acht Arbeitsplatzcodes fest eingebaut:
 
-| Code | Bezeichnung | Hintergrund | Textfarbe |
-|------|------------|-------------|-----------|
-| `MR` | MRT | `#DBEAFE` | `#1D4ED8` |
-| `CT` | CT | `#FFEDD5` | `#C2410C` |
-| `US` | Sonographie | `#CCFBF1` | `#0F766E` |
-| `AN` | Angiographie | `#F3E8FF` | `#7E22CE` |
-| `MA` | Mammographie | `#FCE7F3` | `#BE185D` |
-| `KUS` | Kinder-US | `#DCFCE7` | `#15803D` |
-| `W` | Wermsdorf | `#FEF9C3` | `#854D0E` |
-| `T` | Teleradiologie | `#E0E7FF` | `#3730A3` |
+| Code | Label |
+|------|-------|
+| `MR` | MRT |
+| `CT` | CT |
+| `US` | Sonographie |
+| `AN` | Angiographie |
+| `MA` | Mammographie |
+| `KUS` | Kinder-US |
+| `W` | Wermsdorf |
+| `T` | Teleradiologie |
 
-Mehrfachauswahl via `/`-Konkatenation möglich (z.B. `"MR/CT"`). Zellanzeige zeigt die kombinierten Codes und die Zellfarbe orientiert sich am ersten Code der Kombination.
+Jeder Code hat feste UI-Farben (`bg`, `fg`), die in Tabelle, Chips und Auswertungen wiederverwendet werden.
 
-### 5.2 Status-Codes
+### 5.2 Statuscodes
 
-| Code | Bezeichnung | Kategorie | Urlaubscode | Hintergrund | Textfarbe |
-|------|-------------|-----------|-------------|-------------|-----------|
-| `F` | Frei | Ruhetag | nein | `#F1F5F9` | `#475569` |
-| `U` | Urlaub | Urlaub | **ja** | `#EDE9FE` | `#5B21B6` |
-| `ZU` | Zusatzurlaub | Urlaub | **ja** | `#EDE9FE` | `#5B21B6` |
-| `SU` | Sonderurlaub | Urlaub | **ja** | `#EDE9FE` | `#5B21B6` |
-| `FZA` | Freizeitausgleich | Ausgleich | nein | `#E0E7FF` | `#3730A3` |
-| `K` | Krank | Abwesenheit | nein | `#FEE2E2` | `#991B1B` |
-| `KK` | Kind Krank | Abwesenheit | nein | `#FEE2E2` | `#991B1B` |
-| `§15c` | §15c ArbZG | Urlaub | **ja** | `#EDE9FE` | `#5B21B6` |
-| `WB` | Weiterbildung | Abwesenheit | nein | `#FEF3C7` | `#92400E` |
+Die Statusliste ist ebenfalls fest definiert:
 
-`VACATION_CODES = ["U", "ZU", "SU", "§15c"]` triggern den Vor-Urlaubs-Bonus (+150) und die Becker-Martin-Konfliktprüfung.
+| Code | Bedeutung |
+|------|-----------|
+| `F` | Frei |
+| `U` | Urlaub |
+| `ZU` | Zusatzurlaub |
+| `SU` | Sonderurlaub |
+| `FZA` | Freizeitausgleich |
+| `K` | Krank |
+| `KK` | Kind krank |
+| `§15c` | §15c |
+| `WB` | Weiterbildung |
 
-`ABSENCE_CODES = ["U", "ZU", "SU", "FZA", "K", "KK", "§15c", "WB"]` führen zum Ausschluss aus der Dienstvergabe (Hard Constraint).
+### 5.3 Abwesenheits- und Urlaubsmengen
 
-Status-Codes und Arbeitsplatz-Codes sind exklusiv: Setzen eines Status löscht alle Arbeitsplätze, Setzen eines Arbeitsplatzes löscht den Status.
+Die App unterscheidet logisch zwei Mengen:
 
-### 5.3 Dienst-Codes
+- **ABSENCE_CODES** = `U`, `ZU`, `SU`, `FZA`, `K`, `KK`, `§15c`, `WB`
+- **VACATION_CODES** = `U`, `ZU`, `SU`, `§15c`
 
-| Code | Bezeichnung | Träger | Farben (aktiv) | Farben (inaktiv) | Folgeeffekte |
-|------|-------------|--------|----------------|------------------|-------------|
-| `D` | Bereitschaftsdienst | FA und AA | `#EF4444` bg, `#fff` text | `#FEE2E2` bg, `#B91C1C` text | Erzwingt `F` am Folgetag. Samstag: nur FA |
-| `HG` | Hintergrunddienst | Nur FA | `#0EA5E9` bg, `#fff` text | `#E0F2FE` bg, `#0369A1` text | Telefonische Bereitschaft. Bei AA-BD: Befundfreigabe-Pflicht |
+Diese Unterscheidung ist algorithmisch zentral:
 
----
+- Für „an diesem Tag darf kein Dienst stattfinden“ gelten alle `ABSENCE_CODES`.
+- Für „am Folgetag ist Urlaub“ gelten nur `VACATION_CODES`.
 
-## 6. Mitarbeitende & Qualifikationsstufen
+Das heißt: Ein Tag vor `FZA`, `WB`, `K` oder `KK` wird **nicht** automatisch wie „Tag vor Urlaub“ behandelt.
 
-### 6.1 Qualifikationshierarchie & Dienst-Berechtigung
+### 5.4 Wunschtypen
 
-| Kürzel | Bezeichnung | D-fähig | HG-fähig | Samstags-D |
-|--------|-------------|---------|----------|-----------|
-| `CA` | Chefarzt | nein (befreit) | nein | — |
-| `LOA` | Leitender Oberarzt | ja | ja | ja |
-| `OA` | Oberarzt | ja | ja | ja |
-| `OÄ` | Oberärztin | ja | ja | ja |
-| `FA` | Facharzt | ja | ja | ja |
-| `FÄ` | Fachärztin | ja | ja | ja |
-| `AA` | Assistenzarzt | ja | **nein** | nein |
-| `AÄ` | Assistenzärztin | ja | **nein** | nein |
+Im Planungsmodus gibt es genau drei Wünsche:
 
-`isFacharzt()` = `true` für CA, LOA, OA, OÄ, FA, FÄ. `isAssistenzarzt()` = `true` für AA, AÄ. Für unbekannte Mitarbeitende: `isAssistenzarzt()` gibt sicherheitshalber `true` zurück.
+| Code | Label | Bedeutung |
+|------|-------|-----------|
+| `NO_DUTY` | Kein Dienst | harter Ausschluss für BD/HG in den regulären Prüfungen |
+| `BD_WISH` | BD Wunsch | Bonus bei BD-Vergabe |
+| `HG_WISH` | HG Wunsch | Bonus bei HG-Vergabe |
 
-**HG-Kontext:** Wenn AA im D ist, muss der HG-tragende FA telefonisch erreichbar sein und am Folgetag die Befunde freigeben. Wenn FA im D ist, ist kein HG für weitere Freigaben nötig — der HG ist damit entspannter.
+### 5.5 Mitarbeitenden-Metadaten
 
-### 6.2 Vordefinierte Mitarbeitende mit Stammdaten
+Für bekannte Personen existiert ein fest codiertes Metadatenobjekt mit:
 
-| Name | Position | Bereich / Funktion | Sonderregeln |
-|------|----------|--------------------|-------------|
-| Prof. Schäfer | CA | Chefarzt | Dienst-befreit (`DUTY_EXEMPT`) |
-| Dr. Lurz | LOA | Leitender Oberarzt, MRT · Röntgen KV | — |
-| Dr. Polednia | OA | Leiter Kinderradiologie | KUS-Kollisionsschutz (§23.2) |
-| Fr. Dalitz | OÄ | Leiterin Mammographie | — |
-| Fr. Thaler | FÄ | Fachärztin | — |
-| Dr. Becker | OÄ | CT-Leitung | Samstags-Sonderregel + CT-Paarung (§23.3) |
-| Dr. Martin | FA | CT-Vertreter | CT-Paarung mit Dr. Becker (§23.4) |
-| Hr. El Houba | AA | Assistenzarzt | — |
-| Fr. Licenji | AÄ | Assistenzärztin | — |
-| Hr. Torki | AA | Assistenzarzt | — |
-| Hr. Sebastian | AA | Assistenzarzt | Reduziertes BD-Soll (3 statt 4) |
+- Vollname,
+- Positionscode,
+- Positionslabel,
+- Typ/Fachrichtung,
+- Bereich,
+- Vertretung.
 
-Jedes Metadaten-Objekt enthält: `fullName`, `position`, `posLabel`, `type`, `area`, `deputy`. Mitarbeitende ohne Eintrag in `EMP_META` erhalten generischen Fallback mit Position `"—"`.
+Positionen unterscheiden u. a.:
 
-### 6.3 Positionsfarben
+- `CA`, `LOA`, `OA`, `OÄ`, `FA`, `FÄ` → gelten als Facharztgruppe,
+- `AA`, `AÄ` → gelten als Assistenzarztgruppe.
 
-| Position | Hintergrund | Text | Rahmen |
-|----------|------------|------|--------|
-| CA | `#F3E8FF` | `#7E22CE` | `#A855F7` |
-| LOA | `#DBEAFE` | `#1D4ED8` | `#3B82F6` |
-| OA/OÄ | `#CCFBF1` | `#0F766E` | `#14B8A6` |
-| FA/FÄ | `#DCFCE7` | `#15803D` | `#22C55E` |
-| AA/AÄ | `#F1F5F9` | `#475569` | `#94A3B8` |
+Diese Einteilung wird später für D/HG-Regeln benutzt.
 
----
+### 5.6 Dienstbefreiung
 
-## 7. Desktop-Benutzeroberfläche
+Aktuell ist nur eine Person hart vom Algorithmus ausgenommen:
 
-Aktiv wenn `IS_MOBILE === false`. Horizontales Tabellenraster mit vollem Funktionsumfang.
+- `Prof. Schäfer`
 
-### 7.1 Strukturlayout (von oben nach unten)
+Diese Person erscheint weiter im Plan, wird aber durch die Auto-Planung weder für `D` noch `HG` eingeplant.
 
-1. `#app-header` — Branding, Monatsnavigation, Aktions-Toolbar
-2. `#plan-bar` — Kontextuelle Planungsleiste (nur Planungsmodus)
-3. `#stats-bar` — Monatliche Code-Häufigkeits-Statistik
-4. `main > #grid-wrapper` — Horizontale, scrollbare Dienstplan-Tabelle
+### 5.7 Standard-BD-Ziele
 
-### 7.2 Header
+Die Funktion `defaultBDTarget()` setzt folgende Zielwerte:
 
-**Branding:** Animiertes SVG-Icon (`img/icon_animated.svg`) als `<img>`-Element mit 30×30px, abgerundeten Ecken und Cyan-Glow-Schatten + „RadPlan"-Schriftzug (14px, 700 Gewicht, weiß). Bei Hover skaliert das Icon auf 105% mit verstärktem Glow.
+- `Prof. Schäfer` → `0`
+- `Dr. Polednia` → `3`
+- `Dr. Becker` → `3`
+- `Hr. Sebastian` → `3`
+- alle übrigen nicht befreiten Mitarbeitenden → `4`
 
-**Monatsnavigation:** Zurück/Vorwärts mit Alt+← / Alt+→. Monatsname als `aria-live`-Region. Glassmorphism-Container mit `backdrop-filter: blur(12px)`.
-
-**Heute-Button:** Springt zum aktuellen Monat, scrollt heutigen Tag in den sichtbaren Bereich, zeigt akzentfarbene Hervorhebung wenn aktueller Monat angezeigt wird.
-
-Im Planungsmodus: Vorwärts/Zurück-Buttons gesperrt (Opacity 0.2, `pointer-events: none`), Planung-Button goldfarben hervorgehoben.
-
-**Toolbar-Buttons:** `btn-today`, `btn-dept`, `btn-plan`, `btn-employees`, `btn-export` (Strg+S), `btn-import`. Jeder mit SVG-Icon und optionalem Label (`.hbtn-lbl` — ausgeblendet bei ≤1200px).
-
-### 7.3 Stats-Bar
-
-Horizontale scrollbare Leiste mit `overflow-x: auto` und ausgeblendeter Scrollbar. Halbdurchsichtiger Hintergrund `rgba(248,250,252,.75)` mit `backdrop-filter: blur(16px)`. Rechter Fade-Gradient als Scroll-Indikator.
-
-Zeigt MA-Zähler (mit Personen-SVG), dann für jeden Code mit mindestens einem Eintrag: farbiger Code-Badge + Zahlenwert. Anzeigereihenfolge: D, HG, U, K, F, MR, CT, US, WB, FZA, ZU, SU, KK, §15c, AN, MA, KUS, W, T.
-
-Im Planungsmodus: goldener oberer Rand (`border-top: 2px solid rgba(245,158,11,.25)`).
-
-### 7.4 Dienstplan-Tabelle
-
-Horizontal scrollbarer Container (`overflow: auto`). Mausrad-Scroll: `deltaY` wird zu `scrollLeft` addiert wenn `|deltaX| < 10` (verhindert Konflikt mit echtem horizontalem Scrollen).
-
-**Kopfzeile (thead):** Sticky oben (`position: sticky; top: 0`). KW-Anzeige am ersten Wochentag und am 1. des Monats via ISO-8601-Berechnung. Tagesnummer (14px Mono), Wochentagskürzel (9px Uppercase), Feiertagsname (7px, ellipsis bei Überlauf). WE/FT/Heute farblich hervorgehoben. Freitag-Spalten mit verstärktem rechten Rahmen.
-
-**Namensspalte:** Sticky links (`position: sticky; left: 0; z-index: 20`). Name (12.5px) + Positions-Badge (8.5px Monospace). Profil-Icon und Löschen-Button erscheinen beim Hover (Opacity 0→1). Klick öffnet Profil-Modal. `box-shadow: 2px 0 8px rgba(0,0,0,.03)` für Tiefenwirkung bei Scroll.
-
-**Datenzellen:** Hintergrundfarbe aus Code-Farbtabelle via `cellColor()`. Dienst-Badge (D/HG) als absolut positionierter Chip oben rechts (7px, 800 Gewicht). Wunsch-Indikator unten links (nur Planungsmodus, 6px). Automatisch gesetzte F-Tage nach BD: kursiv, 500 Gewicht, kleiner Unterstrich-Balken (`::after`-Pseudoelement). Leere Werktage: kleiner grauer Dot (5×5px, `border-radius: 50%`). Heute: Blauer Inset-Rahmen (`box-shadow: inset 0 0 0 1px rgba(14,165,233,.3)`). Hover: `filter: brightness(.9)` + Akzent-Inset-Rahmen.
-
-**Fußzeile (tfoot):** 4 Statistikzeilen für MR, CT, D, HG. Mehrfachbelegung bei D/HG (> 1): rote Warnung (`.warn`-Klasse mit rotem Text und rotem Hintergrund).
-
-### 7.5 Planungsmodus-Visuals
-
-`body.plan-mode-active` aktiviert folgende CSS-Änderungen:
-- Header-Unterstrich: Gold-Gradient (von Cyan auf Gold wechselnd)
-- Tabelle: goldener 3px Inset-Rahmen
-- Ecken-Zelle: brauner Gradient-Hintergrund mit „PLAN"-Label (7px, F59E0B)
-- Leere Werktage: goldene Dots statt graue
-- Editor-Modal: brauner Header-Gradient
-- Import/Mitarbeitende-Buttons: gesperrt (Opacity 0.3)
-- Monatsnavigation: goldener Rahmen
+Diese Zielwerte können im Auto-Plan-Dialog manuell angepasst werden.
 
 ---
 
-## 8. Mobile Benutzeroberfläche
+## 6. Desktop-Oberfläche
 
-Eigenständige Darstellung für Smartphones. Kein Fallback auf skalierte Desktop-Ansicht — vollständige UX-Neukonzeption für Touch.
+### 6.1 Header
 
-### 8.1 Layout-Aktivierung
+Der Header enthält:
 
-`IS_MOBILE === true` → `body.classList.add("is-mobile")` → CSS-Regelwerk `body.is-mobile *` aktiviert:
-- `main` ausgeblendet (Desktop-Tabelle)
-- `#stats-bar` ausgeblendet
-- `#mobile-view` sichtbar (`display: flex; flex-direction: column; flex: 1`)
-- Alle Modals als Bottom-Sheets (Ausrichtung unten, 92vh max, Einfahrt-Animation)
-- Toast zentriert über der Nav-Bar
-- Chip-Mindestgröße 48px (Touch-Target-Konformität)
-- Input-Font-Size 16px (verhindert iOS-Auto-Zoom)
-- Plan-Bar als horizontal scrollbare, einzeilige Leiste
-- `-webkit-tap-highlight-color: transparent` auf allen Elementen
+- animiertes App-Icon,
+- Monatsnavigation mit Vor/Zurück,
+- Sprung zum heutigen Monat,
+- Abteilungsübersicht,
+- Einstieg in den Planungsmodus,
+- Mitarbeitendenverwaltung,
+- Export,
+- Import.
 
-### 8.2 Header (Mobile)
+### 6.2 Monatsraster
 
-Vereinfacht: Brand-Icon absolut links positioniert, Monatsnavigation zentriert, Header-Actions ausgeblendet. Brand-Text ausgeblendet bei ≤768px. Icon-Größe 28×28px bei ≤480px.
+Die Desktop-Hauptansicht ist eine große Tabelle mit:
 
-### 8.3 Monats-Zusammenfassungsleiste
+- fixer Namensspalte,
+- einem Tagesspaltenkopf pro Kalendertag,
+- Wochenenden/Feiertagen mit Sonderstyling,
+- Freitag-Markierung,
+- „Heute“-Markierung,
+- Tageszellen pro Mitarbeitendem,
+- Fußzeilenstatistik für `MR`, `CT`, `D`, `HG`.
 
-Horizontal scrollbar, direkt unter dem Header. Halbdurchsichtiger Hintergrund mit Blur. Zeigt MA-Zähler + farbige Code-Chips mit Zählwerten. Identische Datenbasis wie Desktop-Stats-Bar, mobile Chip-Gestaltung mit `mms-item`-Klassen. Emp-Item mit Row-Layout (horizontale Anordnung).
+### 6.3 Kopfzeilenlogik
 
-### 8.4 Tagesliste
+Die Tabellenköpfe zeigen je Tag:
 
-Vollständig scrollbarer Bereich mit `padding-bottom` gleich `var(--mnav-h) + 16px` damit der Inhalt nicht hinter der Nav-Bar verschwindet. `overscroll-behavior: contain` verhindert Bounce-Through.
+- ISO-Kalenderwoche (`KW`) nur an sinnvollen Übergängen,
+- Tagesnummer,
+- Wochentagskürzel,
+- Feiertagsnamen, falls vorhanden.
 
-**Wochentrenner:** Vor dem ersten Tag jeder ISO-KW: `mobile-week-sep` mit „KW N" + dekorativer Trennlinie (Monospace, 9px, rgba weiß).
+### 6.4 Zellanzeige
 
-**Tageskarte (`mobile-day-card`):**
+Eine Zelle kann gleichzeitig zeigen:
 
-Aufbau von links nach rechts:
-- Datums-Bereich (42px breit): Tageszahl (24px, 800 Gewicht, Mono), Wochentagskürzel (9px, 700, Uppercase), KW-Anzeige (8px, Mono, am 1. Wochentag oder Tag 1)
-- Vertikaler Trenner (1px, angepasst an Kartentyp)
-- Inhaltsbereich (flex: 1): Feiertagsname (bei FT), Dienst-Badges mit kurzem Nachnamen (Pill-Form mit farbigem Buchstaben-Kreis), Arbeitsplatz-Chips (max. 5, Rest als „+N")
-- Pfeil-Icon (chevron-right, Grau)
-- Optional: Goldener Puls-Dot `mdc-plan-badge` (Planungsmodus, 5×5px, absolute top-right)
+- Assignmenttext,
+- Duty-Badge (`D`/`HG`),
+- Wunschindikator im Planungsmodus.
 
-Kartentypen:
-- Standard (`.mobile-day-card`): Weißer Hintergrund `rgba(255,255,255,.96)`
-- Wochenende (`.mdc-we`): Gedimmter grau-blauer Hintergrund, gedämpfte Tageszahl
-- Feiertag (`.mdc-hol`): Warmer Gelbton, bernsteinfarbene Typografie
-- Heute (`.mdc-today`): Blauer Rahmen + blauer 2px-Balken oben (Gradient #0EA5E9→#67D4FF), blaue Tageszahl
+Spezialfall: Ein automatisch gesetztes `F` auf Wochenende/Feiertag wird visuell gedimmt als `auto-f-rest`.
 
-Auto-Scroll: Heutiger Tag scrollt nach 120ms automatisch in den sichtbaren Bereich (`scrollIntoView({ behavior: "smooth", block: "center" })`).
+### 6.5 Monatsstatistikleiste
 
-Touch-Targets: Karten nutzen `transform: scale(.984)` bei `:active` für haptisches Feedback. Min-Height über natürlichen Inhalt.
+Die obere Statistikleiste summiert für den aktuellen Monat:
 
-### 8.5 Tages-Detailblatt (`#modal-mobile-day`)
+- Anzahl Mitarbeitender,
+- alle vorkommenden Arbeitsplatzcodes,
+- `D`, `HG`,
+- Statuscodes.
 
-Bottom-Sheet mit 90vh max-Höhe. Besteht aus:
+Nicht vorkommende Codes werden nicht angezeigt.
 
-**Handle:** Abgerundetes weißes Element (36×4px, `rgba(255,255,255,.25)`, 10px Margin-Top) für Bottom-Sheet-Semantik.
+### 6.6 Fußzeile
 
-**Kopfzeile (dunkel, `.mday-hd`):** Wochentag + Datum + ggf. Feiertagsname (farbkodiert: blau für Heute, gold für FT). Duty-Pills: farbige Badges mit D/HG-Buchstaben-Kreis (16px) und Name des Inhabers.
+Die Tabellenfußzeile zählt je Tag:
 
-**Body (scrollbar):** Zwei Abschnitte „Fachärzte" / „Assistenzärzte" mit Section-Headers (blaue Akzent-Leiste links, 8.5px, Uppercase). Pro Mitarbeiter eine Zeile (`.mday-emp-row`, min-height 52px) mit:
-- Farbigem Positions-Dot (8×8px Kreis, Farbe aus `posColor`)
-- Name (13px) und Positions-Bezeichnung (9px, subdued)
-- Badges: farbige Arbeitsplatz-Chips, D/HG-Tags (Pill-Form), Wunsch-Tags (im Planungsmodus, mit bd/hg/no-Varianten)
-- Edit-Pfeil-Icon (nur im editierbaren Modus, Cyan-getönt)
+- `MR`
+- `CT`
+- `D`
+- `HG`
 
-Tippen auf eine editierbare Zeile → schließt das Blatt → öffnet nach 200ms Zelleditor.
+Für `D` und `HG` werden Werte > 1 als Warnzustand dargestellt, weil pro Tag eigentlich nur eine Person diesen Dienst tragen soll.
 
-### 8.6 Alle Modals als Bottom-Sheets
+---
 
-Auf Mobile werden alle folgenden Modals als Bottom-Sheet gerendert: `modal-editor`, `modal-autoplan`, `modal-dept`, `modal-profile`, `modal-emps`, `modal-import`, `modal-ap-report`. CSS-Regeln via `body.is-mobile .overlay#modal-*`:
-- Overlay: `align-items: flex-end`, kein Padding
-- Modal: `border-radius: 20px 20px 0 0`, volle Breite, `max-height: 92vh`
-- Öffnen: `slideUp`-Animation (0.28s, cubic-bezier)
-- Schließen: `slideDown`-Animation (0.2s, ease)
-- Modal-Bodies: `-webkit-overflow-scrolling: touch`, `flex: 1`, `min-height: 0`
-- Footer: `padding-bottom: max(12px, env(safe-area-inset-bottom))` für Home-Indicator
+## 7. Mobile Oberfläche
 
-### 8.7 Mobile Navigation
+Wenn `IS_MOBILE` aktiv ist, rendert die App keine Desktop-Tabelle, sondern eine separate Mobiloberfläche.
 
-Fixierte Bottom-Nav (`position: fixed; bottom: 0`) mit drei Buttons plus Safe-Area-Inset (`var(--safe-bottom)`):
-- **Abteilung** (links) → `openDeptOverview()`
-- **Planung** (Mitte, prominent, goldener Rahmen-Container `.mnav-plan-icon`) → `enterPlanMode()` / `closePlanMode()`; aktiver Planungsmodus: orangefarbener Hintergrund (`#F59E0B`)
-- **Menü** (rechts) → mobiles Action-Sheet
+### 7.1 Mobile Summary
 
-Mobiles Action-Sheet enthält: Mitarbeitende verwalten, Daten exportieren, Daten importieren. Jeder Button 14px mit SVG-Icon und 14px Padding.
+Oben steht eine kompakte Monatszusammenfassung mit:
+
+- Mitarbeitendenzahl,
+- Dienst- und Statuszählungen,
+- ausgewählten Arbeitsplatzsummen.
+
+### 7.2 Tageskartenliste
+
+Jeder Kalendertag wird als Karte dargestellt mit:
+
+- Datum,
+- Wochentag,
+- ggf. KW-Hinweis,
+- Feiertagsname,
+- aktuellem `D`-Inhaber,
+- aktuellem `HG`-Inhaber,
+- an diesem Tag vorkommenden Assignment-Codes.
+
+Es werden maximal fünf unterschiedliche Assignment-Chips angezeigt; weitere Codes werden als `+n` zusammengefasst.
+
+### 7.3 Mobile Bottom Navigation
+
+Die mobile Navigation besteht aus:
+
+- `Abteilung`,
+- `Planung`,
+- `Menü`.
+
+Das Menü öffnet ein Sheet mit Zugriff auf:
+
+- heute,
+- Mitarbeitende,
+- Export,
+- Import.
+
+### 7.4 Mobile Day Sheet
+
+Beim Tippen auf einen Tag öffnet sich ein Sheet mit:
+
+- Datumsüberschrift,
+- Dienstbadges für `D` und `HG`,
+- Trennung in `Fachärzte` und `Assistenzärzte`,
+- allen Mitarbeitenden dieses Tages,
+- sichtbaren Assignments,
+- Wünschen im Planungsmodus,
+- Editierindikator, sofern Bearbeitung erlaubt ist.
+
+---
+
+## 8. Manuelle Bearbeitung im Zelleditor
+
+### 8.1 Öffnen
+
+Der Editor wird geöffnet durch:
+
+- Klick auf eine Desktop-Zelle,
+- Tastaturfokus + `Enter`/Leerzeichen,
+- Auswahl einer Person im Mobile-Day-Sheet,
+- Klick aus dem Profilkalender auf einen Werktag.
+
+### 8.2 Editorinhalt
+
+Der Editor zeigt:
+
+- Mitarbeitendenname,
+- Datum inkl. Feiertagsbezeichnung,
+- Tagesklassifikation „Wochenende“ oder „Feiertag“,
+- Arbeitsplatzchips,
+- Statuschips,
+- Duty-Chips,
+- Wunschchips im Planungsmodus,
+- Live-Vorschau,
+- Warntext bei speziellen Konstellationen.
+
+### 8.3 Workplace- und Statuslogik
+
+- Mehrere Arbeitsplätze können parallel gewählt werden.
+- Ein Status ist exklusiv.
+- Sobald ein Status aktiv ist, werden Arbeitsplätze deaktiviert.
+- Sobald Arbeitsplätze aktiv sind, werden andere Status-Chips gedimmt.
+
+### 8.4 Duty-Logik im Editor
+
+Für `D` und `HG` gilt pro Tag Exklusivität über alle Mitarbeitenden:
+
+- ist `D` bereits bei jemand anderem vergeben, wird der Chip blockiert,
+- ist `HG` bereits bei jemand anderem vergeben, wird der Chip blockiert.
+
+Der Editor erzwingt **keine komplette Regelprüfung** des Auto-Planers. Manuelle Eingaben können also Konstellationen erzeugen, die algorithmisch später als problematisch gelten.
+
+### 8.5 Automatisches `F` nach manuellem `D`
+
+Wird manuell ein `D` gespeichert, setzt `saveEditor()` automatisch am Folgetag `assignment = "F"`, **aber nur wenn dort noch kein Assignment existiert**.
+
+Wichtig:
+
+- vorhandene Assignments werden nicht überschrieben,
+- vorhandenes `HG` auf dem Folgetag bleibt erhalten,
+- über Monatsgrenzen hinweg wird ebenfalls gearbeitet, solange `getCell()`/`setCell()` Zugriff auf den Folgemonat bekommen.
+
+### 8.6 Löschen
+
+`Clear` entfernt die gesamte Zelle, also Assignment und Duty. Wünsche werden dabei nicht explizit gelöscht; sie sind separat am Entwurf gespeichert.
 
 ---
 
 ## 9. Planungsmodus
 
-Isolierte, non-destruktive Planung: Der Produktionsplan bleibt während der gesamten Planungsphase unberührt.
+### 9.1 Zweck
 
-### 9.1 Aktivierung
+Der Planungsmodus ist ein isolierter Bearbeitungsraum für den aktuell gewählten Monat. Änderungen landen zunächst **nicht** im Hauptplan.
 
-`enterPlanMode()`: Tiefe JSON-Kopie des aktuellen Produktionsmonats in `planData`. Baseline-Snapshot für Änderungs-Erkennung in `planBaseline`. Undo-Stack mit initialem Zustand. `planMode = true`. `autoPlanTargets = {}` zurückgesetzt. `body.classList.add("plan-mode-active")`.
+### 9.2 Start
 
-### 9.2 Deaktivierung
+Beim Eintritt in den Planungsmodus passiert Folgendes:
 
-`closePlanMode()`: Prüft `JSON.stringify(planData.assignments) !== JSON.stringify(planBaseline)`. Bei Unterschied: Bestätigungs-Dialog (`confirm()`). Dann `exitPlanMode()`.
+- der aktuelle Monatsplan wird tief kopiert,
+- `wishes` wird leer initialisiert,
+- ein Baseline-Snapshot wird gespeichert,
+- die Undo-Historie startet mit dem ersten Zustand,
+- die UI zeigt die Planungsleiste an.
 
-`exitPlanMode()`: Alle Planungs-Variablen zurückgesetzt (`planData = null`, `planMode = false`), `body.classList.remove("plan-mode-active")`, `render()` aufgerufen.
+### 9.3 Planungsleiste
 
-### 9.3 Undo/Redo-Stack
+Die Planungsleiste bietet:
 
-Jede Zellbearbeitung und jede Auto-Plan-Übernahme erzeugt zwei Snapshots (vor und nach der Änderung). `recordPlanHistory()` speichert `JSON.parse(JSON.stringify(planData.assignments))`. Stack wird bei jeder neuen Aktion auf `[0..planHistoryIdx]` gekürzt (Redo-Historie verworfen). Undo: `planHistoryIdx--`. Redo: `planHistoryIdx++`. Buttons deaktiviert wenn kein Verlauf/Ende des Verlaufs erreicht.
+- `Rückgängig`,
+- `Vorwärts`,
+- `Auto-Plan`,
+- `Abbrechen` (Reset auf Baseline),
+- `Speichern` (Entwurf speichern),
+- `Schließen` (Entwurf verlassen),
+- `Übernehmen` (Entwurf in Hauptplan schreiben).
 
-### 9.4 Planungsschritte
+### 9.4 Undo/Redo
 
-| Aktion | Tastatur | Effekt |
-|--------|----------|--------|
-| **Abbrechen** | — | Setzt auf `planBaseline` zurück. Stack auf initialen Zustand. `render()`. |
-| **Speichern** | Strg+S | Entwurf in `radplan_v3_plan_YYYY-M` gesichert. `planBaseline` aktualisiert. Toast-Bestätigung. |
-| **Schließen** | — | Prüft ungespeicherte Änderungen. Verlässt Planungsmodus ohne Übernahme. |
-| **Übernehmen** | — | Bestätigungs-Dialog. Kopiert `planData.assignments` in `DATA[k].assignments`. `saveToStorage()`. `exitPlanMode()`. |
+Die Historie speichert nur `assignments`, nicht den gesamten `planData`-Block. Wünsche werden also **nicht** mit Undo/Redo historisiert.
 
-### 9.5 Plan-Bar
+### 9.5 Speichern des Entwurfs
 
-48px hohe Leiste mit dunkelbraunem Glassmorphism-Hintergrund. Gold-Gradient-Linien oben und unten. Enthält:
-- Plan-Badge (animierter Pulse-Dot + „Planungsmodus aktiv")
-- Monatsname
-- Hinweis-Text (Desktop)
-- Undo/Redo-Buttons (Historie-Pfeile)
-- Auto-Plan-Button (Cyan-Gradient)
-- Abbrechen/Speichern/Schließen/Übernehmen-Buttons
+`savePlanDraft()` legt den aktuellen Entwurf in `localStorage` ab. Dabei wird die Baseline auf den aktuellen Stand gesetzt.
 
-Auf Mobile: horizontal scrollbar, Labels ausgeblendet, kompaktere Padding-Werte.
+### 9.6 Übernehmen in den Hauptplan
 
----
+`applyPlanToMain()` kopiert ausschließlich `assignments` aus dem Entwurf in `DATA`. Wünsche werden verworfen.
 
-## 10. Zelleditor
+### 9.7 Abbrechen vs. Schließen
 
-Öffnet via Klick/Touch auf Tabellenzelle (Desktop) oder Mitarbeiter-Zeile im Tages-Detailblatt (Mobile).
-
-### 10.1 Aufbau
-
-- **Kopfzeile:** Name, Datum, Day-Type-Label (Feiertag/Wochenende als Pill), PLANUNG-Badge (goldene Pill, nur im Planungsmodus)
-- **Vorschau-Box:** Live-Rendering der Auswahl (Code-Text + Duty-Badges). Dunkler Glassmorphism-Hintergrund. Im Planungsmodus: brauner Gradient-Hintergrund.
-- **Arbeitsplatz-Sektion:** 8 Chips mit Keyboard-Hint
-- **Status-Sektion:** 9 Chips, exklusiv
-- **Dienst-Sektion:** D- und HG-Chips mit Blocker-Logik
-- **Wunsch-Sektion:** 3 Chips (nur Planungsmodus)
-- **Footer:** Löschen (rot), Abbrechen (ghost), Speichern (primary)
-
-### 10.2 Arbeitsplatz-Chips
-
-8 Chips (`chip-wp`), Mehrfachauswahl. Farbkodiert nach Arbeitsplatz-Farbschema. Tastatur 1–8 (auf Mobile ausgeblendet). Bei aktivem Status: alle Arbeitsplatz-Chips gedimmt (`opacity: .3`) und deaktiviert (`pointer-events: none`). Aktiver Chip: 2px Border, Scale 1.06, Box-Shadow.
-
-### 10.3 Status-Chips
-
-9 Chips (`chip-st`), exklusiv (nur einer gleichzeitig). Setzen eines Status löscht alle Arbeitsplätze und dimmt die Arbeitsplatz-Chips.
-
-### 10.4 Dienst-Chips
-
-Chips für D (`duty-D-off/on`) und HG (`duty-HG-off/on`). Bereits von anderer Person belegt: `blocked`-Klasse (Opacity 0.3, Name des Inhabers als Subtext, `cursor: not-allowed`). Wenn Folgetag Urlaub: Warnhinweis `⚠ Folgetag (N.) ist Urlaub` in roter Box.
-
-### 10.5 Speichern-Logik (`saveEditor`)
-
-Patcht Zelle via `setCell()`. Wenn `duty === "D"`: `nextCalendarDay()` bestimmt Folgetag, F wird gesetzt wenn Folgetag leer ist (Toast „F automatisch gesetzt"). Handhabt Monatsübergänge korrekt.
+- **Abbrechen** setzt den Planungsentwurf auf die letzte Baseline zurück.
+- **Schließen** verlässt den Modus; bei ungespeicherten Änderungen erscheint eine Bestätigungsfrage.
 
 ---
 
-## 11. Dienstwunsch-System
+## 10. Wünsche im Planungsmodus
 
-Drei Wunsch-Typen, nur im Planungsmodus:
+### 10.1 Speicherort
 
-| Code | Label | Icon | Hintergrund | Text | Rahmen | Algorithmus-Effekt |
-|------|-------|------|-------------|------|--------|--------------------|
-| `NO_DUTY` | Kein Dienst | ✗ | `#FEE2E2` | `#991B1B` | `#FCA5A5` | Hard Constraint: Ausschluss für D und HG |
-| `BD_WISH` | BD Wunsch | D | `#FEE2E2` | `#B91C1C` | `#F87171` | Soft: +200 Punkte im D-Scoring |
-| `HG_WISH` | HG Wunsch | H | `#E0F2FE` | `#0369A1` | `#7DD3FC` | Soft: +200 Punkte im HG-Scoring |
+Wünsche existieren nur in `planData.wishes`.
 
-Gespeichert in `planData.wishes[empName][day]`. Sichtbar in Tabellenzellen (Desktop) als Micro-Badge unten links (`.cell-wish`, 6px, 900 Gewicht) und im Tages-Detailblatt (Mobile) als Wunsch-Tag (`.mday-wish-tag`).
+### 10.2 Arten und Wirkung
 
-Chip-Styling: `.chip-wish` mit `wish-icon`-Element (20×20px, abgerundeter Mono-Buchstabe). Aktiver Wunsch: `wish-on`-Klasse mit Box-Shadow und Scale 1.05. Touch-Target auf Mobile: 48px Mindesthöhe.
+- `NO_DUTY` sperrt regulär sowohl BD als auch HG.
+- `BD_WISH` gibt bei BD-Vergabe `+220` Punkte.
+- `HG_WISH` gibt bei HG-Vergabe `+220` Punkte.
 
----
+### 10.3 Anzeige
 
-## 12. Mitarbeiterprofil-Modal
+Wünsche werden dargestellt:
 
-Vollständige, implementierte Profilansicht. Öffnet via Klick auf Mitarbeiternamen (Desktop) oder Profil-Eintrag.
+- in Desktop-Zellen als kleines Wunschsymbol,
+- im Editor als Wunschchips,
+- in der mobilen Tagesansicht als Wunsch-Tag.
 
-### 12.1 Kopfbereich
+### 10.4 Wichtige Einschränkung
 
-**Avatar:** Initialen aus `empInitials()` (zwei Großbuchstaben aus Namenstokens), farblich nach Qualifikationsposition per Gradient `posColor.border → posColor.fg`. 46×46px, rund, Mono 14px.
-
-**Titel:** Vollständiger Name aus `EMP_META.fullName`. Monat + Jahr + Werktage als Untertitel.
-
-**Meta-Row:** Positions-Pill (farbkodiert, Mono 10px), Bereich-Chip (blau, `.pm-chip-area`), Stellvertreter-Chip (grau, `.pm-chip-deputy`).
-
-### 12.2 KPI-Grid (8 Kennzahlen)
-
-Desktop: `repeat(4, 1fr)`. Mobile: `repeat(3, 1fr)`.
-
-| Kennzahl | Berechnung | Akzentfarbe (border-top) | Icon |
-|----------|-----------|-------------------------|------|
-| Werktage gesamt | Arbeitstage im Monat | `#3B82F6` (Blau) | Kalender |
-| Nicht geplant | `totalWorkdays - coveredWorkdays` | `#F97316` wenn > 0, `#22C55E` sonst | Uhr/Check |
-| D-Dienste | `dutyD.length`, Tagesliste als Subtext | `#EF4444` (Rot) | Mond |
-| HG-Dienste | `dutyHG.length`, Tagesliste als Subtext | `#0EA5E9` (Cyan) | Telefon |
-| Urlaub | U + ZU + SU + §15c | `#8B5CF6` (Violett) | Palme |
-| Krank | K + KK | `#DC2626` (Dunkelrot) | Plus |
-| FZA | Freizeitausgleich | `#6366F1` (Indigo) | Waage |
-| Frei | F-Tage | `#94A3B8` (Grau) | Pause |
-
-Kennzahl-Karten (`.kpi-card`): `border-top: 3px solid` in Akzentfarbe. Glassmorphism-Overlay. Optionaler Fortschrittsbalken (`.kpi-bar-wrap` / `.kpi-bar-fill`).
-
-### 12.3 Arbeitsplatz-Verteilung
-
-Horizontale Balkendiagramme (`.dist-chart`) per Arbeitsplatz-Code. Grid-Layout: Code-Badge (36px) | Balken (flex) | Anzahl (28px) | Prozent (34px). Maximaler Balken = 100% des Höchstwerts. Balkenfarbe aus Arbeitsplatz-Farbschema. Sektion ausgeblendet wenn leer.
-
-### 12.4 Status-Übersicht
-
-Analoge Balken für Status-Codes. Sektion ausgeblendet wenn leer.
-
-### 12.5 Dienst-Detail
-
-D-Gruppe mit rotem Label-Badge und Tages-Badges (`.duty-day-badge`, Mono 10px, Pill-Form). HG-Gruppe mit blauem Label-Badge. WE/FT-Tage erhalten kontrastierende Färbung. Sektion ausgeblendet wenn kein Dienst.
-
-### 12.6 Monatskalender
-
-7-Spalten-Grid (`.mcd-grid`). Wochentags-Kopf mit Sa/So in gedämpftem Grau. Jede Zelle (`.mcd`): aspect-ratio 1, min-height 38px (32px mobile). Tagesnummer (7px, oben-links absolute). Code-Text zentriert. Duty-Badge (6px, unten-rechts absolute). Heute: blauer Outline. WE/FT-Zellen: nicht klickbar. Werktage: klickbar → schließt Profil-Modal → öffnet nach 180ms Zelleditor. Hover: `brightness(.86)` + `scale(1.08)`.
-
-### 12.7 Jahresauswertung
-
-**KPI-Strip (`.yr-kpi-strip`):** 6 Gesamtwerte für das laufende Jahr: AP-Tage, Urlaub, Krank, FZA, D-Dienste, HG-Dienste. Flex-Layout mit Trennern. Responsive Wrap auf Mobile.
-
-**12-Monats-Tabelle (`.yr-table`):** Spalten: Monat, AP, Urlaub, Krank, FZA, WB, D, HG. Aktueller Monat hervorgehoben (`.yr-row-current` mit Akzent-Hintergrund). Leere Monate gedimmt. Gesamtzeile am Ende (`.yr-total-row`). Farbkodierung: grün ≥ 80%, orange ≥ 60%, rot < 60%.
+Die regulären Prüfpfade respektieren `NO_DUTY`, die HG-Kopplungsfunktion prüft es aber nur in `assignBundledHG()`. Dadurch ist die frühere Inkonsistenz aus älteren Dokumentationsständen im aktuellen Code **behoben**; gekoppelte HG werden ebenfalls nicht auf `NO_DUTY` gesetzt.
 
 ---
 
-## 13. Abteilungsübersicht
+## 11. Mitarbeiterverwaltung und Profildialog
 
-Zwei-Tab-Modal mit „Aktueller Monat" und „Jahresübersicht". Tabs als Unterleiste im dunkel gehaltenen Header.
+### 11.1 Mitarbeitendenverwaltung
 
-### 13.1 Monatsansicht
+Der Mitarbeitendendialog erlaubt:
 
-**Coverage-Strip:** Besetzungsquoten für MR, CT, D, HG (% Werktage mit Besetzung). Pro Code: farbiger Badge, Bruch-Anzeige (x/y), Prozent, Fortschrittsbalken (6px, Farbkodiert). Meta-Werte: Mitarbeitendenzahl und Werktage.
+- neue Namen für den aktuellen Monat hinzuzufügen,
+- vorhandene Namen zu entfernen.
 
-**Mitarbeiter-Tabelle (`.dept-table`):** Spalten: Name+Position, AP, MR, CT, Urlaub, Krank, FZA, D, HG, Frei, Offen (ungedeckte Werktage, orange hervorgehoben). Hover: hellgrauer Hintergrund. Team-Gesamtzeile (`.dept-total-row`) mit Summen.
+Die Änderung gilt direkt für den Monat und wird im Hauptspeicher gespeichert.
 
-### 13.2 Jahresansicht
+### 11.2 Profildialog
 
-**KPI-Strip (`.dept-yr-strip`):** Mitarbeitendenzahl, AP-Tage, Urlaub, Krank, D/HG-Verhältnis, Abdeckungsprozent. Horizontal scrollbar.
+Ein Klick auf den Namen öffnet einen Profildialog mit:
 
-**Tabelle pro Mitarbeiter:** AP-Tage, Urlaub, Krank, FZA, WB, D, HG, Abdeckung. Farbkodierung: grün ≥ 80% (`.pct-good`), orange ≥ 60% (`.pct-mid`), rot < 60% (`.pct-low`). Gesamt-Reihe.
+- Avatar aus Initialen,
+- Positionsbadge,
+- Bereich und Vertretung,
+- KPI-Karten,
+- Monatsverteilung der Arbeitsplätze,
+- Statusverteilung,
+- Diensttage (`D`, `HG`),
+- Monatskalender,
+- Jahresübersicht.
 
----
+### 11.3 KPI-Logik
 
-## 14. Export & Import
+Es werden u. a. berechnet:
 
-### 14.1 Export
+- Werktage,
+- belegte Werktage,
+- nicht geplante Werktage,
+- Anzahl `D`,
+- Anzahl `HG`,
+- Urlaub,
+- Krankheit,
+- `FZA`,
+- `F`.
 
-`doExport()`: Iteriert `localStorage` nach `radplan_v3_plan_*`-Schlüsseln. Baut `{ main: DATA, plans }`. Blob-Download via `URL.createObjectURL`. Dateiname: `radplan_YYYY-MM-DD.json`. UTF-8-Encoding. Shortcut: Strg+S (außerhalb Planungsmodus).
+### 11.4 Jahresübersicht
 
-### 14.2 Import
+Die Jahresübersicht aggregiert pro Monat:
 
-Drei Eingabewege:
-1. **Drag & Drop:** `dragenter/dragover/drop`-Events auf `.dropzone`. Visuelles Feedback: `drag-over`-Klasse (blauer Rahmen, blaues Icon).
-2. **Datei-Browser:** Klick auf Dropzone → `<input type="file">`. Accept: `.json,application/json`.
-3. **Textarea-Paste:** Manuelles JSON in `.json-ta` (dunkles Terminal-Styling).
+- AP-Tage,
+- Urlaub,
+- Krankheit,
+- `FZA`,
+- `WB`,
+- `D`,
+- `HG`.
 
-**Dropzone-Zustände:** Default → `drag-over` (aktiver Drop) → `has-file` (grüner Rahmen, Dateiname-Badge).
-
-Verarbeitungslogik: JSON parsen, Strukturprüfung. Wenn `parsed.main` → in `DATA` mergen. Wenn `parsed.plans` → pro Eintrag in localStorage schreiben. Fallback: direkt in `DATA` mergen. Dann `ensurePostBDFreiDays()` + `render()`. Fehler: rote Fehlermeldung (`.import-err`) unterhalb des Feldes.
-
----
-
-## 15. Sächsische Feiertags-Engine
-
-### 15.1 Gaußsche Osterformel (`easterDate`)
-
-Berechnet Ostersonntag via vollständigem Gaußschen Algorithmus (8 Zwischenvariablen a–l und m2). Liefert `Date`-Objekt. Alle beweglichen Feiertage werden durch Addition von `addDays(easter, offset)` berechnet.
-
-### 15.2 Alle Sächsischen Feiertage (`getSaxonyHolidays`)
-
-| Feiertag | Datum / Berechnung |
-|---------|-------------------|
-| Neujahr | 01.01. (fest) |
-| Karfreitag | Ostersonntag − 2 Tage |
-| Ostermontag | Ostersonntag + 1 Tag |
-| Tag der Arbeit | 01.05. (fest) |
-| Christi Himmelfahrt | Ostersonntag + 39 Tage |
-| Pfingstmontag | Ostersonntag + 50 Tage |
-| Tag der Deutschen Einheit | 03.10. (fest) |
-| Reformationstag | 31.10. (fest) |
-| Buß- und Bettag | Mittwoch vor 23. November (Rückwärts-Iteration) |
-| 1. Weihnachtstag | 25.12. (fest) |
-| 2. Weihnachtstag | 26.12. (fest) |
-
-Rückgabe: Dictionary `{ "YYYY-MM-DD": "Feiertagsname" }`.
-
-### 15.3 ISO-Kalenderwochennummer (`isoWeekNumber`)
-
-ISO 8601-konform: Wochen beginnen Montag, KW1 enthält den ersten Donnerstag des Jahres. Formel: ISO-Donnerstag berechnen → Abstand zum 4. Januar → `1 + Math.round(diff / 604800000)`. Korrekt für alle Jahres- und Jahrhundertübergänge.
+Nur Monate mit vorhandenen Daten werden als echte Datenmonate gewertet.
 
 ---
 
-## 16. Auto-Planung: Überblick & Pipeline
+## 12. Abteilungsübersicht
 
-Nur im Planungsmodus verfügbar. `computeAutoPlan(customTargets)` ist vollständig synchron — das Ergebnis ist sofort verfügbar. Die animierte Terminal-Darstellung ist ein asynchrones Replay des vorab vollständig berechneten Log-Arrays.
+Die Abteilungsübersicht besitzt zwei Tabs.
 
-### 16.1 Voraussetzungen
+### 12.1 Monatstab
 
-`planMode === true` und `planData` vorhanden. Alle manuell gesetzten D/HG-Einträge werden vollständig beibehalten und nie überschrieben. Der Algorithmus füllt ausschließlich noch leere Tage.
+Für den aktuellen Monat werden gezeigt:
 
-### 16.2 BD-Standardziele
+- Zahl der Werktage,
+- Zahl der Mitarbeitenden,
+- prozentuale Werktagsabdeckung von `MR`, `CT`, `D`, `HG`,
+- tabellarische Mitarbeitendenübersicht mit AP-Tagen, MR, CT, Urlaub, Krank, FZA, D, HG, Frei, Offen.
 
-| Mitarbeiter | Standard-BD-Ziel/Monat | Begründung |
-|-------------|----------------------|-----------|
-| Prof. Schäfer | 0 | Dienst-befreit (DUTY_EXEMPT) |
-| Dr. Polednia | 3 | KUS-bedingte Einschränkung |
-| Dr. Becker | 3 | CT-Leitungs-bedingte Einschränkung |
-| Hr. Sebastian | 3 | Reduziertes Soll |
-| Alle anderen | 4 | Standard |
+„Offen“ bedeutet: Werktage ohne Assignment und ohne Duty.
 
-Ziele sind im Konfigurationsdialog auf 0–10 anpassbar via Number-Input (`.ap-target-input`). Die Summe aller Ziele wird live angezeigt und verglichen mit der Anzahl benötigter BD-Tage.
+### 12.2 Jahrestab
 
-### 16.3 Pipeline
+Die Jahresübersicht zeigt pro Mitarbeitendem:
 
-```
-Phase 1  init          Historische Statistiken laden, F-Repair, Vormonat-Status
-Phase 2  bd_weekend    WE/FT-BD vergeben (Priorisierung vor Werktagen)
-Phase 3  bd_workday    Werktags-BD vergeben
-Phase 4  bd_optimize   3 Swap-Passes für Fairness-Glättung
-Phase 5  hg_bundle     Freitags/Sonntags/FT-HG logisch koppeln
-Phase 6  hg_assign     Verbleibende HG-Tage via Scoring vergeben
-Phase 7  validate      Doppel-D-Prüfung und Bereinigung
-Phase 8  done          Zusammenfassung, Warnungen, Infos aufbauen
+- AP-Tage,
+- Urlaub,
+- Krankheit,
+- FZA,
+- WB,
+- D,
+- HG,
+- Abdeckungsquote.
+
+Zusätzlich gibt es eine Teamzusammenfassung über alle im Jahr vorkommenden Mitarbeitenden.
+
+---
+
+## 13. Import, Export und Reparaturlogik
+
+### 13.1 Export
+
+Der Export erzeugt eine JSON-Datei mit:
+
+```json
+{
+  "main": { ... },
+  "plans": { ... }
+}
 ```
 
-### 16.4 Konfigurationsdialog
+Die Datei wird auf den aktuellen Tag datiert (`radplan_YYYY-MM-DD.json`).
 
-Tabelle mit allen dienstfähigen Mitarbeitern. Pro Zeile: Name, Positions-Badge, aktuell manuell gesetzte BD-Anzahl, Ziel-Input, verbleibend. Dienst-befreite Personen in grauer Info-Zeile. Berechnen-Button mit Layer-Icon. Auf iOS: zusätzlicher `touchend`-Handler mit `preventDefault()`.
+### 13.2 Import
 
----
+Der Import akzeptiert:
 
-## 17. Auto-Planung: Harte Restriktionen (Hard Constraints)
+- komplette Exportstruktur mit `main` und optional `plans`,
+- oder direkt ein Hauptdatenobjekt.
 
-Hard Constraints liefern Score `-Infinity` → Kandidat bedingungslos ausgeschlossen. Wer mit `-Infinity` bewertet wird, erhält den Dienst nicht, egal was der Rest des Felds liefert.
+### 13.3 Merge-Verhalten
 
-### 17.1 Shared Hard Constraints (D und HG)
+Importierte Hauptdaten werden per `Object.assign(DATA, parsed.main)` bzw. `Object.assign(DATA, parsed)` eingemischt. Bestehende Monatsobjekte werden dabei auf Objektebene ersetzt, nicht tief zusammengeführt.
 
-| Constraint | Bedingung |
-|------------|----------|
-| Dienst-Befreiung | `isDutyExempt(emp)` |
-| Abwesenheit | Jeder Code aus `ABSENCE_CODES` an diesem Tag |
-| Doppelbelastung | `result[emp][d].duty` bereits vorhanden |
-| F-Tag | `result[emp][d].assignment === "F"` (bei HG: F auf WE erlaubt) |
-| Wunsch-Sperre | `wishes[emp][d] === "NO_DUTY"` |
+### 13.4 Drag & Drop
 
-### 17.2 Hard Constraints nur für D
+Der Importdialog unterstützt:
 
-| Constraint | Bedingung | Im Relaxed-Modus aufhebbar? |
-|------------|----------|-----------------------------|
-| Null-Ziel | `bdTarget[emp] === 0` | nein |
-| Samstag-Qualifikation | `wd === 6 && !isFacharzt(emp)` | nein |
-| Folgender D | `result[emp][d+1].duty === "D"` | nein |
-| Vorheriger D | `result[emp][d-1].duty === "D"` | nein |
-| Vor-Urlaub | `isNextDayVacation(emp, d)` | nein |
-| HG-Ruhezeit | `result[emp][d-1].duty === "HG" && weekday(d-1) !== 5` | nein |
-| Monatsübergang | `d === 1 && prevMonthLastDayBD[emp]` | nein |
-| DFDF-Muster | `wouldCreateDFDF(emp, d)` | nein |
-| Becker-Martin-Konflikt | `beckerMartinConflict(emp, d)` | nein |
-| Polednia So/Di/Do | `emp === "Dr. Polednia" && wd ∈ {0, 2, 4}` | nein |
-| Soll-Überschreitung | `currentBD[emp] >= bdTarget[emp]` | **ja** |
-| WE-Limit | `countWeekendDuties(emp) >= 2` | **ja** |
-| Becker Samstag | `emp === "Dr. Becker" && wd === 6` | **ja** |
-| Mindestabstand D | Nächster/letzter D < 4 Tage entfernt | **ja** |
+- manuelle JSON-Eingabe,
+- Dateiauswahl,
+- Drag & Drop.
 
-### 17.3 Hard Constraints nur für HG
+Erlaubt sind nur `.json`-Dateien bzw. `application/json`.
 
-| Constraint | Bedingung | Im Relaxed-Modus aufhebbar? |
-|------------|----------|-----------------------------|
-| Nicht-FA | `!isFacharzt(emp)` | nein |
-| HG-vor-D | `result[emp][d+1].duty === "D" && wd !== 5` | nein |
-| Polednia AA-HG | So/Di/Do + AA im D (Freigabe-Kollision) | **ja** |
-| WE-Limit | `countWeekendDuties(emp) >= 2` | **ja** |
-| HG-Mindestabstand | Nächster/letzter HG < 3 Tage | **ja** |
+### 13.5 Reparatur fehlender `F`-Tage
 
-### 17.4 DFDF-Mustererkennung (`wouldCreateDFDF`)
+Nach Import und auch beim normalen Datenbestand kann `ensurePostBDFreiDays()` fehlende Ruhetage nach vorhandenen `D` nachtragen.
 
-Prüft bidirektional ob ein D an Tag `d` das Muster D-F-D-F erzeugen würde:
-- **Rückwärts:** `result[emp][d-2].duty === "D" && result[emp][d-1].assignment === "F"`
-- **Vorwärts:** `result[emp][d+2].duty === "D" && result[emp][d+1].assignment === "F"`
+Eigenschaften dieser Reparatur:
 
-Dieses Muster ist unzulässig, da es eine Person in einen Rhythmus von Dienst → Frei → Dienst → Frei zwingt ohne echte Erholung.
-
-### 17.5 Becker-Martin-Konflikt (`beckerMartinConflict`)
-
-Für Dr. Becker und Dr. Martin: Ist der konkrete F-Folgetag (Tag `d+1`) im `assignments` des Partners ein Urlaubstag (`VACATION_CODES`)? Falls ja → Conflict. Berücksichtigt Monatsübergänge korrekt (liest aus `DATA[nextMonthKey]`). Verhindert CT-Leitungsausfall wenn eine Person D hat und der Partner an dem daraus resultierenden F-Tag Urlaub hat.
-
-### 17.6 Relaxed-Modus
-
-Wenn nach strikter Kandidatenprüfung kein einziger Kandidat verfügbar ist, werden die mit „ja" markierten Constraints deaktiviert und erneut nach Kandidaten gesucht. Anzahl relaxierter Zuteilungen wird in der Zusammenfassung und im Terminal-Log ausgewiesen.
+- sie läuft über alle gespeicherten Monate,
+- sie ergänzt `F` nur, wenn am Folgetag noch **kein Assignment** existiert,
+- sie schreibt bei vorhandenem Folgemonat auch monatsübergreifend,
+- sie speichert nur dann, wenn wirklich Reparaturen passiert sind.
 
 ---
 
-## 18. Auto-Planung: Scoring für Bereitschaftsdienst (D)
+## 14. Feiertags- und Kalenderlogik
 
-**Basis-Score: 100 Punkte.** Höchster Score gewinnt. Alle Faktoren sind additiv.
+### 14.1 Kalendergrundlagen
 
-| Faktor | Formel | Typischer Wertebereich | Erklärung |
-|--------|--------|----------------------|-----------|
-| **Basis** | Startwert | +100 | Grundwert für alle Kandidaten |
-| **Soll-Unterschreitung** | `(bdTarget − currentBD) × 50` | +50 bis +200 | Personen unter ihrem Soll werden bevorzugt |
-| **Soll-Überschreitung** | `(currentBD − bdTarget + 1) × 5000` | −5000 bis −∞ | Macht Überschreitung praktisch unmöglich |
-| **BD-Wunsch** | Wunsch `BD_WISH` gesetzt | +200 | Dienstwunsch des Mitarbeiters |
-| **Historische Fairness** | `(avgHistBD − histBD[emp]) × 3` | variabel | Ausgleich über Monate hinweg |
-| **Donnerstag-Vor-Urlaub** | `wd === 4` und Folgewoche mit Urlaub | +150 | Praktisch: D Do → F Fr → Urlaub Mo |
-| **WE-Belastung laufend** | `countWeekendDuties(emp) × 150` | −150 bis −600+ | WE-Balance im laufenden Monat |
-| **Historische WE-Fairness** | `(avgHistWE − histWE[emp]) × 5` | variabel | Langfristiger WE-Ausgleich |
-| **Konsekutive WE** | Vorwochenende hatte Dienst | −50 | Verhindert aufeinanderfolgende WE-Dienste |
-| **Samstags-Fairness (nur FA)** | `(avgHistSatBD − histSatBD − currentSatBD) × 800` | sehr dominant | Samstags-D-Balance über FAs |
-| **Becker-Notfall-Samstag** | Dr. Becker + wd=6 + relaxed | −2000 | Nur im äußersten Notfall |
-| **Erholungs-Abstand** | `minDistD < 4 → (4 − minDistD) × 150` | −150 bis −450 | Mindestabstand zwischen Diensten |
-| **Feiertags-Fairness** | `(avgHistHol − histHol[emp]) × 8` | variabel | Feiertagslast-Ausgleich |
-| **Oster/Pfingst-Wechsel** | Hat Ostern gearbeitet → Pfingst-Penalty | −80 | Rotation zwischen Feiertagsblöcken |
-| **Deterministischer Tiebreaker** | `(charCode(emp[0]) × 31 + d × 7) % 10 × 0.1` | 0 bis +0.9 | Reproduzierbarer Gleichstandsbrecher |
+Hilfsfunktionen der App:
 
-**Gewichtshierarchie:** Soll-Überschreitung (×5000) > Samstags-Fairness (×800) > WE-Belastung (×150) > Erholung (×150) > Soll-Unterschreitung (×50) > Feiertags-Fairness (×8) > WE-Fairness (×5) > Historische Fairness (×3).
+- `daysInMonth()`
+- `weekday()`
+- `isWeekend()`
+- `isFriday()`
+- `isoWeekNumber()`
+- `nextCalendarDay()`
+- `prevCalendarDay()`
 
----
+### 14.2 Feiertage Sachsen
 
-## 19. Auto-Planung: Scoring für Hintergrunddienst (HG)
+`getSaxonyHolidays(year)` berechnet:
 
-**Basis-Score: 100 Punkte.** Kandidatenpool: nur `hgFAs` (Fachärzte ohne Befreiung).
+- Neujahr,
+- Karfreitag,
+- Ostermontag,
+- Tag der Arbeit,
+- Christi Himmelfahrt,
+- Pfingstmontag,
+- Tag der Deutschen Einheit,
+- Reformationstag,
+- Buß- und Bettag,
+- 1. Weihnachtstag,
+- 2. Weihnachtstag.
 
-| Faktor | Formel | Typischer Wertebereich | Erklärung |
-|--------|--------|----------------------|-----------|
-| **Basis** | Startwert | +100 | Grundwert |
-| **Laufende HG-Anzahl** | `currentHG[emp] × 120` | −120 pro HG | Verteilung der HG-Last |
-| **BD-Ausgleich** | `(avgBD − currentBD[emp]) × 30` (nur bei BD-Defizit) | +30 pro fehlendem BD | Kompensation für fehlende BD |
-| **AA-im-D Fairness** (hist+aktuell) | `devAA × |devAA| × 35` | quadratisch, variabel | Balance der aufwändigen HGs |
-| **FA-im-D Fairness** (hist+aktuell) | `devFA × |devFA| × 20` | quadratisch, variabel | Balance der leichteren HGs |
-| **HG-Wunsch** | Wunsch `HG_WISH` gesetzt | +200 | Dienstwunsch |
-| **Vor-Urlaubs-Penalty** | Folgetag ist Urlaub | −20 | Vermeidet HG direkt vor Urlaub |
-| **WE-Belastung Sa/So** | `countWeekendDuties(emp) × 100` | variabel | WE-Balance |
-| **Konsekutive WE** | Vorwochenende hatte Dienst | −30 | Spread über Wochen |
-| **Erholungs-Abstand** | `minDistHG < 4 → (4 − minDistHG) × 20` | −20 bis −60 | Mindestabstand |
-| **Oster/Pfingst-Wechsel** | Analog D-Scoring | −80 | Feiertagsrotation |
-| **Direkter Folge-HG** | `result[emp][d-1].duty === "HG"` | −15 | Vermeidet direkte Folge |
-| **Deterministischer Tiebreaker** | `(charCode(emp[1 % len]) × 17 + d × 13) % 10 × 0.1` | 0 bis +0.9 | Anderer Seed als D-Scoring |
+### 14.3 Oster- und Pfingstbezug
 
-**Quadratische AA/FA-Balance:** `devAA × |devAA| × 35` bedeutet: kleine Ungleichgewichte (dev ≈ 1) kosten nur 35 Punkte, aber große Ungleichgewichte (dev ≈ 3) kosten 315 Punkte. Historische Werte fließen additiv ein — langfristige Fairness über Monate strukturell gesichert.
+Für Auto-Planung wird zusätzlich eine Blocklogik verwendet:
 
----
+- **Ostern** = Karfreitag, Ostersonntag, Ostermontag
+- **Pfingsten** = Pfingstsonntag, Pfingstmontag
 
-## 20. Auto-Planung: HG-Kopplung (Bundling)
+Wer im einen Feiertagsblock arbeitet, wird im anderen Block ausgeschlossen.
 
-Vor der freien HG-Vergabe werden bestimmte HG-Tage logisch gebunden. Ziel: zusammenhängende Wochenend-Last, minimale Anfahrten für Fachärzte.
+### 14.4 Wochenendäquivalente
 
-### 20.1 Freitags-HG-Kopplung
+Wochenendbelastung wird nicht pro Tag gezählt, sondern pro ISO-KW über Freitag/Samstag/Sonntag aggregiert:
 
-**Bedingung:** `wd(d) === 5` UND AA hat D an Tag `d` UND Samstag `d+1` existiert UND FA hat D an `d+1` UND Samstags-FA ≠ Freitags-AA.
+- mindestens ein `D` im Wochenende → `1.0`
+- kein `D`, aber mindestens ein `HG` → `0.5`
 
-**Aktion:** Samstags-FA erhält automatisch HG für Freitag.
+Diese Logik gilt:
 
-**Begründung:** Der Freitags-AA-BD-Inhaber braucht am Samstag Befundfreigabe. Da der Samstags-FA ohnehin in der Klinik ist, ist die Kopplung effizient.
+- historisch,
+- im aktuellen Monat,
+- in BD/HG-Scoring,
+- in den Abschlusswarnungen.
 
-### 20.2 Sonntags-HG-Kopplung
+Das Ziel ist aktuell:
 
-**Bedingung:** `wd(d) === 6` UND FA hat D am Samstag UND Sonntag `d+1` existiert UND jemand hat D am Sonntag UND dieser ≠ Samstags-FA.
+- `TARGET_WEEKEND_DUTY = 1`
 
-**Aktion:** Samstags-FA erhält automatisch HG für Sonntag.
+Der strenge Grenzwert vor Relaxation ist:
 
-**Begründung:** Wochenendbündelung — ein FA deckt das gesamte Wochenende ab.
-
-### 20.3 Feiertags-Vorab-HG-Kopplung
-
-**Bedingung:** Tag `d` kein Feiertag UND `d+1` Feiertag UND AA hat D an `d` UND FA hat D an `d+1` UND Feiertags-FA ≠ Vorab-AA.
-
-**Aktion:** Feiertags-FA erhält HG für Tag `d`.
-
-**Begründung:** Kein extra FA-Einsatz für einzelnen HG-Tag vor Feiertag.
-
-### 20.4 Validierung vor Kopplung
-
-`assignBundledHG()` prüft: FA-Qualifikation, Nicht-Abwesend, kein bereits vorhandener Dienst, kein F-Tag (außer bei WE), HG noch nicht besetzt von jemand anderem, kein D am Folgetag (außer Freitag).
+- `RELAXED_WEEKEND_DUTY_LIMIT = 1.5`
 
 ---
 
-## 21. Auto-Planung: Swap-Optimierer
+## 15. Auto-Planung: Gesamtpipeline
 
-Nach der initialen BD-Vergabe: bis zu 3 Optimierungs-Passes über alle BD-Paare.
+Die Auto-Planung läuft nur im Planungsmodus.
 
-### 21.1 Algorithmus
+### 15.1 Ablauf in groben Phasen
 
-Für jedes Paar `(d1, d2)` mit `d1 < d2` und verschiedenen D-Inhabern:
-1. Tausch probeweise durchführen
-2. Validität prüfen (`canDoBD` relaxed + WE-Limit ≤ 3)
-3. Fairness-Score berechnen
-4. Bei Verbesserung: Tausch behalten
-5. Sonst: rückgängig
-6. Bei mindestens einer Verbesserung in einem Pass: weiterer Pass
+1. Historische Daten laden.
+2. Bestehende Dienste und feste Diensttage erkennen.
+3. Fehlende automatische `F` nach bereits vorhandenen `D` ergänzen.
+4. Fehlende `D`-Tage bestimmen.
+5. `D` zuerst für Wochenenden/Freitage/Feiertage vergeben.
+6. Danach `D` für übrige Werktage vergeben.
+7. Anschließend iterative BD-Optimierung.
+8. HG-Kopplungen setzen.
+9. Verbleibende `HG` vergeben.
+10. Iterative HG-Optimierung.
+11. Validierung auf Doppel-`D`.
+12. Zusammenfassung, Warnungen und Bericht erzeugen.
 
-### 21.2 Fairness-Score-Funktion
+### 15.2 Fixe Dienste
 
-Globale Summe über alle `dutyEmps`:
-
-| Komponente | Formel | Gewicht |
-|------------|--------|--------|
-| Soll-Überschreitung | `diff × 5000` (wenn diff > 0) | sehr hoch |
-| Soll-Unterschreitung | `diff² × 20` (wenn diff < 0) | mittel |
-| WE-Belastung | `weCount² × 10` | niedrig |
-| Samstags-Belastung (FA) | `(histSatBD + currentSatBD)² × 500` | hoch |
-
-Quadratische Terme: kleine Ungleichgewichte toleriert, große stark bestraft. Globale Optimierung statt lokaler.
-
-### 21.3 F-Tag-Management nach Swap
-
-Alter Auto-F-Eintrag des getauschten Tages wird entfernt (wenn kein anderer Inhalt), neuer Auto-F-Eintrag für den neuen BD-Tag wird gesetzt. Monatsübergänge korrekt über `nextCalendarDay()` gehandhabt.
+Bereits gesetzte `D` oder `HG` im Entwurf werden als **fixedDutyKeys** fest markiert. Diese dürfen in den Optimierungsphasen nicht verschoben werden.
 
 ---
 
-## 22. Auto-Planung: Abschlussvalidierung & Ausgabe
+## 16. Auto-Planung: feste Stammlogik und Ziele
 
-### 22.1 Doppel-D-Bereinigung
+### 16.1 Dienstpflichtige Gruppen
 
-Alle aufeinanderfolgenden D-Paare bei gleicher Person werden entfernt (zweiter D gelöscht). Defensives Sicherheitsnetz nach der Swap-Phase. `currentBD`-Zähler wird anschließend neu berechnet.
+- `dutyEmps` = alle Mitarbeitenden außer dienstbefreiten Personen
+- `hgFAs` = alle dienstpflichtigen Fachärzte
 
-### 22.2 Zusammenfassung
+Damit gilt:
 
-Pro Mitarbeiter: BD-Anzahl, Ziel, WE-Äquivalente (KW-Block-basiert), FT-Anzahl, Liste der BD-Tage (mit WE/FT-Markierung via `.ap-day-tag`-Varianten).
+- `D` kann grundsätzlich an dienstpflichtige AA und FA gehen,
+- `HG` kann grundsätzlich nur an dienstpflichtige FA gehen.
 
-Pro FA: HG-Anzahl, Liste der HG-Tage (analog).
+### 16.2 Zielmatrix für BD
 
-**Warnungen** (`.ap-warn-item`, gelb, linker orangener Balken): Unter-Soll, hohe WE-Belastung (> 2), unbesetzte Tage.
+Die verwendeten Ziele stammen aus:
 
-**Infos** (`.ap-info-item`, blau, linker blauer Balken): Relaxed-Einsätze, Logik-Erklärungen, Wunscherfüllungsquote.
+- benutzerdefiniertem Ziel im Dialog, falls gesetzt,
+- sonst `defaultBDTarget()`.
 
-### 22.3 Live-Terminal
+### 16.3 Bereits vorhandene `F`
 
-`renderProgressAndThenResult()` ist async. Log-Array wird mit folgenden Delays replayed:
-
-| Entry-Typ | Delay | CSS-Klasse |
-|-----------|-------|-----------|
-| Zuweisung (→) | 40–120ms (zufällig) | `.ap-log-assign` |
-| Begründung (💡) | 80ms | `.ap-log-reason` |
-| Warnung (⚠) | 100ms | `.ap-log-warn` |
-| Urlaubsnotiz | 60ms | `.ap-log-vacation` |
-| Bundle-Info | 80ms | `.ap-log-bundle` |
-| Swap-Info | 80ms | `.ap-log-swap` |
-| Regel-Info | 60ms | `.ap-log-rule` |
-| Header-Einträge | 300ms | — |
-| Abschluss (✅) | 600ms | `.ap-log-success` |
-
-**Terminal-UI (`.ap-terminal`):** Dunkler Hintergrund mit macOS-ähnlicher Titelleiste (3 farbige Dots). Monospace-Schrift, Cyan-Farbtöne. Max-height 260px (200px mobile), scrollbar. Jeder Log-Eintrag mit Einblend-Animation (`apLogIn`).
-
-**Pipeline-Phasen-Knoten (`.ap-phase-node`):** 8 Knoten mit Verbindungslinien. Zustände: wartend (grau) → aktiv (orangefarbener Pulsator mit `apNodePulse`-Animation) → fertig (grünes Häkchen mit Glow).
-
-**Live-Zähler (`.ap-live-stats`):** BD, HG, Regeln, Swaps als große Mono-Zahlen auf dunklem Glassmorphism-Hintergrund.
-
-**Fortschrittsbalken (`.ap-bar-wrap`):** Goldener Shimmer-Gradient (`apBarShimmer`-Animation), Glow-Effekt darunter.
-
-### 22.4 Abschlussbericht-Modal
-
-Separates Modal (`#modal-ap-report`) mit dunkelblauem Header. Listet alle algorithmischen Entscheidungen als Karten (`.ap-report-item`). Pro Entscheidung: Datum-Badge, Mitarbeiter-Name, Duty-Badge, Begründungstext, Tags.
-
-### 22.5 Berechnen-Button iOS-Fix
-
-`ap-compute` hat `type="button"`, `cursor:pointer`, `-webkit-appearance:none`. Ein `doCompute()`-Named-Function-Handler wird für `click` registriert. Auf Mobile zusätzlich `touchend`-Handler mit `e.preventDefault()`. `input`-Events auf Zahlenfeldern (zusätzlich zu `change`) für sofortige `autoPlanTargets`-Aktualisierung. Min-height 50px auf Mobile.
+Vor jeder neuen Vergabe ergänzt der Algorithmus fehlende `F` hinter bereits vorhandenen `D` **innerhalb des aktuellen Monats**. Diese automatisch erzeugten Ruhetage werden in `autoRestDays` verfolgt, damit sie bei späteren Optimierungen notfalls wieder entfernt werden können.
 
 ---
 
-## 23. Personenspezifische Sonderregeln
+## 17. Auto-Planung: historische Statistik
 
-### 23.1 Prof. Schäfer — Vollständige Dienst-Befreiung
+`collectHistoricalDutyStats(upToYear, upToMonth)` betrachtet nur Monate **vor** dem aktuellen Monat. Zukunftsmonate gehen nicht ein.
 
-`DUTY_EXEMPT = ["Prof. Schäfer"]`. Erscheint in keiner Kandidatenliste, BD-Ziel = 0. In allen Dienststatistiken übersprungen. Im Konfigurationsdialog als graue Info-Zeile. Im Ergebnisdialog nicht gelistet.
+Pro Mitarbeitendem werden gesammelt:
 
-### 23.2 Dr. Polednia — KUS-Kollisionsschutz
+- `bd`
+- `hg`
+- `weDuty`
+- `holDuty`
+- `thuBd`
+- `hgForAA`
+- `hgForFA`
+- `satBd`
 
-**D-Sperre (Hard Constraint, nicht aufhebbar):** Kein D an Sonntag (0), Dienstag (2), Donnerstag (4). F nach D an diesen Tagen würde KUS-Ausfall am Folgetag erzeugen. Da Dr. Polednia der einzige KUS-fähige Arzt ist, ist diese Regel absolut.
+### 17.1 Zweck der historischen Werte
 
-**HG-Sperre mit AA im D (Soft Constraint, im Relaxed aufhebbar):** Kein HG an So/Di/Do wenn AA im D ist. HG bei AA-BD erfordert Befundfreigabe am Folgetag — dieser kollidiert mit KUS.
+Diese Statistik beeinflusst aktuell vor allem:
 
-### 23.3 Dr. Becker — CT-Leitung & Samstags-Sonderregel
+- Anzeige im Ziel-Dialog,
+- Feiertagsausgleich bei BD,
+- Berichts- und Transparenzaspekte.
 
-**Samstags-D-Sperre (Soft, im Relaxed aufhebbar):** Im Strict-Modus gesperrt. Im Relaxed: erlaubt, aber −2000 Punkte. Dr. Becker erhält Samstags-D nur wenn kein anderer FA verfügbar ist.
-
-**FZA-Automatik:** Wenn Dr. Becker zwangsweise Samstags-D erhält: FZA für Montag wird automatisch gesetzt. Implementierung: `nextCalendarDay(y, m, d)` → Sonntag, dann `nextCalendarDay(...)` → Montag. Monatsübergang korrekt via direktem Schreiben in `DATA[nextMonthKey]`.
-
-**Becker-Martin-Regel:** `beckerMartinConflict()` prüft den konkreten F-Folgetag auf Urlaubscode des Partners Dr. Martin.
-
-### 23.4 Dr. Martin — CT-Leitungsschutz
-
-Symmetrische Becker-Martin-Regel: Kein D wenn F-Folgetag mit Urlaubstag von Dr. Becker zusammenfällt.
-
-### 23.5 Hr. Sebastian — Reduziertes Soll
-
-BD-Standardziel: 3 statt 4 Dienste pro Monat.
+Wichtig: Historische BD/HG-Zahlen wirken **weniger breit** in die Punktelogik hinein, als man aus einer sehr allgemeinen Regelbeschreibung vielleicht erwarten würde.
 
 ---
 
-## 24. Historische Fairness-Statistik
+## 18. Auto-Planung: harte Regeln für BD
 
-`collectHistoricalDutyStats(upToYear, upToMonth)` aggregiert aus allen Monaten in `DATA` die strikt vor dem Planungsmonat liegen.
+`canDoBD(emp, d, relaxed = false, assignments = result, options = {})` entscheidet, ob ein Mitarbeitender an Tag `d` überhaupt in Frage kommt.
 
-### 24.1 Felder pro Mitarbeiter
+### 18.1 Immer harte Sperren
 
-| Feld | Bedeutung | Verwendet in |
-|------|-----------|-------------|
-| `bd` | Gesamt-Bereitschaftsdienste (historisch) | D-Scoring: `(avgHistBD − histBD[emp]) × 3` |
-| `hg` | Gesamt-Hintergrunddienste (historisch) | HG-Scoring indirekt |
-| `weDuty` | WE-Äquivalente KW-Block-basiert (§25) | D-Scoring: `(avgHistWE − histWE[emp]) × 5` |
-| `holDuty` | D+HG-Dienste an Feiertagen | D-Scoring: `(avgHistHol − histHol[emp]) × 8` |
-| `thuBd` | D-Dienste an Donnerstagen | Vor-Urlaubs-Bonus-Kontext |
-| `hgForAA` | HG-Dienste bei AA im D (mit Freigabepflicht) | HG-Scoring: quadratisch |
-| `hgForFA` | HG-Dienste bei FA im D (ohne Freigabepflicht) | HG-Scoring: quadratisch |
-| `satBd` | D-Dienste an Samstagen | D-Scoring: `(avgHistSatBD − histSatBD) × 800` |
+Ein BD ist ausgeschlossen, wenn mindestens eine der folgenden Bedingungen zutrifft:
 
-### 24.2 Verwendung im Scoring
+1. Person ist dienstbefreit.
+2. BD-Ziel ist `0`.
+3. Person ist am Tag abwesend (`ABSENCE_CODES`).
+4. In der Zelle existiert bereits ein Duty, außer derselbe BD wird explizit ignoriert.
+5. Wunsch `NO_DUTY` liegt vor.
+6. Samstag und Person ist **kein Facharzt**.
+7. `Dr. Polednia` an Sonntag, Dienstag oder Donnerstag.
+8. `beckerMartinConflict()` greift.
+9. Am selben Tag steht bereits `assignment = "F"`.
+10. Der nächste Kalendertag ist Urlaub im Sinne von `VACATION_CODES`.
+11. Am Vortag existiert bereits `D`.
+12. Am Folgetag existiert bereits `D`.
+13. Am Vortag existiert `HG`, außer dieser Vortag ist Freitag.
+14. Oster-/Pfingstblock-Konflikt greift.
 
-Alle historischen Felder fließen als Fairness-Ausgleich ein. Mitarbeitende mit unterdurchschnittlichen historischen Werten erhalten positive Aufschläge; überdurchschnittlich belastete Personen erhalten negative Aufschläge. Langfristige Fairness über viele Monate ist dadurch strukturell verankert — nicht nur innerhalb eines Monats.
+### 18.2 Strenge Regeln nur im normalen Modus
 
----
+Nur solange `relaxed = false` gilt zusätzlich:
 
-## 25. Wochenend-Äquivalente: Block-basierte Zählung
+15. aktuelles BD-Soll bereits erreicht oder überschritten,
+16. projizierte Wochenendbelastung würde `> 1.5` werden,
+17. `Dr. Becker` am Samstag,
+18. minimaler Abstand zum nächsten anderen `D` wäre `< 3` Tage.
 
-WE-Belastung wird **per ISO-Kalenderwochen-Block (Fr–Sa–So)** gezählt, nicht pro Einzeltag.
-
-Für jeden Wochenend-Block einer Person:
-- Enthält ≥ 1 D → **+1,0**
-- Enthält nur HG, kein D → **+0,5**
-- Enthält D und HG → **+1,0** (D dominiert)
-
-Diese Logik gilt konsistent in:
-- `countWeekendDuties()` (laufender Monat)
-- `collectHistoricalDutyStats()` (historisch)
-- Summary-Berechnung in `computeAutoPlan()`
-
-Damit entspricht die Zählung exakt der Fairness-Regel: ein Wochenende mit D zählt als 1, ein Wochenende nur mit HG als 0,5 — unabhängig davon wie viele Einzeltage im Block belegt sind.
+Damit ist klar: Diese vier Regeln können im Relaxed-Modus fallen.
 
 ---
 
-## 26. Keyboard-Shortcuts & Tastatursteuerung
+## 19. Auto-Planung: BD-Scoring und Gewichte
 
-### 26.1 Globale Shortcuts (Desktop)
+Wenn `canDoBD()` positiv ist, bewertet `scoreBDCandidate()` die Kandidaten.
 
-| Shortcut | Aktion | Kontext |
-|----------|--------|---------|
-| Alt + ← | Vorheriger Monat | Außerhalb Planungsmodus |
-| Alt + → | Nächster Monat | Außerhalb Planungsmodus |
-| Strg+S | JSON-Export | Außerhalb Planungsmodus |
-| Strg+S | Entwurf speichern | Im Planungsmodus |
-| Strg+Z | Rückgängig | Im Planungsmodus |
-| Strg+Y | Vorwärts | Im Planungsmodus |
-| Strg+Shift+Z | Vorwärts | Im Planungsmodus |
-| Escape | Aktives Modal schließen | Immer |
+### 19.1 Startwert
 
-Escape schließt in Prioritätsreihenfolge: `modal-editor`, `modal-emps`, `modal-import`, `modal-profile`, `modal-dept`, `modal-autoplan`, `modal-ap-report`, `modal-mobile-menu`, `modal-mobile-day`.
+Jeder Kandidat beginnt mit:
 
-### 26.2 Shortcuts im Zelleditor (Desktop)
+- `score = 100`
 
-| Taste | Aktion |
-|-------|--------|
-| `1`–`8` | Arbeitsplatz MR–T togglen (nur ohne aktiven Status) |
-| `D` | Bereitschaftsdienst togglen |
-| `H` | Hintergrunddienst togglen |
-| `S` | Speichern |
-| `Enter` | Speichern (wenn kein Button fokussiert oder `ed-save` fokussiert) |
-| `Escape` | Schließen ohne Speichern |
+### 19.2 Zielerfüllung
 
-### 26.3 Grid-Navigation
+- wenn `currentBD[emp] >= bdTarget[emp]`:
+  - Strafe `-5000 * (currentBD - target + 1)`
+- sonst:
+  - Bonus `+(target - currentBD) * 80`
 
-Alle Tabellenzellen: `tabindex="0"`. Fokus via Tab. Aktivieren via Enter oder Leertaste.
+Das ist die dominante Steuerung der Sollverteilung.
 
-### 26.4 Accessibility
+### 19.3 Wunschbonus
 
-Alle interaktiven Elemente: `aria-label` oder sichtbare Beschriftung. Modals: `role="dialog" aria-modal="true"`. Live-Bereiche: `aria-live="polite"` für Monatslabel, Stats-Bar, Toast. Fokus-Management: erster fokussierbarer Inhalt nach 60ms beim Öffnen eines Modals. `button:focus-visible` mit 2px Outline in Akzentfarbe. Tabelle als `role="grid"`.
+- `BD_WISH` → `+220`
+
+### 19.4 Donnerstag vor Urlaub
+
+Wenn der Tag ein Donnerstag ist und in der **nächsten ISO-Woche** Urlaub gefunden wird:
+
+- Bonus `+150`
+
+Wichtig: Geprüft wird nicht „unmittelbar der nächste Tag“, sondern „Folgewoche hat Urlaub“.
+
+### 19.5 Wochenendlogik
+
+Für Freitag/Samstag/Sonntag:
+
+- Strafe `-abs(projectedWe - 1) * 220`
+- zusätzliche Strafe bei Überschreitung von `1.5`:
+  - `-(projectedWe - 1.5) * 500`
+- falls bereits das Vorwochenende belastet war:
+  - `-40`
+
+### 19.6 Samstagsausgleich für Fachärzte
+
+Wenn der Tag Samstag und die Person Facharzt ist:
+
+- `projectedSat = currentSatBD + 1`
+- `avgProjectedSat = (Summe aller aktuellen Sat-BD der HG-FA + 1) / Anzahl hgFAs`
+- Strafe `-abs(projectedSat - avgProjectedSat) * 700`
+
+Das ist eine der schärfsten Fairnessgewichtungen im BD-Scoring.
+
+### 19.7 Sonderfall Dr. Becker am Samstag
+
+Wenn Relaxed-Modus aktiv ist und `Dr. Becker` dennoch am Samstag vergeben wird:
+
+- zusätzliche Strafe `-2000`
+- im Bericht Tag „Notlösung“
+- zusätzlich wird am darauffolgenden Montag `FZA` gesetzt, falls dort noch kein Assignment existiert
+
+### 19.8 D-Abstand
+
+Wenn der minimale Abstand zu einem anderen `D` unter 4 Tagen liegt:
+
+- Strafe `-(4 - minDistD) * 120`
+
+### 19.9 D-F-D-F-Muster
+
+Wenn `wouldCreateDFDF()` anschlägt:
+
+- Strafe `-260`
+
+Die Regel ist also **kein Hard-Constraint**, sondern Soft-Penalty.
+
+### 19.10 Feiertagsausgleich
+
+An Feiertagen gilt zusätzlich:
+
+- `holAvg = Durchschnitt historischer Feiertagsdienste aller dutyEmps`
+- Bonus/Malus `+(holAvg - hist[emp].holDuty) * 6`
+
+### 19.11 Tiebreaker
+
+Ein kleiner deterministischer Jitter wird addiert:
+
+- `((emp.charCodeAt(0) * 31 + d * 7) % 10) * 0.1`
+
+Der Zweck ist nur stabile Reihenfolge bei Gleichstand.
+
+### 19.12 Vergabereihenfolge
+
+Die noch offenen BD-Tage werden sortiert in:
+
+1. Freitag/Samstag/Sonntag/Feiertag,
+2. danach übrige Tage.
+
+Die restriktivsten Tage werden also zuerst vergeben.
 
 ---
 
-## 27. Fehlerbehandlung & Reparaturmechanismen
+## 20. Auto-Planung: BD-Optimierung nach Erstvergabe
 
-### 27.1 `ensurePostBDFreiDays()`
+Nach der ersten BD-Verteilung startet eine iterative Optimierung.
 
-Läuft beim App-Start und nach jedem Import. Iteriert alle Monate in `DATA`. Für jeden D-Eintrag: prüft ob Folgetag leer ist, setzt `"F"` wenn ja. Berücksichtigt Monatsübergänge. Gibt Reparaturanzahl zurück. Bei > 0: Toast „N Ruhetage ergänzt".
+### 20.1 BD-Objektivfunktion
 
-### 27.2 Repair-Phase im Auto-Planer
+`computeBDObjective()` summiert u. a.:
 
-Vor der BD-Vergabe prüft `computeAutoPlan()` den `planData.assignments`-Snapshot auf fehlende F-Folgetage nach vorhandenen BD und ergänzt sie. Anzahl im Terminal-Log ausgegeben.
+- `+20000` pro unbesetztem BD-Tag,
+- Zielabweichungen:
+  - Überziel: `diff² * 2600`
+  - Unterziel: `diff² * 1200`
+- Wochenendabweichung: `weDiff² * 480`
+- Überschreitung von `1.5` WE-Äquivalenten: `+(weProjected - 1.5) * 12000`
+- Samstag-Fairness bei Fachärzten: `(currentSatBD - satAvg)² * 850`
+- aufeinanderfolgende `D`: `+40000`
+- Abstand `< 3`: `+(3 - minDistD) * 6000`
+- Abstand `< 5`: `+(5 - minDistD) * 350`
+- D-F-D-F-Muster: `+380`
+- `Dr. Becker` Samstag: `+30000`
 
-### 27.3 Doppel-D-Bereinigung
+### 20.2 Durchläufe
 
-Finaler Safety-Check nach Swap-Phase: aufeinanderfolgende D-Paare bereinigt. Zähler wird geloggt und angezeigt. Defensives Sicherheitsnetz.
+- maximal 12 Pässe,
+- nur nicht-fixierte BD-Tage dürfen verändert werden,
+- pro Tag wird geprüft, ob ein anderer Kandidat die Zielfunktion verbessert,
+- Verbesserung wird akzeptiert, wenn `newFairness + 0.01 < bestFairness`.
 
-### 27.4 Monatsdaten-Initialisierung
+### 20.3 Ergebnis
 
-`getMonthData(y, m)` erzeugt bei fehlendem Eintrag automatisch einen neuen mit der Mitarbeiterliste des Vormonats. Fehlt der Vormonat: leere Liste.
+Wenn ein Wechsel übernommen wird:
 
-### 27.5 EMP_META-Fallback
-
-`getEmpMeta(name)` liefert für unbekannte Mitarbeitende generischen Datensatz mit Position `"—"`, Typ `"unknown"`. Alle UI-Funktionen sind dadurch robust gegen manuell hinzugefügte Mitarbeitende ohne Stammdaten.
-
-### 27.6 localStorage-Fehlerbehandlung
-
-`loadFromStorage()` und `saveToStorage()` in `try/catch`. Fehler werden still ignoriert — Anwendung startet mit leerem Datensatz wenn nötig. `setCell()` speichert im Produktionsmodus sofort, im Planungsmodus nicht.
+- Reporteintrag wird angepasst,
+- Tag `Optimiert` wird ergänzt,
+- Logeintrag `🔀` wird geschrieben.
 
 ---
 
-## 28. Technische Designentscheidungen
+## 21. Auto-Planung: harte Regeln für HG
 
-### 28.1 Kein Framework, kein Build-Schritt
+`canDoHG(emp, d, relaxed = false, assignments = result, options = {})` steuert die HG-Zulässigkeit.
 
-Vanilla JavaScript ES6+. Keine npm-Pakete, kein React/Vue/Svelte, kein Webpack/Vite. Vorteile: Null Build-Zeit, maximale Portabilität, funktioniert als lokale HTML-Datei ohne Webserver. Deploybar durch einfaches Kopieren der Dateien.
+### 21.1 Immer harte Sperren
 
-### 28.2 Synchroner Algorithmus, asynchrones UI
+HG ist ausgeschlossen, wenn:
 
-`computeAutoPlan()` läuft vollständig synchron und liefert sofort das Ergebnis inkl. vollständigem Log-Array. `renderProgressAndThenResult()` ist async und replayed das fertige Log. Dadurch bleibt der Algorithmus deterministisch, debugbar und testbar, während das UI trotzdem lebendig wirkt.
+1. Person dienstbefreit ist.
+2. Person kein Facharzt ist.
+3. Person am Tag abwesend ist (`ABSENCE_CODES`).
+4. Die Zelle bereits einen Duty trägt, außer derselbe HG wird ignoriert.
+5. Wunsch `NO_DUTY` gesetzt ist.
+6. `assignment = "F"` am selben Tag gesetzt ist und der Tag **kein Samstag/Sonntag** ist.
+7. Am nächsten Tag ein eigener `D` liegt und der aktuelle Tag **nicht Freitag** ist.
+8. Oster-/Pfingstblock-Konflikt besteht.
 
-### 28.3 Immutable Assignment-Kopie
+### 21.2 Strenge Regeln nur im normalen Modus
 
-Der Algorithmus arbeitet auf einer tiefen JSON-Kopie (`JSON.parse(JSON.stringify(...))`). Produktionsdaten werden erst beim expliziten „In Planung übernehmen" überschrieben.
+Zusätzlich nur bei `relaxed = false`:
 
-### 28.4 Deterministische Tiebreaker
+9. `Dr. Polednia` an Sonntag, Dienstag oder Donnerstag **wenn am selben Tag ein AA den D trägt**.
+10. projizierte Wochenendbelastung würde `> 1.5`.
 
-- D-Scoring: `(charCode(name[0]) × 31 + d × 7) % 10 × 0.1`
-- HG-Scoring: `(charCode(name[1 % len]) × 17 + d × 13) % 10 × 0.1`
+Wichtig: Es gibt für HG **keine harte Mindestabstandsregel** mehr im normalen Prüfschritt. Die Nähe wird nur noch weich bewertet.
 
-Unterschiedliche Seeds pro Scoring-Typ. Reproduzierbar und stabil — beeinflusst das Ergebnis nur bei echtem Score-Gleichstand.
+---
 
-### 28.5 `IS_MOBILE` als globale Konstante
+## 22. Auto-Planung: HG-Scoring und Gewichte
 
-Einmal beim Laden berechnet: `const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)`. Verhindert wiederholte UA-Prüfungen im Render-Loop. Steuert via `body.is-mobile`-Klasse das gesamte CSS-System.
+### 22.1 Startwert
 
-### 28.6 SVG-Icon-Architektur
+- `score = 100`
 
-Bewusste Entscheidung für SVG statt PNG/ICO:
-- **Verlustfreie Skalierung:** Ein einziges SVG-Icon skaliert von 16×16 (Favicon) bis 1024×1024 (Homescreen) ohne Qualitätsverlust.
-- **Dateigröße:** Ein SVG ersetzt multiple PNG-Dateien in verschiedenen Auflösungen (192px, 512px, 1024px).
-- **Manifest `"sizes": "any"`:** SVG-Icons benötigen keine feste Größenangabe — der Browser skaliert nach Bedarf.
-- **Dual-Purpose:** Das statische Icon (`any` + `maskable`) funktioniert sowohl als reguläres als auch als adaptives Icon.
-- **Animiertes Brand-Icon:** Separate SVG-Datei mit eingebetteten CSS-Animationen, als `<img>` eingebunden. Browser rendert die Animation automatisch ohne JavaScript-Overhead.
+### 22.2 Monatsausgleich HG gesamt
 
-### 28.7 iOS-spezifische Touch-Optimierungen
+- `projectedHG = currentHG + 1`
+- `avgProjectedHG = (Summe aktueller HG aller hgFAs + 1) / Anzahl hgFAs`
+- Strafe `-abs(projectedHG - avgProjectedHG) * 240`
 
-- `type="button"` auf allen Buttons (verhindert Form-Submit in Safari)
-- `-webkit-tap-highlight-color: transparent` (entfernt Standard-Highlight)
-- `touch-action: manipulation` (verhindert Double-Tap-Zoom)
-- `font-size: 16px` auf Inputs (verhindert iOS-Auto-Zoom beim Fokus)
-- `touchend`-Fallback auf kritischen Buttons
-- `-webkit-overflow-scrolling: touch` auf scrollbaren Modal-Bodies
-- `overscroll-behavior: contain` in Tagesliste (verhindert Bounce-Through)
-- `apple-mobile-web-app-capable: yes` für Standalone-Modus
-- `apple-mobile-web-app-status-bar-style: black-translucent` für immersive Statusleiste
-- `apple-mobile-web-app-title: RadPlan` für Homescreen-Titel
-- Safe-Area-Insets via `env(safe-area-inset-bottom)` für Home-Indicator
+### 22.3 Wunschbonus
 
-### 28.8 CSS-Architektur
+- `HG_WISH` → `+220`
 
-**Custom Properties:** 65+ CSS-Variablen für Farben, Abstände, Maße, Schatten, Blur-Werte.
+### 22.4 Vor Urlaub
 
-**Glassmorphism-System:** Vier Schichten:
-- Dunkel (Header, Modals): `rgba(10,21,37,.6)` + `blur(24px)`
-- Hell (Stats-Bar, Zellen): `rgba(255,255,255,.94)` + `blur(8px)`
-- Toast: `rgba(15,23,42,.8)` + `blur(16px)`
-- Planungs-Modus: `rgba(59,10,0,.45)` + `blur(24px)`
+Wenn der nächste Tag Urlaub ist:
 
-**Performance-Optimierungen:**
-- `contain: layout paint` auf Header, Stats-Bar, Grid-Wrapper, Plan-Bar, Overlay
-- `will-change: transform` auf Animationselementen
-- `translateZ(0)` für Hardware-Beschleunigung
-- `contain: strict` auf Overlay-Containern
-- `contain: layout style paint` auf Modals
+- Strafe `-20`
 
-**Animationen:** `modalIn`, `modalOut`, `slideUp`, `slideDown`, `planPulse`, `apNodePulse`, `apBarShimmer`, `apLogIn`. `@media (prefers-reduced-motion: reduce)` deaktiviert alle Animationen auf 0.01ms.
+Das ist bewusst nur ein kleiner Malus, kein Ausschluss.
 
-### 28.9 Monatskey-Format
+### 22.5 Wochenendlogik
 
-`"YYYY-M"` (nullbasierter Monat) entspricht JavaScript `Date`-Monatsindex und verhindert Off-by-One-Fehler. `monthKey(y, m)` und `prevMK(y, m)` als Helper-Konstanten.
+Für Samstag oder Sonntag:
 
-### 28.10 Farbsystem
+- Strafe `-abs(projectedWe - 1) * 150`
+- zusätzliche Strafe bei Überschreitung `1.5`:
+  - `-(projectedWe - 1.5) * 360`
+- Vorwochenende bereits belastet:
+  - `-25`
 
-Drei Farbebenen:
-1. **Navy-Palette** (Hintergründe): 900→400, von fast-schwarz bis mittelblau
-2. **Gray-Palette** (Typografie, UI-Elemente): 50→900, Slate-Grautöne
-3. **Akzent-Farben** (Interaktion, Status): Cyan (`#0EA5E9`), Rot (`#EF4444`), Grün (`#22C55E`), Orange (`#F97316`), Gold (Planungsmodus)
+### 22.6 Direkt aufeinanderfolgende HG
 
-Alle Farben als CSS Custom Properties definiert. Konsistente Verwendung über alle Komponenten — Farb-Tokens aus dem `WORKPLACES`- und `STATUSES`-Array in JavaScript generiert und als Inline-Styles auf Elemente angewendet.
+Wenn `hasAdjacentHG()` wahr ist:
+
+- Strafe `-220`
+
+Auch das ist ein Soft-Kriterium, kein harter Ausschluss im normalen HG-Pfad.
+
+### 22.7 Tiebreaker
+
+- `((emp.charCodeAt(1 % emp.length) * 17 + d * 13) % 10) * 0.1`
+
+---
+
+## 23. Auto-Planung: HG-Kopplung
+
+Vor der regulären HG-Verteilung versucht der Algorithmus bewusst, bestimmte Dienste zu koppeln.
+
+### 23.1 Regel A: Freitag-AA → Samstag-FA
+
+Wenn am Freitag ein **AA** `D` hat und am Samstag ein **FA** `D` hat, wird der Freitag-`HG` bevorzugt an den Samstags-FA gekoppelt.
+
+Berichtstext:
+
+- „Freitags-HG gekoppelt an eigenen Samstags-BD (da Freitag AA im Dienst).“
+
+### 23.2 Regel B: Samstag-FA → Sonntag-HG
+
+Wenn am Samstag ein **FA** `D` hat und am Sonntag jemand anders `D` hat, wird der Sonntag-`HG` an den Samstags-FA gekoppelt.
+
+Berichtstext:
+
+- „Sonntags-HG gekoppelt an eigenen Samstags-BD.“
+
+### 23.3 Regel C: AA vor Feiertag → Feiertags-FA
+
+Wenn ein Nicht-Feiertag direkt vor einem Feiertag liegt, dort ein **AA** `D` hat und am Feiertag ein **FA** `D` hat, wird der `HG` des Vortags an diesen Feiertags-FA gekoppelt.
+
+Berichtstext:
+
+- „HG vor Feiertag gekoppelt an eigenen Feiertags-BD (da AA im Dienst).“
+
+### 23.4 Zusätzliche Schutzprüfungen in `assignBundledHG()`
+
+Eine Kopplung findet **nicht** statt, wenn:
+
+- Person kein FA ist,
+- Person dienstbefreit ist,
+- `NO_DUTY` gesetzt ist,
+- Abwesenheit vorliegt,
+- Zelle schon einen Duty hat,
+- Feiertagsblockkonflikt besteht,
+- `F` auf Werktag steht,
+- der Tag schon einen HG hat,
+- am nächsten Tag eigener `D` liegt und heute nicht Freitag ist,
+- direkt benachbarter HG existiert.
+
+Damit ist die Kopplung nicht blind, sondern ein regelgebundener Vorzugspfad.
+
+---
+
+## 24. Auto-Planung: HG-Optimierung nach Erstvergabe
+
+Nach HG-Erstvergabe berechnet `computeHGObjective()` eine Zielfunktion.
+
+### 24.1 HG-Objektivfunktion
+
+Sie enthält u. a.:
+
+- `+15000` pro unbesetztem HG-Tag,
+- `avgHG = Durchschnitt aktueller HG aller hgFAs`,
+- `avgBDforFAs = Durchschnitt aktueller BD aller hgFAs`,
+- `avgHGForAA`, `avgHGForFA` als getrennte Mittelwerte.
+
+Für jeden FA gilt dann:
+
+- `idealHG = avgHG + (avgBDforFAs - currentBD[emp]) * 0.7`
+- Strafe für HG-Gesamtabweichung:
+  - `(currentHG - idealHG)² * 520`
+- Strafe für HG bei AA im D:
+  - `(currentHGForAA - avgHGForAA)² * 700`
+- Strafe für HG bei FA im D:
+  - `(currentHGForFA - avgHGForFA)² * 280`
+- Wochenendabweichung:
+  - `(weCount - 1)² * 260`
+- Überschreitung `1.5` WE:
+  - `+(weCount - 1.5) * 8000`
+- benachbarte HG:
+  - `+1800`
+- HG vor eigenem D (außer Freitag):
+  - `+24000`
+
+### 24.2 Durchläufe
+
+- maximal 14 Pässe,
+- nur nicht-fixierte HG-Tage dürfen verschoben werden,
+- Kandidaten werden nach Bias `currentHG - currentBD * 0.55` sortiert,
+- Verbesserung wird übernommen, wenn `newObjective + 0.01 < bestHGObjective`.
+
+### 24.3 Ergebnischarakter
+
+Damit wird umgesetzt:
+
+- HG insgesamt angleichen,
+- HG zugunsten von FÄ mit weniger BD verschieben,
+- HG bei AA vs. HG bei FA getrennt fair verteilen,
+- Wochenendlast glätten,
+- direkt aufeinanderfolgende HG eher vermeiden.
+
+---
+
+## 25. Auto-Planung: Validierung, Warnungen und Berichte
+
+### 25.1 Endvalidierung
+
+Am Ende wird explizit geprüft, ob dieselbe Person an zwei aufeinanderfolgenden Tagen `D` trägt.
+
+Wenn ja:
+
+- der spätere `D` wird gelöscht,
+- leere Zellen werden aufgeräumt,
+- eine Warnung wird geloggt.
+
+### 25.2 Summary pro Person
+
+Für jede Person werden berechnet:
+
+- BD-Anzahl,
+- BD-Ziel,
+- BD-Tage,
+- Wochenendäquivalente,
+- Feiertagsdienste,
+- HG-Anzahl,
+- HG-Tage.
+
+### 25.3 Globale Warnungen
+
+Warnungen entstehen u. a. bei:
+
+- Person bleibt unter BD-Ziel,
+- Person liegt über `1.5` WE-Äquivalenten,
+- Tag ohne BD,
+- Tag ohne HG.
+
+### 25.4 Globale Infos
+
+Die Ergebnisansicht nennt zusätzlich u. a.:
+
+- wie oft Relaxed-Regeln nötig waren,
+- dass HG über FA ausgeglichen wurden,
+- wie viele HG gebündelt wurden,
+- welches WE-Ziel verfolgt wurde,
+- dass Samstagsdienste gleichverteilt wurden,
+- dass `D-F-D-F` nur noch soft gewichtet ist,
+- dass benachbarte HG nur weich bestraft werden,
+- dass Oster-/Pfingstblöcke sich ausschließen,
+- wie viele Wünsche erfüllt wurden.
+
+### 25.5 Reportliste
+
+Der Report speichert pro automatischer Zuweisung:
+
+- Tag,
+- Person,
+- Duty-Typ,
+- Begründung,
+- Tags.
+
+Diese Liste wird als Modal angezeigt und erklärt die einzelnen Entscheidungen im Nachgang.
+
+### 25.6 Progress-Visualisierung
+
+Während der Berechnung zeigt die App:
+
+- Pipeline-Nodes,
+- Fortschrittsbalken,
+- Live-Zähler für BD, HG, Regeln und Swaps,
+- Terminal-artiges Log.
+
+Die Darstellung ist rein UI-seitig; gerechnet wird synchron vorab, die Loganzeige läuft anschließend animiert ab.
+
+---
+
+## 26. Regelabweichungen zwischen Textwunsch und Code
+
+Dieser Abschnitt ist wichtig, weil der implementierte Algorithmus nicht an jeder Stelle 1:1 dem freien Regeltext entspricht.
+
+### 26.1 Zukunftsmonate in der Fairness
+
+Der Regeltext erwähnt ggf. auch zukünftige Zuteilungen. Die Historienfunktion berücksichtigt aber **nur Monate vor dem aktuellen Monat**.
+
+### 26.2 Tag vor Urlaub
+
+„Kein Dienst am Tag vor Urlaub“ ist im Code nur für `VACATION_CODES` hart umgesetzt. Vor `FZA`, `WB`, `K`, `KK` gilt diese harte Sperre nicht.
+
+### 26.3 D-F-D-F
+
+Das Muster wird aktuell **nur weich bestraft**, nicht hart verboten.
+
+### 26.4 HG-Abstand
+
+Direkt benachbarte HG werden im aktuellen Stand weich bestraft und in Kopplungslogik teils hart vermieden, aber nicht als generelle harte Abstandssperre im Standard-HG-Pfad umgesetzt.
+
+### 26.5 Donnerstag-vor-Urlaub
+
+Die Logik schaut auf Urlaub in der **nächsten ISO-Woche**, nicht zwingend auf unmittelbar anschließenden Urlaub.
+
+### 26.6 Feiertagsausgleich
+
+Es existiert historischer Feiertagsausgleich für BD, aber keine gleichwertig breite Gewichtung historischer Faktoren über alle Dienstarten und Konstellationen hinweg.
+
+### 26.7 Beibehaltung gesetzter Dienste
+
+Bereits vorhandene Dienste werden als fix betrachtet und in Optimierungen nicht verschoben. Manuell vorhandene Assignments ohne Duty bleiben ebenfalls stehen; die Auto-Planung ergänzt primär Dienste.
+
+---
+
+## 27. PWA-, Design- und Bedienungsdetails
+
+### 27.1 PWA
+
+`manifest.json` definiert u. a.:
+
+- `name`,
+- `short_name`,
+- `start_url`,
+- `display: standalone`,
+- `orientation: any`,
+- `background_color`,
+- `theme_color`,
+- SVG-Icon als normales und maskierbares Icon.
+
+### 27.2 Kopf-Metadaten
+
+`index.html` enthält zusätzlich:
+
+- Favicon,
+- Apple-Touch-Icon,
+- Apple-Web-App-Meta-Tags,
+- Theme-Color,
+- Google-Fonts-Einbindung für IBM Plex Sans und IBM Plex Mono.
+
+### 27.3 Styling-Grundsätze
+
+Das Design kombiniert:
+
+- dunklen App-Hintergrund,
+- halbtransparente Flächen,
+- Blur- und Glow-Effekte,
+- fixe Farbzuordnung pro Code,
+- sticky Tabellenbereiche,
+- mobile Bottom-Sheets,
+- animierte Auto-Plan-Ansichten.
+
+### 27.4 Performance-Details
+
+Das CSS setzt an mehreren Stellen auf:
+
+- `contain`,
+- `backdrop-filter`,
+- `will-change`,
+- glatte Scrollbereiche,
+- unterdrückte Standardscrollbars in bestimmten Elementen.
+
+---
+
+## 28. Tastaturkürzel und Interaktionen
+
+### 28.1 Globale Shortcuts
+
+- `Alt + ←` → vorheriger Monat
+- `Alt + →` → nächster Monat
+- `Ctrl/Cmd + S` → Export oder im Planungsmodus Entwurf speichern
+- `Escape` → offene Modals schließen
+
+### 28.2 Planungsmodus
+
+- `Ctrl/Cmd + Z` → Undo
+- `Ctrl/Cmd + Y` oder `Ctrl/Cmd + Shift + Z` → Redo
+
+### 28.3 Editor
+
+- `1` bis `8` → Arbeitsplatzchips toggeln
+- `D` → Bereitschaftsdienst toggeln
+- `H` → Hintergrunddienst toggeln
+- `S` → speichern
+- `Enter` → speichern, sofern nicht bewusst ein Cancel/Clear-Button im Fokus steht
+
+### 28.4 Maus- und Scrollverhalten
+
+Im Desktop-Grid wird vertikales Mausrad in horizontales Scrollen umgesetzt, sofern kaum horizontale Delta-Bewegung vorhanden ist. Das erleichtert breite Monatstabellen.
+
+---
+
+## 29. Grenzen der aktuellen Implementierung
+
+1. **Kein Mehrbenutzerbetrieb**: Es gibt keine Synchronisation und keine Benutzerkonten.
+2. **Keine Servervalidierung**: Alles basiert auf lokalem JavaScript.
+3. **Keine echte tiefgehende Merge-Strategie beim Import**: Monatsobjekte können überschrieben werden.
+4. **Regeln manuell umgehbar**: Der Editor lässt Konstellationen zu, die der Auto-Planer selbst nicht vergeben würde.
+5. **Historie ohne Wünsche**: Undo/Redo betrifft nur Assignments.
+6. **Keine generische Konfiguration**: Mitarbeitendenmetadaten, Codes, Ziele und Sonderregeln sind fest im Code hinterlegt.
+7. **Monatsmodell statt Schichtdatenbank**: Viel Logik hängt an einem Monatsraster und nicht an abstrahierten Dienstobjekten.
+8. **Keine tiefe Konfliktanalyse im UI**: Viele algorithmische Konflikte werden erst im Auto-Plan berücksichtigt.
+9. **Zukunftsplanung fließt kaum in Fairness ein**: Historisch wird nur rückwärts geschaut.
+10. **Teilweise Regelcharakter weich statt hart**: Vor allem `D-F-D-F` und HG-Abstände sind Gewichtungen, keine absoluten Verbote.
+
+---
+
+## 30. Kurzfazit
+
+RadPlan ist im aktuellen Stand eine lokale Spezialanwendung für Monats- und Dienstplanung mit relativ hoher fachlicher Spezialisierung, aber bewusst einfacher technischer Architektur. Die Stärke liegt in:
+
+- extrem direkter Bedienung,
+- lokalem Datenschutz,
+- getrenntem Planungsentwurf,
+- nachvollziehbarer Auto-Planung mit Report,
+- klar implementierten Sonderregeln für bestimmte Personen und Konstellationen.
+
+Der entscheidende Punkt für das Verständnis der Anwendung ist: **Nicht jede textlich gewünschte Regel ist im Code als hartes Verbot hinterlegt.** Ein großer Teil des realen Verhaltens entsteht aus einer Kombination aus Hard-Constraints, Relaxed-Fallbacks, gewichteten Scores und anschließender iterativer Optimierung.
+
+Genau deshalb beschreibt diese README die Anwendung nicht nur aus Nutzersicht, sondern auch aus Sicht der tatsächlich implementierten Entscheidungslogik.
