@@ -1,29 +1,243 @@
-Regeln für den Algorithmus:
+RADPLAN – AKTUELLER REGELSATZ DER AUTO-PLANUNG
+==============================================
 
-- Als Dienste Zählen D und HG
-- Die D sollen möglichst entsprechend der voreingestellten Ziele verteilt werden
-- Bereits gesetzte Dienste müssen vollständig beibehalten werden
-- Eingestellte Wünsche müssen berücksichtigt werden
-- KEIN Dienst an Urlaubstagen oder Tagen vor Urlaub
-- Am Tag nach einem D ist IMMER automatisch F einzutragen, hier kein weiterer D (ohne Ausnahme); Ausnahme: an Wochenenden sollte ein FA der am Samstag D hat am Sonntag den HG machen. Die Kombination D-D bei der gleichen Person ist also unter keinen Umständen möglich
-- Die D sollen gleichmäßig zwischen allen AA und FA über den gesamten Monat verteilt werden unter Berücksichtigung aller Regeln und Einschränkungen
-- Die HG sollen gleichmäßig zwischen allen FA über den gesamten Monat verteilt werden unter Berücksichtigung aller Einschränkungen.
-- Bei der Vergabe der D und HG soll primär auf ein ausgewogenes Verhältnis im Sinne der Regeln für den aktuellen Monat geachtet werden. Bei möglichen Vergabekonflikten nutzt du Fairness-Regeln, für die du die zurückliegenden Schichteinteilungen und ggf. auch bereits in Zukunft gesetzte Zuteilungen berücksichtigst.
+Stand dieses Dokuments
+----------------------
+Dieses Dokument beschreibt den aktuell in der Anwendung umgesetzten Regelsatz der Auto-Planung für Bereitschaftsdienst (D) und Hintergrunddienst (HG). Es ist keine historische Notiz und kein Änderungsprotokoll, sondern die fachliche Soll-/Ist-Beschreibung des aktuellen Verhaltens der Anwendung.
 
-- Zu Diensten am Wochenende zählen D und HG am Freitag, Samstag und Sonntag. Es sollen die Wochenenden mit Diensten gezählt werden, wobei ein Wochenende mit mindestens einem D als 1 gewertet wird und ein Wochenende mit nur HG als 0,5 gewertet wird.
-- Die Anzahl an Wochenenden mit Diensten soll möglichst gering gehalten werden.
-- Die Samstags D sollen nur von einem FA besetzt werden.
-- Die Anzahl der Samstags D sollten möglichst gleichmäßig zwischen den FA verteilt werden (außer Dr. Becker) unter Beachtung aller Regeln, Voreinstellungen/Wünsche, Einschränkungen und Fairness-Regeln. Dr. Becker soll nur für einen D am Samstag eingetragen werden, wenn sie wirklich die letzte Möglichkeit für einen D durch einen FA am Samstag ist.
-- HG dürfen nur von einem FA übernommen werden. HG bei einem AA im D hat zur Folge, dass der FA telefonisch für Fragen des AA bereit stehen muss und am nächsten Tag die Befunde des AA freigeben muss, bei einem HG für einen FA im D ist diese Freigabepflicht nicht, die HG sind also entspannter für den Hintergrundhabenden; Folge: hat ein AA am Freitag D soll der FA der am Samstag D hat auch den HG des AA am Freitag übernehmen, dass kein FA extra in die Klinik fahren muss.
-- Kein HG für AA, wenn der FA am nächsten Tag D hat, da der FA am Tag des D eine halbe Stunde später kommt und somit die Befundfreigabe nicht rechtzeitig machen kann.
-- HG sollen möglichst so zwischen den FA verteilt werden, dass die Anzahl an HG mit AA im D und FA im D möglichst fair verteilt ist.
-- Ein FA der weniger D in dem entsprechenden Monat hat kann tendenziell mehr HG eingeteilt bekommen als die anderen FA, die Anzahl der D bleibt davon unberührt und soll entsprechend der Voreinstellungen und Vorgaben/Regeln gleichmäßig aufgeteilt werden.
-- Donnerstag D ist ein sehr beliebter Dienst, da man durch das F am Freitag ein verlängertes Wochenende hat. Dieser Dienst ist bevorzugt an diejenigen zu vergeben, die anschließend Urlaub haben, um den Urlaub pseudo zu verlängern. Achte auch hier bei der Vergabe auf Fairness-regeln.
-- Versuche die Kombination D-F-D-F zu vermeiden, außer es ist anders gewünscht. 
-- Versuche die D und HG möglichst gleichmäßig über die verfügbaren Tage des Monats zu verteilen unter Beachtung aller Regeln.
 
-- Dr. Polednia keine D am Sonntag, Dienstag und Donnerstag, da er der einzige ist, der am Tag darauf KUS machen kann
-- Dr. Polednia möglichst kein HG von AA am Sonntag, Dienstag und Donnerstag, da die Freigabe der Befunde sonst mit KUS kollidiert
-- Dr. Becker möglichst kein Samstag D, falls es sich nicht vermeiden lässt muss sie am darauf folgenden Montag einen FZA-Tag eingetragen bekommen.
-- Dr. Martin keine D dass F auf einen Werktag fällt wenn Dr. Becker im Urlaub ist und andersrum, da sich die beiden in der CT-Leitung vertreten.
+1. ZIELHIERARCHIE
+-----------------
+Die Auto-Planung verfolgt mehrere Ziele gleichzeitig. Bei Zielkonflikten gilt die folgende Priorisierung:
+
+1. Vollständige Besetzung aller notwendigen D- und HG-Dienste.
+2. Vermeidung fachlich oder organisatorisch unzulässiger Vergaben.
+3. Erhalt bereits manuell gesetzter Dienste.
+4. Berücksichtigung expliziter Wünsche und harter personenbezogener Restriktionen.
+5. Faire Verteilung von D, HG, Samstagsdiensten, Wochenendlasten und Feiertagslasten.
+6. Möglichst ruhige, nachvollziehbare und klinisch praktikable Dienstmuster.
+
+
+2. GRUNDLAGEN
+-------------
+- Als Dienste gelten ausschließlich D und HG.
+- HG dürfen nur von Fachärztinnen/Fachärzten übernommen werden.
+- Samstags-D dürfen nur von Fachärztinnen/Fachärzten übernommen werden.
+- Bereits gesetzte Dienste bleiben erhalten und werden nicht überschrieben, außer innerhalb der iterativen Optimierung für nicht fixierte Auto-Plan-Zuweisungen.
+- Wünsche aus dem Planungsmodus werden berücksichtigt:
+  - BD_WISH erhöht die Priorität für D.
+  - HG_WISH erhöht die Priorität für HG.
+  - NO_DUTY blockiert eine Dienstvergabe.
+
+
+3. HARTE AUSSCHLUSSREGELN FÜR D
+-------------------------------
+Eine Person darf keinen D erhalten, wenn mindestens einer der folgenden Punkte zutrifft:
+
+- Die Person ist dienstbefreit.
+- Das individuelle D-Ziel ist 0.
+- Die Person ist am Tag abwesend.
+- An diesem Tag ist für die Person bereits ein Dienst gesetzt.
+- Für diesen Tag liegt NO_DUTY vor.
+- Der Tag ist Samstag und die Person ist kein FA.
+- Dr. Polednia darf sonntags, dienstags und donnerstags keinen D erhalten.
+- Die Becker/Martin-Vertretungsregel blockiert den Dienst.
+- Am Diensttag ist bereits F gesetzt.
+- Am Folgetag liegt Urlaub oder urlaubsähnliche Abwesenheit vor.
+- Am Vortag oder Folgetag besteht bereits ein D.
+- Am Vortag besteht ein HG und dieser Übergang ist klinisch unzulässig.
+- Die Oster-/Pfingst-Blockregel blockiert die Vergabe.
+- Im strengen Modus zusätzlich:
+  - Das individuelle Monatsziel wäre bereits erreicht oder überschritten.
+  - Das projizierte Wochenendäquivalent würde über die zulässige Grenze steigen.
+  - Dr. Becker erhält im strengen Modus keinen Samstags-D.
+  - Der Abstand zu einem anderen D wäre zu gering.
+
+
+4. HARTE AUSSCHLUSSREGELN FÜR HG
+--------------------------------
+Eine Person darf keinen HG erhalten, wenn mindestens einer der folgenden Punkte zutrifft:
+
+- Die Person ist dienstbefreit.
+- Die Person ist kein FA.
+- Die Person ist am Tag abwesend.
+- An diesem Tag ist für die Person bereits ein Dienst gesetzt.
+- Für diesen Tag liegt NO_DUTY vor.
+- An normalen Werktagen blockiert ein eingetragener F-Tag den HG.
+- Am Folgetag ist bereits ein D geplant; Ausnahme: Freitag vor Samstags-D-Kopplung.
+- Die Oster-/Pfingst-Blockregel blockiert die Vergabe.
+- Dr. Polednia soll keinen HG für AA an Sonntag, Dienstag oder Donnerstag erhalten; diese Konstellation wird im strengen Modus ausgeschlossen.
+- Im strengen Modus zusätzlich:
+  - Das projizierte Wochenendäquivalent würde über die zulässige Grenze steigen.
+
+
+5. RUHETAG- UND FOLGETAGSREGELN NACH D
+--------------------------------------
+- Nach jedem D wird automatisch ein F am nächsten Kalendertag gesetzt, sofern dort noch keine andere Belegung steht.
+- Diese Regel gilt sowohl für manuell bereits vorhandene D als auch für durch die Auto-Planung neu vergebene D.
+- Doppel-D an direkt aufeinanderfolgenden Tagen derselben Person werden entfernt bzw. verhindert.
+- D-F-D-F soll möglichst vermieden werden; diese Regel ist ein Soft-Constraint und kein absolutes Verbot.
+
+
+6. WOCHENENDREGELN
+------------------
+Wochenenddienste werden speziell betrachtet:
+
+- Wochenendrelevante Tage sind Freitag, Samstag und Sonntag.
+- Ein Wochenende zählt je Person als:
+  - 1,0 wenn in dieser Kalenderwoche mindestens ein D auf Freitag/Samstag/Sonntag liegt.
+  - 0,5 wenn kein D, aber mindestens ein HG auf Freitag/Samstag/Sonntag liegt.
+- Ziel ist eine möglichst gleichmäßige Verteilung dieses Wochenendäquivalents.
+- Zusätzlich wird versucht, aufeinanderfolgende dienstbelastete Wochenenden zu entzerren.
+
+
+7. SAMSTAGSREGELN
+-----------------
+- Samstags-D werden ausschließlich mit FA besetzt.
+- Die Anzahl der Samstags-D soll über die FA möglichst gleichmäßig verteilt werden.
+- Dr. Becker soll nur dann einen Samstags-D erhalten, wenn keine bessere fachlich zulässige Alternative verfügbar ist.
+- Wenn Dr. Becker einen Samstags-D erhält, gilt zwingend folgende Sonderregel:
+  - ihr FZA soll am nächsten Werktag nach dem Samstag liegen,
+  - jedoch nur dann, wenn an diesem Werktag nicht bereits ein anderer FA Urlaub oder F hat,
+  - und nur dann, wenn Dr. Becker an diesem Tag noch keine andere Belegung hat,
+  - andernfalls wird kein automatischer FZA gesetzt und die Anwendung erzeugt eine gut sichtbare kritische Warnung in der Auto-Planungs-Modal.
+
+
+8. HG-D-HG-WOCHENENDKETTE
+-------------------------
+Die Anwendung berücksichtigt eine feste Wochenendkopplung zwischen Freitag, Samstag und Sonntag:
+
+- Hat ein AA am Freitag D, soll der FA mit Samstags-D auch den HG am Freitag übernehmen.
+- Hat ein FA am Samstag D, soll derselbe FA auch den HG des Sonntags übernehmen.
+- Diese Wochenendkopplung wird vor der allgemeinen HG-Verteilung erzeugt.
+- Gekoppelte HG-Zuweisungen werden anschließend nicht mehr in der iterativen HG-Optimierung verschoben.
+- Damit bleibt die beabsichtigte HG-D-HG-Wochenendkette stabil.
+
+Ziel dieser Regel:
+- möglichst nur ein FA für die klinisch relevante Freitags-/Samstags-/Sonntagskette,
+- weniger unnötige zusätzliche Klinikfahrten,
+- saubere Befundfreigabe des Freitag-AA durch den Samstags-FA,
+- robustere und klinisch besser vermittelbare Wochenendplanung.
+
+
+9. PERSONENSPEZIFISCHE SONDERREGELN
+-----------------------------------
+Aktuell sind folgende personenbezogenen Regeln umgesetzt:
+
+- Prof. Schäfer ist dienstbefreit.
+- Dr. Polednia:
+  - Standardziel für D reduziert.
+  - Keine D an Sonntag, Dienstag, Donnerstag.
+  - HG für AA an Sonntag, Dienstag, Donnerstag wird im strengen Modus blockiert.
+- Dr. Becker:
+  - Standardziel für D reduziert.
+  - Samstags-D nur als Notlösung.
+  - Bei Samstags-D FZA-Regel am nächsten Werktag mit Sichtwarnung bei Konflikt.
+- Hr. Sebastian:
+  - Standardziel für D reduziert.
+- Dr. Becker / Dr. Martin:
+  - Kein D, wenn der freie Folgetag des einen auf einen Werktag fiele, an dem der andere im Urlaub ist.
+
+
+10. FEIERTAGS- UND BLOCKREGELN
+------------------------------
+- Die Anwendung berechnet sächsische Feiertage algorithmisch.
+- Feiertage werden in die Fairnessbewertung einbezogen.
+- Osterblock und Pfingstblock werden gekoppelt betrachtet.
+- Wer im Osterblock Dienst hat, wird für den Pfingstblock ausgeschlossen und umgekehrt.
+- Diese Prüfung berücksichtigt bei Bedarf auch relevante Daten außerhalb des aktuellen Monats.
+
+
+11. HISTORISCHE FAIRNESS
+------------------------
+Zur Bewertung der Fairness werden historische Monatsdaten vor dem Zielmonat ausgewertet. Erfasst werden insbesondere:
+
+- Anzahl D,
+- Anzahl HG,
+- Wochenendäquivalente,
+- Feiertagslast,
+- Donnerstag-D,
+- HG für AA,
+- HG für FA,
+- Samstags-D.
+
+Diese Werte beeinflussen:
+- Feiertagsverteilung,
+- Samstagsausgleich,
+- generelle Monatsfairness,
+- Verhältnis HG zu D,
+- Verhältnis HG für AA gegenüber HG für FA.
+
+
+12. SCORING FÜR D
+-----------------
+Bei zulässigen D-Kandidaten bewertet der Algorithmus unter anderem:
+
+- Entfernung zum individuellen Monatsziel,
+- erfüllte D-Wünsche,
+- Donnerstag vor Urlaub,
+- Wochenendlast,
+- Samstagsgerechtigkeit unter FA,
+- historische Feiertagsbelastung,
+- Abstand zu anderen D,
+- Vermeidung von D-F-D-F,
+- deterministischen Tie-Break.
+
+
+13. SCORING FÜR HG
+------------------
+Bei zulässigen HG-Kandidaten bewertet der Algorithmus unter anderem:
+
+- gleichmäßige HG-Verteilung im Monat,
+- HG-Wünsche,
+- Wochenendlast,
+- Vermeidung direkt aufeinanderfolgender HG,
+- Ausgleich zwischen HG für AA und HG für FA,
+- Tendenz, FA mit weniger D etwas stärker bei HG heranzuziehen.
+
+
+14. ITERATIVE OPTIMIERUNG
+-------------------------
+Nach der ersten Verteilung folgen Optimierungsschritte:
+
+- BD-Optimierung durch Reassignments nicht fixierter Auto-Plan-Zuweisungen.
+- HG-Optimierung durch Reassignments nicht fixierter HG.
+- HG, die explizit durch die HG-D-HG-Wochenendkopplung entstanden sind, bleiben dabei geschützt.
+
+Optimiert werden vor allem:
+- Zielnähe,
+- Samstagsbalance,
+- Wochenendäquivalente,
+- Verteilung von HG gegenüber D,
+- Vermeidung unnötiger Musterkonflikte.
+
+
+15. VALIDIERUNG UND WARNHINWEISE
+--------------------------------
+Nach Abschluss der Verteilung erfolgt eine Schlussprüfung:
+
+- D-D-Folgen werden bereinigt.
+- Fehlende D oder HG an einzelnen Tagen werden als Warnung ausgewiesen.
+- Unterschreitungen der D-Ziele werden ausgewiesen.
+- Überschreitungen der tolerierten Wochenendlast werden ausgewiesen.
+- Kritische Becker-Samstags-FZA-Konflikte werden als besonders sichtbare Warnung ausgewiesen.
+- Informationen zu Relaxierungen, HG-Kopplungen, Wochenendverteilung und Wunsch-Erfüllung werden zusätzlich im Ergebnis dargestellt.
+
+
+16. LOCKERUNGSMECHANISMUS
+-------------------------
+Wenn unter allen strengen Regeln keine vollständige Besetzung möglich ist, lockert der Algorithmus kontrolliert einzelne Sperren. Typischerweise betrifft dies:
+
+- Abstandsregeln,
+- Wochenendgrenzen,
+- bestimmte Fairnesshürden.
+
+Die Anwendung dokumentiert solche Relaxierungen in der Ergebnisübersicht.
+
+
+17. BEWUSSTE GRENZEN DES AKTUELLEN STANDS
+-----------------------------------------
+- Mehrere personenbezogene Regeln sind namentlich im Code hinterlegt und noch nicht als frei konfigurierbare Stammdatenmodellierung umgesetzt.
+- Ziele basieren auf festen Standardwerten und nicht auf Stellenanteilen.
+- Die FZA-Sonderregel für Dr. Becker prüft gezielt den nächsten Werktag; wenn dieser blockiert ist, wird bewusst nicht automatisch weitergesucht, sondern eine Warnung erzeugt.
 
