@@ -29,7 +29,7 @@
 
     <nav class="month-nav" aria-label="Monatsnavigation">
       <button type="button" class="nav-btn" id="btn-prev" title="Vorheriger Monat (Alt+←)" aria-label="Vorheriger Monat">‹</button>
-      <span id="month-label" aria-live="polite" aria-atomic="true">Januar 2026</span>
+      <button type="button" class="month-label-btn" id="month-label-btn" aria-haspopup="dialog" aria-controls="period-flyout" aria-expanded="false" title="Zeitraum auswählen"><span id="month-label" aria-live="polite" aria-atomic="true">Januar 2026</span><span class="month-label-caret" aria-hidden="true">▾</span></button>
       <button type="button" class="nav-btn" id="btn-next" title="Nächster Monat (Alt+→)" aria-label="Nächster Monat">›</button>
     </nav>
 
@@ -96,6 +96,44 @@
       </button>
     </div>
   </header>
+
+
+  <div class="period-flyout" id="period-flyout" hidden aria-hidden="true">
+    <div class="period-flyout-head">
+      <div>
+        <div class="period-flyout-title">Zeitraumsteuerung</div>
+        <div class="period-flyout-sub">Monat und Jahr unabhängig umschalten – jederzeit, auch mit offenem Modal oder im Planungsmodus.</div>
+      </div>
+      <button type="button" class="period-flyout-close" id="period-flyout-close" aria-label="Zeitraumsteuerung schließen">✕</button>
+    </div>
+    <div class="period-flyout-body">
+      <div class="period-grid">
+        <label class="period-field">
+          <span class="period-label">Monat</span>
+          <select id="period-month-select" class="period-select" aria-label="Monat auswählen"></select>
+        </label>
+        <label class="period-field">
+          <span class="period-label">Jahr</span>
+          <div class="period-year-row">
+            <button type="button" class="period-step-btn" id="period-year-prev" aria-label="Vorheriges Jahr">−</button>
+            <input id="period-year-input" class="period-year-input" type="number" inputmode="numeric" min="2000" max="2100" step="1" aria-label="Jahr eingeben">
+            <button type="button" class="period-step-btn" id="period-year-next" aria-label="Nächstes Jahr">+</button>
+          </div>
+        </label>
+      </div>
+      <div class="period-jump-row">
+        <button type="button" class="period-pill" id="period-prev-month">← Monat</button>
+        <button type="button" class="period-pill" id="period-next-month">Monat →</button>
+        <button type="button" class="period-pill" id="period-prev-year">← Jahr</button>
+        <button type="button" class="period-pill" id="period-next-year">Jahr →</button>
+      </div>
+      <div class="period-actions">
+        <button type="button" class="period-primary" id="period-apply">Zeitraum anwenden</button>
+        <button type="button" class="period-secondary" id="period-today">Heute</button>
+      </div>
+      <div class="period-context" id="period-context" aria-live="polite"></div>
+    </div>
+  </div>
 
   <div id="plan-bar" role="alert" aria-live="polite" aria-label="Planungsmodus aktiv" hidden style="display:none">
 
@@ -395,37 +433,55 @@
   </div>
 
   <div class="overlay" id="modal-emps" role="dialog" aria-modal="true" aria-labelledby="emp-title" hidden style="display:none">
-    <div class="modal" style="max-width:420px">
+    <div class="modal employee-dashboard-modal" style="max-width:min(1180px,96vw)">
 
-      <div class="modal-hd">
-        <div>
-          <div class="modal-hd-title" id="emp-title">Mitarbeitende</div>
-          <div class="modal-hd-sub"   id="emp-sub"></div>
+      <div class="modal-hd empdash-hd">
+        <div class="empdash-hd-copy">
+          <div class="modal-hd-title" id="emp-title">Jahres-Dashboard Mitarbeitende</div>
+          <div class="modal-hd-sub" id="emp-sub"></div>
+          <div class="empdash-context" id="emp-context-line" aria-live="polite"></div>
         </div>
-        <button type="button" class="modal-x" data-close="modal-emps" aria-label="Mitarbeitende schließen">✕</button>
+        <div class="empdash-hd-actions">
+          <button type="button" class="period-inline-btn" id="emp-open-period" aria-label="Zeitraumsteuerung öffnen">Zeitraum</button>
+          <button type="button" class="modal-x" data-close="modal-emps" aria-label="Mitarbeitenden-Dashboard schließen">✕</button>
+        </div>
       </div>
 
-      <div class="modal-bd">
-        <div class="emp-list-inner" id="emp-list" role="list" aria-label="Mitarbeitendenliste"></div>
-        <div class="emp-add-row">
-          <input
-            type="text"
-            class="text-input"
-            id="emp-input"
-            placeholder="Name (z.B. Dr. Müller)…"
-            autocomplete="off"
-            spellcheck="false"
-            maxlength="80"
-            aria-label="Name des neuen Mitarbeiters eingeben"
-          >
-          <button type="button" class="mbtn mbtn-primary" id="emp-add-btn">
-            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5"  y1="12" x2="19" y2="12"/>
-            </svg>
-            Hinzufügen
-          </button>
-        </div>
+      <div class="modal-bd empdash-body">
+        <section class="empdash-section">
+          <div class="empdash-summary-grid" id="emp-summary-grid"></div>
+        </section>
+
+        <section class="empdash-section">
+          <div class="empdash-toolbar">
+            <div class="empdash-toolbar-left">
+              <label class="empdash-search-wrap" for="emp-search">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="search" id="emp-search" class="text-input empdash-search" placeholder="Mitarbeitende filtern…" autocomplete="off">
+              </label>
+              <div class="empdash-filter-pills" id="emp-role-filters" role="toolbar" aria-label="Rollenfilter"></div>
+            </div>
+            <div class="empdash-toolbar-right">
+              <div class="empdash-count" id="emp-visible-count" aria-live="polite"></div>
+            </div>
+          </div>
+          <div class="empdash-card-grid" id="emp-year-grid" role="list" aria-label="Jahresübersicht aller Mitarbeitenden"></div>
+        </section>
+
+        <section class="empdash-section empdash-detail-section">
+          <div class="empdash-detail-head">
+            <div>
+              <div class="empdash-detail-title">Detailansicht Kalenderjahr</div>
+              <div class="empdash-detail-sub" id="emp-detail-sub">Bitte eine Person auswählen.</div>
+            </div>
+            <div class="empdash-view-switch" role="tablist" aria-label="Detailansicht umschalten">
+              <button type="button" class="empdash-view-btn active" id="emp-view-months" data-view="months" role="tab" aria-selected="true">Monatsverlauf</button>
+              <button type="button" class="empdash-view-btn" id="emp-view-calendar" data-view="calendar" role="tab" aria-selected="false">Jahreskalender</button>
+              <button type="button" class="empdash-view-btn" id="emp-view-admin" data-view="admin" role="tab" aria-selected="false">Verwaltung</button>
+            </div>
+          </div>
+          <div class="empdash-detail-panel" id="emp-detail-panel" role="tabpanel" aria-live="polite"></div>
+        </section>
       </div>
 
       <div class="modal-ft">
