@@ -4306,6 +4306,7 @@ function renderAutoPlanModal() {
 async function renderProgressAndThenResult(result) {
   const body = document.getElementById("ap-body");
   const applyBtn = document.getElementById("ap-apply");
+  if (!body || !applyBtn) return;
   applyBtn.style.display = "none";
   body.style.height = "min(72vh, 680px)";
   body.style.maxHeight = "min(72vh, 680px)";
@@ -4341,6 +4342,31 @@ async function renderProgressAndThenResult(result) {
           <div class="ap-phase-node" data-phase="hg"><span class="ap-pn-dot"></span><span class="ap-pn-label">HG</span></div><div class="ap-phase-conn"></div>
           <div class="ap-phase-node" data-phase="validate"><span class="ap-pn-dot"></span><span class="ap-pn-label">Finish</span></div>
         </div>
+        <div class="ap-live-stats" aria-label="Live-Statistik der Berechnung">
+          <div class="ap-ls-item">
+            <span class="ap-ls-glow"></span>
+            <strong class="ap-ls-val" id="ap-ls-bd">0</strong>
+            <span class="ap-ls-lbl">BD</span>
+          </div>
+          <span class="ap-ls-sep" aria-hidden="true"></span>
+          <div class="ap-ls-item">
+            <span class="ap-ls-glow"></span>
+            <strong class="ap-ls-val" id="ap-ls-hg">0</strong>
+            <span class="ap-ls-lbl">HG</span>
+          </div>
+          <span class="ap-ls-sep" aria-hidden="true"></span>
+          <div class="ap-ls-item">
+            <span class="ap-ls-glow"></span>
+            <strong class="ap-ls-val" id="ap-ls-rules">0</strong>
+            <span class="ap-ls-lbl">Regeln</span>
+          </div>
+          <span class="ap-ls-sep" aria-hidden="true"></span>
+          <div class="ap-ls-item">
+            <span class="ap-ls-glow"></span>
+            <strong class="ap-ls-val" id="ap-ls-swaps">0</strong>
+            <span class="ap-ls-lbl">Moves</span>
+          </div>
+        </div>
         <div class="ap-bar-wrap">
           <div class="ap-bar-track"><div class="ap-bar-fill" id="ap-prog-bar"></div><div class="ap-bar-glow" id="ap-prog-glow"></div><div class="ap-bar-scan"></div></div>
           <div class="ap-bar-info"><span class="ap-bar-phase" id="ap-prog-title">Initialisierung</span><span class="ap-bar-pct" id="ap-prog-pct">0%</span></div>
@@ -4357,30 +4383,23 @@ async function renderProgressAndThenResult(result) {
             </div>
           </div>
           <div class="ap-rule-stage ap-rule-stage-compact">
-            <div class="ap-rule-lanes ap-rule-lanes-compact">
-        <div class="ap-rule-theater" id="ap-rule-theater">
-          <div class="ap-rule-theater-head">
-            <div>
-              <div class="ap-rule-kicker">Constraint Cinema</div>
-              <div class="ap-rule-title">Regeln im Flug</div>
-            </div>
-            <div class="ap-rule-scoreboard">
-              <div class="ap-rule-score"><span>Aktive Regel</span><strong id="ap-rule-active">—</strong></div>
-              <div class="ap-rule-score"><span>Events</span><strong id="ap-rule-count">0</strong></div>
-            </div>
-          </div>
-          <div class="ap-rule-stage">
-            <div class="ap-rule-lanes" id="ap-rule-lanes">
+            <div class="ap-rule-lanes ap-rule-lanes-compact" id="ap-rule-lanes">
               <div class="ap-rule-lane" data-lane="0"></div>
               <div class="ap-rule-lane" data-lane="1"></div>
               <div class="ap-rule-lane" data-lane="2"></div>
             </div>
-            <div class="ap-rule-focus" id="ap-rule-inspector-card">
-              <span class="ap-rule-chip" id="ap-rule-chip">STANDBY</span>
-              <strong id="ap-rule-label">Warte auf erste Constraint-Kaskade…</strong>
-              <p id="ap-rule-detail">Die Engine sammelt Regeln, Konflikte und Optimierungsimpulse und visualisiert sie hier als fließende Artefakte.</p>
             <div class="ap-rule-inspector">
               <div class="ap-rule-inspector-card" id="ap-rule-inspector-card">
+                <div class="ap-rule-scoreboard">
+                  <div class="ap-rule-score">
+                    <span>Aktive Regel</span>
+                    <strong id="ap-rule-active">Initialisierung</strong>
+                  </div>
+                  <div class="ap-rule-score">
+                    <span>Events</span>
+                    <strong id="ap-rule-count">0</strong>
+                  </div>
+                </div>
                 <span class="ap-rule-chip" id="ap-rule-chip">Standby</span>
                 <strong id="ap-rule-label">Warte auf Regelkaskaden…</strong>
                 <p id="ap-rule-detail">Die Engine aggregiert harte und weiche Restriktionen, bevor die finale Feinoptimierung startet.</p>
@@ -4448,10 +4467,14 @@ async function renderProgressAndThenResult(result) {
   let swapCount = 0;
 
   function updateStats() {
-    document.getElementById("ap-ls-bd").textContent = bdCount;
-    document.getElementById("ap-ls-hg").textContent = hgCount;
-    document.getElementById("ap-ls-rules").textContent = ruleCount;
-    document.getElementById("ap-ls-swaps").textContent = swapCount;
+    const bdEl = document.getElementById("ap-ls-bd");
+    const hgEl = document.getElementById("ap-ls-hg");
+    const rulesEl = document.getElementById("ap-ls-rules");
+    const swapsEl = document.getElementById("ap-ls-swaps");
+    if (bdEl) bdEl.textContent = bdCount;
+    if (hgEl) hgEl.textContent = hgCount;
+    if (rulesEl) rulesEl.textContent = ruleCount;
+    if (swapsEl) swapsEl.textContent = swapCount;
   }
 
   function activatePhaseNode(phase) {

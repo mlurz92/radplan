@@ -1,524 +1,938 @@
 # RadPlan
 
-RadPlan ist eine lokal laufende, browserbasierte Dienstplan-Anwendung für die Klinik für Radiologie & Nuklearmedizin. Die Anwendung kombiniert einen editierbaren Monatsplan, einen strikt getrennten Planungsmodus, eine Auto-Planungs-Engine für D/HG, detaillierte Monats- und Jahresauswertungen sowie eine visuell stark ausgestaltete Präsentationsoberfläche für Planungsentscheidungen.
+RadPlan ist eine lokal laufende, browserbasierte Dienstplan-Anwendung für die Klinik für Radiologie & Nuklearmedizin. Die Anwendung vereint Monatsplanung, Planungsentwürfe, Wunschverwaltung, Auto-Planung für Bereitschaftsdienst (`D`) und Hintergrunddienst (`HG`), Monats- und Jahresauswertungen, mobile Ansichten sowie eine sehr ausführliche Visualisierung algorithmischer Entscheidungswege.
 
-Dieses README beschreibt den **aktuellen vollständigen Funktionsstand** der Anwendung. Es ist ausdrücklich **keine** reine Änderungsübersicht, sondern eine umfassende Anwendungsbeschreibung mit Fokus auf Verhalten, Regeln, Grenzen, Vergabekriterien und Bedienlogik.
+Dieses Dokument beschreibt **den aktuellen Ist-Zustand der Anwendung**. Es ist ausdrücklich **keine Änderungsübersicht** und **kein Changelog**, sondern eine vollständige Produkt-, Funktions-, Regel- und Bedienbeschreibung auf Basis des implementierten Stands in `index.html`, `app.css`, `app.js` und den beigefügten Algorithmus-Dokumenten.
 
 ---
 
 ## Inhaltsverzeichnis
 
-1. [Produktzweck](#produktzweck)
-2. [Technischer Zuschnitt](#technischer-zuschnitt)
-3. [Dateistruktur](#dateistruktur)
-4. [Start und Betrieb](#start-und-betrieb)
-5. [Datenmodell](#datenmodell)
-6. [Monatsplan](#monatsplan)
-7. [Zellenbearbeitung](#zellenbearbeitung)
-8. [Planungsmodus](#planungsmodus)
-9. [Auto-Planungs-Engine](#auto-planungs-engine)
-10. [Algorithmische Entscheidungsregeln](#algorithmische-entscheidungsregeln)
-11. [Sonderregeln pro Person](#sonderregeln-pro-person)
-12. [Wochenend-, Feiertags- und FZA-Logik](#wochenend--feiertags--und-fza-logik)
-13. [Mitarbeitenden-Dashboard](#mitarbeitenden-dashboard)
-14. [Profil- und Jahresauswertungen](#profil--und-jahresauswertungen)
-15. [Abteilungsübersicht](#abteilungsübersicht)
-16. [Import, Export und Persistenz](#import-export-und-persistenz)
-17. [UI-, Performance- und Animationskonzept](#ui-performance--und-animationskonzept)
-18. [Einschränkungen des aktuellen Stands](#einschränkungen-des-aktuellen-stands)
-19. [Praktische Nutzungsempfehlungen](#praktische-nutzungsempfehlungen)
+1. [Produktziel und Einsatzbereich](#produktziel-und-einsatzbereich)
+2. [Technische Architektur](#technische-architektur)
+3. [Dateistruktur des Projekts](#dateistruktur-des-projekts)
+4. [Start, Betrieb und Persistenz](#start-betrieb-und-persistenz)
+5. [Zentrales Datenmodell](#zentrales-datenmodell)
+6. [Mitarbeitenden-Stammdaten und Rollenlogik](#mitarbeitenden-stammdaten-und-rollenlogik)
+7. [Kalender- und Tageslogik](#kalender--und-tageslogik)
+8. [Dienst- und Statuscodes](#dienst--und-statuscodes)
+9. [Monatsansicht und Tabellenlogik](#monatsansicht-und-tabellenlogik)
+10. [Responsive Bedienung und Mobile View](#responsive-bedienung-und-mobile-view)
+11. [Globale Zeitraumsteuerung](#globale-zeitraumsteuerung)
+12. [Bearbeitung einzelner Zellen](#bearbeitung-einzelner-zellen)
+13. [Planungsmodus](#planungsmodus)
+14. [Wunschsystem im Planungsmodus](#wunschsystem-im-planungsmodus)
+15. [Undo, Redo, Speichern, Übernehmen und Verwerfen](#undo-redo-speichern-übernehmen-und-verwerfen)
+16. [Auto-Planung: Zielbild und Ablauf](#auto-planung-zielbild-und-ablauf)
+17. [Historische Kennzahlen und Fairnessbasis](#historische-kennzahlen-und-fairnessbasis)
+18. [Harte Regeln für Bereitschaftsdienst (`D`)](#harte-regeln-für-bereitschaftsdienst-d)
+19. [Harte Regeln für Hintergrunddienst (`HG`)](#harte-regeln-für-hintergrunddienst-hg)
+20. [Ruhetags-, Folge- und Nachbarschaftsregeln](#ruhetags--folge--und-nachbarschaftsregeln)
+21. [Wochenend-, Feiertags- und Blockregeln](#wochenend--feiertags--und-blockregeln)
+22. [Personenspezifische Sonderregeln](#personenspezifische-sonderregeln)
+23. [Scoring für `D`](#scoring-für-d)
+24. [Scoring für `HG`](#scoring-für-hg)
+25. [Optimierungsschritte nach der Erstverteilung](#optimierungsschritte-nach-der-erstverteilung)
+26. [Qualitätsmetriken und Gesamtscore](#qualitätsmetriken-und-gesamtscore)
+27. [Auto-Plan-Modals: Konfiguration, Live-Lauf, Ergebnis, Bericht](#auto-plan-modals-konfiguration-live-lauf-ergebnis-bericht)
+28. [Abteilungsübersicht](#abteilungsübersicht)
+29. [Mitarbeitenden-Dashboard](#mitarbeitenden-dashboard)
+30. [Profilansicht einzelner Personen](#profilansicht-einzelner-personen)
+31. [Import, Export und Datenmigration](#import-export-und-datenmigration)
+32. [Bedien- und Darstellungskonzept der Modals](#bedien--und-darstellungskonzept-der-modals)
+33. [Sichtbare Warnungen, Informationen und Grenzen](#sichtbare-warnungen-informationen-und-grenzen)
+34. [Empfohlene Arbeitsweise im Alltag](#empfohlene-arbeitsweise-im-alltag)
+35. [Weiterentwicklungspotenziale](#weiterentwicklungspotenziale)
 
 ---
 
-## Produktzweck
+## Produktziel und Einsatzbereich
 
-RadPlan ist für drei eng zusammenhängende Aufgaben ausgelegt:
+RadPlan adressiert drei eng verknüpfte Aufgaben:
 
-1. **Operative Monatsplanung**
-   - tägliche Zuweisung von Arbeitsplätzen,
-   - Setzen von Abwesenheiten,
-   - manuelle Vergabe von D und HG,
-   - Plausibilitätsprüfung direkt im Bearbeitungsdialog.
+### 1. Operative Monatsplanung
+- manuelle Eintragung von Arbeitsplätzen,
+- Verwaltung von Frei-, Urlaubs- und Abwesenheitsstatus,
+- manuelle Vergabe von `D` und `HG`,
+- direkte Sichtbarkeit von Konflikten und Folgeregeln.
 
-2. **Simulations- und Entwurfsplanung**
-   - Planungsmodus als isolierter Arbeitsbereich,
-   - Undo/Redo,
-   - Wünsche,
-   - algorithmische Probeplanung,
-   - bewusste Übernahme in den Hauptplan erst nach Bestätigung.
+### 2. Simulations- und Entwurfsplanung
+- isolierter Planungsmodus ohne sofortige Änderung des Hauptplans,
+- Wunschmarkierungen für Dienste,
+- algorithmische Probeplanung,
+- Rücknahme und Wiederherstellung von Änderungen,
+- bewusste Übernahme eines Entwurfs in den Hauptbestand.
 
-3. **Analyse und Transparenz**
-   - Monats- und Jahreskennzahlen,
-   - Mitarbeitenden-Dashboard,
-   - Profilansichten,
-   - Abteilungsübersichten,
-   - ausführliche Ergebnisdarstellung der Auto-Planung.
+### 3. Analyse und Transparenz
+- Monatskennzahlen pro Person,
+- Jahres-Dashboard über alle Mitarbeitenden,
+- Profilansichten mit Kalender- und Verteilungsdaten,
+- Abteilungsübersicht für Monat und Jahr,
+- nachvollziehbarer Auto-Plan-Abschlussbericht mit Begründungen und Tags.
 
-Die Anwendung ist bewusst so gestaltet, dass sie sowohl praktisch im Alltag nutzbar als auch vor Kolleginnen und Kollegen gut demonstrierbar ist.
-
----
-
-## Technischer Zuschnitt
-
-RadPlan ist eine klassische statische Single-Page-Anwendung ohne Build-Toolchain.
-
-### Eigenschaften
-- keine Abhängigkeit von Node-, Python- oder Backend-Servern für den Regelbetrieb,
-- alle Kernlogiken liegen in statischen Dateien,
-- Datenhaltung im Browser per `localStorage`,
-- vollständige Nutzbarkeit direkt über `index.html` oder einen simplen statischen Webserver.
-
-### Zentrale Dateien
-- `index.html` – Markup und Modals,
-- `app.css` – gesamtes visuelles System,
-- `app.js` – gesamte Interaktions-, Planungs- und Algorithmuslogik.
+Die Anwendung ist bewusst so gestaltet, dass sie sowohl als praktisches Alltagswerkzeug als auch als präsentationsfähige Demonstrationsoberfläche funktioniert.
 
 ---
 
-## Dateistruktur
+## Technische Architektur
 
-Wichtige Dateien im Projekt:
+RadPlan ist eine klassische statische Single-Page-Anwendung ohne Build-Pipeline.
 
-- `index.html` – Einstiegspunkt der Anwendung.
-- `app.css` – visuelle Gestaltung, responsive Regeln, Modal-Designs, Animationen.
-- `app.js` – komplette Laufzeitlogik.
-- `README.md` – diese Gesamtbeschreibung.
-- `Algorithmusregeln.txt` – fachlich formulierte Regelsammlung der Auto-Planung.
-- `Algorithm_check.md` – fachlich-technische Prüfbeschreibung des aktuellen Algorithmus.
-- `Algorithmus-Kriterien.txt` – ergänzender Kriterienkatalog.
-- `manifest.json` – PWA-nahe Metadaten.
-- `img/` – Icons und grafische Assets.
+### Kerneigenschaften
+- kein Backend erforderlich,
+- keine Node-/Webpack-/Vite-Pflicht,
+- Ausführung direkt im Browser,
+- Speicherung der Hauptdaten im Browser über `localStorage`,
+- Planungsentwürfe ebenfalls browserlokal,
+- PWA-nahe Metadaten über `manifest.json`.
+
+### Technischer Zuschnitt
+- `index.html` enthält die vollständige Struktur, inklusive aller Modals.
+- `app.css` enthält das gesamte visuelle System, responsive Regeln, Animationen, Modal-Layouts und Mobile-Oberflächen.
+- `app.js` enthält die komplette Zustandsverwaltung, Rendering-Logik, Datenhaltung, Import/Export-Funktionen sowie die Auto-Planungs-Engine.
+
+Es gibt damit keine Trennung zwischen Frontend- und Backend-Domäne; sämtliche Regeln sind direkt im Client implementiert.
 
 ---
 
-## Start und Betrieb
+## Dateistruktur des Projekts
 
-### Minimal
-Die Anwendung kann direkt im Browser geöffnet werden:
-- `index.html` doppelklicken oder
-- über einen simplen lokalen HTTP-Server bereitstellen.
+Wichtige Dateien im Projektwurzelverzeichnis:
 
-### Empfohlener Betrieb
-Für konsistente Browser-Sicherheits- und Import-/Export-Workflows empfiehlt sich ein lokaler statischer Server, z. B.:
-- Python `http.server`,
+- `index.html` – Einstiegspunkt und Struktur aller Bereiche.
+- `app.css` – komplettes Designsystem, Tabellenlayout, Mobile UI, Modals, Auto-Plan-Visualisierung.
+- `app.js` – Zustandslogik, Rendering, Persistenz, Modals, Auto-Plan-Engine, Reports.
+- `README.md` – diese umfassende Funktionsbeschreibung.
+- `Algorithmusregeln.txt` – fachlicher Regeltext für die aktuelle Auto-Planung.
+- `Algorithmus-Kriterien.txt` – Kriterienkatalog für Vergabe- und Qualitätslogik.
+- `Algorithm_check.md` – fachlich-technische Prüf- und Beschreibungsunterlage des Algorithmus.
+- `manifest.json` – App-Metadaten für installierbare Browserumgebungen.
+- `img/` – Logos, Icons und grafische Assets.
+
+Zusätzliche Archiv- und Referenzdateien im Projektverzeichnis dienen der Dokumentation oder Sicherung, sind aber nicht Teil des Kernlaufzeitpfads.
+
+---
+
+## Start, Betrieb und Persistenz
+
+### Direktstart
+Die Anwendung kann direkt geöffnet werden:
+- per Doppelklick auf `index.html`,
+- oder über einen simplen statischen Webserver.
+
+### Empfohlener lokaler Betrieb
+Für stabilere Datei- und Browser-Workflows empfiehlt sich ein lokaler HTTP-Server, z. B.:
+- `python -m http.server`,
 - VS-Code Live Server,
-- jeder beliebige statische Dateiserver.
+- jeder andere statische Dateiserver.
 
-### Persistenz
-Gespeichert wird lokal im Browser über `localStorage`. Das bedeutet:
-- Daten sind browserlokal,
-- kein automatischer Mehrbenutzerabgleich,
-- Wechsel des Browsers oder Löschen der Browserdaten entfernt den lokalen Bestand,
-- für Sicherung und Transport ist der JSON-Export vorgesehen.
+### Persistenzmodell
+Die Anwendung speichert den Datenbestand lokal im Browser.
+
+Das bedeutet konkret:
+- Daten sind an den jeweiligen Browser bzw. das jeweilige Profil gebunden,
+- es gibt keinen automatischen Mehrbenutzerabgleich,
+- Browserdaten löschen entfernt lokale Planstände,
+- für Sicherung, Transport oder Gerätewechsel ist der JSON-Export vorgesehen.
+
+### Speicherebenen
+1. **Hauptbestand**
+   - persistiert im Standard-Storage-Key,
+   - enthält Monatsdaten über mehrere Monate und Jahre.
+
+2. **Planungsentwürfe**
+   - werden monatsbezogen separat gespeichert,
+   - bleiben bewusst vom Hauptbestand getrennt,
+   - können geladen, fortgeführt oder verworfen werden.
 
 ---
 
-## Datenmodell
+## Zentrales Datenmodell
 
-### Mitarbeitende
-Für jede Person existieren Metadaten wie:
+### Monatsdaten
+Ein Monat wird logisch über Jahr und Monat adressiert.
+
+Ein Monatsdatensatz enthält mindestens:
+- `employees` – Liste der Mitarbeitenden des Monats,
+- `assignments` – Zuweisungen pro Person und Tag,
+- `wishes` – Wunschmarkierungen im Planungsmodus.
+
+### Zellmodell
+Eine Zelle kann mehrere semantische Ebenen tragen:
+- **Arbeitsplatzbelegung** (`MR`, `CT`, `US`, ...),
+- **Status** (`F`, `U`, `FZA`, `K`, ...),
+- **Dienst** (`D` oder `HG`),
+- **Wunschinformation** im Planungsmodus.
+
+### Leere und partielle Zellen
+Eine Zelle muss nicht vollständig befüllt sein.
+Möglich sind z. B.:
+- nur Arbeitsplatz,
+- nur Status,
+- Arbeitsplatz plus Dienst,
+- Status ohne Arbeitsplatz,
+- Wunsch ohne Dienst.
+
+Die Anwendung bereinigt leere Teilobjekte automatisch, damit keine inhaltslosen Zellobjekte im Datensatz verbleiben.
+
+---
+
+## Mitarbeitenden-Stammdaten und Rollenlogik
+
+Die Anwendung nutzt fest verdrahtete Metadaten pro Person.
+
+### Stammdatenfelder
+Je Person können unter anderem hinterlegt sein:
 - Vollname,
 - Positionskürzel,
 - Rollenbezeichnung,
-- fachlicher Status (FA/AA),
-- Bereich/Schwerpunkt,
+- fachlicher Status,
+- Schwerpunkt/Bereich,
 - Stellvertretungshinweise.
 
-Diese Metadaten wirken nicht nur optisch, sondern beeinflussen direkt die Auto-Planung.
+### Rollenklassen
+Für die Logik sind insbesondere zwei Gruppen wichtig:
 
-### Zellinhalt
-Eine Tageszelle kann aus mehreren semantischen Ebenen bestehen:
+#### Fachärztlich geeignete Personen
+`CA`, `LOA`, `OA`, `OÄ`, `FA`, `FÄ`
 
-1. **Arbeitsplatzcode**
-   - `MR`, `CT`, `US`, `AN`, `MA`, `KUS`, `W`, `T`
+Diese Gruppe:
+- darf `HG` übernehmen,
+- darf Samstags-`D` übernehmen,
+- wird bei bestimmten Fairnessmetriken separat betrachtet.
 
-2. **Statuscode**
-   - `F`, `U`, `ZU`, `SU`, `FZA`, `K`, `KK`, `§15c`, `WB`
+#### Assistenzärztliche Personen
+`AA`, `AÄ`
 
-3. **Dienstcode**
-   - `D`, `HG`
+Diese Gruppe:
+- kann regulär `D` erhalten,
+- kann **kein** `HG` erhalten,
+- beeinflusst die HG-Bewertung fachärztlicher Personen, weil `HG für AA` getrennt gezählt wird.
 
-### Wünsche im Planungsmodus
-- `NO_DUTY`
-- `BD_WISH`
-- `HG_WISH`
-
-Diese Wünsche gelten ausschließlich im Planungsmodus und beeinflussen die Auto-Planung.
+### Dienstbefreiung
+Einzelne Personen können vollständig von Diensten ausgenommen sein.
+Aktuell ist `Prof. Schäfer` als dienstbefreit hinterlegt.
 
 ---
 
-## Monatsplan
+## Kalender- und Tageslogik
 
-Der Monatsplan ist die zentrale Tabellenansicht der Anwendung.
+### Kalendergrundlagen
+Die Anwendung berechnet:
+- Tagesanzahl pro Monat,
+- Wochentag pro Datum,
+- ISO-Kalenderwoche,
+- Monatsgrenzen in beide Richtungen,
+- den jeweils nächsten bzw. vorigen Kalendertag.
 
-### Eigenschaften
-- sticky Kopfspalte für Mitarbeitendennamen,
-- sticky Tageskopf,
-- visuelle Kennzeichnung von Werktagen, Wochenenden, Feiertagen und dem heutigen Tag,
-- Darstellung von Belegung, Dienst und Wunschhinweisen pro Zelle,
-- Monatsstatistiken im Headerbereich,
-- Footer-Summen je Tag.
+### Feiertagslogik
+Sächsische Feiertage werden algorithmisch berechnet, inklusive:
+- Neujahr,
+- Karfreitag,
+- Ostermontag,
+- Tag der Arbeit,
+- Christi Himmelfahrt,
+- Pfingstmontag,
+- Tag der Deutschen Einheit,
+- Reformationstag,
+- Buß- und Bettag,
+- 1. und 2. Weihnachtstag.
+
+### Tagesklassen
+Ein Tag kann in der UI und Logik zugleich bewertet werden als:
+- Werktag,
+- Freitag,
+- Samstag,
+- Sonntag,
+- Feiertag,
+- heutiger Tag.
+
+Diese Klassifizierung beeinflusst sowohl Darstellung als auch Auto-Plan-Regeln.
+
+---
+
+## Dienst- und Statuscodes
+
+### Arbeitsplatzcodes
+Aktuell vorhanden:
+- `MR` – MRT,
+- `CT` – CT,
+- `US` – Sonographie,
+- `AN` – Angiographie,
+- `MA` – Mammographie,
+- `KUS` – Kinder-US,
+- `W` – Wermsdorf,
+- `T` – Teleradiologie.
+
+### Statuscodes
+Aktuell vorhanden:
+- `F` – Frei,
+- `U` – Urlaub,
+- `ZU` – Zusatzurlaub,
+- `SU` – Sonderurlaub,
+- `FZA` – Freizeitausgleich,
+- `K` – Krank,
+- `KK` – Kind krank,
+- `§15c`,
+- `WB` – Weiterbildung.
+
+### Dienstcodes
+- `D` – Bereitschaftsdienst,
+- `HG` – Hintergrunddienst.
+
+### Abwesenheits- und Urlaubsgruppen
+Die Engine unterscheidet intern zwischen:
+- **Abwesenheit allgemein** – für harte Ausschlüsse,
+- **urlaubsähnlichen Codes** – für Folgetags- und Nachbarschaftsregeln.
+
+Das ist relevant, weil nicht jede Abwesenheit gleich gewichtet wird.
+
+---
+
+## Monatsansicht und Tabellenlogik
+
+Die Hauptansicht ist eine horizontale Monatsmatrix.
+
+### Struktur
+- linke Sticky-Spalte mit Mitarbeitendennamen,
+- obere Sticky-Zeile mit Tagen,
+- Zellen für jede Person/Tag-Kombination,
+- Fußzeile mit Tagesaggregation,
+- darüber Monatsstatistikleiste.
+
+### Sichtbare Kennzeichnungen
+- Wochenenden und Feiertage farblich markiert,
+- heutiger Tag hervorgehoben,
+- Positionsbadges an Mitarbeitenden,
+- Zellfarben nach Arbeitsplatz/Status,
+- Dienst- und Wunschhinweise.
 
 ### Interaktionen
-- Klick auf eine Namenszelle öffnet das Profil.
-- Klick auf eine Tageszelle öffnet den Bearbeitungsdialog.
-- Wechsel des Monats über Navigation oder Zeitraumsteuerung.
+- Klick auf einen Namen öffnet das Profil,
+- Klick auf eine Zelle öffnet den Editor,
+- Monat kann unabhängig von geöffneten Modals gewechselt werden.
 
-### Zeitraumsteuerung
-Die Zeitraumsteuerung erlaubt:
-- freien Wechsel von Monat und Jahr,
-- Nutzung auch bei geöffneten Modals,
-- Nutzung auch im Planungsmodus,
-- schnelles Springen um Monat oder Jahr.
+### Scroll- und Sticky-Verhalten
+Die Tabelle ist für horizontale und vertikale Überläufe ausgelegt.
+Sticky-Elemente halten Kopf und Namensspalte im Sichtbereich, damit große Monate mit vielen Mitarbeitenden bearbeitbar bleiben.
 
 ---
 
-## Zellenbearbeitung
+## Responsive Bedienung und Mobile View
 
-Der Bearbeitungsdialog dient der manuellen Pflege einzelner Zellen.
+Die Anwendung besitzt eine eigene Mobile-Oberfläche statt nur geschrumpfter Desktop-Tabelle.
 
-### Funktionen
-- Arbeitsplatz setzen,
-- Status setzen,
-- D/HG setzen oder entfernen,
-- Konfliktwarnungen sehen,
-- im Planungsmodus zusätzlich Wünsche setzen.
+### Mobile-Umschaltung
+Die mobile Darstellung wird abhängig von Viewportbreite und Touch-/Pointer-Merkmalen aktiviert.
 
-### Direkte Plausibilisierung
-Die Anwendung warnt unmittelbar bei typischen Konflikten, z. B.:
-- Dienst bereits vergeben,
-- Folgetag Urlaub,
-- unpassende Kombinationen aus Status und Dienst.
+### Mobile-Komponenten
+- eigene Monatszusammenfassung,
+- eigene Tageskartenliste,
+- mobile Bottom-Navigation,
+- mobile Sheets für Aktionen und Tagesdetails,
+- modalartige Full-Width-Sheets für zentrale Dialoge.
 
-### Automatische Folgetagslogik
-Wenn manuell ein D gesetzt wird, wird automatisch ein `F` am Folgetag ergänzt, sofern dort noch nichts anderes steht.
+### Mobile-Tageskarte
+Eine Tageskarte zeigt u. a.:
+- Datum,
+- Wochentag,
+- Feiertagslabel,
+- `D`/`HG`-Badges,
+- Arbeitsplatz-Chips,
+- Planungsindikatoren.
+
+### Mobile-Tagesdetail
+Das Tagesdetail zeigt:
+- Tageskopf,
+- Dienstbadges,
+- Mitarbeitendenliste mit Belegungen,
+- Wunschhinweise,
+- direkten Einstieg in den Editor.
+
+---
+
+## Globale Zeitraumsteuerung
+
+Die Zeitraumsteuerung ist ein globales Flyout und bewusst nicht an einen einzelnen Anwendungsbereich gebunden.
+
+### Eigenschaften
+- Monat und Jahr getrennt auswählbar,
+- Sprünge um Monat oder Jahr,
+- auch bei geöffnetem Modal nutzbar,
+- auch im Planungsmodus nutzbar,
+- Kontextanzeige des aktuell gewählten Zielzeitraums.
+
+### Ziel
+Die Anwendung soll keine Navigationssackgassen erzeugen. Monat/Jahr müssen jederzeit umgestellt werden können, ohne erst Modals oder den Planungsmodus zu verlassen.
+
+---
+
+## Bearbeitung einzelner Zellen
+
+Der Zelleditor dient der manuellen Einzelpflege.
+
+### Bearbeitbare Aspekte
+- Arbeitsplatz (Mehrfachkombinationen wie `MR/CT` möglich),
+- Status (exklusiv gedacht),
+- `D`/`HG`,
+- Wünsche im Planungsmodus.
+
+### Vorschau
+Ein Vorschaufeld zeigt die aktuelle Auswahl visuell verdichtet an.
+
+### Plausibilisierung
+Die Anwendung warnt direkt bei typischen Konflikten, etwa:
+- bereits besetztem Dienst,
+- unzulässiger Status-/Dienstkombination,
+- problematischer Folgetagskonstellation.
+
+### Automatische Folgeregel nach manuellem `D`
+Wird manuell ein `D` gesetzt, ergänzt die Anwendung am Folgetag automatisch ein `F`, sofern dort noch keine andere Belegung steht.
+Diese Logik gilt auch über Monatsgrenzen hinweg.
 
 ---
 
 ## Planungsmodus
 
-Der Planungsmodus ist ein bewusst separater Entwurfsraum.
+Der Planungsmodus ist ein separater Entwurfsraum.
 
-### Ziel
-Er soll erlauben, mit Regeln, Wünschen und automatischer Verteilung zu arbeiten, ohne den Hauptplan sofort zu verändern.
+### Grundidee
+Die Hauptdaten sollen nicht während des Experimentierens verändert werden.
+Deshalb arbeitet der Planungsmodus auf einem isolierten Monatsentwurf.
 
-### Eigenschaften
-- eigener Entwurfsdatensatz,
+### Sichtbare Kennzeichen
+- eigene Planungsleiste,
+- deutliche farbliche Hervorhebung,
+- getrennte Aktionen für Auto-Planung, Speichern, Übernehmen, Verwerfen.
+
+### Zentrale Eigenschaften
+- monatsbezogener Entwurf,
 - Undo/Redo-Historie,
-- Speichern des Entwurfs,
-- explizites Abbrechen oder Übernehmen,
-- Wünsche pro Zelle,
-- Auto-Planung nur im Planungsmodus verfügbar.
+- Wunschverwaltung,
+- Auto-Plan nur hier verfügbar,
+- explizite Übernahme in den Hauptplan notwendig.
 
-### Wichtige Konsequenz
-Die Auto-Planung arbeitet **nicht** direkt auf dem Hauptplan, sondern auf dem aktiven Planungsentwurf.
-
----
-
-## Auto-Planungs-Engine
-
-Die Auto-Planung verteilt D und HG auf Basis fester Regeln, Soft-Constraints, Historie und Optimierungsschritten.
-
-### Phasen
-1. Initialisierung und Reparatur fehlender F-Tage nach D.
-2. Verteilung von BD an Wochenenden und Feiertagen.
-3. Verteilung von BD an Werktagen.
-4. Iterative BD-Optimierung.
-5. HG-Bündelung für gekoppelte Konstellationen.
-6. Verteilung verbleibender HG.
-7. Iterative HG-Optimierung.
-8. Validierung und Ergebnisaufbereitung.
-
-### Ergebnisdarstellung
-Nach der Berechnung zeigt die Anwendung:
-- D-Verteilung,
-- HG-Verteilung,
-- Detailhinweise,
-- Warnungen,
-- kritische Warnungen,
-- Abschlussbericht einzelner Entscheidungen.
+### Konsequenz
+Die Auto-Planungs-Engine arbeitet **nicht direkt** auf dem Hauptbestand, sondern auf dem aktiven Planungsentwurf des aktuellen Monats.
 
 ---
 
-## Algorithmische Entscheidungsregeln
+## Wunschsystem im Planungsmodus
 
-### Oberste Prioritäten
-1. Vollständige Besetzung.
-2. Vermeidung unzulässiger Vergaben.
-3. Erhalt bereits fixierter Dienste.
-4. Berücksichtigung von Wünschen und Sonderregeln.
-5. Faire Monatsverteilung.
+Wünsche existieren ausschließlich im Planungsmodus.
 
-### Harte Regeln für D
-Ein D wird blockiert bei:
-- Dienstbefreiung,
-- Abwesenheit,
-- bereits vorhandenem Dienst,
-- `NO_DUTY`,
-- Samstag bei Nicht-FA,
-- Polednia-Sperrtagen,
-- Becker/Martin-Konflikt,
-- `F` am Zieltag,
-- Urlaub am Folgetag,
-- D an Vor- oder Folgetag,
-- unzulässiger HG→D-Folge,
-- Oster-/Pfingst-Blockkonflikt,
-- im strengen Modus außerdem Zielüberschreitung, Wochenendlimit, Becker-Samstag und zu geringer D-Abstand.
+### Verfügbare Wunschtypen
+- `NO_DUTY` – harter Ausschluss für Dienstvergabe,
+- `BD_WISH` – positive Präferenz für `D`,
+- `HG_WISH` – positive Präferenz für `HG`.
 
-### Harte Regeln für HG
-Ein HG wird blockiert bei:
-- Nicht-FA,
-- Dienstbefreiung,
-- Abwesenheit,
-- bereits vorhandenem Dienst,
-- `NO_DUTY`,
-- `F` am normalen Werktag,
-- Konflikt mit Folgetags-D,
-- Feiertagsblockkonflikt,
-- bestimmten Polednia-AA-Konstellationen,
-- Überschreitung des Wochenendlimits im strengen Modus.
+### Wirkungsweise
+- `NO_DUTY` blockiert die Vergabe.
+- `BD_WISH` und `HG_WISH` sind Score-Booster, keine absoluten Garantien.
+- erfüllte Wünsche werden im Auto-Plan-Ergebnis quantifiziert.
 
-### Soft-Constraints
-Die Engine versucht zusätzlich:
-- D nahe am Soll zu halten,
-- HG monatlich fair zu verteilen,
-- Wochenendäquivalente zu glätten,
-- Samstagsdienste über FA auszugleichen,
-- Feiertagslast historisch zu rotieren,
-- D-F-D-F zu vermeiden,
-- direkt aufeinanderfolgende HG zu vermeiden,
-- Donnerstag vor Urlaub positiv zu bewerten,
-- Wünsche möglichst zu erfüllen.
+### Zweck
+Die Wunschlogik erlaubt eine regelkonforme Berücksichtigung individueller Präferenzen, ohne die Sicherheitsregeln aufzuheben.
 
-### Historische Kennzahlen
-Die Historie vor dem Zielmonat enthält u. a.:
-- Anzahl D,
-- Anzahl HG,
-- Wochenendlast,
+---
+
+## Undo, Redo, Speichern, Übernehmen und Verwerfen
+
+### Undo / Redo
+Der Planungsmodus führt eine eigene Historie.
+Damit können Bearbeitungsschritte schrittweise zurückgenommen oder erneut angewendet werden.
+
+### Speichern
+Speichern legt den Entwurf browserlokal ab, ohne ihn in den Hauptplan zu übernehmen.
+
+### Übernehmen
+Übernehmen schreibt den aktiven Entwurf in den Hauptbestand und beendet den Planungsmodus.
+
+### Verwerfen / Abbrechen
+Damit werden nicht übernommene Änderungen verworfen und der letzte gesicherte Stand wiederhergestellt.
+
+---
+
+## Auto-Planung: Zielbild und Ablauf
+
+Die Auto-Planung hat eine klare Zielhierarchie.
+
+### Zielhierarchie
+1. vollständige Besetzung aller notwendigen `D`- und `HG`-Dienste,
+2. Vermeidung fachlich oder organisatorisch unzulässiger Vergaben,
+3. Erhalt bereits manuell gesetzter Dienste,
+4. Berücksichtigung von Wünschen und personenbezogenen Regeln,
+5. faire Monatsverteilung,
+6. klinisch ruhige und nachvollziehbare Dienstmuster.
+
+### Ablaufphasen
+Die Engine arbeitet in mehreren Schritten:
+1. Initialisierung und Reparatur fehlender `F`-Folgetage nach bestehendem `D`,
+2. Verteilung von Wochenend-/Feiertags-`D`,
+3. Verteilung von Werktags-`D`,
+4. iterative `D`-Optimierung,
+5. HG-Bündelung für gekoppelte Wochenend-/Feiertagskonstellationen,
+6. Verteilung verbleibender `HG`,
+7. iterative `HG`-Optimierung,
+8. finale Metaheuristik über `D` und `HG`,
+9. Validierung,
+10. Ergebnis- und Berichtserstellung.
+
+### Fixierte Dienste
+Bereits gesetzte Dienste werden respektiert und in der Regel nicht überschrieben. Nur nicht fixierte algorithmische Zuweisungen dürfen innerhalb der Optimierung neu verteilt werden.
+
+---
+
+## Historische Kennzahlen und Fairnessbasis
+
+Vor dem Zielmonat gespeicherte Monate werden für Fairness und Rotationen ausgewertet.
+
+### Erfasste Kennzahlen
+- Anzahl `D`,
+- Anzahl `HG`,
+- Wochenendäquivalente,
 - Feiertagslast,
-- Donnerstag-D,
-- HG für AA,
-- HG für FA,
-- Samstags-D.
+- Donnerstag-`D`,
+- `HG` für Assistenzärzte,
+- `HG` für Fachärzte,
+- Samstags-`D`.
 
-Diese Werte dienen als Fairnesskorrektiv.
+### Wofür diese Werte verwendet werden
+- Zielvorgaben und Ausgleich,
+- Feiertagsverteilung,
+- Samstagsbalance,
+- Wochenendlast,
+- Verhältnis `HG` zu `D`,
+- Verhältnis `HG für AA` zu `HG für FA`.
 
----
-
-## Sonderregeln pro Person
-
-### Prof. Schäfer
-- dienstbefreit.
-
-### Dr. Polednia
-- reduziertes Standardziel für D,
-- keine D an Sonntag, Dienstag und Donnerstag,
-- HG für AA an Sonntag, Dienstag und Donnerstag möglichst bzw. im strengen Modus nicht.
-
-### Dr. Becker
-- reduziertes Standardziel für D,
-- Samstags-D nur als Notlösung,
-- bei Samstags-D spezielle FZA-Regel am nächsten Werktag,
-- wenn dieser Werktag durch Urlaub/F eines anderen FA oder durch eigene Belegung blockiert ist, wird statt einer stillen Automatikeintragung eine **kritische Warnung** in der Auto-Planungs-Modal angezeigt.
-
-### Dr. Martin
-- Becker/Martin-Vertretungskonflikt verhindert bestimmte D-Konstellationen mit Urlaubsvertretung.
-
-### Hr. Sebastian
-- reduziertes Standardziel für D.
+Damit bewertet die Engine nicht nur den aktuellen Monat isoliert, sondern berücksichtigt Vorbelastung.
 
 ---
 
-## Wochenend-, Feiertags- und FZA-Logik
+## Harte Regeln für Bereitschaftsdienst (`D`)
+
+Eine Person scheidet als `D`-Kandidat aus, wenn mindestens eine harte Sperre greift.
+
+### Allgemeine Ausschlüsse
+- Person ist dienstbefreit.
+- Individuelles `D`-Ziel ist `0`.
+- Person ist am Tag abwesend.
+- Am Tag ist bereits ein Dienst gesetzt.
+- Für den Tag liegt `NO_DUTY` vor.
+
+### Tages- und Rollenlogik
+- Samstag-`D` nur für fachärztlich geeignete Personen.
+- Dr. Polednia erhält keinen `D` an Sonntag, Dienstag oder Donnerstag.
+- Becker/Martin-Vertretungskonflikte blockieren bestimmte Konstellationen.
+
+### Nachbarschafts- und Folgekonflikte
+- `F` am Zieltag blockiert `D`.
+- Urlaub/urlaubsähnliche Abwesenheit am Folgetag blockiert `D`.
+- `D` am Vortag oder Folgetag blockiert `D`.
+- unzulässige Übergänge von `HG` zu `D` werden verhindert.
+- Oster-/Pfingst-Blockregeln können `D` verbieten.
+
+### Zusätzliche Sperren im strengen Modus
+- Zielüberschreitung,
+- zu hohe projizierte Wochenendlast,
+- Samstagssperre für Dr. Becker,
+- zu geringe Abstände zwischen Diensten.
+
+---
+
+## Harte Regeln für Hintergrunddienst (`HG`)
+
+`HG` ist restriktiver als normale Arbeitsplatzplanung und an die Facharztrolle gebunden.
+
+### Grundsperren
+- Person ist dienstbefreit.
+- Person ist kein Facharzt / keine Fachärztin.
+- Person ist am Tag abwesend.
+- Am Tag ist bereits ein Dienst gesetzt.
+- `NO_DUTY` liegt vor.
+
+### Werktags- und Folgekonflikte
+- an normalen Werktagen blockiert ein eingetragener `F` den `HG`,
+- ein Folgetags-`D` blockiert `HG`, außer in ausdrücklich erlaubten Kopplungsfällen,
+- Oster-/Pfingst-Blockkonflikte blockieren `HG`.
+
+### Zusätzliche Fachregeln
+- Dr. Polednia soll in bestimmten Konstellationen keinen `HG` zur AA-Freigabe an Sonntag, Dienstag oder Donnerstag erhalten,
+- im strengen Modus blockiert eine zu hohe projizierte Wochenendlast zusätzlich.
+
+---
+
+## Ruhetags-, Folge- und Nachbarschaftsregeln
+
+Diese Regeln sind zentral für die klinische Plausibilität.
+
+### Automatischer freier Folgetag nach `D`
+- Nach jedem `D` wird automatisch ein `F` am nächsten Kalendertag ergänzt,
+- sofern dort noch keine andere Belegung steht,
+- auch über Monatsgrenzen hinweg.
+
+### Doppel-`D`-Verhinderung
+Direkt aufeinanderfolgende `D` derselben Person werden verhindert bzw. in der Validierung bereinigt.
+
+### D-F-D-F
+Dieses Muster wird nicht absolut verboten, aber weich bestraft.
+Es handelt sich um einen Soft-Constraint.
+
+### Direkt aufeinanderfolgende `HG`
+Direkte `HG`-Ketten werden weich bestraft, nicht absolut ausgeschlossen.
+Ein freier Tag zwischen zwei `HG` ist ausdrücklich zulässig.
+
+---
+
+## Wochenend-, Feiertags- und Blockregeln
+
+### Wochenendmodell
+Wochenendrelevante Tage sind Freitag, Samstag und Sonntag.
 
 ### Wochenendäquivalent
-Ein Wochenende zählt je Person als:
-- `1,0` bei mindestens einem D,
-- `0,5` bei HG ohne D.
+Pro Kalenderwoche zählt je Person:
+- `1,0`, wenn an Freitag/Samstag/Sonntag mindestens ein `D` liegt,
+- `0,5`, wenn kein `D`, aber mindestens ein `HG` in diesem Wochenendblock liegt.
 
-Relevant sind Freitag, Samstag, Sonntag.
+### Zielwert
+Die Engine optimiert auf ein Ziel von ungefähr `1,0` Wochenendäquivalent pro Kopf.
+Eine gelockerte Toleranzgrenze ist ebenfalls implementiert.
 
-### HG-D-HG-Kette am Wochenende
-Die Anwendung bildet eine feste Koppelung:
-- Hat ein AA am Freitag D, soll der FA des Samstags-D den Freitags-HG übernehmen.
-- Hat ein FA am Samstag D, soll derselbe FA den Sonntags-HG übernehmen.
-- Diese gekoppelte Wochenendkette wird **vor** der allgemeinen HG-Verteilung gesetzt.
-- Spätere HG-Optimierung darf diese gekoppelten Zuweisungen nicht mehr verschieben.
+### Feiertagslogik
+Feiertagsdienste werden explizit gezählt und in die Fairnessbewertung aufgenommen.
 
-### Feiertage
-Die Anwendung berechnet sächsische Feiertage algorithmisch. Feiertage wirken auf:
-- Kennzeichnung im Plan,
-- Statistik,
+### Oster-/Pfingst-Blockregel
+Wer im Osterblock Dienste übernimmt, soll aus dem Pfingstblock ausgeschlossen werden und umgekehrt.
+Die Prüfung kann monatsübergreifend auf vorhandene Daten zugreifen.
+
+---
+
+## Personenspezifische Sonderregeln
+
+Aktuell existieren mehrere namentlich codierte Regeln.
+
+### Prof. Schäfer
+- vollständig dienstbefreit.
+
+### Dr. Polednia
+- reduziertes Standardziel für `D`,
+- kein `D` an Sonntag, Dienstag und Donnerstag,
+- bestimmte `HG`-AA-Konstellationen an Sonntag, Dienstag und Donnerstag im strengen Modus gesperrt.
+
+### Dr. Becker
+- reduziertes Standardziel für `D`,
+- Samstags-`D` nur als Notlösung,
+- bei Samstags-`D` gilt eine spezielle FZA-Folgeregel.
+
+### Dr. Becker – FZA-Spezialregel nach Samstags-`D`
+Wenn Dr. Becker samstags `D` erhält, versucht die Anwendung ein `FZA` am nächsten geeigneten Werktag zu setzen.
+Das passiert nur, wenn:
+- der Tag ein Werktag ist,
+- dort kein anderer Facharzt bereits Urlaub oder `F` hat,
+- Dr. Becker dort noch keine andere Belegung besitzt.
+
+Kann diese Regel nicht konfliktfrei erfüllt werden, erzeugt die Anwendung **keine stille Ersatzlogik**, sondern eine sichtbare kritische Warnung.
+
+### Dr. Martin / Dr. Becker Konfliktregel
+Bestimmte Folgetags- und Vertretungskonstellationen werden verhindert, wenn der jeweils andere an kritischen Folgetagen im Urlaub ist.
+
+### Hr. Sebastian
+- reduziertes Standardziel für `D`.
+
+---
+
+## Scoring für `D`
+
+Wenn mehrere Kandidaten zulässig sind, bewertet die Engine `D`-Kandidaten anhand einer gewichteten Score-Logik.
+
+### Bevorzugte Kriterien
+- Nähe zum individuellen Ziel,
+- `BD_WISH`,
+- günstige Donnerstag-vor-Urlaub-Konstellationen,
+- geringe Wochenendlast,
+- Samstagsausgleich unter Fachärzten,
+- historisch geringere Feiertagslast,
+- ausreichender Abstand zu anderen `D`,
+- Vermeidung von D-F-D-F,
+- deterministischer Tie-Break zur stabilen Reproduzierbarkeit.
+
+### Ziel des `D`-Scorings
+Nicht nur Vollbesetzung, sondern eine nachvollziehbare, faire und klinisch praktikable Verteilung.
+
+---
+
+## Scoring für `HG`
+
+Auch für `HG` werden zulässige Kandidaten differenziert bewertet.
+
+### Wesentliche Kriterien
+- gleichmäßige HG-Verteilung im Monat,
+- `HG_WISH`,
+- Wochenendlast,
+- Vermeidung direkt benachbarter `HG`,
+- Ausgleich `HG für AA` vs. `HG für FA`,
+- leichte Bevorzugung fachärztlicher Personen mit geringerer `D`-Last.
+
+### Klinischer Zweck
+Die `HG`-Verteilung soll nicht mechanisch rotieren, sondern die Gesamtlast des Monats mitbetrachten.
+
+---
+
+## Optimierungsschritte nach der Erstverteilung
+
+Nach der ersten Verteilung endet die Auto-Planung nicht.
+
+### `D`-Optimierung
+Nicht fixierte Auto-Plan-`D` können umgehängt werden, wenn sich dadurch die Zielerfüllung oder Fairness verbessert.
+
+### `HG`-Optimierung
+Nicht fixierte `HG` können ebenfalls neu verteilt werden, wenn dadurch die HG-Qualität steigt.
+
+### Geschützte gekoppelte `HG`
+`HG`, die aus der speziellen Wochenendkopplung stammen, sind vor späterem Wegoptimieren geschützt.
+
+### Finale Metaheuristik
+Abschließend betrachtet die Engine `D` und `HG` gemeinsam und versucht zusätzliche Qualitätsverbesserungen durch globale Reassignments.
+
+---
+
+## Qualitätsmetriken und Gesamtscore
+
+Am Ende berechnet die Anwendung strukturierte Qualitätsmetriken.
+
+### Erhobene Kennzahlen
+- Versorgungslücken bei `D`,
+- Versorgungslücken bei `HG`,
+- Streuung von `D`,
+- Streuung von `HG`,
+- Streuung der Wochenendäquivalente,
+- Wunscherfüllungsrate,
+- Anzahl tiefer Optimierungsbewegungen,
+- Anzahl `D`-Optimierungsschritte,
+- Anzahl `HG`-Optimierungsschritte.
+
+### Quality Score
+Aus diesen Werten wird ein Gesamtscore von `0` bis `100` abgeleitet.
+Er gewichtet insbesondere:
+- Besetzungsgrad,
 - Fairness,
-- Feiertagsrotation,
-- Oster-/Pfingst-Blockregel.
+- Wunschberücksichtigung,
+- Warnungsdichte.
 
-### Oster-/Pfingst-Regel
-Wer im Osterblock Dienst hat, soll nicht im Pfingstblock Dienst erhalten und umgekehrt.
-
-### FZA für Dr. Becker nach Samstags-D
-Das Verhalten ist aktuell präzise definiert:
-- gesucht wird der **nächste Werktag** nach dem Samstag,
-- dort wird `FZA` nur gesetzt, wenn kein anderer FA bereits `U`, `ZU`, `SU`, `§15c` oder `F` hat,
-- und wenn Dr. Becker dort selbst noch keine Belegung hat,
-- andernfalls entsteht eine hervorgehobene kritische Warnung in der Ergebnisansicht der Planungsmodal.
+Dieser Score ist kein medizinisches Gütesiegel, sondern eine interne Planungskennzahl der Anwendung.
 
 ---
 
-## Mitarbeitenden-Dashboard
+## Auto-Plan-Modals: Konfiguration, Live-Lauf, Ergebnis, Bericht
 
-Das Mitarbeitenden-Dashboard ist eine Jahresübersicht über alle im Kalenderjahr vorkommenden Personen.
+Die Auto-Planung ist als mehrstufiger Modal-Workflow umgesetzt.
 
-### Inhalte
-- KPI-Zusammenfassung,
-- Liste bzw. Kartenansicht aller Mitarbeitenden,
-- Such- und Rollenfilter,
-- Detailbereich mit mehreren Perspektiven.
+### 1. Konfigurationsansicht
+Hier können `D`-Ziele pro Person angepasst werden.
+Gezeigt werden:
+- Person,
+- Position,
+- historische `D`,
+- historische Samstags-`D`,
+- aktuelles Ziel,
+- Gesamtsumme der Ziele.
 
-### Perspektiven
-1. Monatsverlauf.
-2. Jahreskalender.
-3. Verwaltung des aktuellen Monatsbestands.
+### 2. Live-Lauf
+Der Berechnungslauf visualisiert:
+- Phasenpipeline,
+- Live-Statistiken (`BD`, `HG`, Regeln, Moves),
+- Fortschrittsbalken,
+- Regel-Telemetrie,
+- Logkonsole.
 
-### Nutzen
-Das Dashboard ist zugleich:
-- personenzentrierte Auswertung,
-- Jahresübersicht,
-- Stammdatenzugang,
-- Einstieg in Monatsverwaltung.
+Ziel ist Transparenz: Die Engine soll nicht wie eine Black Box wirken.
 
----
+### 3. Ergebnisansicht
+Die Resultatansicht zeigt:
+- Quality Score,
+- Verteilungsmetriken,
+- tabellarische `D`-Verteilung,
+- tabellarische `HG`-Verteilung,
+- Informationstexte,
+- Warnhinweise,
+- Rücksprung zum Ziel-Setup.
 
-## Profil- und Jahresauswertungen
-
-Per Klick auf einen Namen öffnet sich ein Profil mit:
-- Stammdaten,
-- Monats-KPIs,
-- Verteilung der Arbeitsplätze,
-- D/HG-Details,
-- Jahresaufsummierung je Monat.
-
-Diese Sicht ist stärker individualanalytisch als die Abteilungsübersicht.
+### 4. Abschlussbericht
+Der Bericht listet einzelne algorithmische Entscheidungen mit:
+- Tag,
+- Diensttyp,
+- zugewiesener Person,
+- Begründung,
+- Tags wie Wunsch, Optimiert, Gekoppelt oder Relaxierung.
 
 ---
 
 ## Abteilungsübersicht
 
-Die Abteilungsübersicht bietet eine teambezogene Perspektive.
+Die Abteilungsübersicht ist eine übergreifende Statistikansicht.
 
-### Monatsmodus
-Typische Inhalte:
-- AP-Tage,
-- MR/CT-Verteilung,
-- Urlaub,
-- Krankheit,
-- FZA,
-- D,
-- HG,
-- Frei,
-- offene Abdeckung.
+### Bereiche
+- aktueller Monat,
+- Jahresübersicht.
 
-### Jahresmodus
-Jahressummen auf Teamebene, u. a.:
-- AP,
-- Urlaub,
-- Krankheit,
-- FZA,
-- WB,
-- D/HG,
-- Abdeckung.
+### Typische Inhalte
+- Abdeckungskennzahlen,
+- offene Bedarfe,
+- Statussummen,
+- Dienstsummen,
+- Tabellen je Mitarbeitender,
+- Jahres-KPIs.
+
+### Ziel
+Statt nur personenzentrierter Auswertung liefert diese Ansicht einen departmentweiten Blick auf Versorgung, Ausfall und Dienstlast.
 
 ---
 
-## Import, Export und Persistenz
+## Mitarbeitenden-Dashboard
+
+Das Jahres-Dashboard bündelt Auswertungen über alle Mitarbeitenden.
+
+### Bestandteile
+- Summary-KPIs,
+- Suchfeld,
+- Rollenfilter,
+- Kachelübersicht aller Personen,
+- Detailbereich mit umschaltbaren Ansichten.
+
+### Detailansichten
+- Monatsverlauf,
+- Jahreskalender,
+- Verwaltungsansicht.
+
+### Zweck
+Schneller Vergleich von Lasten, Abwesenheiten und Dienstmustern über ein ganzes Kalenderjahr.
+
+---
+
+## Profilansicht einzelner Personen
+
+Das Profilmodal zeigt eine monats- und jahresbezogene Einzelperspektive.
+
+### Inhalte
+- Avatar und Metadaten,
+- Monats-KPIs,
+- Arbeitsplatzverteilung,
+- Statusübersicht,
+- Dienstdetails,
+- Monatskalender,
+- Jahresauswertung.
+
+### Navigation
+Von hier aus kann der Monatskalender wieder in den Editor verzweigen.
+Damit bleibt Analyse und Bearbeitung eng verzahnt.
+
+---
+
+## Import, Export und Datenmigration
 
 ### Export
-Alle relevanten Daten lassen sich als JSON exportieren.
+Die Anwendung kann den gesamten Datenbestand als JSON exportieren.
+Der Export dient:
+- Backup,
+- Gerätewechsel,
+- Nachvollziehbarkeit,
+- externer Versionssicherung.
 
 ### Import
-Import ist möglich über:
-- Dateiauswahl,
+Import ist möglich per:
+- Datei,
 - Drag & Drop,
-- Einfügen von JSON.
+- Einfügen von JSON-Text.
 
-### Persistenzlogik
-- Hauptdaten werden lokal gespeichert.
-- Entwurfsdaten des Planungsmodus werden getrennt behandelt.
-- Folgemonatsbelegungen, etwa automatische F- oder FZA-Einträge, können bei der Übernahme der Auto-Planung ebenfalls persistiert werden.
-
----
-
-## UI-, Performance- und Animationskonzept
-
-### Gestalterische Ziele
-Die Oberfläche soll:
-- in der täglichen Nutzung ruhig und effizient sein,
-- in der Auto-Planungs-Modal aber auch demonstrativ stark wirken.
-
-### Auto-Planungs-Modal
-Die Modal visualisiert den Lauf als High-Tech-HUD mit:
-- Live-Telemetrie,
-- Pipeline-Anzeige,
-- Fortschrittsbalken,
-- Terminal-Konsole,
-- Radar-/Sweep-/Grid-Effekten,
-- klar hervorgehobenen kritischen Warnungen.
-
-### Performanceprinzipien
-Die Animationen sind auf performante Browserpfade ausgelegt:
-- primär `transform`, `opacity`, `filter` und Gradients,
-- begrenzte Anzahl parallel animierter Elemente,
-- Vermeidung layoutintensiver Daueranimationen,
-- `translateZ(0)`/GPU-freundliche Darstellungen an zentralen Stellen,
-- `prefers-reduced-motion`-Kompatibilität über das bestehende CSS-Reduktionsmuster.
-
-### Praktische Konsequenz
-Die Anwendung soll sich flüssig anfühlen, ohne dabei den Algorithmus selbst unnötig zu verlangsamen. Die Auto-Planung wird zuerst berechnet; die Darstellung des Durchlaufs dient der nachvollziehbaren und beeindruckenden Visualisierung dieser bereits erzeugten Entscheidungsfolge.
+### Importverhalten
+Vorhandene Daten werden zusammengeführt, nicht stumpf ersetzt.
+Dabei validiert die Anwendung das JSON und zeigt Fehlermeldungen im Importmodal sichtbar an.
 
 ---
 
-## Einschränkungen des aktuellen Stands
+## Bedien- und Darstellungskonzept der Modals
 
-1. Mehrere Sonderregeln sind namentlich im Code verankert und noch nicht administrativ konfigurierbar.
-2. Die Zielwerte für D basieren auf festen Standardvorgaben, nicht auf Teilzeit-/Vollzeitfaktoren.
-3. Die Anwendung ist lokal und browsergebunden; es gibt keinen eingebauten Mehrbenutzerabgleich.
-4. Die Becker-FZA-Sonderregel sucht bewusst **nicht** automatisch weitere Ausweichwerktage, sondern eskaliert am ersten blockierten Werktag mit Warnung.
-5. Historische Fairness basiert auf gespeicherten Monatsdaten; nicht gespeicherte fremde Entwürfe sind kein globaler Wahrheitsbestand.
+Die Anwendung nutzt zahlreiche Modals bzw. Sheets.
+
+### Grundprinzipien
+- eigene Header- und Footer-Bereiche,
+- scrollbarer Body,
+- responsive Maximalhöhen,
+- mobile Bottom-Sheets,
+- Schutz vor Überläufen,
+- Safe-Area-Berücksichtigung auf mobilen Geräten.
+
+### Ziel
+Kein Modal soll Inhalte unzugänglich machen, Bedienelemente überdecken oder über den Viewportrand hinausdrängen.
+Die CSS-Struktur ist deshalb auf flexible Höhe, Body-Scrolling und Wrap-Verhalten ausgelegt.
 
 ---
 
-## Praktische Nutzungsempfehlungen
+## Sichtbare Warnungen, Informationen und Grenzen
 
-### Für die tägliche Planung
-- Hauptplan für manuelle Pflege verwenden.
-- Kritische Einzeltage direkt im Editor prüfen.
+### Warnungen
+Die Anwendung zeigt Warnungen u. a. für:
+- nicht besetzte `D`/`HG`,
+- Zielunterschreitungen,
+- zu hohe Wochenendlast,
+- kritische Becker-Samstags-FZA-Konflikte.
 
-### Für algorithmische Verteilung
-- Planungsmodus aktivieren.
-- Wünsche eintragen.
-- Auto-Planung starten.
-- Ergebniswarnungen und Abschlussbericht lesen.
-- Erst danach in den Hauptplan übernehmen.
+### Informationen
+Die Anwendung ergänzt erläuternde Informationen, z. B.:
+- Anzahl gelockerter Regeln,
+- Anzahl gekoppelter `HG`,
+- Wochenendverteilungsziel,
+- Wunsch-Erfüllungsquote,
+- Fairness- und Pattern-Hinweise.
 
-### Für Samstagskonstellationen
-- Samstags-D von Dr. Becker immer bewusst prüfen.
-- Kritische Warnungen in der Auto-Planungs-Modal nicht ignorieren.
+### Aktuelle Grenzen
+- mehrere Regeln sind namentlich im Code verdrahtet,
+- keine frei administrierbare Regeloberfläche,
+- keine Mehrbenutzer- oder Serverlogik,
+- keine externe Rechteverwaltung,
+- kein konfigurierbares Rollen-/Sollzeitmodell.
 
-### Für Präsentationen
-- Auto-Planungs-Modal mit laufender Telemetrie eignet sich bewusst als demonstrativer Präsentationsmodus.
-- Abschlussbericht nutzen, um Einzelentscheidungen transparent zu erläutern.
+---
+
+## Empfohlene Arbeitsweise im Alltag
+
+1. Monat laden oder über Zeitraumsteuerung wählen.
+2. Hauptplan prüfen und manuelle Fixpunkte setzen.
+3. In den Planungsmodus wechseln.
+4. Wünsche und kritische Abwesenheiten nachpflegen.
+5. Auto-Plan-Ziele prüfen bzw. anpassen.
+6. Auto-Planung laufen lassen.
+7. Ergebnis, Warnungen und Bericht kontrollieren.
+8. Manuelle Nachjustierung im Entwurf vornehmen.
+9. Entwurf speichern oder in den Hauptplan übernehmen.
+10. JSON exportieren, wenn ein Sicherungspunkt gewünscht ist.
+
+---
+
+## Weiterentwicklungspotenziale
+
+Fachlich und technisch sinnvoll wären insbesondere:
+- konfigurierbare Stammdaten statt harter Namensregeln,
+- pflegbare Regelmatrix im UI,
+- Berücksichtigung von Beschäftigungsgrad/Sollzeitanteil,
+- monatübergreifende Entwurfsverwaltung,
+- Vergleich mehrerer Auto-Plan-Varianten,
+- optionales servergestütztes Speichermodell,
+- feinere Audit-Historie.
 
 ---
 
 ## Zusammenfassung
 
-RadPlan ist im aktuellen Stand keine reine Tabelle, sondern ein umfassendes lokales Planungssystem mit:
-- bearbeitbarem Monatsplan,
-- isoliertem Entwurfsmodus,
-- regelbasierter D/HG-Auto-Planung,
-- personenbezogenen Sonderregeln,
-- Wochenend- und Feiertagslogik,
-- sichtbar eskalierenden Warnmechanismen,
-- umfangreichen Monats- und Jahresanalysen,
-- und einer bewusst eindrucksvoll gestalteten Auto-Planungs-Modal für nachvollziehbare Demonstrationen.
+RadPlan ist im aktuellen Stand eine vollständig lokal lauffähige Dienstplan-Anwendung mit:
+- editierbarer Monatsmatrix,
+- isoliertem Planungsmodus,
+- Wunschsystem,
+- Auto-Planung für `D` und `HG`,
+- historischer Fairnessbewertung,
+- personen- und blockbezogenen Sonderregeln,
+- Jahres- und Abteilungsanalysen,
+- durchgängig responsiver Modal- und Mobile-Oberfläche,
+- ausführlicher Ergebnis- und Berichtstransparenz.
 
+Dieses README bildet den aktuellen funktionalen Stand der Anwendung möglichst vollständig ab.
