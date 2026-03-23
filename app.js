@@ -420,7 +420,10 @@ const today = new Date();
 const TOD_Y = today.getFullYear(),
   TOD_M = today.getMonth(),
   TOD_D = today.getDate();
-const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+const MOBILE_BREAKPOINT = 768;
+const TOUCH_DEVICE_RE = /iPhone|iPad|iPod|Android/i;
+let IS_MOBILE = false;
+let responsiveLayoutRaf = 0;
 const state = {
   year: 2026,
   month: new Date().getMonth(),
@@ -442,6 +445,83 @@ let planBaseline = null;
 let planHistory = [];
 let planHistoryIdx = -1;
 let planSessions = {};
+
+function getViewportWidth() {
+  const vv = window.visualViewport?.width;
+  const dw = document.documentElement?.clientWidth;
+  const ww = window.innerWidth;
+  return Math.min(...[vv, dw, ww].filter((v) => Number.isFinite(v) && v > 0));
+}
+function getViewportHeight() {
+  return (
+    window.visualViewport?.height ||
+    window.innerHeight ||
+    document.documentElement?.clientHeight ||
+    0
+  );
+}
+function detectMobileLayout() {
+  const width = getViewportWidth();
+  const coarsePointer = window.matchMedia
+    ? window.matchMedia("(pointer: coarse)").matches
+    : false;
+  const touchLike =
+    coarsePointer || TOUCH_DEVICE_RE.test(navigator.userAgent);
+  return width <= MOBILE_BREAKPOINT || (touchLike && width <= 820);
+}
+function updateModalLayout(target) {
+  const overlay =
+    typeof target === "string" ? document.getElementById(target) : target;
+  if (!overlay || overlay.hasAttribute("hidden")) return;
+  const modal = overlay.querySelector(".modal");
+  if (!modal) return;
+  const viewportH = getViewportHeight();
+  const viewportW = getViewportWidth();
+  const mobileSheet =
+    document.body.classList.contains("is-mobile") &&
+    overlay.id !== "modal-mobile-menu" &&
+    overlay.id !== "modal-mobile-day";
+  const pad = mobileSheet ? 0 : Math.max(10, Math.min(24, viewportW * 0.024));
+  const availableH = Math.max(280, Math.floor(viewportH - pad * 2));
+  modal.style.setProperty("--modal-max-height", `${availableH}px`);
+  requestAnimationFrame(() => {
+    const naturalHeight = modal.scrollHeight;
+    const fitsViewport = naturalHeight <= availableH;
+    modal.classList.toggle("modal-fit-content", fitsViewport);
+    modal.classList.toggle("modal-fit-viewport", !fitsViewport);
+  });
+}
+function updateOpenModalLayouts() {
+  document
+    .querySelectorAll(".overlay:not([hidden])")
+    .forEach((overlay) => updateModalLayout(overlay));
+}
+function refreshResponsiveLayout(options = {}) {
+  const { forceRender = false } = options;
+  const nextMobile = detectMobileLayout();
+  const changed = nextMobile !== IS_MOBILE;
+  IS_MOBILE = nextMobile;
+  document.body.classList.toggle("is-mobile", IS_MOBILE);
+  if (!changed && !forceRender) {
+    updateOpenModalLayouts();
+    return false;
+  }
+  if (!IS_MOBILE) {
+    hideOverlay("modal-mobile-menu");
+    hideOverlay("modal-mobile-day");
+  }
+  render();
+  refreshOpenContextPanels();
+  updateOpenModalLayouts();
+  return true;
+}
+function queueResponsiveRefresh(options = {}) {
+  if (responsiveLayoutRaf) cancelAnimationFrame(responsiveLayoutRaf);
+  responsiveLayoutRaf = requestAnimationFrame(() => {
+    responsiveLayoutRaf = 0;
+    refreshResponsiveLayout(options);
+  });
+}
 
 function cloneData(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -788,12 +868,14 @@ function render() {
   }
   if (IS_MOBILE) {
     renderMobileView();
+    updateOpenModalLayouts();
     return;
   }
   renderStatsBar(y, m, dim, hols, md);
   renderThead(y, m, dim, hols);
   renderTbody(y, m, dim, hols, md);
   renderTfoot(y, m, dim, md);
+  updateOpenModalLayouts();
 }
 function renderStatsBar(y, m, dim, hols, md) {
   const bar = document.getElementById("stats-bar");
@@ -2214,6 +2296,9 @@ function showOverlay(id) {
   el.removeAttribute("hidden");
   el.style.display = "flex";
   el.querySelector(".modal")?.classList.remove("modal-closing");
+  document.body.classList.add("modal-open");
+  updateModalLayout(el);
+  setTimeout(() => updateModalLayout(el), 60);
   const first = el.querySelector(
     '[autofocus],[tabindex="0"],button:not([disabled]),input,textarea',
   );
@@ -2229,10 +2314,16 @@ function hideOverlay(id) {
       el.setAttribute("hidden", "");
       el.style.display = "none";
       mEl.classList.remove("modal-closing");
+      if (!document.querySelector(".overlay:not([hidden])")) {
+        document.body.classList.remove("modal-open");
+      }
     }, 160);
   } else {
     el.setAttribute("hidden", "");
     el.style.display = "none";
+    if (!document.querySelector(".overlay:not([hidden])")) {
+      document.body.classList.remove("modal-open");
+    }
   }
 }
 let toastTimer = null;
@@ -4351,13 +4442,10 @@ async function renderProgressAndThenResult(result) {
   let prevPhase = "";
   let telemetryIdx = 0;
   let laneCursor = 0;
-
   let bdCount = 0;
   let hgCount = 0;
   let ruleCount = 0;
   let swapCount = 0;
-  let telemetryIdx = 0;
-  let laneCursor = 0;
 
   function updateStats() {
     document.getElementById("ap-ls-bd").textContent = bdCount;
@@ -4401,14 +4489,11 @@ async function renderProgressAndThenResult(result) {
     ruleChipEl.className = `ap-rule-chip severity-${event.severity || "info"}`;
     ruleLabelEl.textContent = event.label;
     ruleDetailEl.textContent = event.detail;
-    ruleInspectorCard.className = `ap-rule-focus severity-${event.severity || "info"}`;
     ruleInspectorCard.className = `ap-rule-inspector-card severity-${event.severity || "info"}`;
   }
 
   const weightedLog = log.map((entry) => {
     const isAssign = entry.icon === "→" || entry.icon === "🔗";
-    const isOptimize = ["🔀", "🔁", "🧠", "🛰️"].includes(entry.icon);
-    const isWarn = ["⚠", "🚨"].includes(entry.icon);
     const isOptimize = entry.icon === "🔀" || entry.icon === "🔁" || entry.icon === "🧠" || entry.icon === "🛰️";
     const isWarn = entry.icon === "⚠" || entry.icon === "🚨";
     const isDone = entry.phase === "done";
@@ -4432,7 +4517,6 @@ async function renderProgressAndThenResult(result) {
     glowEl.style.width = entry.pct + "%";
     pctEl.textContent = entry.pct + "%";
 
-    while (telemetryIdx < telemetryEvents.length && telemetryEvents[telemetryIdx].phase === entry.phase) {
     if (entry.icon === "→" && entry.phase.startsWith("bd") && !entry.phase.includes("optimize")) bdCount++;
     if (entry.icon === "→" && entry.phase.includes("hg")) hgCount++;
     if (entry.icon === "🔗" && entry.phase === "hg_bundle" && entry.msg.includes("HG →")) hgCount++;
@@ -4466,15 +4550,8 @@ async function renderProgressAndThenResult(result) {
 
     const targetElapsed = (consumedWeight / totalWeight) * AUTO_PLAN_PROGRESS_MIN_MS;
     const waitMs = Math.max(24, targetElapsed - (performance.now() - startedAt));
+    updateStats();
     await sleep(waitMs);
-  }
-
-  while (telemetryIdx < telemetryEvents.length) {
-    renderRuleEvent(telemetryEvents[telemetryIdx]);
-    telemetryIdx += 1;
-    await sleep(110);
-  }
-
   }
 
   while (telemetryIdx < telemetryEvents.length) {
@@ -4669,7 +4746,6 @@ function applyAutoPlan() {
 }
 
 function init() {
-  if (IS_MOBILE) document.body.classList.add("is-mobile");
   loadFromStorage();
   const repaired = ensurePostBDFreiDays();
   if (!Object.keys(DATA).length) {
@@ -4695,7 +4771,14 @@ function init() {
   populatePeriodMonthSelect();
   syncPeriodControls();
   wireEvents();
-  render();
+  refreshResponsiveLayout({ forceRender: true });
+  window.addEventListener("resize", queueResponsiveRefresh, { passive: true });
+  window.addEventListener("orientationchange", queueResponsiveRefresh, {
+    passive: true,
+  });
+  window.visualViewport?.addEventListener("resize", queueResponsiveRefresh, {
+    passive: true,
+  });
   if (repaired > 0) showToast(`${repaired} Ruhetage ergänzt`);
 }
 
