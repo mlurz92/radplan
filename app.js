@@ -1754,7 +1754,7 @@ function renderEmployeeDashboard() {
     const hay = [item.emp, item.meta.fullName, item.meta.posLabel, item.meta.position, item.meta.area].join(" ").toLowerCase();
     return hay.includes(query);
   });
-  if (!dash.selectedEmp || !employees.includes(dash.selectedEmp)) dash.selectedEmp = filtered[0]?.emp || employees[0];
+  if (!dash.selectedEmp || !employees.includes(dash.selectedEmp)) dash.selectedEmp = filtered[0]?.emp || null;
   if (countEl) countEl.textContent = `${filtered.length} von ${employees.length} sichtbar`;
   gridEl.innerHTML = filtered.map((item) => {
     const pc = posColor(item.meta.position);
