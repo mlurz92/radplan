@@ -2845,5 +2845,18 @@ body.is-mobile #modal-mobile-menu .modal-bd {
   }
   .ap-terminal-compact .ap-term-body {
     max-height: 140px;
+  .ap-result-metrics {
+    grid-template-columns: 1fr;
+  }
+  .ap-rule-theater-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .ap-rule-scoreboard {
+    width: 100%;
+  }
+  .ap-rule-lane,
+  .ap-rule-inspector-card {
+    min-height: 150px;
   }
 }
