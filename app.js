@@ -4113,6 +4113,11 @@ function renderAutoPlanModal() {
   const applyBtn = document.getElementById("ap-apply");
   const reportBtn = document.getElementById("ap-report-btn");
   if (reportBtn) reportBtn.style.display = "none";
+  body.style.height = "auto";
+  body.style.maxHeight = "72vh";
+  body.style.overflowY = "auto";
+  body.style.overflowX = "hidden";
+  body.style.padding = "24px";
 
   if (apViewMode === "config") {
     applyBtn.style.display = "none";
@@ -4211,16 +4216,22 @@ async function renderProgressAndThenResult(result) {
   const body = document.getElementById("ap-body");
   const applyBtn = document.getElementById("ap-apply");
   applyBtn.style.display = "none";
+  body.style.height = "min(72vh, 680px)";
+  body.style.maxHeight = "min(72vh, 680px)";
+  body.style.overflow = "hidden";
+  body.style.padding = "16px";
   body.innerHTML = `
-    <div class="ap-engine ap-engine-immersive">
+    <div class="ap-engine ap-engine-immersive ap-engine-compact">
       <div class="ap-hero-grid" aria-hidden="true">
         <span class="ap-grid-line"></span><span class="ap-grid-line"></span><span class="ap-grid-line"></span>
         <span class="ap-grid-line vertical"></span><span class="ap-grid-line vertical"></span><span class="ap-grid-line vertical"></span>
       </div>
-      <div class="ap-hero-shell">
+      <div class="ap-hero-shell ap-hero-shell-compact">
         <div class="ap-hero-hud">
           <div class="ap-hud-block">
             <span class="ap-hud-kicker">RadPlan Neural Scheduler</span>
+            <strong class="ap-hud-title">Auto-Plan Sequenz läuft</strong>
+            <span class="ap-hud-sub">30s Präsentationslauf · finaler Deep-Optimize-Pass · cineastische Regelvisualisierung</span>
             <strong class="ap-hud-title">Live-Allokation klinischer Dienstketten</strong>
             <span class="ap-hud-sub">Deep-Optimization Mode · 30s Präsentationslauf · Constraint-Telemetrie in Echtzeit</span>
           </div>
@@ -4235,20 +4246,27 @@ async function renderProgressAndThenResult(result) {
         <div class="ap-pipeline" id="ap-pipeline">
           <div class="ap-phase-node" data-phase="init"><span class="ap-pn-dot"></span><span class="ap-pn-label">Analyse</span></div><div class="ap-phase-conn"></div>
           <div class="ap-phase-node" data-phase="bd"><span class="ap-pn-dot"></span><span class="ap-pn-label">BD</span></div><div class="ap-phase-conn"></div>
-          <div class="ap-phase-node" data-phase="swap"><span class="ap-pn-dot"></span><span class="ap-pn-label">Optimierung</span></div><div class="ap-phase-conn"></div>
+          <div class="ap-phase-node" data-phase="swap"><span class="ap-pn-dot"></span><span class="ap-pn-label">Optimize</span></div><div class="ap-phase-conn"></div>
           <div class="ap-phase-node" data-phase="hg"><span class="ap-pn-dot"></span><span class="ap-pn-label">HG</span></div><div class="ap-phase-conn"></div>
-          <div class="ap-phase-node" data-phase="validate"><span class="ap-pn-dot"></span><span class="ap-pn-label">Validierung</span></div>
-        </div>
-        <div class="ap-live-stats" id="ap-live-stats">
-          <div class="ap-ls-item ap-ls-primary"><span class="ap-ls-val" id="ap-ls-bd" style="color:#FB7185">0</span><span class="ap-ls-lbl">BD-Routen</span><span class="ap-ls-glow"></span></div><div class="ap-ls-sep"></div>
-          <div class="ap-ls-item"><span class="ap-ls-val" id="ap-ls-hg" style="color:#38BDF8">0</span><span class="ap-ls-lbl">HG-Ketten</span><span class="ap-ls-glow"></span></div><div class="ap-ls-sep"></div>
-          <div class="ap-ls-item"><span class="ap-ls-val" id="ap-ls-rules" style="color:#FBBF24">0</span><span class="ap-ls-lbl">Regel-Trigger</span><span class="ap-ls-glow"></span></div><div class="ap-ls-sep"></div>
-          <div class="ap-ls-item"><span class="ap-ls-val" id="ap-ls-swaps" style="color:#4ADE80">0</span><span class="ap-ls-lbl">Optimierungen</span><span class="ap-ls-glow"></span></div>
+          <div class="ap-phase-node" data-phase="validate"><span class="ap-pn-dot"></span><span class="ap-pn-label">Finish</span></div>
         </div>
         <div class="ap-bar-wrap">
           <div class="ap-bar-track"><div class="ap-bar-fill" id="ap-prog-bar"></div><div class="ap-bar-glow" id="ap-prog-glow"></div><div class="ap-bar-scan"></div></div>
           <div class="ap-bar-info"><span class="ap-bar-phase" id="ap-prog-title">Initialisierung</span><span class="ap-bar-pct" id="ap-prog-pct">0%</span></div>
         </div>
+        <div class="ap-rule-theater ap-rule-theater-compact" id="ap-rule-theater">
+          <div class="ap-rule-theater-head ap-rule-theater-head-compact">
+            <div>
+              <div class="ap-rule-kicker">Constraint Flux</div>
+              <div class="ap-rule-title">Regeln fliegen durch die Engine</div>
+            </div>
+            <div class="ap-rule-inline">
+              <span class="ap-rule-inline-label">Live-Phase</span>
+              <strong id="ap-rule-active">Initialisierung</strong>
+            </div>
+          </div>
+          <div class="ap-rule-stage ap-rule-stage-compact">
+            <div class="ap-rule-lanes ap-rule-lanes-compact">
         <div class="ap-rule-theater" id="ap-rule-theater">
           <div class="ap-rule-theater-head">
             <div>
@@ -4266,6 +4284,10 @@ async function renderProgressAndThenResult(result) {
               <div class="ap-rule-lane" data-lane="1"></div>
               <div class="ap-rule-lane" data-lane="2"></div>
             </div>
+            <div class="ap-rule-focus" id="ap-rule-inspector-card">
+              <span class="ap-rule-chip" id="ap-rule-chip">STANDBY</span>
+              <strong id="ap-rule-label">Warte auf erste Constraint-Kaskade…</strong>
+              <p id="ap-rule-detail">Die Engine sammelt Regeln, Konflikte und Optimierungsimpulse und visualisiert sie hier als fließende Artefakte.</p>
             <div class="ap-rule-inspector">
               <div class="ap-rule-inspector-card" id="ap-rule-inspector-card">
                 <span class="ap-rule-chip" id="ap-rule-chip">Standby</span>
@@ -4282,7 +4304,7 @@ async function renderProgressAndThenResult(result) {
           </div>
         </div>
       </div>
-      <div class="ap-terminal ap-terminal-deep" id="ap-log">
+      <div class="ap-terminal ap-terminal-deep ap-terminal-compact" id="ap-log">
         <div class="ap-term-header"><span class="ap-term-dot" style="background:#FF5F57"></span><span class="ap-term-dot" style="background:#FFBD2E"></span><span class="ap-term-dot" style="background:#28C840"></span><span class="ap-term-title">RadPlan Auto-Scheduler // Quantum Trace Console</span></div>
         <div class="ap-term-body" id="ap-term-body"></div>
       </div>
@@ -4312,7 +4334,7 @@ async function renderProgressAndThenResult(result) {
     hg_assign: "HG Verteilung",
     deep_optimize: "Metaheuristik",
     validate: "Validierung",
-    done: "Fertig",
+    done: "Abschluss",
   };
   const phaseToNode = {
     init: "init",
@@ -4327,6 +4349,9 @@ async function renderProgressAndThenResult(result) {
   };
 
   let prevPhase = "";
+  let telemetryIdx = 0;
+  let laneCursor = 0;
+
   let bdCount = 0;
   let hgCount = 0;
   let ruleCount = 0;
@@ -4365,6 +4390,7 @@ async function renderProgressAndThenResult(result) {
     pill.className = `ap-rule-pill severity-${event.severity || "info"}`;
     pill.innerHTML = `<span class="ap-rule-pill-label">${event.label}</span><span class="ap-rule-pill-count">×${event.count || 1}</span>`;
     lane.prepend(pill);
+    if (lane.children.length > 3) lane.removeChild(lane.lastElementChild);
     if (lane.children.length > 4) lane.removeChild(lane.lastElementChild);
     requestAnimationFrame(() => pill.classList.add("is-live"));
     setTimeout(() => pill.classList.remove("is-live"), 1200);
@@ -4375,11 +4401,14 @@ async function renderProgressAndThenResult(result) {
     ruleChipEl.className = `ap-rule-chip severity-${event.severity || "info"}`;
     ruleLabelEl.textContent = event.label;
     ruleDetailEl.textContent = event.detail;
+    ruleInspectorCard.className = `ap-rule-focus severity-${event.severity || "info"}`;
     ruleInspectorCard.className = `ap-rule-inspector-card severity-${event.severity || "info"}`;
   }
 
   const weightedLog = log.map((entry) => {
     const isAssign = entry.icon === "→" || entry.icon === "🔗";
+    const isOptimize = ["🔀", "🔁", "🧠", "🛰️"].includes(entry.icon);
+    const isWarn = ["⚠", "🚨"].includes(entry.icon);
     const isOptimize = entry.icon === "🔀" || entry.icon === "🔁" || entry.icon === "🧠" || entry.icon === "🛰️";
     const isWarn = entry.icon === "⚠" || entry.icon === "🚨";
     const isDone = entry.phase === "done";
@@ -4394,6 +4423,7 @@ async function renderProgressAndThenResult(result) {
     if (entry.phase !== prevPhase) {
       titleEl.textContent = phaseNames[entry.phase] || entry.phase;
       activatePhaseNode(entry.phase);
+      ruleActiveEl.textContent = phaseNames[entry.phase] || entry.phase;
       prevPhase = entry.phase;
     }
 
@@ -4402,6 +4432,7 @@ async function renderProgressAndThenResult(result) {
     glowEl.style.width = entry.pct + "%";
     pctEl.textContent = entry.pct + "%";
 
+    while (telemetryIdx < telemetryEvents.length && telemetryEvents[telemetryIdx].phase === entry.phase) {
     if (entry.icon === "→" && entry.phase.startsWith("bd") && !entry.phase.includes("optimize")) bdCount++;
     if (entry.icon === "→" && entry.phase.includes("hg")) hgCount++;
     if (entry.icon === "🔗" && entry.phase === "hg_bundle" && entry.msg.includes("HG →")) hgCount++;
@@ -4417,7 +4448,6 @@ async function renderProgressAndThenResult(result) {
       renderRuleEvent(telemetryEvents[telemetryIdx]);
       telemetryIdx += 1;
     }
-    updateStats();
 
     const div = document.createElement("div");
     let cls = "ap-log-entry";
@@ -4440,6 +4470,14 @@ async function renderProgressAndThenResult(result) {
   }
 
   while (telemetryIdx < telemetryEvents.length) {
+    renderRuleEvent(telemetryEvents[telemetryIdx]);
+    telemetryIdx += 1;
+    await sleep(110);
+  }
+
+  }
+
+  while (telemetryIdx < telemetryEvents.length) {
     ruleCount++;
     renderRuleEvent(telemetryEvents[telemetryIdx]);
     telemetryIdx += 1;
@@ -4454,6 +4492,7 @@ async function renderProgressAndThenResult(result) {
   pipeline.querySelectorAll(".ap-phase-conn").forEach((c) => c.classList.add("done"));
   const remainingMs = AUTO_PLAN_PROGRESS_MIN_MS - (performance.now() - startedAt);
   if (remainingMs > 0) await sleep(remainingMs);
+  await sleep(320);
   await sleep(450);
   apViewMode = "result";
   renderResultView();
@@ -4467,6 +4506,11 @@ function renderResultView() {
   const { summary } = autoPlanResult;
   const quality = summary.quality || {};
   const body = document.getElementById("ap-body");
+  body.style.height = "auto";
+  body.style.maxHeight = "72vh";
+  body.style.overflowY = "auto";
+  body.style.overflowX = "hidden";
+  body.style.padding = "24px";
   const applyBtn = document.getElementById("ap-apply");
   const reportBtn = document.getElementById("ap-report-btn");
   applyBtn.style.display = "";
