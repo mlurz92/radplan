@@ -363,14 +363,8 @@ function ensurePostBDFreiDays() {
   return totalRepaired;
 }
 function getMonthData(y, m) {
-  if (planMode && planData && y === state.year && m === state.month)
-    return planData;
-  const k = monthKey(y, m);
-  if (!DATA[k]) {
-    const prev = DATA[prevMK(y, m)];
-    DATA[k] = { employees: [...(prev?.employees || [])], assignments: {} };
-  }
-  return DATA[k];
+  if (planMode && planData && y === state.year && m === state.month) return planData;
+  return getMonthDataRaw(y, m);
 }
 function setCell(y, m, emp, day, patch) {
   const md = getMonthData(y, m);
@@ -394,13 +388,15 @@ function getCell(y, m, emp, day) {
 function addEmployee(y, m, name) {
   const md = getMonthData(y, m);
   if (!md.employees.includes(name)) md.employees.push(name);
-  saveToStorage();
+  if (planMode) persistPlanSessionRefs();
+  else saveToStorage();
 }
 function removeEmployee(y, m, name) {
   const md = getMonthData(y, m);
   md.employees = md.employees.filter((e) => e !== name);
   delete md.assignments[name];
-  saveToStorage();
+  if (planMode) persistPlanSessionRefs();
+  else saveToStorage();
 }
 function dutyOwner(y, m, day, dt) {
   const md = getMonthData(y, m);
@@ -430,6 +426,14 @@ const state = {
   month: new Date().getMonth(),
   edit: null,
   ed: { wp: [], st: null, duty: null },
+  employeeDashboard: {
+    filter: "",
+    role: "ALL",
+    selectedEmp: null,
+    detailView: "months",
+  },
+  periodDraft: { year: 2026, month: new Date().getMonth() },
+  profileEmp: null,
 };
 let deptTab = "month";
 let planMode = false;
@@ -437,6 +441,210 @@ let planData = null;
 let planBaseline = null;
 let planHistory = [];
 let planHistoryIdx = -1;
+let planSessions = {};
+
+function cloneData(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+function getStoredPlanDraft(key) {
+  try {
+    const raw = localStorage.getItem(`radplan_v3_plan_${key}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+function createPlanSession(y, m) {
+  const key = monthKey(y, m);
+  const stored = getStoredPlanDraft(key);
+  const source = stored && stored.assignments
+    ? stored
+    : {
+        employees: [...getMonthDataRaw(y, m).employees],
+        assignments: cloneData(getMonthDataRaw(y, m).assignments || {}),
+        wishes: {},
+      };
+  return {
+    key,
+    employees: [...(source.employees || [])],
+    assignments: cloneData(source.assignments || {}),
+    wishes: cloneData(source.wishes || {}),
+    baseline: cloneData(source.assignments || {}),
+    history: [cloneData(source.assignments || {})],
+    historyIdx: 0,
+  };
+}
+function syncPlanSessionRefs(session) {
+  planData = session;
+  planBaseline = session.baseline;
+  planHistory = session.history;
+  planHistoryIdx = session.historyIdx;
+}
+function persistPlanSessionRefs() {
+  if (!planData) return;
+  planData.baseline = planBaseline;
+  planData.history = planHistory;
+  planData.historyIdx = planHistoryIdx;
+}
+function getMonthDataRaw(y, m) {
+  const k = monthKey(y, m);
+  if (!DATA[k]) {
+    const prev = DATA[prevMK(y, m)];
+    DATA[k] = { employees: [...(prev?.employees || [])], assignments: {} };
+  }
+  return DATA[k];
+}
+function ensurePlanSession(y, m) {
+  const key = monthKey(y, m);
+  if (!planSessions[key]) planSessions[key] = createPlanSession(y, m);
+  return planSessions[key];
+}
+function hasSessionChanges(session) {
+  return JSON.stringify(session.assignments) !== JSON.stringify(session.baseline);
+}
+function hasAnyPlanChanges() {
+  return Object.values(planSessions).some(hasSessionChanges);
+}
+function loadPlanSessionForState(y, m) {
+  const session = ensurePlanSession(y, m);
+  syncPlanSessionRefs(session);
+  return session;
+}
+function shiftMonth(delta) {
+  const total = state.year * 12 + state.month + delta;
+  const nextYear = Math.floor(total / 12);
+  const nextMonth = ((total % 12) + 12) % 12;
+  return { year: nextYear, month: nextMonth };
+}
+function switchPeriod(targetYear, targetMonth, options = {}) {
+  const { closeFlyout = true } = options;
+  if (closeFlyout) closePeriodFlyout();
+  if (planMode) {
+    persistPlanSessionRefs();
+  }
+  state.year = targetYear;
+  state.month = targetMonth;
+  state.periodDraft = { year: targetYear, month: targetMonth };
+  if (planMode) {
+    loadPlanSessionForState(targetYear, targetMonth);
+  }
+  syncPeriodControls();
+  refreshOpenContextPanels();
+  render();
+}
+function changeMonth(delta) {
+  const next = shiftMonth(delta);
+  switchPeriod(next.year, next.month);
+}
+function changeYear(delta) {
+  switchPeriod(state.year + delta, state.month);
+}
+function refreshOpenContextPanels() {
+  const deptModal = document.getElementById("modal-dept");
+  if (deptModal && !deptModal.hasAttribute("hidden")) renderDeptContent();
+  const empModal = document.getElementById("modal-emps");
+  if (empModal && !empModal.hasAttribute("hidden")) renderEmployeeDashboard();
+  const profileModal = document.getElementById("modal-profile");
+  if (profileModal && !profileModal.hasAttribute("hidden") && state.profileEmp) openProfileModal(state.profileEmp);
+}
+function syncPeriodControls() {
+  const monthSelect = document.getElementById("period-month-select");
+  const yearInput = document.getElementById("period-year-input");
+  const context = document.getElementById("period-context");
+  if (monthSelect) monthSelect.value = String(state.periodDraft.month);
+  if (yearInput) yearInput.value = String(state.periodDraft.year);
+  if (context) {
+    const modeText = planMode
+      ? `Planungsmodus aktiv · aktive Sicht ${MONTHS[state.month]} ${state.year} · Auswahl ${MONTHS[state.periodDraft.month]} ${state.periodDraft.year}`
+      : `Aktive Ansicht ${MONTHS[state.month]} ${state.year} · Auswahl ${MONTHS[state.periodDraft.month]} ${state.periodDraft.year}`;
+    context.textContent = modeText;
+  }
+  const labelBtn = document.getElementById("month-label-btn");
+  if (labelBtn) labelBtn.setAttribute("aria-expanded", isPeriodFlyoutOpen() ? "true" : "false");
+}
+function populatePeriodMonthSelect() {
+  const sel = document.getElementById("period-month-select");
+  if (!sel || sel.options.length) return;
+  MONTHS.forEach((label, idx) => {
+    const opt = document.createElement("option");
+    opt.value = String(idx);
+    opt.textContent = label;
+    sel.appendChild(opt);
+  });
+}
+function isPeriodFlyoutOpen() {
+  const el = document.getElementById("period-flyout");
+  return !!el && !el.hasAttribute("hidden");
+}
+function openPeriodFlyout() {
+  populatePeriodMonthSelect();
+  state.periodDraft = { year: state.year, month: state.month };
+  syncPeriodControls();
+  const el = document.getElementById("period-flyout");
+  if (!el) return;
+  el.removeAttribute("hidden");
+  el.setAttribute("aria-hidden", "false");
+  document.body.classList.add("period-flyout-open");
+  syncPeriodControls();
+}
+function closePeriodFlyout() {
+  const el = document.getElementById("period-flyout");
+  if (!el) return;
+  el.setAttribute("hidden", "");
+  el.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("period-flyout-open");
+  syncPeriodControls();
+}
+function applyPeriodDraft() {
+  const year = Math.max(2000, Math.min(2100, parseInt(state.periodDraft.year, 10) || state.year));
+  const month = Math.max(0, Math.min(11, parseInt(state.periodDraft.month, 10) || 0));
+  switchPeriod(year, month);
+}
+function getEmployeesForYear(year) {
+  const emps = new Set();
+  Object.entries(DATA).forEach(([key, md]) => {
+    if (!key.startsWith(`${year}-`) || !md?.employees) return;
+    md.employees.forEach((emp) => emps.add(emp));
+  });
+  getMonthDataRaw(year, state.month).employees.forEach((emp) => emps.add(emp));
+  if (planMode) {
+    Object.keys(planSessions).forEach((key) => {
+      if (!key.startsWith(`${year}-`)) return;
+      planSessions[key].employees.forEach((emp) => emps.add(emp));
+    });
+  }
+  return [...emps].sort((a, b) => a.localeCompare(b, 'de'));
+}
+function getRoleFilterBuckets(year, employees) {
+  const buckets = { ALL: employees.length, CA: 0, OA: 0, FA: 0, AA: 0, OHNE: 0 };
+  employees.forEach((emp) => {
+    const pos = getEmpMeta(emp).position;
+    if (pos === "CA") buckets.CA++;
+    else if (["LOA", "OA", "OÄ"].includes(pos)) buckets.OA++;
+    else if (["FA", "FÄ"].includes(pos)) buckets.FA++;
+    else if (["AA", "AÄ"].includes(pos)) buckets.AA++;
+    else buckets.OHNE++;
+  });
+  return buckets;
+}
+function getEmployeeYearCardMetrics(emp, year) {
+  const ys = buildYearlyStats(emp, year);
+  const meta = getEmpMeta(emp);
+  const activeMonths = ys.months.filter((mon) => mon.hasData).length;
+  const coverage = ys.totals.totalWorkdays > 0 ? Math.round((ys.totals.coveredWorkdays / ys.totals.totalWorkdays) * 100) : 0;
+  return { emp, ys, meta, activeMonths, coverage };
+}
+function matchRoleFilter(emp, role) {
+  if (role === "ALL") return true;
+  const pos = getEmpMeta(emp).position;
+  if (role === "CA") return pos === "CA";
+  if (role === "OA") return ["LOA", "OA", "OÄ"].includes(pos);
+  if (role === "FA") return ["FA", "FÄ"].includes(pos);
+  if (role === "AA") return ["AA", "AÄ"].includes(pos);
+  if (role === "OHNE") return pos === "—";
+  return true;
+}
+
 function isEditorOpen() {
   const el = document.getElementById("modal-editor");
   return el && !el.hasAttribute("hidden");
@@ -444,8 +652,9 @@ function isEditorOpen() {
 function recordPlanHistory() {
   if (!planMode || !planData) return;
   planHistory = planHistory.slice(0, planHistoryIdx + 1);
-  planHistory.push(JSON.parse(JSON.stringify(planData.assignments)));
+  planHistory.push(cloneData(planData.assignments));
   planHistoryIdx = planHistory.length - 1;
+  persistPlanSessionRefs();
   updatePlanBarUI();
 }
 function updatePlanBarUI() {
@@ -461,26 +670,20 @@ function updatePlanBarUI() {
 }
 function enterPlanMode() {
   const { year: y, month: m } = state;
-  const realMD = getMonthData(y, m);
-  planData = {
-    employees: [...realMD.employees],
-    assignments: JSON.parse(JSON.stringify(realMD.assignments)),
-    wishes: {},
-  };
-  planBaseline = JSON.parse(JSON.stringify(planData.assignments));
-  planHistory = [JSON.parse(JSON.stringify(planData.assignments))];
-  planHistoryIdx = 0;
   planMode = true;
+  loadPlanSessionForState(y, m);
   autoPlanTargets = {};
   render();
   showToast("Planungsmodus aktiv");
 }
 function exitPlanMode() {
+  persistPlanSessionRefs();
   planMode = false;
   planData = null;
   planBaseline = null;
   planHistory = [];
   planHistoryIdx = -1;
+  planSessions = {};
   render();
 }
 function getWish(emp, day) {
@@ -498,14 +701,9 @@ function toggleWish(emp, day, wishCode) {
   setWish(emp, day, current === wishCode ? null : wishCode);
 }
 function closePlanMode() {
-  const hasChanges =
-    planBaseline &&
-    JSON.stringify(planData.assignments) !== JSON.stringify(planBaseline);
-  if (hasChanges) {
-    if (
-      !confirm("Planungsmodus schließen?\nEs gibt ungespeicherte Änderungen.")
-    )
-      return;
+  persistPlanSessionRefs();
+  if (hasAnyPlanChanges()) {
+    if (!confirm("Planungsmodus schließen?\nEs gibt ungespeicherte Änderungen in mindestens einem Monatsentwurf.")) return;
   }
   exitPlanMode();
 }
@@ -515,9 +713,10 @@ function abortPlanChanges() {
     showToast("Keine Änderungen");
     return;
   }
-  planData.assignments = JSON.parse(JSON.stringify(planBaseline));
-  planHistory = [JSON.parse(JSON.stringify(planData.assignments))];
+  planData.assignments = cloneData(planBaseline);
+  planHistory = [cloneData(planData.assignments)];
   planHistoryIdx = 0;
+  persistPlanSessionRefs();
   render();
   showToast("Zurückgesetzt");
 }
@@ -525,8 +724,10 @@ function savePlanDraft() {
   if (!planMode || !planData) return;
   const key = `radplan_v3_plan_${monthKey(state.year, state.month)}`;
   try {
-    localStorage.setItem(key, JSON.stringify(planData));
-    planBaseline = JSON.parse(JSON.stringify(planData.assignments));
+    persistPlanSessionRefs();
+    localStorage.setItem(key, JSON.stringify({ employees: planData.employees, assignments: planData.assignments, wishes: planData.wishes || {} }));
+    planBaseline = cloneData(planData.assignments);
+    persistPlanSessionRefs();
     updatePlanBarUI();
     showToast("Entwurf gespeichert");
   } catch (e) {
@@ -538,7 +739,8 @@ function applyPlanToMain() {
   const k = monthKey(state.year, state.month);
   if (!DATA[k])
     DATA[k] = { employees: [...planData.employees], assignments: {} };
-  DATA[k].assignments = JSON.parse(JSON.stringify(planData.assignments));
+  DATA[k].employees = [...planData.employees];
+  DATA[k].assignments = cloneData(planData.assignments);
   saveToStorage();
   exitPlanMode();
   showToast("Planung übernommen");
@@ -546,18 +748,16 @@ function applyPlanToMain() {
 function undoPlan() {
   if (!planMode || planHistoryIdx <= 0) return;
   planHistoryIdx--;
-  planData.assignments = JSON.parse(
-    JSON.stringify(planHistory[planHistoryIdx]),
-  );
+  planData.assignments = cloneData(planHistory[planHistoryIdx]);
+  persistPlanSessionRefs();
   updatePlanBarUI();
   render();
 }
 function redoPlan() {
   if (!planMode || planHistoryIdx >= planHistory.length - 1) return;
   planHistoryIdx++;
-  planData.assignments = JSON.parse(
-    JSON.stringify(planHistory[planHistoryIdx]),
-  );
+  planData.assignments = cloneData(planHistory[planHistoryIdx]);
+  persistPlanSessionRefs();
   updatePlanBarUI();
   render();
 }
@@ -567,6 +767,7 @@ function render() {
   const md = getMonthData(y, m);
   const dim = daysInMonth(y, m);
   document.getElementById("month-label").textContent = `${MONTHS[m]} ${y}`;
+  syncPeriodControls();
   const todayBtn = document.getElementById("btn-today");
   if (todayBtn)
     todayBtn.classList.toggle("today-btn-active", y === TOD_Y && m === TOD_M);
@@ -947,6 +1148,7 @@ function openProfileModal(empName) {
     avatarEl.textContent = ini;
     avatarEl.style.background = `linear-gradient(135deg,${pc.border},${pc.fg})`;
   }
+  state.profileEmp = empName;
   const nameEl = document.getElementById("pm-name");
   if (nameEl) nameEl.textContent = meta.fullName !== empName ? meta.fullName : empName;
   const subEl = document.getElementById("pm-sub");
@@ -1495,41 +1697,178 @@ function saveEditor() {
   render();
 }
 function openEmployeeModal() {
-  const { year: y, month: m } = state;
-  document.getElementById("emp-sub").textContent = `${MONTHS[m]} ${y}`;
-  document.getElementById("emp-input").value = "";
-  refreshEmployeeList();
+  const { year: y } = state;
+  const dash = state.employeeDashboard;
+  const employees = getEmployeesForYear(y);
+  if (!dash.selectedEmp || !employees.includes(dash.selectedEmp)) {
+    dash.selectedEmp = employees[0] || null;
+  }
+  document.getElementById("emp-sub").textContent = `Kalenderjahr ${y}`;
+  renderEmployeeDashboard();
   showOverlay("modal-emps");
-  setTimeout(() => document.getElementById("emp-input").focus(), 80);
+  setTimeout(() => document.getElementById("emp-search")?.focus(), 80);
 }
-function refreshEmployeeList() {
+function renderEmployeeDashboard() {
   const { year: y, month: m } = state;
-  const md = getMonthData(y, m);
-  const el = document.getElementById("emp-list");
-  el.innerHTML = "";
-  if (!md.employees.length) {
-    el.innerHTML = `<div class="emp-none">Keine Mitarbeitenden</div>`;
+  const dash = state.employeeDashboard;
+  const employees = getEmployeesForYear(y);
+  const summaryEl = document.getElementById("emp-summary-grid");
+  const gridEl = document.getElementById("emp-year-grid");
+  const detailEl = document.getElementById("emp-detail-panel");
+  const detailSub = document.getElementById("emp-detail-sub");
+  const countEl = document.getElementById("emp-visible-count");
+  const contextEl = document.getElementById("emp-context-line");
+  if (!summaryEl || !gridEl || !detailEl) return;
+  const currentMonthData = getMonthData(y, m);
+  if (contextEl) contextEl.textContent = `${MONTHS[m]} ${y} · ${currentMonthData.employees.length} Mitarbeitende im aktuellen Monat · ${employees.length} eindeutige Mitarbeitende im Jahr`;
+  if (!employees.length) {
+    summaryEl.innerHTML = `<div class="empdash-empty">Keine Mitarbeitendendaten für ${y} vorhanden.</div>`;
+    gridEl.innerHTML = "";
+    detailEl.innerHTML = `<div class="empdash-empty">Bitte zuerst Mitarbeitende anlegen.</div>`;
+    if (countEl) countEl.textContent = "0 sichtbar";
+    renderRoleFilters(employees);
     return;
   }
-  md.employees.forEach((emp) => {
-    const meta = getEmpMeta(emp);
-    const pc = posColor(meta.position);
-    const ini = empInitials(emp);
-    const row = document.createElement("div");
-    row.className = "emp-row";
-    row.innerHTML = `<div class="emp-row-left"><span class="emp-avatar" style="background:linear-gradient(135deg,${pc.border},${pc.fg})">${ini}</span><div class="emp-row-info"><span class="emp-row-name">${emp}</span>${meta.position !== "—" ? `<span class="emp-row-meta">${meta.posLabel}</span>` : ""}</div></div><button class="emp-row-del"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l9 9M10 1L1 10"/></svg></button>`;
-    row
-      .querySelector(".emp-row-del")
-      .addEventListener("click", () => confirmRemoveEmployee(emp, true));
-    el.appendChild(row);
+  const metrics = employees.map((emp) => getEmployeeYearCardMetrics(emp, y));
+  const activeCount = metrics.filter((item) => item.activeMonths > 0).length;
+  const dutyCount = metrics.reduce((sum, item) => sum + item.ys.totals.dutyD + item.ys.totals.dutyHG, 0);
+  const roles = metrics.reduce((acc, item) => {
+    const pos = item.meta.position;
+    if (["CA", "LOA", "OA", "OÄ"].includes(pos)) acc.lead++;
+    else if (["FA", "FÄ"].includes(pos)) acc.fa++;
+    else if (["AA", "AÄ"].includes(pos)) acc.aa++;
+    else acc.other++;
+    return acc;
+  }, { lead: 0, fa: 0, aa: 0, other: 0 });
+  summaryEl.innerHTML = [
+    { label: "Mitarbeitende im Jahr", value: employees.length, sub: `${activeCount} mit Aktivität`, tone: "#0EA5E9" },
+    { label: "Aktueller Monatsbestand", value: currentMonthData.employees.length, sub: `${MONTHS[m]} ${y}`, tone: "#22C55E" },
+    { label: "Dienste im Jahr", value: dutyCount, sub: "D + HG kumuliert", tone: "#F97316" },
+    { label: "Rollenmix", value: `${roles.lead}/${roles.fa}/${roles.aa}`, sub: "Leitung · FA · AA", tone: "#A855F7" },
+  ].map((item) => `<article class="empdash-kpi"><div class="empdash-kpi-label">${item.label}</div><div class="empdash-kpi-value" style="color:${item.tone}">${item.value}</div><div class="empdash-kpi-sub">${item.sub}</div></article>`).join("");
+  renderRoleFilters(employees);
+  const query = dash.filter.trim().toLowerCase();
+  const filtered = metrics.filter((item) => {
+    if (!matchRoleFilter(item.emp, dash.role)) return false;
+    if (!query) return true;
+    const hay = [item.emp, item.meta.fullName, item.meta.posLabel, item.meta.position, item.meta.area].join(" ").toLowerCase();
+    return hay.includes(query);
+  });
+  if (!dash.selectedEmp || !employees.includes(dash.selectedEmp)) dash.selectedEmp = filtered[0]?.emp || employees[0];
+  if (countEl) countEl.textContent = `${filtered.length} von ${employees.length} sichtbar`;
+  gridEl.innerHTML = filtered.map((item) => {
+    const pc = posColor(item.meta.position);
+    const vac = item.ys.totals.vacationDays || 0;
+    const sick = item.ys.totals.sickDays || 0;
+    const selectedCls = dash.selectedEmp === item.emp ? " active" : "";
+    return `<button type="button" class="empdash-card${selectedCls}" data-emp="${item.emp}" role="listitem"><div class="empdash-card-top"><span class="empdash-avatar" style="background:linear-gradient(135deg,${pc.border},${pc.fg})">${empInitials(item.emp)}</span><div class="empdash-card-meta"><span class="empdash-card-name">${item.emp}</span><span class="empdash-card-sub">${item.meta.posLabel !== "—" ? item.meta.posLabel : "ohne Stammdaten"}</span></div><span class="empdash-pos" style="background:${pc.bg};color:${pc.fg}">${item.meta.position}</span></div><div class="empdash-card-stats"><span><strong>${item.ys.totals.totalWP || 0}</strong><small>AP</small></span><span><strong>${item.ys.totals.dutyD || 0}</strong><small>D</small></span><span><strong>${item.ys.totals.dutyHG || 0}</strong><small>HG</small></span><span><strong>${item.coverage}%</strong><small>Abdeckung</small></span></div><div class="empdash-card-foot"><span>${item.activeMonths}/12 Monate</span><span>U ${vac} · K ${sick}</span></div></button>`;
+  }).join("") || `<div class="empdash-empty">Keine Mitarbeitenden entsprechen dem Filter.</div>`;
+  gridEl.querySelectorAll("[data-emp]").forEach((btn) => btn.addEventListener("click", () => {
+    dash.selectedEmp = btn.dataset.emp;
+    renderEmployeeDashboard();
+  }));
+  if (!dash.selectedEmp) {
+    detailEl.innerHTML = `<div class="empdash-empty">Bitte eine Person auswählen.</div>`;
+    if (detailSub) detailSub.textContent = "Bitte eine Person auswählen.";
+    return;
+  }
+  renderEmployeeDetailDashboard(dash.selectedEmp, y);
+  if (detailSub) detailSub.textContent = `${dash.selectedEmp} · Kalenderjahr ${y} · Detailansicht ${dash.detailView === "months" ? "Monatsverlauf" : dash.detailView === "calendar" ? "Jahreskalender" : "Verwaltung"}`;
+}
+function renderRoleFilters(employees) {
+  const el = document.getElementById("emp-role-filters");
+  if (!el) return;
+  const buckets = getRoleFilterBuckets(state.year, employees);
+  const defs = [
+    ["ALL", "Alle"],
+    ["CA", "Chefärzte"],
+    ["OA", "Oberärzte"],
+    ["FA", "Fachärzte"],
+    ["AA", "Assistenz"],
+    ["OHNE", "Ohne Profil"],
+  ];
+  el.innerHTML = defs.map(([code, label]) => `<button type="button" class="empdash-filter-btn${state.employeeDashboard.role === code ? " active" : ""}" data-role="${code}">${label}<span>${buckets[code] || 0}</span></button>`).join("");
+  el.querySelectorAll("[data-role]").forEach((btn) => btn.addEventListener("click", () => {
+    state.employeeDashboard.role = btn.dataset.role;
+    renderEmployeeDashboard();
+  }));
+}
+function renderEmployeeDetailDashboard(emp, year) {
+  const detailEl = document.getElementById("emp-detail-panel");
+  if (!detailEl) return;
+  const meta = getEmpMeta(emp);
+  const pc = posColor(meta.position);
+  const ys = buildYearlyStats(emp, year);
+  const currentMonthData = getMonthData(state.year, state.month);
+  document.querySelectorAll('.empdash-view-btn').forEach((btn) => {
+    const active = btn.dataset.view === state.employeeDashboard.detailView;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  if (state.employeeDashboard.detailView === 'months') {
+    let html = `<div class="empdash-detail-profile"><div class="empdash-detail-profile-head"><span class="empdash-avatar lg" style="background:linear-gradient(135deg,${pc.border},${pc.fg})">${empInitials(emp)}</span><div><div class="empdash-detail-name">${meta.fullName !== emp ? meta.fullName : emp}</div><div class="empdash-detail-meta">${meta.posLabel} · ${meta.type}</div></div></div></div>`;
+    html += `<div class="empdash-month-table-wrap"><table class="empdash-month-table"><thead><tr><th>Monat</th><th>AP</th><th>Urlaub</th><th>Krank</th><th>FZA</th><th>WB</th><th>D</th><th>HG</th><th>Abdeckung</th></tr></thead><tbody>`;
+    ys.months.forEach((mon) => {
+      const vac = VACATION_CODES.reduce((sum, c) => sum + (mon.stCounts[c] || 0), 0);
+      const sick = (mon.stCounts['K'] || 0) + (mon.stCounts['KK'] || 0);
+      const cov = mon.totalWorkdays > 0 ? Math.round((mon.coveredWorkdays / mon.totalWorkdays) * 100) : 0;
+      html += `<tr class="${mon.m === state.month ? 'is-current' : ''}"><td>${MONTHS_SHORT[mon.m]}</td><td>${Object.values(mon.wpCounts).reduce((a,b) => a + b, 0) || '—'}</td><td>${vac || '—'}</td><td>${sick || '—'}</td><td>${mon.stCounts['FZA'] || '—'}</td><td>${mon.stCounts['WB'] || '—'}</td><td>${mon.dutyD || '—'}</td><td>${mon.dutyHG || '—'}</td><td><span class="empdash-cov ${cov >= 80 ? 'good' : cov >= 60 ? 'mid' : 'low'}">${mon.totalWorkdays ? cov + '%' : '—'}</span></td></tr>`;
+    });
+    html += `</tbody><tfoot><tr><td>Gesamt</td><td>${ys.totals.totalWP || '—'}</td><td>${ys.totals.vacationDays || '—'}</td><td>${ys.totals.sickDays || '—'}</td><td>${ys.totals.fzaDays || '—'}</td><td>${ys.totals.wbDays || '—'}</td><td>${ys.totals.dutyD || '—'}</td><td>${ys.totals.dutyHG || '—'}</td><td>${ys.totals.totalWorkdays ? Math.round((ys.totals.coveredWorkdays / ys.totals.totalWorkdays) * 100) + '%' : '—'}</td></tr></tfoot></table></div>`;
+    detailEl.innerHTML = html;
+    return;
+  }
+  if (state.employeeDashboard.detailView === 'calendar') {
+    const cards = ys.months.map((mon) => {
+      const vac = VACATION_CODES.reduce((sum, c) => sum + (mon.stCounts[c] || 0), 0);
+      const sick = (mon.stCounts['K'] || 0) + (mon.stCounts['KK'] || 0);
+      const items = [];
+      Object.entries(mon.wpCounts).filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1]).slice(0,4).forEach(([code,val]) => items.push(`<span class="empdash-mini-chip">${code} ${val}</span>`));
+      if (mon.dutyD) items.push(`<span class="empdash-mini-chip duty">D ${mon.dutyD}</span>`);
+      if (mon.dutyHG) items.push(`<span class="empdash-mini-chip hg">HG ${mon.dutyHG}</span>`);
+      if (vac) items.push(`<span class="empdash-mini-chip vac">U ${vac}</span>`);
+      if (sick) items.push(`<span class="empdash-mini-chip sick">K ${sick}</span>`);
+      return `<article class="empdash-mini-month ${mon.m === state.month ? 'active' : ''}"><header><strong>${MONTHS[mon.m]}</strong><span>${mon.totalWorkdays || 0} WT</span></header><div class="empdash-mini-body">${items.join('') || '<span class="empdash-mini-empty">Keine Einträge</span>'}</div><footer>${mon.totalWorkdays ? Math.round((mon.coveredWorkdays / mon.totalWorkdays) * 100) : 0}% Abdeckung</footer></article>`;
+    }).join('');
+    detailEl.innerHTML = `<div class="empdash-mini-grid">${cards}</div>`;
+    return;
+  }
+  const currentIncluded = currentMonthData.employees.includes(emp);
+  const monthList = currentMonthData.employees.map((name) => {
+    const metaItem = getEmpMeta(name);
+    const pos = posColor(metaItem.position);
+    return `<div class="emp-row"><div class="emp-row-left"><span class="emp-avatar" style="background:linear-gradient(135deg,${pos.border},${pos.fg})">${empInitials(name)}</span><div class="emp-row-info"><span class="emp-row-name">${name}</span><span class="emp-row-meta">${metaItem.posLabel}</span></div></div><button type="button" class="emp-row-del" data-remove="${name}" aria-label="${name} entfernen"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l9 9M10 1L1 10"/></svg></button></div>`;
+  }).join('') || `<div class="emp-none">Keine Mitarbeitenden im aktuellen Monat</div>`;
+  detailEl.innerHTML = `<div class="empdash-admin-layout"><div class="empdash-admin-card"><div class="empdash-admin-title">Ausgewählte Person</div><div class="empdash-admin-meta"><span class="empdash-pos" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span><span>${meta.posLabel}</span><span>${meta.area || 'kein Bereich hinterlegt'}</span></div><div class="empdash-admin-actions"><button type="button" class="mbtn ${currentIncluded ? 'mbtn-ghost' : 'mbtn-primary'}" id="emp-toggle-current">${currentIncluded ? 'Aus aktuellem Monat entfernen' : 'Zum aktuellen Monat hinzufügen'}</button></div></div><div class="empdash-admin-card"><div class="empdash-admin-title">Monatsliste ${MONTHS[state.month]} ${state.year}</div><div class="emp-list-inner" id="emp-list">${monthList}</div><div class="emp-add-row"><input type="text" class="text-input" id="emp-input" placeholder="Name (z.B. Dr. Müller)…" autocomplete="off" spellcheck="false" maxlength="80" aria-label="Name des neuen Mitarbeiters eingeben"><button type="button" class="mbtn mbtn-primary" id="emp-add-btn"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Hinzufügen</button></div></div></div>`;
+  detailEl.querySelectorAll('[data-remove]').forEach((btn) => btn.addEventListener('click', () => confirmRemoveEmployee(btn.dataset.remove, false)));
+  document.getElementById('emp-toggle-current')?.addEventListener('click', () => {
+    if (currentIncluded) removeEmployee(state.year, state.month, emp);
+    else addEmployee(state.year, state.month, emp);
+    render();
+    renderEmployeeDashboard();
+  });
+  document.getElementById('emp-add-btn')?.addEventListener('click', () => {
+    const input = document.getElementById('emp-input');
+    const name = input.value.trim();
+    if (!name) return;
+    addEmployee(state.year, state.month, name);
+    input.value = '';
+    state.employeeDashboard.selectedEmp = name;
+    render();
+    renderEmployeeDashboard();
+    input.focus();
+  });
+  document.getElementById('emp-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('emp-add-btn')?.click();
   });
 }
 function confirmRemoveEmployee(name, refreshList = false) {
   const { year: y, month: m } = state;
-  if (confirm(`„${name}" entfernen?`)) {
+  if (confirm(`„${name}" aus ${MONTHS[m]} ${y} entfernen?`)) {
     removeEmployee(y, m, name);
     render();
-    if (refreshList) refreshEmployeeList();
+    if (refreshList) renderEmployeeDashboard();
+    else renderEmployeeDashboard();
   }
 }
 function doExport() {
@@ -1908,26 +2247,40 @@ function showToast(msg) {
   toastTimer = setTimeout(() => el.classList.remove("visible"), 3400);
 }
 function wireEvents() {
-  document.getElementById("btn-prev").addEventListener("click", () => {
-    if (state.month === 0) {
-      state.month = 11;
-      state.year--;
-    } else state.month--;
-    render();
-  });
-  document.getElementById("btn-next").addEventListener("click", () => {
-    if (state.month === 11) {
-      state.month = 0;
-      state.year++;
-    } else state.month++;
-    render();
-  });
+  document.getElementById("btn-prev").addEventListener("click", () => changeMonth(-1));
+  document.getElementById("btn-next").addEventListener("click", () => changeMonth(1));
   document
     .getElementById("btn-today")
     ?.addEventListener("click", scrollToToday);
   document
     .getElementById("btn-employees")
     .addEventListener("click", openEmployeeModal);
+  document.getElementById("month-label-btn")?.addEventListener("click", () => {
+    if (isPeriodFlyoutOpen()) closePeriodFlyout();
+    else openPeriodFlyout();
+  });
+  document.getElementById("emp-open-period")?.addEventListener("click", openPeriodFlyout);
+  document.getElementById("period-flyout-close")?.addEventListener("click", closePeriodFlyout);
+  document.getElementById("period-month-select")?.addEventListener("change", (e) => { state.periodDraft.month = parseInt(e.target.value, 10); syncPeriodControls(); });
+  document.getElementById("period-year-input")?.addEventListener("input", (e) => { state.periodDraft.year = parseInt(e.target.value, 10) || state.year; syncPeriodControls(); });
+  document.getElementById("period-apply")?.addEventListener("click", applyPeriodDraft);
+  document.getElementById("period-today")?.addEventListener("click", () => { state.periodDraft = { year: TOD_Y, month: TOD_M }; applyPeriodDraft(); scrollToToday(); });
+  document.getElementById("period-prev-month")?.addEventListener("click", () => { const total = state.periodDraft.year * 12 + state.periodDraft.month - 1; state.periodDraft.year = Math.floor(total / 12); state.periodDraft.month = ((total % 12) + 12) % 12; syncPeriodControls(); });
+  document.getElementById("period-next-month")?.addEventListener("click", () => { const total = state.periodDraft.year * 12 + state.periodDraft.month + 1; state.periodDraft.year = Math.floor(total / 12); state.periodDraft.month = ((total % 12) + 12) % 12; syncPeriodControls(); });
+  document.getElementById("period-prev-year")?.addEventListener("click", () => { state.periodDraft.year -= 1; syncPeriodControls(); });
+  document.getElementById("period-next-year")?.addEventListener("click", () => { state.periodDraft.year += 1; syncPeriodControls(); });
+  document.getElementById("period-year-prev")?.addEventListener("click", () => { state.periodDraft.year -= 1; syncPeriodControls(); });
+  document.getElementById("period-year-next")?.addEventListener("click", () => { state.periodDraft.year += 1; syncPeriodControls(); });
+  document.getElementById("emp-search")?.addEventListener("input", (e) => { state.employeeDashboard.filter = e.target.value; renderEmployeeDashboard(); });
+  document.querySelectorAll(".empdash-view-btn").forEach((btn) => btn.addEventListener("click", () => { state.employeeDashboard.detailView = btn.dataset.view; renderEmployeeDashboard(); }));
+  document.addEventListener("click", (e) => {
+    const flyout = document.getElementById("period-flyout");
+    const trigger = document.getElementById("month-label-btn");
+    const inlineBtn = document.getElementById("emp-open-period");
+    if (!isPeriodFlyoutOpen()) return;
+    if (flyout?.contains(e.target) || trigger?.contains(e.target) || inlineBtn?.contains(e.target)) return;
+    closePeriodFlyout();
+  });
   document
     .getElementById("btn-dept")
     ?.addEventListener("click", openDeptOverview);
@@ -1996,18 +2349,6 @@ function wireEvents() {
     hideOverlay("modal-editor");
     render();
   });
-  document.getElementById("emp-add-btn").addEventListener("click", () => {
-    const name = document.getElementById("emp-input").value.trim();
-    if (!name) return;
-    addEmployee(state.year, state.month, name);
-    document.getElementById("emp-input").value = "";
-    refreshEmployeeList();
-    render();
-    document.getElementById("emp-input").focus();
-  });
-  document.getElementById("emp-input").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") document.getElementById("emp-add-btn").click();
-  });
   document.getElementById("import-confirm").addEventListener("click", doImport);
   document.getElementById("dept-tab-month")?.addEventListener("click", () => {
     deptTab = "month";
@@ -2051,6 +2392,7 @@ function wireEvents() {
         const el = document.getElementById(id);
         if (el && !el.hasAttribute("hidden")) hideOverlay(id);
       });
+      if (isPeriodFlyoutOpen()) closePeriodFlyout();
       return;
     }
     if (isEditorOpen()) {
@@ -2129,10 +2471,10 @@ function wireEvents() {
       }
     }
     if (e.altKey && e.key === "ArrowLeft") {
-      if (!planMode) document.getElementById("btn-prev").click();
+      document.getElementById("btn-prev").click();
     }
     if (e.altKey && e.key === "ArrowRight") {
-      if (!planMode) document.getElementById("btn-next").click();
+      document.getElementById("btn-next").click();
     }
   });
   const gridWrapper = document.getElementById("grid-wrapper");
@@ -3962,6 +4304,8 @@ function init() {
     };
     saveToStorage();
   }
+  populatePeriodMonthSelect();
+  syncPeriodControls();
   wireEvents();
   render();
   if (repaired > 0) showToast(`${repaired} Ruhetage ergänzt`);
