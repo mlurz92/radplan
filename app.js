@@ -2504,6 +2504,7 @@ function isDutyExempt(empName) {
   return DUTY_EXEMPT.includes(empName);
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const AUTO_PLAN_PROGRESS_MIN_MS = 30000;
 
 function collectHistoricalDutyStats(upToYear, upToMonth) {
   const stats = {};
@@ -2788,6 +2789,36 @@ function averageOf(values) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 }
 
+function buildRuleTelemetryBucket() {
+  return {
+    counts: {},
+    events: [],
+  };
+}
+
+function trackRuleTelemetry(bucket, phase, label, detail, severity = "info") {
+  if (!bucket || !label) return;
+  bucket.counts[label] = (bucket.counts[label] || 0) + 1;
+  bucket.events.push({
+    phase,
+    label,
+    detail,
+    severity,
+    count: bucket.counts[label],
+  });
+}
+
+function computeFairnessSpread(values) {
+  if (!values.length) return 0;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  return max - min;
+}
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
+}
+
 function defaultBDTarget(empName) {
   if (isDutyExempt(empName)) return 0;
   if (empName === "Dr. Polednia") return 3;
@@ -2809,6 +2840,11 @@ function computeAutoPlan(customTargets) {
   const report = [];
   const fixedDutyKeys = new Set();
   const autoRestDays = new Set();
+  const ruleTelemetry = buildRuleTelemetryBucket();
+
+  function recordRule(phase, label, detail, severity = "info") {
+    trackRuleTelemetry(ruleTelemetry, phase, label, detail, severity);
+  }
 
   emps.forEach((emp) => {
     for (let d = 1; d <= dim; d++) {
@@ -3186,6 +3222,7 @@ function computeAutoPlan(customTargets) {
         bdRelaxedCount++;
         relaxed = true;
         candidates[0].tags.push("Regeln gelockert");
+        recordRule(phaseKey, "BD-Constraint gelockert", `Tag ${d}: Keine harte BD-Lösung, Fallback aktiviert.`, "warn");
       }
     }
     if (candidates.length > 0) {
@@ -3240,6 +3277,7 @@ function computeAutoPlan(customTargets) {
               msg: `Dr. Becker erhält FZA am ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]}.`,
               pct: Math.min(40, pctBase + 2),
             });
+            recordRule("bd_weekend", "Becker-FZA-Kompensation", `Ausgleich nach Samstags-BD am ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]}.`, "accent");
           } else {
             const warnMsg = blockedByOtherFA
               ? `KRITISCH: Dr. Becker hat am ${d}. einen Samstags-BD, aber der nächste Werktag ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]} ist blockiert, weil dort bereits ein anderer FA Urlaub/F hat. FZA bitte manuell prüfen.`
@@ -3252,6 +3290,7 @@ function computeAutoPlan(customTargets) {
               msg: warnMsg,
               pct: Math.min(40, pctBase + 2),
             });
+            recordRule("bd_weekend", "Kritische Becker-Prüfung", warnMsg, "critical");
           }
         }
       }
@@ -3262,6 +3301,9 @@ function computeAutoPlan(customTargets) {
         duty: "D",
         reason,
         tags: chosen.tags,
+      });
+      chosen.tags.forEach((tag) => {
+        recordRule(phaseKey, tag, `Tag ${d}: ${chosen.emp} für BD (${tag}).`, tag === "Regeln gelockert" ? "warn" : "info");
       });
       log.push({
         phase: phaseKey,
@@ -3281,6 +3323,7 @@ function computeAutoPlan(customTargets) {
       msg: `Tag ${d}.: Kein Kandidat für BD!`,
       pct: pctBase,
     });
+    recordRule(phaseKey, "BD unbesetzt", `Tag ${d}: Keine zulässige BD-Besetzung gefunden.`, "critical");
     return false;
   }
 
@@ -3499,6 +3542,8 @@ function computeAutoPlan(customTargets) {
   const bundledHGDays = new Set();
   const bundledHGKeys = new Set();
   const beckerSaturdayFzaWarnings = [];
+  let hgMoves = 0;
+  let computeHGObjective = () => 0;
   if (hgNeeded.length > 0) {
     log.push({
       phase: "hg_bundle",
@@ -3539,6 +3584,7 @@ function computeAutoPlan(customTargets) {
         reason: bindReason,
         tags: ["Gekoppelt", allowAdjacentHG ? "WE-Kette priorisiert" : null].filter(Boolean),
       });
+      recordRule("hg_bundle", allowAdjacentHG ? "WE-Kette priorisiert" : "Gekoppelt", `Tag ${d}: ${emp} via Kopplungsregel.`, "accent");
       log.push({
         phase: "hg_bundle",
         icon: "🔗",
@@ -3631,6 +3677,7 @@ function computeAutoPlan(customTargets) {
         if (candidates.length > 0) {
           hgRelaxedCount++;
           candidates[0].tags.push("Regeln gelockert");
+          recordRule("hg_assign", "HG-Constraint gelockert", `Tag ${d}: Keine harte HG-Lösung, Fallback aktiviert.`, "warn");
         }
       }
       if (candidates.length > 0) {
@@ -3658,6 +3705,9 @@ function computeAutoPlan(customTargets) {
           reason,
           tags: chosen.tags,
         });
+        chosen.tags.forEach((tag) => {
+          recordRule("hg_assign", tag, `Tag ${d}: ${chosen.emp} für HG (${tag}).`, tag === "Regeln gelockert" ? "warn" : "info");
+        });
         log.push({
           phase: "hg_assign",
           icon: "→",
@@ -3673,10 +3723,11 @@ function computeAutoPlan(customTargets) {
           msg: `Tag ${d}.: Kein HG-Kandidat!`,
           pct: 73,
         });
+        recordRule("hg_assign", "HG unbesetzt", `Tag ${d}: Keine zulässige HG-Besetzung gefunden.`, "critical");
       }
     }
 
-    function computeHGObjective() {
+    computeHGObjective = function computeHGObjective() {
       let score = 0;
       for (let day = 1; day <= dim; day++) {
         if (!hgFAs.some((e) => result[e]?.[day]?.duty === "HG")) score += 15000;
@@ -3711,7 +3762,6 @@ function computeAutoPlan(customTargets) {
       msg: "Starte iterative HG-Optimierung...",
       pct: 85,
     });
-    let hgMoves = 0;
     let bestHGObjective = computeHGObjective();
     const mutableHGDays = listDutyAssignments(hgFAs, dim, result, "HG")
       .filter(({ emp, day }) => !fixedDutyKeys.has(`HG:${dutyKey(emp, day)}`) && !bundledHGKeys.has(dutyKey(emp, day)))
@@ -3772,11 +3822,100 @@ function computeAutoPlan(customTargets) {
     });
   }
 
+  function computeGlobalObjective() {
+    const bdObjective = computeBDObjective();
+    const hgObjective = hgNeeded.length > 0 ? computeHGObjective() : 0;
+    let coveragePenalty = 0;
+    for (let day = 1; day <= dim; day++) {
+      if (!dutyEmps.some((emp) => result[emp]?.[day]?.duty === "D")) coveragePenalty += 25000;
+      if (!hgFAs.some((emp) => result[emp]?.[day]?.duty === "HG")) coveragePenalty += 18000;
+    }
+    return bdObjective + hgObjective + coveragePenalty;
+  }
+
+  log.push({
+    phase: "deep_optimize",
+    icon: "🧬",
+    msg: "Starte finale Metaheuristik für Gesamtqualität...",
+    pct: 89,
+  });
+  let deepMoves = 0;
+  let bestGlobalObjective = computeGlobalObjective();
+  const deepMutableBDDays = listDutyAssignments(dutyEmps, dim, result, "D")
+    .filter(({ emp, day }) => !fixedDutyKeys.has(`D:${dutyKey(emp, day)}`))
+    .map(({ day }) => day);
+  const deepMutableHGDays = listDutyAssignments(hgFAs, dim, result, "HG")
+    .filter(({ emp, day }) => !fixedDutyKeys.has(`HG:${dutyKey(emp, day)}`) && !bundledHGKeys.has(dutyKey(emp, day)))
+    .map(({ day }) => day);
+
+  function tryImproveDay(day, dutyCode) {
+    const pool = dutyCode === "D" ? dutyEmps : hgFAs;
+    const currentEmp = pool.find((emp) => result[emp]?.[day]?.duty === dutyCode);
+    if (!currentEmp) return false;
+    const canDo = dutyCode === "D" ? canDoBD : canDoHG;
+    const currentDelta = dutyCode === "D" ? currentBD[currentEmp] - bdTarget[currentEmp] : currentHG[currentEmp] - averageOf(hgFAs.map((emp) => currentHG[emp]));
+    const orderedPool = [...pool].sort((a, b) => {
+      const aDelta = dutyCode === "D" ? currentBD[a] - bdTarget[a] : currentHG[a] - averageOf(hgFAs.map((emp) => currentHG[emp]));
+      const bDelta = dutyCode === "D" ? currentBD[b] - bdTarget[b] : currentHG[b] - averageOf(hgFAs.map((emp) => currentHG[emp]));
+      return aDelta - bDelta;
+    });
+    for (const candidate of orderedPool) {
+      if (candidate === currentEmp) continue;
+      clearDutyAssignment(currentEmp, day, dutyCode);
+      rebuildCurrentCounters();
+      if (!canDo(candidate, day, true, result)) {
+        setDutyAssignment(currentEmp, day, dutyCode);
+        rebuildCurrentCounters();
+        continue;
+      }
+      setDutyAssignment(candidate, day, dutyCode);
+      rebuildCurrentCounters();
+      const newObjective = computeGlobalObjective();
+      if (newObjective + 0.01 < bestGlobalObjective) {
+        bestGlobalObjective = newObjective;
+        deepMoves++;
+        const rep = report.find((entry) => entry.day === day && entry.duty === dutyCode);
+        if (rep) {
+          rep.emp = candidate;
+          rep.reason = `Durch finale Metaheuristik (${dutyCode}) neu zugewiesen.`;
+          if (!rep.tags.includes("Feinoptimiert")) rep.tags.push("Feinoptimiert");
+        }
+        recordRule("deep_optimize", `${dutyCode}-Feinoptimierung`, `Tag ${day}: ${currentEmp} → ${candidate}`, "accent");
+        log.push({
+          phase: "deep_optimize",
+          icon: dutyCode === "D" ? "🧠" : "🛰️",
+          msg: `${dutyCode} Tag ${day}.: ${currentEmp} → ${candidate}`,
+          pct: 90,
+        });
+        return true;
+      }
+      clearDutyAssignment(candidate, day, dutyCode);
+      setDutyAssignment(currentEmp, day, dutyCode);
+      rebuildCurrentCounters();
+    }
+    if (currentDelta > 1.25) recordRule("deep_optimize", `${dutyCode}-Überhang geprüft`, `Tag ${day}: ${currentEmp} blieb wegen harter Nebenbedingungen bestehen.`, "info");
+    return false;
+  }
+
+  for (let pass = 0; pass < 16; pass++) {
+    let improved = false;
+    for (const day of deepMutableBDDays) improved = tryImproveDay(day, "D") || improved;
+    for (const day of deepMutableHGDays) improved = tryImproveDay(day, "HG") || improved;
+    if (!improved) break;
+  }
+  rebuildCurrentCounters();
+  log.push({
+    phase: "deep_optimize",
+    icon: "✓",
+    msg: deepMoves > 0 ? `${deepMoves} finale Qualitätsbewegungen durchgeführt.` : "Metaheuristik bestätigt die aktuelle Lösung als stabil.",
+    pct: 91,
+  });
+
   log.push({
     phase: "validate",
     icon: "🛡️",
     msg: "Finale Regel-Prüfung...",
-    pct: 90,
+    pct: 93,
   });
   let violations = 0;
   for (const emp of dutyEmps) {
@@ -3916,9 +4055,40 @@ function computeAutoPlan(customTargets) {
   if (wishCount > 0)
     summary.infos.push(`${fulfilledWishes} von ${wishCount} Dienstwünschen wurden erfüllt.`);
 
+  const dutyCoverageMisses = Array.from({ length: dim }, (_, idx) => idx + 1).filter((day) => !emps.some((emp) => result[emp]?.[day]?.duty === "D")).length;
+  const hgCoverageMisses = Array.from({ length: dim }, (_, idx) => idx + 1).filter((day) => !emps.some((emp) => result[emp]?.[day]?.duty === "HG")).length;
+  const bdSpread = computeFairnessSpread(dutyEmps.map((emp) => summary.bd[emp]?.count || 0));
+  const hgSpread = computeFairnessSpread(hgFAs.map((emp) => summary.hg[emp]?.count || 0));
+  const weekendSpread = computeFairnessSpread(dutyEmps.map((emp) => summary.bd[emp]?.weDuty || 0));
+  const wishFulfillmentRate = wishCount > 0 ? fulfilledWishes / wishCount : 1;
+  const warningPenalty = Math.min(1, summary.warnings.length / 8);
+  const qualityScore = Math.round(
+    100 * clamp01(
+      0.36 * (1 - dutyCoverageMisses / Math.max(1, dim)) +
+      0.24 * (1 - hgCoverageMisses / Math.max(1, dim)) +
+      0.16 * clamp01(1 - bdSpread / 4) +
+      0.1 * clamp01(1 - hgSpread / 3) +
+      0.08 * clamp01(1 - weekendSpread / 1.5) +
+      0.1 * wishFulfillmentRate -
+      0.12 * warningPenalty
+    )
+  );
+  summary.quality = {
+    score: qualityScore,
+    dutyCoverageMisses,
+    hgCoverageMisses,
+    bdSpread,
+    hgSpread,
+    weekendSpread,
+    wishFulfillmentRate,
+    deepMoves,
+    bdOptimizationMoves: swaps,
+    hgOptimizationMoves: hgMoves,
+  };
+
   report.sort((a, b) => a.day - b.day || (a.duty === "D" ? -1 : 1));
 
-  return { assignments: result, summary, log, report, externalAssignments };
+  return { assignments: result, summary, log, report, externalAssignments, ruleTelemetry };
 }
 
 function openAutoPlanModal() {
@@ -3943,6 +4113,11 @@ function renderAutoPlanModal() {
   const applyBtn = document.getElementById("ap-apply");
   const reportBtn = document.getElementById("ap-report-btn");
   if (reportBtn) reportBtn.style.display = "none";
+  body.style.height = "auto";
+  body.style.maxHeight = "72vh";
+  body.style.overflowY = "auto";
+  body.style.overflowX = "hidden";
+  body.style.padding = "24px";
 
   if (apViewMode === "config") {
     applyBtn.style.display = "none";
@@ -4041,18 +4216,22 @@ async function renderProgressAndThenResult(result) {
   const body = document.getElementById("ap-body");
   const applyBtn = document.getElementById("ap-apply");
   applyBtn.style.display = "none";
+  body.style.height = "min(72vh, 680px)";
+  body.style.maxHeight = "min(72vh, 680px)";
+  body.style.overflow = "hidden";
+  body.style.padding = "16px";
   body.innerHTML = `
-    <div class="ap-engine ap-engine-immersive">
+    <div class="ap-engine ap-engine-immersive ap-engine-compact">
       <div class="ap-hero-grid" aria-hidden="true">
         <span class="ap-grid-line"></span><span class="ap-grid-line"></span><span class="ap-grid-line"></span>
         <span class="ap-grid-line vertical"></span><span class="ap-grid-line vertical"></span><span class="ap-grid-line vertical"></span>
       </div>
-      <div class="ap-hero-shell">
+      <div class="ap-hero-shell ap-hero-shell-compact">
         <div class="ap-hero-hud">
           <div class="ap-hud-block">
             <span class="ap-hud-kicker">RadPlan Neural Scheduler</span>
-            <strong class="ap-hud-title">Live-Allokation klinischer Dienstketten</strong>
-            <span class="ap-hud-sub">GPU-freundliche Visualisierung · High-Tech Präsentationsmodus · Echtzeit-Telemetrie</span>
+            <strong class="ap-hud-title">Auto-Plan Sequenz läuft</strong>
+            <span class="ap-hud-sub">30s Präsentationslauf · finaler Deep-Optimize-Pass · cineastische Regelvisualisierung</span>
           </div>
           <div class="ap-hud-radar" aria-hidden="true">
             <span class="ap-hud-ring ring-a"></span>
@@ -4065,22 +4244,40 @@ async function renderProgressAndThenResult(result) {
         <div class="ap-pipeline" id="ap-pipeline">
           <div class="ap-phase-node" data-phase="init"><span class="ap-pn-dot"></span><span class="ap-pn-label">Analyse</span></div><div class="ap-phase-conn"></div>
           <div class="ap-phase-node" data-phase="bd"><span class="ap-pn-dot"></span><span class="ap-pn-label">BD</span></div><div class="ap-phase-conn"></div>
-          <div class="ap-phase-node" data-phase="swap"><span class="ap-pn-dot"></span><span class="ap-pn-label">Optimierung</span></div><div class="ap-phase-conn"></div>
+          <div class="ap-phase-node" data-phase="swap"><span class="ap-pn-dot"></span><span class="ap-pn-label">Optimize</span></div><div class="ap-phase-conn"></div>
           <div class="ap-phase-node" data-phase="hg"><span class="ap-pn-dot"></span><span class="ap-pn-label">HG</span></div><div class="ap-phase-conn"></div>
-          <div class="ap-phase-node" data-phase="validate"><span class="ap-pn-dot"></span><span class="ap-pn-label">Validierung</span></div>
-        </div>
-        <div class="ap-live-stats" id="ap-live-stats">
-          <div class="ap-ls-item ap-ls-primary"><span class="ap-ls-val" id="ap-ls-bd" style="color:#FB7185">0</span><span class="ap-ls-lbl">BD-Routen</span><span class="ap-ls-glow"></span></div><div class="ap-ls-sep"></div>
-          <div class="ap-ls-item"><span class="ap-ls-val" id="ap-ls-hg" style="color:#38BDF8">0</span><span class="ap-ls-lbl">HG-Ketten</span><span class="ap-ls-glow"></span></div><div class="ap-ls-sep"></div>
-          <div class="ap-ls-item"><span class="ap-ls-val" id="ap-ls-rules" style="color:#FBBF24">0</span><span class="ap-ls-lbl">Regel-Trigger</span><span class="ap-ls-glow"></span></div><div class="ap-ls-sep"></div>
-          <div class="ap-ls-item"><span class="ap-ls-val" id="ap-ls-swaps" style="color:#4ADE80">0</span><span class="ap-ls-lbl">Optimierungen</span><span class="ap-ls-glow"></span></div>
+          <div class="ap-phase-node" data-phase="validate"><span class="ap-pn-dot"></span><span class="ap-pn-label">Finish</span></div>
         </div>
         <div class="ap-bar-wrap">
           <div class="ap-bar-track"><div class="ap-bar-fill" id="ap-prog-bar"></div><div class="ap-bar-glow" id="ap-prog-glow"></div><div class="ap-bar-scan"></div></div>
           <div class="ap-bar-info"><span class="ap-bar-phase" id="ap-prog-title">Initialisierung</span><span class="ap-bar-pct" id="ap-prog-pct">0%</span></div>
         </div>
+        <div class="ap-rule-theater ap-rule-theater-compact" id="ap-rule-theater">
+          <div class="ap-rule-theater-head ap-rule-theater-head-compact">
+            <div>
+              <div class="ap-rule-kicker">Constraint Flux</div>
+              <div class="ap-rule-title">Regeln fliegen durch die Engine</div>
+            </div>
+            <div class="ap-rule-inline">
+              <span class="ap-rule-inline-label">Live-Phase</span>
+              <strong id="ap-rule-active">Initialisierung</strong>
+            </div>
+          </div>
+          <div class="ap-rule-stage ap-rule-stage-compact">
+            <div class="ap-rule-lanes ap-rule-lanes-compact">
+              <div class="ap-rule-lane" data-lane="0"></div>
+              <div class="ap-rule-lane" data-lane="1"></div>
+              <div class="ap-rule-lane" data-lane="2"></div>
+            </div>
+            <div class="ap-rule-focus" id="ap-rule-inspector-card">
+              <span class="ap-rule-chip" id="ap-rule-chip">STANDBY</span>
+              <strong id="ap-rule-label">Warte auf erste Constraint-Kaskade…</strong>
+              <p id="ap-rule-detail">Die Engine sammelt Regeln, Konflikte und Optimierungsimpulse und visualisiert sie hier als fließende Artefakte.</p>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="ap-terminal ap-terminal-deep" id="ap-log">
+      <div class="ap-terminal ap-terminal-deep ap-terminal-compact" id="ap-log">
         <div class="ap-term-header"><span class="ap-term-dot" style="background:#FF5F57"></span><span class="ap-term-dot" style="background:#FFBD2E"></span><span class="ap-term-dot" style="background:#28C840"></span><span class="ap-term-title">RadPlan Auto-Scheduler // Quantum Trace Console</span></div>
         <div class="ap-term-body" id="ap-term-body"></div>
       </div>
@@ -4092,16 +4289,24 @@ async function renderProgressAndThenResult(result) {
   const pctEl = document.getElementById("ap-prog-pct");
   const titleEl = document.getElementById("ap-prog-title");
   const pipeline = document.getElementById("ap-pipeline");
+  const ruleLanes = [...document.querySelectorAll(".ap-rule-lane")];
+  const ruleActiveEl = document.getElementById("ap-rule-active");
+  const ruleChipEl = document.getElementById("ap-rule-chip");
+  const ruleLabelEl = document.getElementById("ap-rule-label");
+  const ruleDetailEl = document.getElementById("ap-rule-detail");
+  const ruleInspectorCard = document.getElementById("ap-rule-inspector-card");
   const log = result.log;
+  const telemetryEvents = result.ruleTelemetry?.events || [];
   const phaseNames = {
     init: "Datenanalyse",
     bd_weekend: "BD Wochenende",
     bd_workday: "BD Werktage",
-    bd_optimize: "Optimierung",
-    hg_bundle: "HG-Bündelung",
-    hg_assign: "HG-Verteilung",
+    bd_optimize: "BD Optimierung",
+    hg_bundle: "HG Bündelung",
+    hg_assign: "HG Verteilung",
+    deep_optimize: "Metaheuristik",
     validate: "Validierung",
-    done: "Fertig",
+    done: "Abschluss",
   };
   const phaseToNode = {
     init: "init",
@@ -4110,21 +4315,15 @@ async function renderProgressAndThenResult(result) {
     bd_optimize: "swap",
     hg_bundle: "hg",
     hg_assign: "hg",
+    deep_optimize: "swap",
     validate: "validate",
     done: "validate",
   };
 
-  let prevPhase = "",
-    bdCount = 0,
-    hgCount = 0,
-    ruleCount = 0,
-    swapCount = 0;
-  function updateStats() {
-    document.getElementById("ap-ls-bd").textContent = bdCount;
-    document.getElementById("ap-ls-hg").textContent = hgCount;
-    document.getElementById("ap-ls-rules").textContent = ruleCount;
-    document.getElementById("ap-ls-swaps").textContent = swapCount;
-  }
+  let prevPhase = "";
+  let telemetryIdx = 0;
+  let laneCursor = 0;
+
   function activatePhaseNode(phase) {
     const nodeKey = phaseToNode[phase] || phase;
     pipeline.querySelectorAll(".ap-phase-node").forEach((n) => {
@@ -4138,49 +4337,58 @@ async function renderProgressAndThenResult(result) {
     });
     const nodes = [...pipeline.querySelectorAll(".ap-phase-node")];
     const activeIdx = nodes.findIndex((n) => n.dataset.phase === nodeKey);
-    const conns = [...pipeline.querySelectorAll(".ap-phase-conn")];
-    conns.forEach((c, i) => c.classList.toggle("done", i < activeIdx));
+    [...pipeline.querySelectorAll(".ap-phase-conn")].forEach((c, i) => c.classList.toggle("done", i < activeIdx));
   }
 
-  for (let i = 0; i < log.length; i++) {
-    const entry = log[i];
+  function renderRuleEvent(event) {
+    if (!event || !ruleLanes.length) return;
+    const lane = ruleLanes[laneCursor % ruleLanes.length];
+    laneCursor += 1;
+    const pill = document.createElement("div");
+    pill.className = `ap-rule-pill severity-${event.severity || "info"}`;
+    pill.innerHTML = `<span class="ap-rule-pill-label">${event.label}</span><span class="ap-rule-pill-count">×${event.count || 1}</span>`;
+    lane.prepend(pill);
+    if (lane.children.length > 3) lane.removeChild(lane.lastElementChild);
+    requestAnimationFrame(() => pill.classList.add("is-live"));
+    setTimeout(() => pill.classList.remove("is-live"), 1200);
+
+    ruleActiveEl.textContent = event.phase ? (phaseNames[event.phase] || event.phase) : "Telemetry";
+    ruleChipEl.textContent = (event.severity || "info").toUpperCase();
+    ruleChipEl.className = `ap-rule-chip severity-${event.severity || "info"}`;
+    ruleLabelEl.textContent = event.label;
+    ruleDetailEl.textContent = event.detail;
+    ruleInspectorCard.className = `ap-rule-focus severity-${event.severity || "info"}`;
+  }
+
+  const weightedLog = log.map((entry) => {
+    const isAssign = entry.icon === "→" || entry.icon === "🔗";
+    const isOptimize = ["🔀", "🔁", "🧠", "🛰️"].includes(entry.icon);
+    const isWarn = ["⚠", "🚨"].includes(entry.icon);
+    const isDone = entry.phase === "done";
+    const weight = isDone ? 2.2 : isWarn ? 1.8 : isOptimize ? 1.4 : isAssign ? 1.15 : 0.9;
+    return { ...entry, weight };
+  });
+  const totalWeight = weightedLog.reduce((sum, entry) => sum + entry.weight, 0) || 1;
+  const startedAt = performance.now();
+  let consumedWeight = 0;
+
+  for (const entry of weightedLog) {
     if (entry.phase !== prevPhase) {
       titleEl.textContent = phaseNames[entry.phase] || entry.phase;
       activatePhaseNode(entry.phase);
+      ruleActiveEl.textContent = phaseNames[entry.phase] || entry.phase;
       prevPhase = entry.phase;
     }
+
+    consumedWeight += entry.weight;
     barEl.style.width = entry.pct + "%";
     glowEl.style.width = entry.pct + "%";
     pctEl.textContent = entry.pct + "%";
-    if (
-      entry.icon === "→" &&
-      entry.phase.startsWith("bd") &&
-      !entry.phase.includes("optimize")
-    )
-      bdCount++;
-    if (entry.icon === "→" && entry.phase.includes("hg")) hgCount++;
-    if (
-      entry.icon === "🔗" &&
-      entry.phase === "hg_bundle" &&
-      entry.msg.includes("HG →")
-    )
-      hgCount++;
-    if (
-      entry.icon === "📅" ||
-      entry.icon === "🔗" ||
-      entry.icon === "🏖️" ||
-      entry.icon === "⛔" ||
-      entry.icon === "🔀" ||
-      entry.icon === "🟣" ||
-      entry.icon === "🚨"
-    )
-      ruleCount++;
-    if (entry.msg.includes("Swap")) {
-      const m2 = entry.msg.match(/(\d+) Swap/);
-      if (m2) swapCount += parseInt(m2[1], 10);
-      else if (entry.icon === "🔀") swapCount++;
+
+    while (telemetryIdx < telemetryEvents.length && telemetryEvents[telemetryIdx].phase === entry.phase) {
+      renderRuleEvent(telemetryEvents[telemetryIdx]);
+      telemetryIdx += 1;
     }
-    updateStats();
 
     const div = document.createElement("div");
     let cls = "ap-log-entry";
@@ -4189,41 +4397,33 @@ async function renderProgressAndThenResult(result) {
     if (entry.icon === "→") cls += " ap-log-assign";
     if (entry.icon === "💡") cls += " ap-log-reason";
     if (entry.icon === "🏖️") cls += " ap-log-vacation";
-    if (entry.phase === "hg_bundle" && entry.icon === "🔗")
-      cls += " ap-log-bundle";
+    if (entry.phase === "hg_bundle" && entry.icon === "🔗") cls += " ap-log-bundle";
     if (entry.icon === "✅" || entry.icon === "✓") cls += " ap-log-success";
-    if (entry.icon === "🔀") cls += " ap-log-swap";
-
+    if (["🔀", "🔁", "🧠", "🛰️"].includes(entry.icon)) cls += " ap-log-swap";
     div.className = cls;
     div.innerHTML = `<span class="ap-log-icon">${entry.icon}</span><span class="ap-log-msg">${entry.msg}</span>${entry.detail ? `<span class="ap-log-detail">${entry.detail}</span>` : ""}`;
     logContainer.appendChild(div);
     logContainer.scrollTop = logContainer.scrollHeight;
 
-    const isReason = entry.icon === "💡";
-    const isHeader =
-      entry.icon !== "→" &&
-      entry.icon !== "⚠" &&
-      !isReason &&
-      entry.icon !== "🔗" &&
-      entry.icon !== "🔀";
-    const delay =
-      entry.phase === "done"
-        ? 600
-        : isReason
-          ? 80
-          : isHeader
-            ? 300
-            : 40 + Math.random() * 80;
-    await sleep(delay);
+    const targetElapsed = (consumedWeight / totalWeight) * AUTO_PLAN_PROGRESS_MIN_MS;
+    const waitMs = Math.max(24, targetElapsed - (performance.now() - startedAt));
+    await sleep(waitMs);
   }
+
+  while (telemetryIdx < telemetryEvents.length) {
+    renderRuleEvent(telemetryEvents[telemetryIdx]);
+    telemetryIdx += 1;
+    await sleep(110);
+  }
+
   pipeline.querySelectorAll(".ap-phase-node").forEach((n) => {
     n.classList.remove("active");
     n.classList.add("done");
   });
-  pipeline
-    .querySelectorAll(".ap-phase-conn")
-    .forEach((c) => c.classList.add("done"));
-  await sleep(600);
+  pipeline.querySelectorAll(".ap-phase-conn").forEach((c) => c.classList.add("done"));
+  const remainingMs = AUTO_PLAN_PROGRESS_MIN_MS - (performance.now() - startedAt);
+  if (remainingMs > 0) await sleep(remainingMs);
+  await sleep(320);
   apViewMode = "result";
   renderResultView();
 }
@@ -4235,6 +4435,11 @@ function renderResultView() {
   const dutyEmps = emps.filter((e) => !isDutyExempt(e));
   const { summary } = autoPlanResult;
   const body = document.getElementById("ap-body");
+  body.style.height = "auto";
+  body.style.maxHeight = "72vh";
+  body.style.overflowY = "auto";
+  body.style.overflowX = "hidden";
+  body.style.padding = "24px";
   const applyBtn = document.getElementById("ap-apply");
   const reportBtn = document.getElementById("ap-report-btn");
   applyBtn.style.display = "";
