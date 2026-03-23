@@ -1,380 +1,348 @@
-# Algorithmus-Check – RadPlan Auto-Planung und Regelwerk
+# Algorithmus-Check – RadPlan Auto-Planung
 
-## Ziel dieses Dokuments
-Dieses Dokument bewertet die in `app.js` implementierten Planungs-, Prüf- und Vergabelogiken auf Basis des aktuellen Anwendungsstands. Es beschreibt nicht nur die theoretischen Regeln, sondern analysiert explizit, **wie** sie in der Anwendung technisch umgesetzt werden, welche Prioritäten gelten, wo harte und weiche Restriktionen greifen und welche betrieblichen Auswirkungen daraus entstehen.
-
----
-
-## 1. Architektureller Rahmen
-
-Die Anwendung trennt drei Ebenen der Planungslogik:
-
-1. **Operative Monatsplanung**
-   - Tageszellen pro Mitarbeitenden.
-   - Vergabe von Arbeitsplatzcodes, Statuscodes und Diensten (`D`, `HG`).
-   - Sofortige Plausibilisierung auf Zellebene.
-
-2. **Planungsmodus**
-   - Entwurfsmodus mit eigener Historie, Wünschen, Auto-Planung und Entwurfsständen.
-   - Seit der aktuellen Erweiterung kann der Planungsmodus monatsübergreifend bedient werden; pro Monat wird ein eigener Entwurfskontext verwaltet.
-
-3. **Auto-Planung Engine**
-   - Algorithmische Verteilung von Bereitschaftsdiensten (`D`) und Hintergrunddiensten (`HG`).
-   - Historische Vorbelastung, Ferien-/Feiertagsregeln, Wochenendbalance und Rollenrestriktionen werden berücksichtigt.
+## Zweck dieses Dokuments
+Dieses Dokument beschreibt den **aktuell tatsächlich umgesetzten** Zustand der Auto-Planung in RadPlan. Es ist als fachlich-technische Prüfdokumentation gedacht: Was plant der Algorithmus, welche Restriktionen gelten, wie werden Konflikte behandelt, welche Fairnessmetriken fließen ein und welche sichtbaren Ergebnisse erzeugt die Anwendung in der Planungs-Modal.
 
 ---
 
-## 2. Datenmodell der Planungslogik
+## 1. Systemgrenzen und Anwendungsrahmen
 
-### 2.1 Stammdaten und Rollen
-Die Anwendung arbeitet mit vordefinierten Metadaten pro Mitarbeitendenprofil:
-- Langname
-- Positionskürzel
-- Positionsbezeichnung
-- Qualifikationstyp
-- Bereichsschwerpunkte
-- Stellvertretungsinformationen
+RadPlan ist eine browserbasierte Single-Page-Anwendung ohne Build-Prozess. Die gesamte Auto-Planung lebt direkt in `app.js` und arbeitet innerhalb des Planungsmodus auf einer Kopie der Monatsdaten.
 
-Diese Stammdaten beeinflussen die algorithmische Logik direkt:
-- `isFacharzt(...)`
-- `isAssistenzarzt(...)`
-- Farb- und Rollenklassifikation in Dashboards
-- Zuteilungsrestriktionen für D/HG
-
-### 2.2 Tagescodierung
-Es existieren drei Logikebenen pro Zelle:
-- **Arbeitsplätze**: `MR`, `CT`, `US`, `AN`, `MA`, `KUS`, `W`, `T`
-- **Statuscodes**: `F`, `U`, `ZU`, `SU`, `FZA`, `K`, `KK`, `§15c`, `WB`
-- **Dienste**: `D`, `HG`
-
-Wichtig:
-- Arbeitsplatz- und Statuslogik schließen sich in einer Zelle gegenseitig aus.
-- Dienstzuweisungen sind zusätzlich zur Belegung möglich, unterliegen aber harten Prüfungen.
-- Wunschcodes existieren nur im Planungsmodus.
+Die Auto-Planung:
+- liest den aktuellen Entwurfsmonat,
+- respektiert bereits gesetzte D/HG,
+- berücksichtigt Wünsche,
+- verarbeitet historische Monatsdaten aus dem Hauptbestand,
+- kann bei Bedarf Folgetagsbelegungen in den nächsten Monat schreiben,
+- liefert danach eine Ergebnisübersicht, Warnungen, Detailbericht und übernehmbare Zuweisungen.
 
 ---
 
-## 3. Kalendermodell und Kontextlogik
+## 2. Eingangsgrößen der Auto-Planung
 
-### 3.1 Feiertagsberechnung
-Die Anwendung berechnet sächsische Feiertage algorithmisch pro Jahr. Dazu gehören:
-- feste Feiertage,
-- bewegliche Feiertage auf Basis des Osterdatums,
-- Buß- und Bettag über die Mittwoch-vor-22.-November-Logik.
+### 2.1 Personenstammdaten
+Die Anwendung nutzt fest verdrahtete Metadaten je Person:
+- Name,
+- Rolle/Positionskürzel,
+- Facharzt- vs. Assistenzarzt-Status,
+- einzelne namensbezogene Sonderregeln.
 
-### 3.2 Werktagsermittlung
-Ein Tag gilt als regulärer Werktag, wenn:
-- kein Samstag/Sonntag,
-- kein sächsischer Feiertag.
+### 2.2 Monatliche Plandaten
+Für den Zielmonat werden verwendet:
+- Mitarbeitendenliste,
+- Zellbelegungen,
+- Statuscodes,
+- bereits gesetzte D/HG,
+- Wünsche im Planungsmodus.
 
-Darauf bauen auf:
-- Abdeckungsquoten,
-- Monats- und Jahresstatistiken,
-- Jahres-Dashboard der Mitarbeitenden,
-- Teile der D/HG-Planung.
-
-### 3.3 Folgetagslogik nach Bereitschaftsdienst
-Nach einem `D` wird automatisch ein `F` am Folgetag ergänzt, wenn dort noch keine Belegung existiert. Diese Regel gilt:
-- beim manuellen Speichern einer Zelle,
-- beim Datenreparaturlauf beim Start/Import,
-- innerhalb der Auto-Planung,
-- bei Monatsgrenzen auch in den Folgemonat hinein, sofern dort Datenstrukturen existieren oder externe Zuweisungen erzeugt werden.
-
-**Bewertung:**
-Diese Regel ist robust umgesetzt und zählt zu den zuverlässigsten Schutzmechanismen im System. Sie reduziert Bedienfehler erheblich.
-
----
-
-## 4. Regelklassen
-
-Die Anwendung verwendet faktisch drei Klassen von Regeln.
-
-### 4.1 Harte Regeln
-Diese Regeln blockieren eine Zuteilung vollständig:
-- Dienstbefreiung (`DUTY_EXEMPT`)
-- Abwesenheit am Tag
-- Urlaub/urlaubsähnliche Codes am Folgetag bei `D`
-- bereits belegter Dienstslot
-- direkte Nachbarschaft bestimmter Dienste
-- bestimmte fachliche Rollenrestriktionen
-- Feiertagsblock-Ausschluss Ostern/Pfingsten
-- Konfliktlogik Becker/Martin
-
-### 4.2 Weiche Regeln
-Diese Regeln verringern die Attraktivität, erlauben aber in Notlagen weiterhin eine Vergabe:
-- D-F-D-F-Mustervermeidung
-- Verteilungsabstand ähnlicher Dienste
-- Wochenendlast nahe Zielwert
-- Samstagsausgleich innerhalb fachärztlicher Gruppen
-- historische Feiertagsbelastung
-- Wunschbeachtung
-- Bündelungseffekte für `HG`
-
-### 4.3 Eskalationsregeln
-Wenn keine harte-konforme Lösung mehr verfügbar ist, lockert die Engine bestimmte harte Regeln kontrolliert:
-- Wochenendabstand
-- Distanz- und Fairnessrestriktionen
-- ausgewählte Notlösungen für sonst unterversorgte Tage
-
-**Bewertung:**
-Diese Dreiteilung ist für einen klinischen Planer fachlich sinnvoll. Besonders positiv ist, dass die Auto-Planung nicht blind „perfekt fair“, sondern robust auf **Vollbesetzung** optimiert und Fairness graduell einpreist.
+### 2.3 Historische Daten
+Aus bereits gespeicherten Vormonaten werden historische Kennzahlen abgeleitet, insbesondere:
+- D-Gesamtzahl,
+- HG-Gesamtzahl,
+- Wochenendäquivalente,
+- Feiertagslast,
+- Donnerstag-D,
+- HG für AA,
+- HG für FA,
+- Samstags-D.
 
 ---
 
-## 5. Historische Einbeziehung
+## 3. Grundprinzipien der Engine
 
-Die Funktion zur historischen Lastbetrachtung sammelt monatsübergreifend vor dem Zielmonat:
-- Anzahl BD (`bd`)
-- Anzahl HG (`hg`)
-- Wochenenddienstäquivalente (`weDuty`)
-- Feiertagslast (`holDuty`)
-- Donnerstag-BD (`thuBd`)
-- HG für AA versus HG für FA
-- Samstags-BD (`satBd`)
+Die Engine arbeitet in klaren Phasen:
+1. Initialisierung und Reparatur fehlender F-Tage nach bestehenden D.
+2. Verteilung der Wochenend-/Feiertags-BD.
+3. Verteilung der Werktags-BD.
+4. Iterative BD-Optimierung.
+5. HG-Bündelung für gekoppelte Konstellationen.
+6. Verteilung verbleibender HG.
+7. Iterative HG-Optimierung.
+8. Validierung und Ergebniserstellung.
+
+Diese Phasen werden in der Modal live visualisiert.
+
+---
+
+## 4. Rollenlogik
+
+### 4.1 Bereitschaftsdienst (D)
+- Grundsätzlich für alle nicht dienstbefreiten Personen möglich.
+- Samstags-D jedoch nur für FA.
+- Einige Personen erhalten reduzierte Standardziele.
+
+### 4.2 Hintergrunddienst (HG)
+- Ausschließlich für FA.
+- HG wird immer nach der D-Planung verteilt.
+- HG kann qualitativ unterschiedlich gewertet werden, je nachdem ob der D von einem AA oder einem FA besetzt ist.
+
+---
+
+## 5. Harte Regeln für D
+
+Eine Person fällt als D-Kandidat sofort aus, wenn mindestens eine der folgenden Bedingungen erfüllt ist:
+
+- Dienstbefreiung.
+- Abwesenheit am Zieltag.
+- Bereits gesetzter D/HG an diesem Tag.
+- NO_DUTY-Wunsch.
+- Samstagsdienst bei Nicht-FA.
+- Dr. Polednia an Sonntag, Dienstag oder Donnerstag.
+- Becker/Martin-Vertretungskonflikt.
+- F am Zieltag.
+- Urlaub/urlaubsähnliche Abwesenheit am Folgetag.
+- D am Vortag oder Folgetag.
+- Unzulässige Vortags-HG-Konstellation.
+- Oster-/Pfingst-Blockkonflikt.
+- Im strengen Modus zusätzlich Zielüberschreitung, Wochenendlimit, Samstagssperre Becker, zu geringer D-Abstand.
 
 ### Bewertung
-Die Historisierung ist sehr wertvoll, weil sie nicht nur absolute Mengen zählt, sondern auch Kontextgrößen erfasst. Das verbessert:
-- Fairness über Monatsgrenzen,
-- Feiertagsrotation,
-- Belastungsausgleich bei Samstagen,
-- Rollengerechtigkeit bei HG.
-
-**Einschränkung:**
-Die Historik betrachtet nur Daten, die bereits in den Hauptdaten vorliegen. Nicht in den Hauptplan übernommene Entwürfe anderer Monate fließen nur begrenzt ein. Für den aktuellen Funktionsumfang ist das vertretbar, aber dokumentationspflichtig.
+Diese Regeln sind im aktuellen Stand robust und klinisch nachvollziehbar. Besonders wichtig ist die Kombination aus Folgetagslogik, Wochenendgrenzen und personenbezogenen Ausschlüssen.
 
 ---
 
-## 6. Bereitschaftsdienst (`D`) – Regelanalyse
+## 6. Harte Regeln für HG
 
-### 6.1 Grundvoraussetzungen
-Ein `D` ist unzulässig, wenn mindestens einer der folgenden Punkte erfüllt ist:
-- Person ist dienstbefreit.
-- Person ist am Tag abwesend.
-- Dienstslot ist bereits anderweitig besetzt.
-- Wunschtyp `NO_DUTY` liegt vor.
-- Samstagsdienst für nicht fachärztliche Person.
-- `Dr. Polednia` an Sonntag, Dienstag oder Donnerstag.
-- Konflikt Becker/Martin greift.
-- Am Tag ist bereits `F` gesetzt.
-- Folgetag ist Urlaub.
-- Am Vortag oder Folgetag existiert bereits `D`.
-- Vortags-`HG` blockiert den `D` in bestimmten Konstellationen.
-- Oster-/Pfingstblock-Konflikt greift.
-
-### 6.2 Zielmengensteuerung
-Die Engine arbeitet mit personenindividuellen BD-Zielen.
-Standardmäßig:
-- dienstbefreit → `0`
-- `Dr. Polednia`, `Dr. Becker`, `Hr. Sebastian` → `3`
-- sonst typischerweise `4`
-
-### 6.3 Scoring-Komponenten
-Das BD-Scoring gewichtet u. a.:
-- Abstand zum Zielwert
-- erfüllte BD-Wünsche
-- Donnerstag vor Urlaubswoche
-- Wochenenddienst-Ausgleich
-- Samstagsgerechtigkeit bei Fachärzten
-- Feiertagslast-Historie
-- Distanz zu anderen BD
-- D-F-D-F-Vermeidung
-- deterministische Mini-Tie-Breaker
-
-### 6.4 Bewertung
-**Stärken:**
-- klinisch brauchbare Mischung aus harten Regeln und gerechter Verteilung,
-- historischer Belastungsausgleich,
-- klare Wochenendsteuerung,
-- nachvollziehbare Zielmengen.
-
-**Schwächen / Grenzen:**
-- Ziele sind statisch und personenbasiert, nicht dynamisch aus Beschäftigungsgrad oder Abwesenheitsquote hergeleitet;
-- einige Regeln sind namentlich kodiert und nicht datengetrieben;
-- spezielle Ausnahmeregeln sind wirksam, aber langfristig wartungsintensiv.
-
----
-
-## 7. Hintergrunddienst (`HG`) – Regelanalyse
-
-### 7.1 Grundstruktur
-`HG` wird nach der BD-Planung verteilt. Damit reagiert die HG-Zuweisung auf:
-- bereits vergebene BD,
-- Rollen des BD-Inhabers,
-- Wochenend-/Feiertagskontexte,
-- Abwesenheiten,
-- Wunschlagen.
-
-### 7.2 Verteilungslogik
-Die Anwendung priorisiert fachärztliche Eignung und versucht zugleich:
-- HG über Fachärzte zu glätten,
-- HG an Wochenenden/Feiertagen effizient zu bündeln,
-- direkte HG-Häufungen zu vermeiden,
-- Verhältnis HG für AA / HG für FA zu balancieren.
-
-### 7.3 Bewertung
-Die HG-Logik ist pragmatisch und betrieblich sinnvoll. Besonders positiv ist die explizite Berücksichtigung, **für wen** HG geleistet wird. Das ist keine triviale Zählung, sondern ein qualitatives Fairnessmerkmal.
-
----
-
-## 8. Feiertagsblock Ostern/Pfingsten
-
-### Regel
-Wer im Osterblock Dienst hat, soll im Pfingstblock ausgeschlossen werden – und umgekehrt.
-
-### Technische Umsetzung
-Die Engine bildet Mengen für relevante Feiertage und prüft auch benachbarte Monatsdaten, falls die Feiertagsblöcke über Monatsgrenzen laufen.
+Ein HG ist unzulässig bei:
+- Nicht-FA,
+- Dienstbefreiung,
+- Abwesenheit,
+- bereits gesetztem Dienst,
+- NO_DUTY,
+- F am normalen Werktag,
+- Konflikt mit Folgetags-D,
+- Oster-/Pfingst-Blockkonflikt,
+- Dr.-Polednia-AA-Freigabekonflikt an Sonntag, Dienstag, Donnerstag im strengen Modus,
+- Überschreitung des Wochenendlimits im strengen Modus.
 
 ### Bewertung
-Das ist fachlich sehr stark, weil die Regel:
-- nicht nur tagesbezogen,
-- sondern blockbezogen,
-- und monatsübergreifend gedacht ist.
-
-Diese Logik hebt die Planung qualitativ deutlich über einfache Monatsalgorithmen hinaus.
+Die HG-Regeln sind weniger hart als die D-Regeln, aber ausreichend streng, um klinisch problematische Kombinationen weitgehend zu vermeiden.
 
 ---
 
-## 9. Spezielle Personenregeln
+## 7. Folgetagsregel nach D
 
-Im aktuellen Stand existieren personenindividuelle Sonderregeln, z. B.:
-- generelle Dienstbefreiung einzelner Personen,
-- Reduktion individueller BD-Ziele,
-- Samstags-/Wochentagsausschlüsse,
-- Partner-/Vertretungskonflikte (Becker/Martin).
+Nach jedem D wird automatisch ein F am nächsten Kalendertag ergänzt, sofern dort noch keine andere Belegung steht.
+
+Das gilt für:
+- bereits vorhandene D beim Start der Auto-Planung,
+- neue D der Auto-Planung,
+- Monatsgrenzen mittels externer Folgemonats-Zuweisung.
 
 ### Bewertung
-**Positiv:**
-- hohe fachliche Praxistauglichkeit,
-- reale Kliniklogik lässt sich so kurzfristig gut abbilden.
-
-**Negativ:**
-- starke Kopplung an konkrete Namen,
-- begrenzte Skalierbarkeit,
-- höhere Pflegekosten bei Personalwechseln.
-
-**Empfehlung:**
-Mittelfristig in konfigurierbare, UI-pflegbare Regelattribute überführen.
+Diese Regel ist ein zentrales Sicherheitsnetz der Anwendung. Sie verhindert unplausible Belastungsketten und reduziert manuelle Nacharbeit erheblich.
 
 ---
 
-## 10. Wochenenddienstlogik
+## 8. Wochenendbewertung
 
-Wochenendlast wird nicht binär, sondern als Äquivalent betrachtet:
-- Wochenende mit `D` → `1.0`
-- Wochenende mit nur `HG` → `0.5`
+RadPlan bewertet Wochenendlast über ein eigenes Äquivalenzmodell:
+- 1,0 pro Kalenderwochenende mit mindestens einem D,
+- 0,5 pro Kalenderwochenende mit HG, aber ohne D.
+
+Wochenendrelevant sind Freitag, Samstag und Sonntag.
+
+Diese Kennzahl fließt ein in:
+- Zulässigkeitsprüfungen,
+- Kandidatenscoring,
+- Monatsfairness,
+- Optimierungsobjektive,
+- Ergebniswarnungen.
 
 ### Bewertung
-Diese Modellierung ist fachlich elegant, weil sie die Belastung realistischer quantifiziert als bloße Zählungen. Sie ist eine der stärksten Fairnessideen der gesamten Engine.
+Das Modell ist einfach, aber fachlich nützlich. Es bildet Belastung besser ab als eine reine Zählung einzelner Dienste.
 
 ---
 
-## 11. Planungsmodus und Entwurfslogik
+## 9. Samstagslogik
 
-### Aktueller Stand
-Mit der aktuellen Erweiterung verwaltet die Anwendung im Planungsmodus Entwürfe pro Monat separat. Dadurch ist möglich:
-- Monat/Jahr auch im aktiven Planungsmodus umzuschalten,
-- pro Monat eigene Entwurfshistorie zu behalten,
-- zwischen Monaten zu navigieren, ohne den Entwurfskontext zu verlieren.
+### 9.1 Allgemein
+- Samstag-D nur durch FA.
+- Samstagsdienste sollen innerhalb der FA möglichst gleichverteilt werden.
+
+### 9.2 Dr. Becker
+- Samstags-D nur als Notlösung.
+- Wenn Dr. Becker trotzdem samstags D erhält, prüft die Anwendung den **nächsten Werktag**.
+- Automatisches FZA wird nur gesetzt, wenn:
+  - dieser Tag arbeitsrechtlich/kalendermäßig ein Werktag ist,
+  - dort kein anderer FA bereits Urlaub oder F hat,
+  - Dr. Becker dort noch keine Belegung besitzt.
+- Ist der Tag blockiert, erzeugt die Engine eine **kritische Warnung** in der Auto-Planungs-Modal anstelle einer stillen FZA-Setzung.
 
 ### Bewertung
-Das ist für die Bedienbarkeit ein deutlicher Fortschritt. Es reduziert Reibung bei:
-- Monatswechseln am Quartals-/Jahresrand,
-- Feiertagsblockprüfungen,
-- Abstimmung angrenzender Monate,
-- Mehrfenster-artiger Prüfung ohne echten Fensterwechsel.
-
-**Wichtige Einschränkung:**
-Nicht automatisch alle Monatsentwürfe werden sofort in den Hauptplan übernommen. Das ist korrekt und schützt vor unbeabsichtigter Veröffentlichung. Gleichzeitig verlangt es klare Nutzerkommunikation – diese erfolgt inzwischen über Zeitraumsteuerung und Planungsmodus-Hinweise.
+Diese Umsetzung ist deutlich präziser als ein pauschales „Montag FZA“. Sie vermeidet Folgekonflikte in der CT-Vertretung und macht problematische Samstagskonstellationen sichtbar.
 
 ---
 
-## 12. Dashboard- und Kontrolllogiken
+## 10. HG-D-HG-Wochenendkette
 
-Die Anwendung enthält zusätzlich analytische Kontrollschichten:
-- Monatsstatistik in Kopf-/Mobilansicht
-- Abteilungsübersicht Monat/Jahr
-- Profilansicht pro Mitarbeitenden
-- neues Jahres-Dashboard Mitarbeitende
+Dies ist eine der aktuell wichtigsten Spezialregeln.
 
-Das neue Mitarbeitenden-Dashboard bewertet nicht nur Stammdaten, sondern verbindet:
-- Jahresgesamtsicht aller Mitarbeitenden,
-- Rollenfilter,
-- Suchbarkeit,
-- monatliche Kennzahlen,
-- Jahreskalender-Cluster,
-- Verwaltungsfunktionen des aktuellen Monats.
+### 10.1 Freitag → Samstag
+Wenn ein AA am Freitag D hat, soll der FA mit dem Samstags-D auch den Freitags-HG übernehmen.
+
+### 10.2 Samstag → Sonntag
+Wenn ein FA am Samstag D hat, soll derselbe FA auch den HG des Sonntags übernehmen.
+
+### 10.3 Technische Besonderheit
+Diese gekoppelten HG werden:
+- vor der allgemeinen HG-Verteilung gesetzt,
+- als gekoppelte HG markiert,
+- in der späteren HG-Optimierung **nicht mehr verschoben**.
 
 ### Bewertung
-Diese UI-Ebene ist algorithmisch relevant, weil sie Regelwirkungen sichtbar macht. Ein Algorithmus ist nur dann praxistauglich, wenn seine Konsequenzen gut kontrollierbar sind. Genau das verbessert diese Ebene deutlich.
+Damit ist die HG-D-HG-Kette nicht nur als Präferenz, sondern praktisch als stabile Wochenendlogik implementiert. Genau dieser Schutz vor späterem Wegoptimieren war für die fachliche Korrektheit entscheidend.
 
 ---
 
-## 13. Transparenz und Nachvollziehbarkeit
+## 11. Feiertags- und Blocklogik
 
-### Stärken
-- Abschlussbericht mit Begründungen
-- Fortschrittsdarstellung der Auto-Planung
-- Monats- und Jahreskennzahlen
-- sichtbare Warnhinweise bei konfliktträchtigen Dienstvergaben
-- Mitarbeiterjahresdashboard als Kontrollinstrument
+Die Anwendung berechnet sächsische Feiertage algorithmisch, inklusive beweglicher Feiertage und Buß- und Bettag.
+
+Zusätzlich existiert eine Blockregel:
+- Wer im Osterblock Dienst hat, soll im Pfingstblock ausgeschlossen werden.
+- Wer im Pfingstblock Dienst hat, soll im Osterblock ausgeschlossen werden.
+
+Die Prüfung berücksichtigt bei Bedarf auch relevante Daten außerhalb des aktuellen Monats.
 
 ### Bewertung
-Die Engine ist nicht „Black Box“, sondern weitgehend auditierbar. Für operative Planung ist das ein sehr großer Vorteil.
+Das ist ein starkes Qualitätsmerkmal der Engine. Die Planung denkt dadurch nicht nur tagesbezogen, sondern blockbezogen und monatsübergreifend.
 
 ---
 
-## 14. Risiken und Restfehlerpotenzial
+## 12. Wunschlogik
 
-### 14.1 Konfigurierbarkeit
-Einige Regeln sind weiterhin direkt im Code definiert. Das ist für ein internes Werkzeug akzeptabel, für wachsende Organisationen aber begrenzt skalierbar.
+Wünsche wirken auf zwei Arten:
+- `NO_DUTY` als harter Ausschluss.
+- `BD_WISH` und `HG_WISH` als positiver Score-Bonus.
 
-### 14.2 Stammdatenpflege
-Die Qualität der Planung hängt stark an korrekten Mitarbeitenden-Metadaten. Fehlende oder veraltete Rollencodes verschlechtern automatisch Fairness und UI-Auswertbarkeit.
+Erfüllte Wünsche werden am Ende zusätzlich gezählt und in den Informationen des Ergebnisbereichs ausgewiesen.
 
-### 14.3 Monatsgrenzen
-Die Anwendung adressiert Monatsgrenzen bereits deutlich besser als einfache Dienstplaner. Dennoch bleibt dies die fachlich sensibelste Zone – insbesondere bei Urlaub, Ostern/Pfingsten und Folgetagsruhe.
-
----
-
-## 15. Gesamtbewertung
-
-## Fachliche Qualität
-**hoch**
-
-## Technische Umsetzungsqualität
-**hoch mit punktuellen Konfigurationsgrenzen**
-
-## Fairnesslogik
-**gut bis sehr gut**
-
-## Bedienbarkeit / Kontrollierbarkeit
-**nach aktueller Erweiterung deutlich verbessert**
-
-## Wartbarkeit
-**mittel** – insbesondere wegen personenspezifischer Sonderregeln im Code.
+### Bewertung
+Die Wunschlogik ist pragmatisch umgesetzt und kollidiert nicht mit den harten Sicherheitsregeln.
 
 ---
 
-## 16. Konkretes Fazit
+## 13. D-Scoring
 
-Die aktuelle Implementierung liefert für einen spezialisierten klinischen Dienstplaner eine bemerkenswert ausgereifte Kombination aus:
-- harten Schutzregeln,
-- praxisnaher Fairness,
-- historischer Rücksicht,
-- monatsübergreifender Betrachtung,
-- transparenter Visualisierung.
+Das D-Scoring bevorzugt unter anderem:
+- Personen unter Ziel,
+- Wunschdienste,
+- Donnerstag vor Urlaub,
+- geringe Wochenendlast,
+- samstags ausgewogene FA-Belastung,
+- historisch geringere Feiertagslast,
+- ausreichenden Abstand zu anderen D,
+- Vermeidung von D-F-D-F.
 
-Die wichtigsten Stärken sind:
-1. robuste D/HG-Regellogik,
-2. korrekte Feiertags- und Monatsgrenzeneinbindung,
-3. sinnvolle Eskalationsstrategie zur Vollbesetzung,
-4. neue, deutlich verbesserte Bedienbarkeit über die globale Zeitraumsteuerung,
-5. neues Mitarbeitenden-Jahresdashboard als starke Kontrollinstanz.
+### Bewertung
+Das Scoring balanciert Fairness und klinische Praktikabilität gut. Es ist nicht rein mathematisch „gleich“, sondern nutzt sinnvolle fachliche Prioritäten.
 
-Die wichtigsten nächsten Entwicklungsoptionen wären:
-1. Regelparameter aus dem Code in konfigurierbare Stammdaten auszulagern,
-2. Beschäftigungsgrade und Sollarbeitsanteile algorithmisch einzubeziehen,
-3. Monatsübergreifende Entwürfe optional gesammelt speicher- oder übernehmbar zu machen,
-4. Sonderregeln personenneutral zu parametrisieren.
+---
 
-In Summe ist die Implementierung für den aktuellen Scope **fachlich überzeugend, technisch stringent und im Alltag gut kontrollierbar**.
+## 14. HG-Scoring
+
+Das HG-Scoring bevorzugt unter anderem:
+- gleichmäßige Monatsverteilung,
+- Wunschdienste,
+- kontrollierte Wochenendlast,
+- Vermeidung direkt benachbarter HG,
+- Ausgleich HG für AA / HG für FA,
+- leichte Kompensation bei FA mit weniger D.
+
+### Bewertung
+Die HG-Verteilung ist spürbar differenzierter als eine einfache Round-Robin-Zuteilung. Besonders wertvoll ist die Trennung HG für AA vs. HG für FA als Qualitätsmerkmal.
+
+---
+
+## 15. Iterative Optimierung
+
+Nach der Erstvergabe wird optimiert:
+
+### 15.1 BD-Optimierung
+Nicht fixierte Auto-Plan-BD können durch andere geeignete Personen ersetzt werden, wenn sich das Fairnessziel verbessert.
+
+### 15.2 HG-Optimierung
+Nicht fixierte Auto-Plan-HG können ebenfalls neu zugewiesen werden. Gekoppelte Wochenend-HG bleiben davon ausgenommen.
+
+### Bewertung
+Die Optimierung verbessert die Monatsfairness, ohne bereits manuell fixierte Dienste zu beschädigen.
+
+---
+
+## 16. Ergebnisaufbereitung in der Modal
+
+Die Auto-Planungs-Modal zeigt nach der Berechnung:
+- BD-Verteilung,
+- HG-Verteilung,
+- Informationen über Relaxierungen und Fairness,
+- Warnhinweise,
+- kritische Warnungen,
+- Abschlussbericht mit Einzelentscheidungen.
+
+Während des Laufs zeigt die Modal außerdem:
+- eine visuelle Pipeline,
+- Live-Telemetrie,
+- Fortschrittsbalken,
+- Terminal-Trace,
+- auffällige High-Tech-HUD-Animationen.
+
+### Bewertung
+Die Darstellung ist nicht nur kosmetisch, sondern verbessert die Demonstrierbarkeit des Algorithmus gegenüber Kolleginnen und Kollegen sowie die Nachvollziehbarkeit kritischer Sonderfälle.
+
+---
+
+## 17. Warnungen und Validierung
+
+Warnungen werden erzeugt bei:
+- fehlendem BD an einem Tag,
+- fehlendem HG an einem Tag,
+- Unterschreitung individueller D-Ziele,
+- Überschreitung der tolerierten Wochenendlast,
+- kritischen Becker-Samstags-FZA-Konflikten.
+
+Zusätzlich bereinigt die Validierung unzulässige D-D-Folgen.
+
+### Bewertung
+Die Warnlogik ist ausreichend sichtbar und mit den aktuellen Sonderregeln fachlich konsistent.
+
+---
+
+## 18. Lockerungen bei Engpässen
+
+Wenn unter strengen Regeln keine vollständige Besetzung möglich ist, lockert die Engine kontrolliert einzelne Beschränkungen. Diese Relaxierungen werden im Ergebnis ausgewiesen.
+
+### Bewertung
+Für einen realen Klinikplaner ist das sinnvoll: Vollbesetzung bleibt oberstes Ziel, ohne dass Fairness vollständig aufgegeben wird.
+
+---
+
+## 19. Aktuelle Stärken
+
+1. Gute Kombination aus harten Regeln, Scoring und Optimierung.
+2. Verlässliche automatische F-Logik nach D.
+3. Historische Fairness statt rein monatslokaler Betrachtung.
+4. Stabile HG-D-HG-Wochenendkette.
+5. Präzisere Becker-Samstagsbehandlung mit sichtbarer Konfliktwarnung.
+6. Hohe Transparenz durch Ergebnis- und Report-Modal.
+
+---
+
+## 20. Aktuelle Grenzen
+
+1. Mehrere Sonderregeln sind noch namentlich codiert.
+2. Standardziele basieren nicht auf Stellenanteilen.
+3. Die Becker-FZA-Regel prüft bewusst nur den nächsten Werktag und eskaliert dann per Warnung statt automatisch weiterzusuchen.
+4. Historische Daten berücksichtigen gespeicherte Monatsdaten, nicht beliebige fremde unübernommene Entwürfe.
+
+---
+
+## 21. Fazit
+
+Der aktuelle Stand der Auto-Planung ist für den vorhandenen Einsatzzweck fachlich belastbar und gegenüber früheren Ständen insbesondere in drei Punkten verbessert:
+
+- Die Wochenend-HG-D-HG-Regel bleibt nun stabil erhalten.
+- Die Dr.-Becker-Samstagsregel behandelt FZA fachlich sauberer und meldet Konflikte sichtbar.
+- Die Auto-Planungs-Modal präsentiert den Lauf deutlich eindrucksvoller und nachvollziehbarer, ohne die technische Logik von der Ergebnisdarstellung zu entkoppeln.
+

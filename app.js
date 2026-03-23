@@ -2837,11 +2837,42 @@ function computeAutoPlan(customTargets) {
 
   function getScheduledCell(targetY, targetM, emp, day, assignments = result) {
     if (targetY === y && targetM === m) return assignments[emp]?.[day] || {};
-    return DATA[monthKey(targetY, targetM)]?.assignments?.[emp]?.[day] || {};
+    const mk = monthKey(targetY, targetM);
+    const stored = DATA[mk]?.assignments?.[emp]?.[day] || {};
+    const queued = externalAssignments[mk]?.[emp]?.[day] || {};
+    return { ...stored, ...queued };
   }
 
   function getScheduledDuty(targetY, targetM, emp, day, assignments = result) {
     return getScheduledCell(targetY, targetM, emp, day, assignments).duty || null;
+  }
+
+  function getScheduledAssignmentCodes(targetY, targetM, emp, day, assignments = result) {
+    const assignment = getScheduledCell(targetY, targetM, emp, day, assignments).assignment || "";
+    return assignment
+      .split("/")
+      .map((code) => code.trim())
+      .filter(Boolean);
+  }
+
+  function findNextWorkdayFrom(startY, startM, startD) {
+    let cursor = nextCalendarDay(startY, startM, startD);
+    let guard = 0;
+    while (guard < 14) {
+      const holsForCursor = getSaxonyHolidays(cursor.y);
+      if (isWorkday(cursor.y, cursor.m, cursor.d, holsForCursor)) return cursor;
+      cursor = nextCalendarDay(cursor.y, cursor.m, cursor.d);
+      guard++;
+    }
+    return null;
+  }
+
+  function hasOtherFAFreeOrVacationOn(targetY, targetM, day, excludedEmp, assignments = result) {
+    return hgFAs.some((emp) => {
+      if (emp === excludedEmp) return false;
+      const codes = getScheduledAssignmentCodes(targetY, targetM, emp, day, assignments);
+      return codes.some((code) => code === "F" || VACATION_CODES.includes(code));
+    });
   }
 
   function queueExternalAssignment(targetY, targetM, emp, day, patch) {
@@ -3176,17 +3207,52 @@ function computeAutoPlan(customTargets) {
         reason += " D-F-D-F wurde nur weich bestraft.";
       if (relaxed) reason += " Auswahl im gelockerten Modus.";
       if (chosen.emp === "Dr. Becker" && weekday(y, m, d) === 6) {
-        reason += " Samstags-Dienst unvermeidbar -> FZA am Montag eingetragen.";
-        const sunDay = nextCalendarDay(y, m, d);
-        const monDay = nextCalendarDay(sunDay.y, sunDay.m, sunDay.d);
-        if (monDay.y === y && monDay.m === m) {
-          if (!result[chosen.emp][monDay.d]) result[chosen.emp][monDay.d] = {};
-          if (!result[chosen.emp][monDay.d].assignment)
-            result[chosen.emp][monDay.d].assignment = "FZA";
-        } else {
-          queueExternalAssignment(monDay.y, monDay.m, chosen.emp, monDay.d, {
-            assignment: "FZA",
-          });
+        const nextWorkday = findNextWorkdayFrom(y, m, d);
+        if (nextWorkday) {
+          const blockedByOtherFA = hasOtherFAFreeOrVacationOn(
+            nextWorkday.y,
+            nextWorkday.m,
+            nextWorkday.d,
+            chosen.emp,
+            result,
+          );
+          const beckerAssignments = getScheduledAssignmentCodes(
+            nextWorkday.y,
+            nextWorkday.m,
+            chosen.emp,
+            nextWorkday.d,
+            result,
+          );
+          const beckerAlreadyOccupied = beckerAssignments.length > 0;
+          if (!blockedByOtherFA && !beckerAlreadyOccupied) {
+            reason += ` Samstags-Dienst unvermeidbar -> FZA am nächsten Werktag (${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]}) eingetragen.`;
+            if (nextWorkday.y === y && nextWorkday.m === m) {
+              if (!result[chosen.emp][nextWorkday.d]) result[chosen.emp][nextWorkday.d] = {};
+              result[chosen.emp][nextWorkday.d].assignment = "FZA";
+            } else {
+              queueExternalAssignment(nextWorkday.y, nextWorkday.m, chosen.emp, nextWorkday.d, {
+                assignment: "FZA",
+              });
+            }
+            log.push({
+              phase: "bd_weekend",
+              icon: "🟣",
+              msg: `Dr. Becker erhält FZA am ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]}.`,
+              pct: Math.min(40, pctBase + 2),
+            });
+          } else {
+            const warnMsg = blockedByOtherFA
+              ? `KRITISCH: Dr. Becker hat am ${d}. einen Samstags-BD, aber der nächste Werktag ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]} ist blockiert, weil dort bereits ein anderer FA Urlaub/F hat. FZA bitte manuell prüfen.`
+              : `KRITISCH: Dr. Becker hat am ${d}. einen Samstags-BD, aber am nächsten Werktag ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]} besteht bereits eine Belegung (${beckerAssignments.join("/")}). FZA bitte manuell prüfen.`;
+            beckerSaturdayFzaWarnings.push(warnMsg);
+            reason += " FZA konnte nicht automatisch gesetzt werden; sichtbare Warnung erzeugt.";
+            log.push({
+              phase: "bd_weekend",
+              icon: "🚨",
+              msg: warnMsg,
+              pct: Math.min(40, pctBase + 2),
+            });
+          }
         }
       }
 
@@ -3431,6 +3497,8 @@ function computeAutoPlan(customTargets) {
   }
 
   const bundledHGDays = new Set();
+  const bundledHGKeys = new Set();
+  const beckerSaturdayFzaWarnings = [];
   if (hgNeeded.length > 0) {
     log.push({
       phase: "hg_bundle",
@@ -3439,7 +3507,8 @@ function computeAutoPlan(customTargets) {
       pct: 68,
     });
 
-    function assignBundledHG(emp, d, bindReason) {
+    function assignBundledHG(emp, d, bindReason, options = {}) {
+      const { allowAdjacentHG = false } = options;
       if (!isFacharzt(emp) || isDutyExempt(emp)) return false;
       if (wishes[emp]?.[d] === "NO_DUTY") return false;
       if (isAbsentOnDay(y, m, emp, d, result)) return false;
@@ -3450,13 +3519,14 @@ function computeAutoPlan(customTargets) {
       if (result[emp]?.[d]?.assignment === "F" && !isWE) return false;
       if (emps.some((e) => result[e]?.[d]?.duty === "HG")) return false;
       if (d < dim && result[emp]?.[d + 1]?.duty === "D" && wd !== 5) return false;
-      if (hasAdjacentHG(emp, d, result)) return false;
+      if (!allowAdjacentHG && hasAdjacentHG(emp, d, result)) return false;
 
       if (!result[emp]) result[emp] = {};
       if (!result[emp][d]) result[emp][d] = {};
       result[emp][d].duty = "HG";
       currentHG[emp]++;
       bundledHGDays.add(d);
+      bundledHGKeys.add(dutyKey(emp, d));
 
       const bdHolder = dutyEmps.find((e) => result[e]?.[d]?.duty === "D");
       if (bdHolder && isAssistenzarzt(bdHolder)) currentHGForAA[emp]++;
@@ -3467,7 +3537,7 @@ function computeAutoPlan(customTargets) {
         emp,
         duty: "HG",
         reason: bindReason,
-        tags: ["Gekoppelt"],
+        tags: ["Gekoppelt", allowAdjacentHG ? "WE-Kette priorisiert" : null].filter(Boolean),
       });
       log.push({
         phase: "hg_bundle",
@@ -3492,7 +3562,8 @@ function computeAutoPlan(customTargets) {
             assignBundledHG(
               satBDHolder,
               d,
-              "Freitags-HG gekoppelt an eigenen Samstags-BD (da Freitag AA im Dienst).",
+              "Freitags-HG ist fest mit dem FA des Samstags-BD gekoppelt, damit derselbe FA die Befundfreigabe für den AA vom Freitag übernimmt.",
+              { allowAdjacentHG: true },
             );
           }
         }
@@ -3505,7 +3576,8 @@ function computeAutoPlan(customTargets) {
             assignBundledHG(
               bdHolder,
               sunDay,
-              "Sonntags-HG gekoppelt an eigenen Samstags-BD.",
+              "Sonntags-HG ist fest mit dem FA des Samstags-BD gekoppelt, damit das Wochenende als HG-D-HG-Kette aus einer Hand betreut wird.",
+              { allowAdjacentHG: true },
             );
           }
         }
@@ -3642,7 +3714,7 @@ function computeAutoPlan(customTargets) {
     let hgMoves = 0;
     let bestHGObjective = computeHGObjective();
     const mutableHGDays = listDutyAssignments(hgFAs, dim, result, "HG")
-      .filter(({ emp, day }) => !fixedDutyKeys.has(`HG:${dutyKey(emp, day)}`))
+      .filter(({ emp, day }) => !fixedDutyKeys.has(`HG:${dutyKey(emp, day)}`) && !bundledHGKeys.has(dutyKey(emp, day)))
       .map(({ day }) => day);
     for (let pass = 0; pass < 14; pass++) {
       let improved = false;
@@ -3796,6 +3868,7 @@ function computeAutoPlan(customTargets) {
     if (bd.weDuty > RELAXED_WEEKEND_DUTY_LIMIT)
       summary.warnings.push(`${e}: ${bd.weDuty} WE-Dienste (Ziel ${TARGET_WEEKEND_DUTY})`);
   });
+  beckerSaturdayFzaWarnings.forEach((warning) => summary.warnings.push(warning));
   for (let d = 1; d <= dim; d++) {
     if (!emps.some((e) => result[e]?.[d]?.duty === "D"))
       summary.warnings.push(`Tag ${d}: kein BD besetzt.`);
@@ -3812,7 +3885,7 @@ function computeAutoPlan(customTargets) {
   );
   if (bundledHGDays.size > 0)
     summary.infos.push(
-      `${bundledHGDays.size} HG-Dienste wurden an WE/FT effizient mit BD gekoppelt.`,
+      `${bundledHGDays.size} HG-Dienste wurden an WE/FT effizient mit BD gekoppelt. Freitags-HG eines AA wird bevorzugt an den FA des Samstags-BD gebunden; derselbe FA übernimmt auch den Sonntags-HG der Samstagskette.`,
     );
   let maxWe = 0;
   dutyEmps.forEach((e) => {
@@ -3969,26 +4042,46 @@ async function renderProgressAndThenResult(result) {
   const applyBtn = document.getElementById("ap-apply");
   applyBtn.style.display = "none";
   body.innerHTML = `
-    <div class="ap-engine">
-      <div class="ap-pipeline" id="ap-pipeline">
-        <div class="ap-phase-node" data-phase="init"><span class="ap-pn-dot"></span><span class="ap-pn-label">Analyse</span></div><div class="ap-phase-conn"></div>
-        <div class="ap-phase-node" data-phase="bd"><span class="ap-pn-dot"></span><span class="ap-pn-label">BD</span></div><div class="ap-phase-conn"></div>
-        <div class="ap-phase-node" data-phase="swap"><span class="ap-pn-dot"></span><span class="ap-pn-label">Optimierung</span></div><div class="ap-phase-conn"></div>
-        <div class="ap-phase-node" data-phase="hg"><span class="ap-pn-dot"></span><span class="ap-pn-label">HG</span></div><div class="ap-phase-conn"></div>
-        <div class="ap-phase-node" data-phase="validate"><span class="ap-pn-dot"></span><span class="ap-pn-label">Validierung</span></div>
+    <div class="ap-engine ap-engine-immersive">
+      <div class="ap-hero-grid" aria-hidden="true">
+        <span class="ap-grid-line"></span><span class="ap-grid-line"></span><span class="ap-grid-line"></span>
+        <span class="ap-grid-line vertical"></span><span class="ap-grid-line vertical"></span><span class="ap-grid-line vertical"></span>
       </div>
-      <div class="ap-live-stats" id="ap-live-stats">
-        <div class="ap-ls-item"><span class="ap-ls-val" id="ap-ls-bd" style="color:#EF4444">0</span><span class="ap-ls-lbl">BD</span></div><div class="ap-ls-sep"></div>
-        <div class="ap-ls-item"><span class="ap-ls-val" id="ap-ls-hg" style="color:#0EA5E9">0</span><span class="ap-ls-lbl">HG</span></div><div class="ap-ls-sep"></div>
-        <div class="ap-ls-item"><span class="ap-ls-val" id="ap-ls-rules" style="color:#F59E0B">0</span><span class="ap-ls-lbl">Regeln</span></div><div class="ap-ls-sep"></div>
-        <div class="ap-ls-item"><span class="ap-ls-val" id="ap-ls-swaps" style="color:#22C55E">0</span><span class="ap-ls-lbl">Swaps</span></div>
+      <div class="ap-hero-shell">
+        <div class="ap-hero-hud">
+          <div class="ap-hud-block">
+            <span class="ap-hud-kicker">RadPlan Neural Scheduler</span>
+            <strong class="ap-hud-title">Live-Allokation klinischer Dienstketten</strong>
+            <span class="ap-hud-sub">GPU-freundliche Visualisierung · High-Tech Präsentationsmodus · Echtzeit-Telemetrie</span>
+          </div>
+          <div class="ap-hud-radar" aria-hidden="true">
+            <span class="ap-hud-ring ring-a"></span>
+            <span class="ap-hud-ring ring-b"></span>
+            <span class="ap-hud-ring ring-c"></span>
+            <span class="ap-hud-sweep"></span>
+            <span class="ap-hud-core"></span>
+          </div>
+        </div>
+        <div class="ap-pipeline" id="ap-pipeline">
+          <div class="ap-phase-node" data-phase="init"><span class="ap-pn-dot"></span><span class="ap-pn-label">Analyse</span></div><div class="ap-phase-conn"></div>
+          <div class="ap-phase-node" data-phase="bd"><span class="ap-pn-dot"></span><span class="ap-pn-label">BD</span></div><div class="ap-phase-conn"></div>
+          <div class="ap-phase-node" data-phase="swap"><span class="ap-pn-dot"></span><span class="ap-pn-label">Optimierung</span></div><div class="ap-phase-conn"></div>
+          <div class="ap-phase-node" data-phase="hg"><span class="ap-pn-dot"></span><span class="ap-pn-label">HG</span></div><div class="ap-phase-conn"></div>
+          <div class="ap-phase-node" data-phase="validate"><span class="ap-pn-dot"></span><span class="ap-pn-label">Validierung</span></div>
+        </div>
+        <div class="ap-live-stats" id="ap-live-stats">
+          <div class="ap-ls-item ap-ls-primary"><span class="ap-ls-val" id="ap-ls-bd" style="color:#FB7185">0</span><span class="ap-ls-lbl">BD-Routen</span><span class="ap-ls-glow"></span></div><div class="ap-ls-sep"></div>
+          <div class="ap-ls-item"><span class="ap-ls-val" id="ap-ls-hg" style="color:#38BDF8">0</span><span class="ap-ls-lbl">HG-Ketten</span><span class="ap-ls-glow"></span></div><div class="ap-ls-sep"></div>
+          <div class="ap-ls-item"><span class="ap-ls-val" id="ap-ls-rules" style="color:#FBBF24">0</span><span class="ap-ls-lbl">Regel-Trigger</span><span class="ap-ls-glow"></span></div><div class="ap-ls-sep"></div>
+          <div class="ap-ls-item"><span class="ap-ls-val" id="ap-ls-swaps" style="color:#4ADE80">0</span><span class="ap-ls-lbl">Optimierungen</span><span class="ap-ls-glow"></span></div>
+        </div>
+        <div class="ap-bar-wrap">
+          <div class="ap-bar-track"><div class="ap-bar-fill" id="ap-prog-bar"></div><div class="ap-bar-glow" id="ap-prog-glow"></div><div class="ap-bar-scan"></div></div>
+          <div class="ap-bar-info"><span class="ap-bar-phase" id="ap-prog-title">Initialisierung</span><span class="ap-bar-pct" id="ap-prog-pct">0%</span></div>
+        </div>
       </div>
-      <div class="ap-bar-wrap">
-        <div class="ap-bar-track"><div class="ap-bar-fill" id="ap-prog-bar"></div><div class="ap-bar-glow" id="ap-prog-glow"></div></div>
-        <div class="ap-bar-info"><span class="ap-bar-phase" id="ap-prog-title">Initialisierung</span><span class="ap-bar-pct" id="ap-prog-pct">0%</span></div>
-      </div>
-      <div class="ap-terminal" id="ap-log">
-        <div class="ap-term-header"><span class="ap-term-dot" style="background:#FF5F57"></span><span class="ap-term-dot" style="background:#FFBD2E"></span><span class="ap-term-dot" style="background:#28C840"></span><span class="ap-term-title">RadPlan Auto-Scheduler</span></div>
+      <div class="ap-terminal ap-terminal-deep" id="ap-log">
+        <div class="ap-term-header"><span class="ap-term-dot" style="background:#FF5F57"></span><span class="ap-term-dot" style="background:#FFBD2E"></span><span class="ap-term-dot" style="background:#28C840"></span><span class="ap-term-title">RadPlan Auto-Scheduler // Quantum Trace Console</span></div>
         <div class="ap-term-body" id="ap-term-body"></div>
       </div>
     </div>`;
@@ -4077,7 +4170,9 @@ async function renderProgressAndThenResult(result) {
       entry.icon === "🔗" ||
       entry.icon === "🏖️" ||
       entry.icon === "⛔" ||
-      entry.icon === "🔀"
+      entry.icon === "🔀" ||
+      entry.icon === "🟣" ||
+      entry.icon === "🚨"
     )
       ruleCount++;
     if (entry.msg.includes("Swap")) {
@@ -4090,6 +4185,7 @@ async function renderProgressAndThenResult(result) {
     const div = document.createElement("div");
     let cls = "ap-log-entry";
     if (entry.icon === "⚠" || entry.icon === "🚨") cls += " ap-log-warn";
+    if (entry.icon === "🚨") cls += " ap-log-critical";
     if (entry.icon === "→") cls += " ap-log-assign";
     if (entry.icon === "💡") cls += " ap-log-reason";
     if (entry.icon === "🏖️") cls += " ap-log-vacation";
@@ -4187,7 +4283,8 @@ function renderResultView() {
   if (summary.warnings.length) {
     html += `<div class="ap-sect-hd" style="margin-top:18px"><span class="ap-sect-badge" style="background:#F97316;color:#fff">!</span>Hinweise</div><div class="ap-warnings">`;
     summary.warnings.forEach((w) => {
-      html += `<div class="ap-warn-item">${w}</div>`;
+      const warnClass = /^KRITISCH:/.test(w) ? " ap-warn-item-critical" : "";
+      html += `<div class="ap-warn-item${warnClass}">${w}</div>`;
     });
     html += `</div>`;
   }
