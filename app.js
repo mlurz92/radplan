@@ -4860,11 +4860,11 @@ async function renderProgressAndThenResult(result) {
     ruleLabelEl.textContent = event.label;
     ruleDetailEl.textContent = event.detail;
     ruleInspectorCard.className = `ap-rule-inspector-card severity-${event.severity || "info"}`;
-    const sev = event.severity || "info";
-    if (Object.prototype.hasOwnProperty.call(severityCounts, sev)) {
-      severityCounts[sev] += 1;
+    const sev = event.severity;
+    if (sev === "critical" || sev === "warn" || sev === "accent") {
+      severityCounts[sev]++;
     } else {
-      severityCounts.info += 1;
+      severityCounts.info++;
     }
   }
 
