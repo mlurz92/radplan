@@ -1157,6 +1157,7 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   isolation: isolate;
   overflow: hidden;
   padding: 2px;
+  contain: layout paint style;
 }
 .ap-hero-shell {
   position: relative;
@@ -1172,6 +1173,8 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   border: 1px solid rgba(56,189,248,.14);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 44px rgba(2,8,23,.42);
   transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform, opacity;
 }
 .ap-hero-shell::before {
   content: '';
@@ -1260,6 +1263,8 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   border: 1px solid rgba(56,189,248,.18);
   box-shadow: inset 0 0 22px rgba(14,165,233,.18), 0 0 28px rgba(14,165,233,.12);
   transform: translateZ(0);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 .ap-hud-ring,
 .ap-hud-core,
@@ -1343,7 +1348,7 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   background: linear-gradient(180deg, rgba(7,14,27,.92), rgba(5,10,22,.86));
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  border-radius: var(--radius); padding: 12px 18px;
+  border-radius: var(--radius); padding: 8px 14px;
   border: 1px solid rgba(56,189,248,.12);
   box-shadow: 0 12px 30px rgba(2,8,23,.24), inset 0 1px 0 rgba(255,255,255,.03);
   transform: translateZ(0);
@@ -1363,18 +1368,21 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   pointer-events: none;
 }
 .ap-ls-val {
-  font-family: var(--font-mono); font-size: 24px; font-weight: 800;
+  font-family: var(--font-mono); font-size: clamp(17px, 2.1vw, 22px); font-weight: 800;
   line-height: 1; transition: all .3s;
   text-shadow: 0 0 18px currentColor;
 }
 .ap-ls-lbl {
-  font-size: 8px; font-weight: 700; text-transform: uppercase;
+  font-size: 7px; font-weight: 700; text-transform: uppercase;
   letter-spacing: .12em; color: rgba(226,232,240,.5);
 }
 .ap-ls-sep { width: 1px; height: 28px; background: rgba(255,255,255,.08); flex-shrink: 0; }
+.ap-rule-inline {
+  min-height: 34px;
+}
 .ap-bar-wrap { position: relative; }
 .ap-bar-track {
-  height: 8px; border-radius: 999px; background: rgba(15,23,42,.82);
+  height: 6px; border-radius: 999px; background: rgba(15,23,42,.82);
   overflow: hidden; position: relative;
   border: 1px solid rgba(56,189,248,.1);
 }
@@ -1384,6 +1392,7 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   background-size: 200% 100%; animation: apBarShimmer 2s linear infinite;
   transition: width .35s cubic-bezier(.34,1.2,.64,1);
   transform: translateZ(0);
+  will-change: width, transform;
 }
 @keyframes apBarShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 .ap-bar-glow {
@@ -1392,6 +1401,7 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   filter: blur(5px); border-radius: 999px; pointer-events: none;
   transition: width .35s cubic-bezier(.34,1.2,.64,1);
   transform: translateZ(0);
+  will-change: width, opacity;
 }
 .ap-bar-scan {
   position: absolute;
@@ -1405,14 +1415,14 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
 @keyframes apBarScanner { from { background-position: -180px 0; } to { background-position: calc(100% + 180px) 0; } }
 .ap-bar-info {
   display: flex; justify-content: space-between; align-items: center;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 .ap-bar-phase {
-  font-size: 11px; font-weight: 600; color: var(--gray-600);
+  font-size: 10px; font-weight: 600; color: var(--gray-500);
   transition: color .2s;
 }
 .ap-bar-pct {
-  font-family: var(--font-mono); font-size: 12px; font-weight: 800;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 800;
   color: #D97706;
 }
 .ap-rule-theater {
@@ -1520,6 +1530,8 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   opacity: .72;
   transform: translate3d(-18px, 0, 0) scale(.96);
   transition: transform .45s cubic-bezier(.22,1,.36,1), opacity .45s, box-shadow .45s;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 .ap-rule-pill.is-live {
   opacity: 1;
@@ -1658,6 +1670,11 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   font-family: var(--font-mono);
   font-size: 11px;
   color: #E2E8F0;
+  animation: apPhasePulse 1.2s ease-in-out infinite;
+}
+@keyframes apPhasePulse {
+  0%, 100% { opacity: .82; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-1px); }
 }
 .ap-rule-stage-compact {
   grid-template-columns: minmax(0, 1.3fr) minmax(220px, .8fr);
@@ -1700,7 +1717,7 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   min-height: 0;
 }
 .ap-terminal-compact .ap-term-body {
-  max-height: 170px;
+  max-height: 190px;
 }
 
 .ap-terminal {
@@ -1709,6 +1726,8 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   border: 1px solid rgba(56,189,248,.12);
   box-shadow: 0 10px 30px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.03);
   transform: translateZ(0);
+  contain: layout paint;
+  will-change: transform;
 }
 .ap-terminal-deep::before {
   content: '';
@@ -1760,10 +1779,27 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
 .ap-log-entry.ap-log-rule { color: #38BDF8; font-style: italic; }
 .ap-log-icon { flex-shrink: 0; width: 18px; text-align: center; }
 .ap-log-msg { flex: 1; }
+.ap-log-phase {
+  align-self: center;
+  font-size: 8px;
+  padding: 1px 6px;
+  border: 1px solid rgba(103,232,249,.2);
+  border-radius: 999px;
+  color: rgba(103,232,249,.65);
+}
 .ap-log-detail {
   color: rgba(103,232,249,.3); font-size: 9.5px;
   margin-left: auto; flex-shrink: 0; padding-left: 8px;
   white-space: nowrap;
+}
+.tr-rbn .td-name-rbn {
+  background: linear-gradient(90deg, rgba(14,165,233,.12), rgba(14,165,233,.02));
+}
+.td-cell-rbn .cell-assign-rbn {
+  color: #0C4A6E;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 .ap-result-hero {
   display: grid;
