@@ -2790,6 +2790,7 @@ function isDutyExempt(empName) {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const AUTO_PLAN_PROGRESS_MIN_MS = 30000;
+let autoPlanConfigRenderToken = 0;
 
 function collectHistoricalDutyStats(upToYear, upToMonth) {
   const stats = {};
@@ -2807,10 +2808,13 @@ function collectHistoricalDutyStats(upToYear, upToMonth) {
     };
   });
   for (const [k, mData] of Object.entries(DATA)) {
+    if (!mData || typeof mData !== "object") continue;
+    if (!Array.isArray(mData.employees) || mData.employees.length === 0) continue;
+    if (!mData.assignments || typeof mData.assignments !== "object") continue;
     const parts = k.split("-");
     const ky = parseInt(parts[0], 10),
       km = parseInt(parts[1], 10);
-    if (!mData || !mData.employees) continue;
+    if (!Number.isFinite(ky) || !Number.isFinite(km) || km < 0 || km > 11) continue;
     if (ky > upToYear || (ky === upToYear && km >= upToMonth)) continue;
     const hols = getSaxonyHolidaysCached(ky);
     const dim = daysInMonth(ky, km);
@@ -2883,6 +2887,11 @@ function collectHistoricalDutyStats(upToYear, upToMonth) {
     }
   }
   return stats;
+}
+
+async function collectHistoricalDutyStatsAsync(upToYear, upToMonth) {
+  await sleep(0);
+  return collectHistoricalDutyStats(upToYear, upToMonth);
 }
 
 function hasVacationInWeek(y, m, emp, targetKW) {
@@ -4403,19 +4412,27 @@ function openAutoPlanModal() {
     body.style.padding = "20px";
     body.innerHTML = `<div class="ap-config-intro"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;color:#0EA5E9"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span>Auto-Plan-Konfiguration wird vorbereitet…</span></div>`;
   }
+  autoPlanConfigRenderToken += 1;
+  const renderToken = autoPlanConfigRenderToken;
   requestAnimationFrame(() => {
-    setTimeout(() => renderAutoPlanModal(), 0);
+    setTimeout(() => {
+      renderAutoPlanModal(renderToken).catch(() => {
+        showToast("Auto-Plan-Konfiguration konnte nicht geladen werden");
+      });
+    }, 0);
   });
 }
 
-function renderAutoPlanModal() {
+async function renderAutoPlanModal(renderToken = null) {
   const { year: y, month: m } = state;
   const emps = [...planData.employees];
   const dutyEmps = emps.filter((e) => !isDutyExempt(e));
-  document.getElementById("ap-sub").textContent = `${MONTHS[m]} ${y}`;
+  const apSub = document.getElementById("ap-sub");
+  if (apSub) apSub.textContent = `${MONTHS[m]} ${y}`;
   const body = document.getElementById("ap-body");
   const applyBtn = document.getElementById("ap-apply");
   const reportBtn = document.getElementById("ap-report-btn");
+  if (!body || !applyBtn) return;
   if (reportBtn) reportBtn.style.display = "none";
   body.style.height = "auto";
   body.style.maxHeight = "72vh";
@@ -4425,7 +4442,8 @@ function renderAutoPlanModal() {
 
   if (apViewMode === "config") {
     applyBtn.style.display = "none";
-    const hist = collectHistoricalDutyStats(y, m);
+    const hist = await collectHistoricalDutyStatsAsync(y, m);
+    if (renderToken !== null && renderToken !== autoPlanConfigRenderToken) return;
     let html = `<div class="ap-config-intro"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;color:#F59E0B"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span>BD-Ziele anpassen.</span></div>`;
     if (DUTY_EXEMPT.length)
       html += `<div class="ap-exempt-note"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>Befreit: <strong>${DUTY_EXEMPT.join(", ")}</strong></span></div>`;
@@ -4904,7 +4922,11 @@ function renderResultView() {
   document.getElementById("ap-back-config")?.addEventListener("click", () => {
     apViewMode = "config";
     autoPlanResult = null;
-    renderAutoPlanModal();
+    autoPlanConfigRenderToken += 1;
+    const renderToken = autoPlanConfigRenderToken;
+    renderAutoPlanModal(renderToken).catch(() => {
+      showToast("Auto-Plan-Konfiguration konnte nicht geladen werden");
+    });
   });
 }
 
