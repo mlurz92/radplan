@@ -25,6 +25,17 @@ const CODE_MAP = {};
 [...WORKPLACES, ...STATUSES].forEach((x) => {
   CODE_MAP[x.code] = x;
 });
+const RBN_ROW_KEY = "__RBN_NEURORAD__";
+const RBN_ROW_LABEL = "RD Neurorad (RBN)";
+const RBN_ROW_START = { year: 2025, month: 5 };
+const RBN_OPTIONS = [
+  "Prof. Schob (NRAD)",
+  "Dr. Maybaum (NRAD)",
+  "Dr. Bailis (NRAD)",
+  "Dr. Schüngel (NRAD)",
+  "Fr. Dalitz (RAD)",
+  "Fr. Thaler (RAD)",
+];
 const MONTHS = [
   "Januar",
   "Februar",
@@ -224,6 +235,14 @@ const dateKey = (y, m, d) => `${y}-${pad2(m + 1)}-${pad2(d)}`;
 const monthKey = (y, m) => `${y}-${m}`;
 const prevMK = (y, m) => (m === 0 ? `${y - 1}-11` : `${y}-${m - 1}`);
 const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
+const isRbnMonthVisible = (y, m) =>
+  y > RBN_ROW_START.year || (y === RBN_ROW_START.year && m >= RBN_ROW_START.month);
+function normalizeMonthDataShape(md) {
+  if (!md || typeof md !== "object") return;
+  if (!Array.isArray(md.employees)) md.employees = [];
+  if (!md.assignments || typeof md.assignments !== "object") md.assignments = {};
+  if (!md.rbn || typeof md.rbn !== "object") md.rbn = {};
+}
 const weekday = (y, m, d) => new Date(y, m, d).getDay();
 const isWeekend = (y, m, d) => {
   const w = weekday(y, m, d);
@@ -314,6 +333,7 @@ function loadFromStorage() {
   try {
     const r = localStorage.getItem(STORAGE_KEY);
     if (r) DATA = JSON.parse(r);
+    Object.values(DATA).forEach((md) => normalizeMonthDataShape(md));
   } catch (e) {
     DATA = {};
   }
@@ -364,7 +384,9 @@ function ensurePostBDFreiDays() {
 }
 function getMonthData(y, m) {
   if (planMode && planData && y === state.year && m === state.month) return planData;
-  return getMonthDataRaw(y, m);
+  const md = getMonthDataRaw(y, m);
+  normalizeMonthDataShape(md);
+  return md;
 }
 function setCell(y, m, emp, day, patch) {
   const md = getMonthData(y, m);
@@ -384,6 +406,17 @@ function clearCell(y, m, emp, day) {
 }
 function getCell(y, m, emp, day) {
   return getMonthData(y, m).assignments?.[emp]?.[day] || {};
+}
+function getRbnValue(y, m, day) {
+  const md = getMonthData(y, m);
+  return md.rbn?.[day] || "";
+}
+function setRbnValue(y, m, day, value) {
+  const md = getMonthData(y, m);
+  if (!md.rbn) md.rbn = {};
+  if (value) md.rbn[day] = value;
+  else delete md.rbn[day];
+  if (!planMode) saveToStorage();
 }
 function addEmployee(y, m, name) {
   const md = getMonthData(y, m);
@@ -542,15 +575,26 @@ function createPlanSession(y, m) {
     : {
         employees: [...getMonthDataRaw(y, m).employees],
         assignments: cloneData(getMonthDataRaw(y, m).assignments || {}),
+        rbn: cloneData(getMonthDataRaw(y, m).rbn || {}),
         wishes: {},
       };
+  const sourceRbn = cloneData(source.rbn || {});
   return {
     key,
     employees: [...(source.employees || [])],
     assignments: cloneData(source.assignments || {}),
+    rbn: sourceRbn,
     wishes: cloneData(source.wishes || {}),
-    baseline: cloneData(source.assignments || {}),
-    history: [cloneData(source.assignments || {})],
+    baseline: {
+      assignments: cloneData(source.assignments || {}),
+      rbn: cloneData(sourceRbn),
+    },
+    history: [
+      {
+        assignments: cloneData(source.assignments || {}),
+        rbn: cloneData(sourceRbn),
+      },
+    ],
     historyIdx: 0,
   };
 }
@@ -570,17 +614,19 @@ function getMonthDataRaw(y, m) {
   const k = monthKey(y, m);
   if (!DATA[k]) {
     const prev = DATA[prevMK(y, m)];
-    DATA[k] = { employees: [...(prev?.employees || [])], assignments: {} };
+    DATA[k] = { employees: [...(prev?.employees || [])], assignments: {}, rbn: {} };
   }
+  normalizeMonthDataShape(DATA[k]);
   return DATA[k];
 }
 function ensurePlanSession(y, m) {
   const key = monthKey(y, m);
   if (!planSessions[key]) planSessions[key] = createPlanSession(y, m);
+  normalizeMonthDataShape(planSessions[key]);
   return planSessions[key];
 }
 function hasSessionChanges(session) {
-  return JSON.stringify(session.assignments) !== JSON.stringify(session.baseline);
+  return JSON.stringify({ assignments: session.assignments, rbn: session.rbn || {} }) !== JSON.stringify(session.baseline);
 }
 function hasAnyPlanChanges() {
   return Object.values(planSessions).some(hasSessionChanges);
@@ -732,7 +778,10 @@ function isEditorOpen() {
 function recordPlanHistory() {
   if (!planMode || !planData) return;
   planHistory = planHistory.slice(0, planHistoryIdx + 1);
-  planHistory.push(cloneData(planData.assignments));
+  planHistory.push({
+    assignments: cloneData(planData.assignments),
+    rbn: cloneData(planData.rbn || {}),
+  });
   planHistoryIdx = planHistory.length - 1;
   persistPlanSessionRefs();
   updatePlanBarUI();
@@ -789,12 +838,17 @@ function closePlanMode() {
 }
 function abortPlanChanges() {
   if (!planMode || !planBaseline) return;
-  if (JSON.stringify(planData.assignments) === JSON.stringify(planBaseline)) {
+  const draftState = JSON.stringify({
+    assignments: planData.assignments,
+    rbn: planData.rbn || {},
+  });
+  if (draftState === JSON.stringify(planBaseline)) {
     showToast("Keine Änderungen");
     return;
   }
-  planData.assignments = cloneData(planBaseline);
-  planHistory = [cloneData(planData.assignments)];
+  planData.assignments = cloneData(planBaseline.assignments || {});
+  planData.rbn = cloneData(planBaseline.rbn || {});
+  planHistory = [{ assignments: cloneData(planData.assignments), rbn: cloneData(planData.rbn || {}) }];
   planHistoryIdx = 0;
   persistPlanSessionRefs();
   render();
@@ -805,8 +859,19 @@ function savePlanDraft() {
   const key = `radplan_v3_plan_${monthKey(state.year, state.month)}`;
   try {
     persistPlanSessionRefs();
-    localStorage.setItem(key, JSON.stringify({ employees: planData.employees, assignments: planData.assignments, wishes: planData.wishes || {} }));
-    planBaseline = cloneData(planData.assignments);
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        employees: planData.employees,
+        assignments: planData.assignments,
+        rbn: planData.rbn || {},
+        wishes: planData.wishes || {},
+      }),
+    );
+    planBaseline = {
+      assignments: cloneData(planData.assignments),
+      rbn: cloneData(planData.rbn || {}),
+    };
     persistPlanSessionRefs();
     updatePlanBarUI();
     showToast("Entwurf gespeichert");
@@ -818,9 +883,10 @@ function applyPlanToMain() {
   if (!planMode || !planData) return;
   const k = monthKey(state.year, state.month);
   if (!DATA[k])
-    DATA[k] = { employees: [...planData.employees], assignments: {} };
+    DATA[k] = { employees: [...planData.employees], assignments: {}, rbn: {} };
   DATA[k].employees = [...planData.employees];
   DATA[k].assignments = cloneData(planData.assignments);
+  DATA[k].rbn = cloneData(planData.rbn || {});
   saveToStorage();
   exitPlanMode();
   showToast("Planung übernommen");
@@ -828,7 +894,9 @@ function applyPlanToMain() {
 function undoPlan() {
   if (!planMode || planHistoryIdx <= 0) return;
   planHistoryIdx--;
-  planData.assignments = cloneData(planHistory[planHistoryIdx]);
+  const snap = planHistory[planHistoryIdx] || { assignments: {}, rbn: {} };
+  planData.assignments = cloneData(snap.assignments || {});
+  planData.rbn = cloneData(snap.rbn || {});
   persistPlanSessionRefs();
   updatePlanBarUI();
   render();
@@ -836,7 +904,9 @@ function undoPlan() {
 function redoPlan() {
   if (!planMode || planHistoryIdx >= planHistory.length - 1) return;
   planHistoryIdx++;
-  planData.assignments = cloneData(planHistory[planHistoryIdx]);
+  const snap = planHistory[planHistoryIdx] || { assignments: {}, rbn: {} };
+  planData.assignments = cloneData(snap.assignments || {});
+  planData.rbn = cloneData(snap.rbn || {});
   persistPlanSessionRefs();
   updatePlanBarUI();
   render();
@@ -1040,6 +1110,40 @@ function renderTbody(y, m, dim, hols, md) {
     }
     tbody.appendChild(tr);
   });
+  if (isRbnMonthVisible(y, m)) {
+    const tr = document.createElement("tr");
+    tr.className = "tr-rbn";
+    const tdN = document.createElement("td");
+    tdN.className = "td-name td-name-rbn";
+    tdN.style.borderLeft = "3px solid #0EA5E9";
+    tdN.style.paddingLeft = "11px";
+    tdN.innerHTML = `<span class="emp-label">${RBN_ROW_LABEL}</span><span class="emp-pos-tag" style="background:#E0F2FE;color:#0C4A6E">manuell</span>`;
+    tr.appendChild(tdN);
+    for (let d = 1; d <= dim; d++) {
+      const we = isWeekend(y, m, d);
+      const hol = isHoliday(y, m, d, hols);
+      const isT = isTodayCol(y, m, d);
+      const fri = isFriday(y, m, d);
+      const rbnValue = getRbnValue(y, m, d);
+      const tdEl = document.createElement("td");
+      tdEl.className =
+        "td-cell td-cell-rbn" +
+        (hol ? " hol" : we ? " we" : "") +
+        (isT ? " today" : "") +
+        (fri ? " is-fri" : "");
+      tdEl.tabIndex = 0;
+      tdEl.innerHTML = `<div class="cell-inner"><span class="cell-assign cell-assign-rbn">${rbnValue || ""}</span></div>`;
+      tdEl.addEventListener("click", () => openEditor(RBN_ROW_KEY, d));
+      tdEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openEditor(RBN_ROW_KEY, d);
+        }
+      });
+      tr.appendChild(tdEl);
+    }
+    tbody.appendChild(tr);
+  }
 }
 function renderTfoot(y, m, dim, md) {
   const tfoot = document.getElementById("plan-tfoot");
@@ -1589,12 +1693,17 @@ function openMobileDay(day) {
 
 function openEditor(emp, day) {
   const { year: y, month: m } = state;
-  const cell = getCell(y, m, emp, day);
+  const isRbnRow = emp === RBN_ROW_KEY;
+  const cell = isRbnRow
+    ? { assignment: getRbnValue(y, m, day) || null, duty: null }
+    : getCell(y, m, emp, day);
   const hols = getSaxonyHolidays(y);
-  state.edit = { emp, day };
+  state.edit = { emp, day, isRbnRow };
   let wp = [],
     st = null;
-  if (cell.assignment) {
+  if (isRbnRow && cell.assignment) {
+    wp = [cell.assignment];
+  } else if (cell.assignment) {
     cell.assignment
       .split("/")
       .map((x) => x.trim())
@@ -1608,7 +1717,7 @@ function openEditor(emp, day) {
   const hol = isHoliday(y, m, day, hols);
   const we = isWeekend(y, m, day);
   const holNm = hols[dateKey(y, m, day)] || "";
-  document.getElementById("ed-title").textContent = emp;
+  document.getElementById("ed-title").textContent = isRbnRow ? RBN_ROW_LABEL : emp;
   document.getElementById("ed-sub").textContent =
     `${DOW_LONG[wd]}, ${day}. ${MONTHS[m]} ${y}${holNm ? " · " + holNm : ""}`;
   const dtlEl = document.getElementById("ed-day-label");
@@ -1635,21 +1744,53 @@ function openEditor(emp, day) {
 function refreshEditorChips() {
   const { year: y, month: m } = state;
   const { wp, st, duty } = state.ed;
-  const { emp, day } = state.edit;
+  const { emp, day, isRbnRow } = state.edit;
+  const wpLabel = document.getElementById("ed-wp-label");
+  const wpHint = document.getElementById("ed-wp-hint");
+  const stSection = document.getElementById("ed-st-section");
+  const dutySection = document.getElementById("ed-duty-section");
+  const dutyWarn = document.getElementById("ed-duty-warn");
+  if (isRbnRow) {
+    if (wpLabel) wpLabel.textContent = "RD Neurorad (RBN)";
+    if (wpHint) wpHint.textContent = "— manuelle Namensauswahl, wird nie durch Auto-Planung verändert";
+    if (stSection) stSection.style.display = "none";
+    if (dutySection) dutySection.style.display = "none";
+    if (dutyWarn) dutyWarn.style.display = "none";
+  } else {
+    if (wpLabel) wpLabel.textContent = "Arbeitsplatz";
+    if (wpHint) wpHint.textContent = "— Mehrfachauswahl möglich, z. B. MR/CT";
+    if (stSection) stSection.style.display = "";
+    if (dutySection) dutySection.style.display = "";
+  }
   const wpC = document.getElementById("ed-wp");
   wpC.innerHTML = "";
-  WORKPLACES.forEach((w, idx) => {
+  const wpOptions = isRbnRow
+    ? RBN_OPTIONS.map((label) => ({ code: label, label, bg: "#E0F2FE", fg: "#0C4A6E" }))
+    : WORKPLACES;
+  wpOptions.forEach((w, idx) => {
     const on = wp.includes(w.code);
-    const dimC = !!st;
+    const dimC = isRbnRow ? false : !!st;
     const chip = document.createElement("div");
     chip.className = `chip-wp${on ? " on" : ""}${dimC ? " dim" : ""}`;
     chip.style.cssText = `background:${on ? w.fg : w.bg};color:${on ? "#fff" : w.fg};position:relative`;
+    if (isRbnRow) {
+      chip.style.minWidth = "190px";
+      chip.style.alignItems = "flex-start";
+      chip.style.textAlign = "left";
+      chip.style.lineHeight = "1.35";
+      chip.style.fontFamily = "var(--font-sans)";
+      chip.style.fontSize = "12px";
+      chip.style.fontWeight = "700";
+    }
     const kbdBadge = `<span style="position:absolute;top:2px;right:2px;font-family:var(--font-mono);font-size:7px;font-weight:700;line-height:1;opacity:${dimC ? 0.3 : 0.55};background:rgba(0,0,0,0.12);color:inherit;padding:1px 3px;border-radius:2px;pointer-events:none">${idx + 1}</span>`;
-    chip.innerHTML = `${kbdBadge}${w.code}<span class="chip-sub">${w.label}</span>`;
+    chip.innerHTML = isRbnRow
+      ? `${w.label}`
+      : `${kbdBadge}${w.code}<span class="chip-sub">${w.label}</span>`;
     if (!dimC)
       chip.addEventListener("click", () => {
         const i = state.ed.wp.indexOf(w.code);
         if (i >= 0) state.ed.wp.splice(i, 1);
+        else if (isRbnRow) state.ed.wp = [w.code];
         else state.ed.wp.push(w.code);
         refreshEditorChips();
       });
@@ -1664,7 +1805,19 @@ function refreshEditorChips() {
     kbdHint.innerHTML = `<svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;opacity:.6"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M6 16h12"/></svg><span>Ziffern 1–8 für Arbeitsplatz · D für Bereitschaft · H für Hintergrund · S oder ↵ zum Speichern</span>`;
     wpC.parentNode.insertBefore(kbdHint, wpC.nextSibling);
   }
-  kbdHint.style.display = IS_MOBILE ? "none" : "flex";
+  kbdHint.style.display = !isRbnRow && !IS_MOBILE ? "flex" : "none";
+  if (isRbnRow) {
+    document.getElementById("ed-st").innerHTML = "";
+    document.getElementById("ed-duty").innerHTML = "";
+    const pvRbn = state.ed.wp[0] || "";
+    document.getElementById("ed-preview-val").textContent = pvRbn || "—";
+    document.getElementById("ed-preview-duties").innerHTML = "";
+    const wishC = document.getElementById("ed-wish");
+    const wishHd = document.getElementById("ed-wish-hd");
+    if (wishC) wishC.style.display = "none";
+    if (wishHd) wishHd.style.display = "none";
+    return;
+  }
   const stC = document.getElementById("ed-st");
   stC.innerHTML = "";
   STATUSES.forEach((s) => {
@@ -1755,7 +1908,15 @@ function refreshEditorChips() {
 }
 function saveEditor() {
   const { year: y, month: m } = state;
-  const { emp, day } = state.edit;
+  const { emp, day, isRbnRow } = state.edit;
+  if (isRbnRow) {
+    if (planMode) recordPlanHistory();
+    setRbnValue(y, m, day, state.ed.wp[0] || "");
+    if (planMode) recordPlanHistory();
+    hideOverlay("modal-editor");
+    render();
+    return;
+  }
   const { wp, st, duty } = state.ed;
   const assignment = st ? st : wp.length ? wp.join("/") : null;
   if (planMode) recordPlanHistory();
@@ -2001,13 +2162,16 @@ function doImport() {
       throw new Error("Ungültiges Format");
     if (parsed.main && typeof parsed.main === "object") {
       Object.assign(DATA, parsed.main);
+      Object.values(DATA).forEach((md) => normalizeMonthDataShape(md));
       if (parsed.plans && typeof parsed.plans === "object") {
         for (const [pk, pv] of Object.entries(parsed.plans)) {
+          if (pv && typeof pv === "object" && !pv.rbn) pv.rbn = {};
           localStorage.setItem(`radplan_v3_plan_${pk}`, JSON.stringify(pv));
         }
       }
     } else {
       Object.assign(DATA, parsed);
+      Object.values(DATA).forEach((md) => normalizeMonthDataShape(md));
     }
     saveToStorage();
     const repaired = ensurePostBDFreiDays();
@@ -2435,7 +2599,11 @@ function wireEvents() {
     .addEventListener("click", () => hideOverlay("modal-editor"));
   document.getElementById("ed-clear").addEventListener("click", () => {
     if (planMode) recordPlanHistory();
-    clearCell(state.year, state.month, state.edit.emp, state.edit.day);
+    if (state.edit?.isRbnRow) {
+      setRbnValue(state.year, state.month, state.edit.day, "");
+    } else {
+      clearCell(state.year, state.month, state.edit.emp, state.edit.day);
+    }
     if (planMode) recordPlanHistory();
     hideOverlay("modal-editor");
     render();
@@ -2487,7 +2655,15 @@ function wireEvents() {
       return;
     }
     if (isEditorOpen()) {
+      if (state.edit?.isRbnRow) {
+        if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && (e.key === "s" || e.key === "S" || e.key === "Enter")) {
+          e.preventDefault();
+          saveEditor();
+          return;
+        }
+      }
       const noMod = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
+      if (state.edit?.isRbnRow) return;
       if (noMod && e.key >= "1" && e.key <= "8") {
         const idx = parseInt(e.key, 10) - 1;
         if (!state.ed.st) {
@@ -4308,10 +4484,10 @@ async function renderProgressAndThenResult(result) {
   const applyBtn = document.getElementById("ap-apply");
   if (!body || !applyBtn) return;
   applyBtn.style.display = "none";
-  body.style.height = "min(72vh, 680px)";
-  body.style.maxHeight = "min(72vh, 680px)";
+  body.style.height = "min(78vh, 760px)";
+  body.style.maxHeight = "min(78vh, 760px)";
   body.style.overflow = "hidden";
-  body.style.padding = "16px";
+  body.style.padding = "12px";
   body.innerHTML = `
     <div class="ap-engine ap-engine-immersive ap-engine-compact">
       <div class="ap-hero-grid" aria-hidden="true">
@@ -4323,9 +4499,8 @@ async function renderProgressAndThenResult(result) {
           <div class="ap-hud-block">
             <span class="ap-hud-kicker">RadPlan Neural Scheduler</span>
             <strong class="ap-hud-title">Auto-Plan Sequenz läuft</strong>
-            <span class="ap-hud-sub">30s Präsentationslauf · finaler Deep-Optimize-Pass · cineastische Regelvisualisierung</span>
             <strong class="ap-hud-title">Live-Allokation klinischer Dienstketten</strong>
-            <span class="ap-hud-sub">Deep-Optimization Mode · 30s Präsentationslauf · Constraint-Telemetrie in Echtzeit</span>
+            <span class="ap-hud-sub">Adaptive Constraint-Telemetrie in Echtzeit</span>
           </div>
           <div class="ap-hud-radar" aria-hidden="true">
             <span class="ap-hud-ring ring-a"></span>
@@ -4375,11 +4550,11 @@ async function renderProgressAndThenResult(result) {
           <div class="ap-rule-theater-head ap-rule-theater-head-compact">
             <div>
               <div class="ap-rule-kicker">Constraint Flux</div>
-              <div class="ap-rule-title">Regeln fliegen durch die Engine</div>
+              <div class="ap-rule-title">Aktive Phase &amp; Regelanwendung</div>
             </div>
             <div class="ap-rule-inline">
               <span class="ap-rule-inline-label">Live-Phase</span>
-              <strong id="ap-rule-active">Initialisierung</strong>
+              <strong id="ap-rule-active-inline">Initialisierung</strong>
             </div>
           </div>
           <div class="ap-rule-stage ap-rule-stage-compact">
@@ -4393,7 +4568,7 @@ async function renderProgressAndThenResult(result) {
                 <div class="ap-rule-scoreboard">
                   <div class="ap-rule-score">
                     <span>Aktive Regel</span>
-                    <strong id="ap-rule-active">Initialisierung</strong>
+                    <strong id="ap-rule-active-score">Initialisierung</strong>
                   </div>
                   <div class="ap-rule-score">
                     <span>Events</span>
@@ -4427,7 +4602,8 @@ async function renderProgressAndThenResult(result) {
   const titleEl = document.getElementById("ap-prog-title");
   const pipeline = document.getElementById("ap-pipeline");
   const ruleLanes = [...document.querySelectorAll(".ap-rule-lane")];
-  const ruleActiveEl = document.getElementById("ap-rule-active");
+  const ruleActiveInlineEl = document.getElementById("ap-rule-active-inline");
+  const ruleActiveScoreEl = document.getElementById("ap-rule-active-score");
   const ruleCountEl = document.getElementById("ap-rule-count");
   const ruleChipEl = document.getElementById("ap-rule-chip");
   const ruleLabelEl = document.getElementById("ap-rule-label");
@@ -4465,6 +4641,7 @@ async function renderProgressAndThenResult(result) {
   let hgCount = 0;
   let ruleCount = 0;
   let swapCount = 0;
+  const logStarted = performance.now();
 
   function updateStats() {
     const bdEl = document.getElementById("ap-ls-bd");
@@ -4506,7 +4683,9 @@ async function renderProgressAndThenResult(result) {
     requestAnimationFrame(() => pill.classList.add("is-live"));
     setTimeout(() => pill.classList.remove("is-live"), 1200);
 
-    ruleActiveEl.textContent = event.phase ? (phaseNames[event.phase] || event.phase) : "Telemetry";
+    const activeText = event.phase ? (phaseNames[event.phase] || event.phase) : "Telemetry";
+    if (ruleActiveInlineEl) ruleActiveInlineEl.textContent = activeText;
+    if (ruleActiveScoreEl) ruleActiveScoreEl.textContent = activeText;
     ruleCountEl.textContent = ruleCount;
     ruleChipEl.textContent = (event.severity || "info").toUpperCase();
     ruleChipEl.className = `ap-rule-chip severity-${event.severity || "info"}`;
@@ -4531,7 +4710,9 @@ async function renderProgressAndThenResult(result) {
     if (entry.phase !== prevPhase) {
       titleEl.textContent = phaseNames[entry.phase] || entry.phase;
       activatePhaseNode(entry.phase);
-      ruleActiveEl.textContent = phaseNames[entry.phase] || entry.phase;
+      const phaseText = phaseNames[entry.phase] || entry.phase;
+      if (ruleActiveInlineEl) ruleActiveInlineEl.textContent = phaseText;
+      if (ruleActiveScoreEl) ruleActiveScoreEl.textContent = phaseText;
       prevPhase = entry.phase;
     }
 
@@ -4567,8 +4748,11 @@ async function renderProgressAndThenResult(result) {
     if (entry.icon === "✅" || entry.icon === "✓") cls += " ap-log-success";
     if (["🔀", "🔁", "🧠", "🛰️"].includes(entry.icon)) cls += " ap-log-swap";
     div.className = cls;
-    div.innerHTML = `<span class="ap-log-icon">${entry.icon}</span><span class="ap-log-msg">${entry.msg}</span>${entry.detail ? `<span class="ap-log-detail">${entry.detail}</span>` : ""}`;
+    const t = ((performance.now() - logStarted) / 1000).toFixed(2).padStart(5, "0");
+    const phaseBadge = `<span class="ap-log-phase">${phaseNames[entry.phase] || entry.phase}</span>`;
+    div.innerHTML = `<span class="ap-log-icon">${entry.icon}</span><span class="ap-log-msg">[${t}s] ${entry.msg}</span>${phaseBadge}${entry.detail ? `<span class="ap-log-detail">${entry.detail}</span>` : ""}`;
     logContainer.appendChild(div);
+    div.scrollIntoView({ block: "end" });
     logContainer.scrollTop = logContainer.scrollHeight;
 
     const targetElapsed = (consumedWeight / totalWeight) * AUTO_PLAN_PROGRESS_MIN_MS;
@@ -4732,8 +4916,9 @@ function applyAutoPlan() {
   let externalChanged = false;
   for (const [mk, empMap] of Object.entries(externalAssignments)) {
     if (!DATA[mk]) {
-      DATA[mk] = { employees: [...planData.employees], assignments: {} };
+      DATA[mk] = { employees: [...planData.employees], assignments: {}, rbn: {} };
     }
+    normalizeMonthDataShape(DATA[mk]);
     if (!DATA[mk].employees) DATA[mk].employees = [...planData.employees];
     if (!DATA[mk].assignments) DATA[mk].assignments = {};
     for (const [emp, dayMap] of Object.entries(empMap)) {
@@ -4788,6 +4973,7 @@ function init() {
         "Hr. Sebastian",
       ],
       assignments: {},
+      rbn: {},
     };
     saveToStorage();
   }
