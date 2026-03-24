@@ -3426,10 +3426,10 @@ function computeAutoPlan(customTargets) {
     const minDistD = minDistanceForDuty(emp, d, "D", result);
 
     if (currentBD[emp] >= bdTarget[emp]) {
-      score -= 5000 * (currentBD[emp] - bdTarget[emp] + 1);
+      score -= 7000 * (currentBD[emp] - bdTarget[emp] + 1);
       tags.push("Soll überschritten");
     } else {
-      score += (bdTarget[emp] - currentBD[emp]) * 80;
+      score += (bdTarget[emp] - currentBD[emp]) * 220;
       tags.push("Zielerfüllung");
     }
 
@@ -3689,9 +3689,13 @@ function computeAutoPlan(customTargets) {
       hgFAs.length > 0
         ? hgFAs.reduce((sum, e) => sum + currentSatBD[e], 0) / hgFAs.length
         : 0;
+    let deficitSum = 0;
+    let surplusSum = 0;
     dutyEmps.forEach((emp) => {
       const diff = currentBD[emp] - bdTarget[emp];
-      score += diff > 0 ? diff * diff * 2600 : diff * diff * 1200;
+      if (diff < 0) deficitSum += -diff;
+      if (diff > 0) surplusSum += diff;
+      score += diff * diff * 3200 + Math.abs(diff) * 1400;
       const weDiff = countWeekendDuties(y, m, emp, result) - TARGET_WEEKEND_DUTY;
       score += weDiff * weDiff * 480;
       const weProjected = countWeekendDuties(y, m, emp, result);
@@ -3712,6 +3716,9 @@ function computeAutoPlan(customTargets) {
         if (weekday(y, m, day) === 6 && emp === "Dr. Becker") score += 30000;
       }
     });
+    score += deficitSum * 9000;
+    score += surplusSum * 7000;
+    score += Math.abs(deficitSum - surplusSum) * 6000;
     return score;
   }
 
