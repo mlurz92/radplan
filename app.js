@@ -3426,10 +3426,10 @@ function computeAutoPlan(customTargets) {
     const minDistD = minDistanceForDuty(emp, d, "D", result);
 
     if (currentBD[emp] >= bdTarget[emp]) {
-      score -= 5000 * (currentBD[emp] - bdTarget[emp] + 1);
+      score -= 9000 * (currentBD[emp] - bdTarget[emp] + 1);
       tags.push("Soll überschritten");
     } else {
-      score += (bdTarget[emp] - currentBD[emp]) * 80;
+      score += (bdTarget[emp] - currentBD[emp]) * 220;
       tags.push("Zielerfüllung");
     }
 
@@ -3712,7 +3712,89 @@ function computeAutoPlan(customTargets) {
         if (weekday(y, m, day) === 6 && emp === "Dr. Becker") score += 30000;
       }
     });
+    const totalOver = dutyEmps.reduce(
+      (sum, emp) => sum + Math.max(0, currentBD[emp] - bdTarget[emp]),
+      0,
+    );
+    const totalUnder = dutyEmps.reduce(
+      (sum, emp) => sum + Math.max(0, bdTarget[emp] - currentBD[emp]),
+      0,
+    );
+    score += totalOver * totalOver * 5000;
+    score += totalUnder * totalOver * 9000;
     return score;
+  }
+
+  function rebalanceBDTargets(phaseKey) {
+    let changes = 0;
+    for (let pass = 0; pass < 8; pass++) {
+      let improved = false;
+      const overs = dutyEmps
+        .filter((emp) => currentBD[emp] > bdTarget[emp])
+        .sort((a, b) => (currentBD[b] - bdTarget[b]) - (currentBD[a] - bdTarget[a]));
+      const unders = dutyEmps
+        .filter((emp) => currentBD[emp] < bdTarget[emp])
+        .sort((a, b) => (bdTarget[b] - currentBD[b]) - (bdTarget[a] - currentBD[a]));
+      if (!overs.length || !unders.length) break;
+
+      for (const overEmp of overs) {
+        if (currentBD[overEmp] <= bdTarget[overEmp]) continue;
+        const overDays = listDutyAssignments([overEmp], dim, result, "D")
+          .filter(({ day }) => !fixedDutyKeys.has(`D:${dutyKey(overEmp, day)}`))
+          .map(({ day }) => day)
+          .sort((a, b) => {
+            const aWd = weekday(y, m, a);
+            const bWd = weekday(y, m, b);
+            const aWe = aWd === 5 || aWd === 6 || aWd === 0 || isHoliday(y, m, a, hols);
+            const bWe = bWd === 5 || bWd === 6 || bWd === 0 || isHoliday(y, m, b, hols);
+            return Number(aWe) - Number(bWe) || a - b;
+          });
+        if (!overDays.length) continue;
+
+        let moved = false;
+        for (const underEmp of unders) {
+          if (currentBD[underEmp] >= bdTarget[underEmp]) continue;
+          for (const day of overDays) {
+            clearDutyAssignment(overEmp, day, "D");
+            rebuildCurrentCounters();
+            if (!canDoBD(underEmp, day, false, result)) {
+              setDutyAssignment(overEmp, day, "D");
+              rebuildCurrentCounters();
+              continue;
+            }
+            setDutyAssignment(underEmp, day, "D");
+            rebuildCurrentCounters();
+            changes++;
+            improved = true;
+            moved = true;
+
+            const rep = report.find((r) => r.day === day && r.duty === "D");
+            if (rep) {
+              rep.emp = underEmp;
+              rep.reason = "Zielausgleich: BD von Überhang auf Unterdeckung verschoben.";
+              if (!rep.tags.includes("Zielausgleich")) rep.tags.push("Zielausgleich");
+            }
+            recordRule(
+              phaseKey,
+              "BD-Zielausgleich",
+              `Tag ${day}: ${overEmp} → ${underEmp} (Überhang/Unterdeckung ausgeglichen).`,
+              "accent",
+            );
+            log.push({
+              phase: phaseKey,
+              icon: "⚖️",
+              msg: `BD-Zielausgleich Tag ${day}.: ${overEmp} → ${underEmp}`,
+              pct: phaseKey === "deep_optimize" ? 90 : 64,
+            });
+            break;
+          }
+          if (moved) break;
+        }
+        if (moved) break;
+      }
+      if (!improved) break;
+    }
+    return changes;
   }
 
   log.push({
@@ -3742,7 +3824,7 @@ function computeAutoPlan(customTargets) {
         if (candidate === currentEmp) continue;
         clearDutyAssignment(currentEmp, day, "D");
         rebuildCurrentCounters();
-        if (!canDoBD(candidate, day, true, result)) {
+        if (!canDoBD(candidate, day, false, result)) {
           setDutyAssignment(currentEmp, day, "D");
           rebuildCurrentCounters();
           continue;
@@ -3776,10 +3858,18 @@ function computeAutoPlan(customTargets) {
     if (!improved) break;
   }
   rebuildCurrentCounters();
+  const rebalancedAfterBD = rebalanceBDTargets("bd_optimize");
+  if (rebalancedAfterBD > 0) {
+    rebuildCurrentCounters();
+    bestFairness = computeBDObjective();
+  }
   log.push({
     phase: "bd_optimize",
     icon: "✓",
-    msg: swaps > 0 ? `${swaps} BD-Reassignments durchgeführt.` : "Keine weiteren BD-Verbesserungen gefunden.",
+    msg:
+      swaps > 0 || rebalancedAfterBD > 0
+        ? `${swaps} BD-Reassignments + ${rebalancedAfterBD} Zielausgleiche durchgeführt.`
+        : "Keine weiteren BD-Verbesserungen gefunden.",
     pct: 65,
   });
 
@@ -4086,7 +4176,7 @@ function computeAutoPlan(customTargets) {
           if (candidate === currentEmp) continue;
           clearDutyAssignment(currentEmp, day, "HG");
           rebuildCurrentCounters();
-          if (!canDoHG(candidate, day, true, result)) {
+          if (!canDoHG(candidate, day, false, result)) {
             setDutyAssignment(currentEmp, day, "HG");
             rebuildCurrentCounters();
             continue;
@@ -4169,7 +4259,7 @@ function computeAutoPlan(customTargets) {
       if (candidate === currentEmp) continue;
       clearDutyAssignment(currentEmp, day, dutyCode);
       rebuildCurrentCounters();
-      if (!canDo(candidate, day, true, result)) {
+      if (!canDo(candidate, day, false, result)) {
         setDutyAssignment(currentEmp, day, dutyCode);
         rebuildCurrentCounters();
         continue;
@@ -4210,10 +4300,18 @@ function computeAutoPlan(customTargets) {
     if (!improved) break;
   }
   rebuildCurrentCounters();
+  const rebalancedAfterMeta = rebalanceBDTargets("deep_optimize");
+  if (rebalancedAfterMeta > 0) {
+    rebuildCurrentCounters();
+    bestGlobalObjective = computeGlobalObjective();
+  }
   log.push({
     phase: "deep_optimize",
     icon: "✓",
-    msg: deepMoves > 0 ? `${deepMoves} finale Qualitätsbewegungen durchgeführt.` : "Metaheuristik bestätigt die aktuelle Lösung als stabil.",
+    msg:
+      deepMoves > 0 || rebalancedAfterMeta > 0
+        ? `${deepMoves} finale Qualitätsbewegungen + ${rebalancedAfterMeta} BD-Zielausgleiche durchgeführt.`
+        : "Metaheuristik bestätigt die aktuelle Lösung als stabil.",
     pct: 91,
   });
 
@@ -4630,6 +4728,12 @@ async function renderProgressAndThenResult(result) {
                     <strong id="ap-rule-count">0</strong>
                   </div>
                 </div>
+                <div class="ap-rule-mini-grid" aria-label="Live Severity-Matrix">
+                  <div class="ap-rule-mini-item severity-critical"><span>Kritisch</span><strong id="ap-rule-critical">0</strong></div>
+                  <div class="ap-rule-mini-item severity-warn"><span>Warnung</span><strong id="ap-rule-warn">0</strong></div>
+                  <div class="ap-rule-mini-item severity-accent"><span>Akzent</span><strong id="ap-rule-accent">0</strong></div>
+                  <div class="ap-rule-mini-item severity-info"><span>Info</span><strong id="ap-rule-info">0</strong></div>
+                </div>
                 <span class="ap-rule-chip" id="ap-rule-chip">Standby</span>
                 <strong id="ap-rule-label">Warte auf Regelkaskaden…</strong>
                 <p id="ap-rule-detail">Die Engine aggregiert harte und weiche Restriktionen, bevor die finale Feinoptimierung startet.</p>
@@ -4664,6 +4768,10 @@ async function renderProgressAndThenResult(result) {
   const ruleLabelEl = document.getElementById("ap-rule-label");
   const ruleDetailEl = document.getElementById("ap-rule-detail");
   const ruleInspectorCard = document.getElementById("ap-rule-inspector-card");
+  const sevCriticalEl = document.getElementById("ap-rule-critical");
+  const sevWarnEl = document.getElementById("ap-rule-warn");
+  const sevAccentEl = document.getElementById("ap-rule-accent");
+  const sevInfoEl = document.getElementById("ap-rule-info");
   const log = result.log;
   const telemetryEvents = result.ruleTelemetry?.events || [];
   const phaseNames = {
@@ -4696,6 +4804,7 @@ async function renderProgressAndThenResult(result) {
   let hgCount = 0;
   let ruleCount = 0;
   let swapCount = 0;
+  const severityCounts = { critical: 0, warn: 0, accent: 0, info: 0 };
   const logStarted = performance.now();
 
   function updateStats() {
@@ -4707,6 +4816,10 @@ async function renderProgressAndThenResult(result) {
     if (hgEl) hgEl.textContent = hgCount;
     if (rulesEl) rulesEl.textContent = ruleCount;
     if (swapsEl) swapsEl.textContent = swapCount;
+    if (sevCriticalEl) sevCriticalEl.textContent = severityCounts.critical;
+    if (sevWarnEl) sevWarnEl.textContent = severityCounts.warn;
+    if (sevAccentEl) sevAccentEl.textContent = severityCounts.accent;
+    if (sevInfoEl) sevInfoEl.textContent = severityCounts.info;
   }
 
   function activatePhaseNode(phase) {
@@ -4747,6 +4860,12 @@ async function renderProgressAndThenResult(result) {
     ruleLabelEl.textContent = event.label;
     ruleDetailEl.textContent = event.detail;
     ruleInspectorCard.className = `ap-rule-inspector-card severity-${event.severity || "info"}`;
+    const sev = event.severity || "info";
+    if (Object.prototype.hasOwnProperty.call(severityCounts, sev)) {
+      severityCounts[sev] += 1;
+    } else {
+      severityCounts.info += 1;
+    }
   }
 
   const weightedLog = log.map((entry) => {
