@@ -97,7 +97,6 @@
     </div>
   </header>
 
-
   <div class="period-flyout" id="period-flyout" hidden aria-hidden="true">
     <div class="period-flyout-head">
       <div>
@@ -136,7 +135,6 @@
   </div>
 
   <div id="plan-bar" role="alert" aria-live="polite" aria-label="Planungsmodus aktiv" hidden style="display:none">
-
     <div class="plan-bar-left">
       <div class="plan-badge" aria-hidden="true">
         <span class="plan-badge-pulse"></span>
@@ -223,7 +221,6 @@
         <span>Übernehmen</span>
       </button>
     </div>
-
   </div>
 
   <div id="stats-bar" role="status" aria-label="Monatsstatistik" aria-live="polite"></div>
@@ -312,7 +309,6 @@
 
   <div class="overlay" id="modal-profile" role="dialog" aria-modal="true" aria-labelledby="pm-name" hidden style="display:none">
     <div class="modal modal-profile">
-
       <div class="modal-hd">
         <div class="profile-hd-inner">
           <div class="profile-avatar-lg" id="pm-avatar" aria-hidden="true">MA</div>
@@ -324,42 +320,31 @@
         </div>
         <button type="button" class="modal-x" data-close="modal-profile" aria-label="Profil schließen">✕</button>
       </div>
-
       <div class="pm-body" id="pm-body">
-
         <div class="pm-sect-hd">Monatsübersicht</div>
         <div class="kpi-grid" id="pm-kpi" role="list" aria-label="Kennzahlen aktueller Monat"></div>
-
         <div class="pm-sect-hd" id="pm-wp-hd">Arbeitsplatz-Verteilung</div>
         <div id="pm-wp-chart" class="dist-chart" aria-label="Arbeitsplatz-Statistik aktueller Monat"></div>
-
         <div class="pm-sect-hd" id="pm-st-hd">Status-Übersicht</div>
         <div id="pm-st-chart" class="dist-chart" aria-label="Status-Statistik aktueller Monat"></div>
-
         <div class="pm-sect-hd" id="pm-duty-hd">Dienste &amp; Hintergrund</div>
         <div id="pm-duty-detail" class="duty-detail-area" aria-label="Dienstdetails aktueller Monat"></div>
-
         <div class="pm-sect-hd">
           Monatskalender
           <span class="pm-sect-hint">— Klick auf einen Tag öffnet den Editor</span>
         </div>
         <div id="pm-cal" aria-label="Monatskalender"></div>
-
         <div class="pm-sect-hd">Jahresauswertung</div>
         <div id="pm-yearly" aria-label="Jahresauswertung"></div>
-
       </div>
-
       <div class="modal-ft">
         <button type="button" class="mbtn mbtn-ghost" data-close="modal-profile">Schließen</button>
       </div>
-
     </div>
   </div>
 
   <div class="overlay" id="modal-editor" role="dialog" aria-modal="true" aria-labelledby="ed-title" hidden style="display:none">
     <div class="modal modal-editor">
-
       <div class="modal-hd" id="ed-modal-hd">
         <div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -373,11 +358,8 @@
         </div>
         <button type="button" class="modal-x" data-close="modal-editor" aria-label="Editor schließen">✕</button>
       </div>
-
       <div class="modal-bd">
-
         <div id="ed-day-label"></div>
-
         <div class="preview-box" aria-label="Vorschau der aktuellen Auswahl">
           <div>
             <div class="preview-box-lbl">Vorschau</div>
@@ -385,13 +367,11 @@
           </div>
           <div class="preview-box-duties" id="ed-preview-duties" aria-live="polite"></div>
         </div>
-
         <div class="sect-hd">
           <span id="ed-wp-label">Arbeitsplatz</span>
           <span class="sect-hint" id="ed-wp-hint">— Mehrfachauswahl möglich, z.&thinsp;B. MR/CT</span>
         </div>
         <div class="chip-row" id="ed-wp" role="group" aria-label="Arbeitsplatz auswählen"></div>
-
         <div id="ed-st-section">
         <div class="sect-hd">
           Status
@@ -399,21 +379,17 @@
         </div>
         <div class="chip-row" id="ed-st" role="group" aria-label="Status auswählen"></div>
         </div>
-
         <div id="ed-duty-section">
         <div class="sect-hd">Dienst &amp; Hintergrund</div>
         <div class="chip-row" id="ed-duty" role="group" aria-label="Dienst auswählen"></div>
         <div class="duty-warn" id="ed-duty-warn" role="alert" aria-live="assertive" style="display:none"></div>
         </div>
-
         <div class="sect-hd" id="ed-wish-hd" style="display:none">
           Dienstwunsch
           <span class="sect-hint">— nur im Planungsmodus, für Auto-Planung</span>
         </div>
         <div class="chip-row" id="ed-wish" role="group" aria-label="Dienstwunsch auswählen" style="display:none"></div>
-
       </div>
-
       <div class="modal-ft">
         <button type="button" class="mbtn mbtn-danger"  id="ed-clear"  title="Eintrag vollständig löschen">
           <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -432,13 +408,11 @@
           Speichern
         </button>
       </div>
-
     </div>
   </div>
 
   <div class="overlay" id="modal-emps" role="dialog" aria-modal="true" aria-labelledby="emp-title" hidden style="display:none">
     <div class="modal employee-dashboard-modal modal-emps">
-
       <div class="modal-hd empdash-hd">
         <div class="empdash-hd-copy">
           <div class="modal-hd-title" id="emp-title">Jahres-Dashboard Mitarbeitende</div>
@@ -450,12 +424,10 @@
           <button type="button" class="modal-x" data-close="modal-emps" aria-label="Mitarbeitenden-Dashboard schließen">✕</button>
         </div>
       </div>
-
       <div class="modal-bd empdash-body">
         <section class="empdash-section">
           <div class="empdash-summary-grid" id="emp-summary-grid"></div>
         </section>
-
         <section class="empdash-section">
           <div class="empdash-toolbar">
             <div class="empdash-toolbar-left">
@@ -471,7 +443,6 @@
           </div>
           <div class="empdash-card-grid" id="emp-year-grid" role="list" aria-label="Jahresübersicht aller Mitarbeitenden"></div>
         </section>
-
         <section class="empdash-section empdash-detail-section">
           <div class="empdash-detail-head">
             <div>
@@ -487,17 +458,14 @@
           <div class="empdash-detail-panel" id="emp-detail-panel" role="tabpanel" aria-live="polite"></div>
         </section>
       </div>
-
       <div class="modal-ft">
         <button type="button" class="mbtn mbtn-ghost" data-close="modal-emps">Schließen</button>
       </div>
-
     </div>
   </div>
 
   <div class="overlay" id="modal-import" role="dialog" aria-modal="true" aria-labelledby="import-title" hidden style="display:none">
     <div class="modal modal-import">
-
       <div class="modal-hd">
         <div>
           <div class="modal-hd-title" id="import-title">Daten importieren</div>
@@ -505,9 +473,7 @@
         </div>
         <button type="button" class="modal-x" data-close="modal-import" aria-label="Import schließen">✕</button>
       </div>
-
       <div class="modal-bd">
-
         <div
           id="import-dropzone"
           class="dropzone"
@@ -536,9 +502,7 @@
           <p class="dz-hint" id="dz-hint-text">.json &middot; Drag &amp; Drop oder klicken zum Durchsuchen</p>
           <span class="dz-filename" id="dz-filename" aria-live="polite"></span>
         </div>
-
         <div class="or-divider" role="separator" aria-label="oder"><span>oder JSON-Text direkt einfügen</span></div>
-
         <textarea
           class="json-ta"
           id="import-ta"
@@ -550,9 +514,7 @@
           placeholder='{ "main": { "2026-0": { "employees": ["Dr. Müller"], "assignments": { "Dr. Müller": { "5": { "assignment": "MR", "duty": "HG" } } } } } }'
         ></textarea>
         <div class="import-err" id="import-err" role="alert" aria-live="assertive" style="display:none"></div>
-
       </div>
-
       <div class="modal-ft">
         <button type="button" class="mbtn mbtn-ghost"   data-close="modal-import">Abbrechen</button>
         <button type="button" class="mbtn mbtn-primary" id="import-confirm">
@@ -562,13 +524,11 @@
           Importieren
         </button>
       </div>
-
     </div>
   </div>
 
   <div class="overlay" id="modal-dept" role="dialog" aria-modal="true" aria-labelledby="dept-modal-title" hidden style="display:none">
     <div class="modal modal-dept">
-
       <div class="modal-hd dept-modal-hd">
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
@@ -612,18 +572,15 @@
           </div>
         </div>
       </div>
-
       <div
         class="dept-body"
         id="dept-body"
         role="tabpanel"
         aria-label="Abteilungsstatistik"
       ></div>
-
       <div class="modal-ft">
         <button type="button" class="mbtn mbtn-ghost" data-close="modal-dept">Schließen</button>
       </div>
-
     </div>
   </div>
 
@@ -638,7 +595,7 @@
         </div>
         <button type="button" class="modal-x" data-close="modal-autoplan" aria-label="Auto-Plan schließen">✕</button>
       </div>
-      <div class="modal-bd" id="ap-body" style="overflow-y:auto;-webkit-overflow-scrolling:touch;padding:24px;"></div>
+      <div class="modal-bd" id="ap-body"></div>
       <div class="modal-ft">
         <button type="button" class="mbtn mbtn-ghost" data-close="modal-autoplan">Abbrechen</button>
         <button type="button" class="mbtn mbtn-ghost" id="ap-report-btn" style="display:none; color:#0EA5E9; border-color:rgba(14,165,233,0.4);">

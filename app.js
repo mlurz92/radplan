@@ -36,7 +36,7 @@ const RBN_OPTIONS = [
   "Fr. Dalitz (RAD)",
   "Fr. Thaler (RAD)",
 ];
-const RBN_THALER_LAST_MONTH = { year: 2026, month: 2 }; // März 2026 (0-indexed)
+const RBN_THALER_LAST_MONTH = { year: 2026, month: 2 };
 function getRbnOptionsForDate(y, m) {
   const allowThaler =
     y < RBN_THALER_LAST_MONTH.year ||
@@ -2542,8 +2542,6 @@ function wireEvents() {
   document.getElementById("period-next-month")?.addEventListener("click", () => { const total = state.periodDraft.year * 12 + state.periodDraft.month + 1; state.periodDraft.year = Math.floor(total / 12); state.periodDraft.month = ((total % 12) + 12) % 12; syncPeriodControls(); });
   document.getElementById("period-prev-year")?.addEventListener("click", () => { state.periodDraft.year -= 1; syncPeriodControls(); });
   document.getElementById("period-next-year")?.addEventListener("click", () => { state.periodDraft.year += 1; syncPeriodControls(); });
-  document.getElementById("period-year-prev")?.addEventListener("click", () => { state.periodDraft.year -= 1; syncPeriodControls(); });
-  document.getElementById("period-year-next")?.addEventListener("click", () => { state.periodDraft.year += 1; syncPeriodControls(); });
   document.getElementById("emp-search")?.addEventListener("input", (e) => { state.employeeDashboard.filter = e.target.value; renderEmployeeDashboard(); });
   document.querySelectorAll(".empdash-view-btn").forEach((btn) => btn.addEventListener("click", () => { state.employeeDashboard.detailView = btn.dataset.view; renderEmployeeDashboard(); }));
   document.addEventListener("click", (e) => {
@@ -4446,7 +4444,6 @@ function openAutoPlanModal() {
   showOverlay("modal-autoplan");
   const body = document.getElementById("ap-body");
   if (body) {
-    body.style.padding = "20px";
     body.innerHTML = `<div class="ap-config-intro"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;color:#0EA5E9"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span>Auto-Plan-Konfiguration wird vorbereitet…</span></div>`;
   }
   autoPlanConfigRenderToken += 1;
@@ -4471,16 +4468,16 @@ async function renderAutoPlanModal(renderToken = null) {
   const reportBtn = document.getElementById("ap-report-btn");
   if (!body || !applyBtn) return;
   if (reportBtn) reportBtn.style.display = "none";
-  body.style.height = "auto";
-  body.style.maxHeight = "72vh";
-  body.style.overflowY = "auto";
-  body.style.overflowX = "hidden";
-  body.style.padding = "24px";
 
   if (apViewMode === "config") {
+    body.style.height = "auto";
+    body.style.maxHeight = "none";
+    body.style.overflowY = "auto";
     applyBtn.style.display = "none";
+    
     const hist = await collectHistoricalDutyStatsAsync(y, m);
     if (renderToken !== null && renderToken !== autoPlanConfigRenderToken) return;
+    
     let html = `<div class="ap-config-intro"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;color:#F59E0B"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span>BD-Ziele anpassen.</span></div>`;
     if (DUTY_EXEMPT.length)
       html += `<div class="ap-exempt-note"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>Befreit: <strong>${DUTY_EXEMPT.join(", ")}</strong></span></div>`;
@@ -4500,6 +4497,7 @@ async function renderAutoPlanModal(renderToken = null) {
     html += `</tbody><tfoot><tr class="ap-total-row"><td class="ap-td-name" colspan="4" style="font-weight:700;color:var(--gray-700);padding-left:12px">Σ Gesamt-Ziel</td><td class="ap-td ap-td-num" style="font-weight:800" id="ap-total-target">${totalTarget}</td></tr></tfoot></table></div>`;
     html += `<div class="ap-config-actions"><button type="button" class="mbtn mbtn-ghost" id="ap-reset-defaults">Standard</button><button type="button" class="mbtn" id="ap-compute" style="background:linear-gradient(135deg,#F59E0B,#D97706);color:#451a03;font-weight:700;cursor:pointer;-webkit-appearance:none">Berechnen</button></div>`;
     body.innerHTML = html;
+    
     body.querySelectorAll(".ap-target-input").forEach((inp) => {
       inp.addEventListener("change", () => {
         autoPlanTargets[inp.dataset.emp] = Math.max(
@@ -4521,6 +4519,7 @@ async function renderAutoPlanModal(renderToken = null) {
         if (totEl) totEl.textContent = tot;
       });
     });
+    
     document
       .getElementById("ap-reset-defaults")
       ?.addEventListener("click", () => {
@@ -4537,6 +4536,7 @@ async function renderAutoPlanModal(renderToken = null) {
             0,
           );
       });
+      
     function doCompute() {
       body.querySelectorAll(".ap-target-input").forEach((inp) => {
         autoPlanTargets[inp.dataset.emp] = Math.max(
@@ -4556,6 +4556,7 @@ async function renderAutoPlanModal(renderToken = null) {
       apViewMode = "progress";
       renderProgressAndThenResult(result);
     }
+    
     const computeBtn = document.getElementById("ap-compute");
     if (computeBtn) {
       computeBtn.addEventListener("click", doCompute);
@@ -4575,12 +4576,14 @@ async function renderProgressAndThenResult(result) {
   const body = document.getElementById("ap-body");
   const applyBtn = document.getElementById("ap-apply");
   if (!body || !applyBtn) return;
+  
   applyBtn.style.display = "none";
   body.style.height = "100%";
   body.style.maxHeight = "100%";
-  body.style.overflowY = "auto";
+  body.style.overflowY = "hidden";
   body.style.overflowX = "hidden";
   body.style.padding = "10px";
+  
   body.innerHTML = `
     <div class="ap-engine ap-engine-immersive ap-engine-compact">
       <div class="ap-hero-grid" aria-hidden="true">
@@ -4591,127 +4594,115 @@ async function renderProgressAndThenResult(result) {
         <div class="ap-hero-hud">
           <div class="ap-hud-block">
             <span class="ap-hud-kicker">RadPlan Neural Scheduler</span>
+            <div class="ap-hud-title" id="ap-prog-title">Initialisierung</div>
           </div>
-          <div class="ap-hud-radar" aria-hidden="true">
-            <span class="ap-hud-ring ring-a"></span>
-            <span class="ap-hud-ring ring-b"></span>
-            <span class="ap-hud-ring ring-c"></span>
-            <span class="ap-hud-sweep"></span>
-            <span class="ap-hud-core"></span>
+          <div class="ap-hud-spectacle" aria-hidden="true">
+            <canvas class="ap-hud-canvas" id="ap-hud-canvas"></canvas>
           </div>
         </div>
-        <div class="ap-pipeline" id="ap-pipeline">
-          <div class="ap-phase-node" data-phase="init"><span class="ap-pn-dot"></span><span class="ap-pn-label">Analyse</span></div><div class="ap-phase-conn"></div>
-          <div class="ap-phase-node" data-phase="bd"><span class="ap-pn-dot"></span><span class="ap-pn-label">BD</span></div><div class="ap-phase-conn"></div>
-          <div class="ap-phase-node" data-phase="swap"><span class="ap-pn-dot"></span><span class="ap-pn-label">Optimize</span></div><div class="ap-phase-conn"></div>
-          <div class="ap-phase-node" data-phase="hg"><span class="ap-pn-dot"></span><span class="ap-pn-label">HG</span></div><div class="ap-phase-conn"></div>
-          <div class="ap-phase-node" data-phase="validate"><span class="ap-pn-dot"></span><span class="ap-pn-label">Finish</span></div>
+        
+        <div class="ap-live-stats" aria-label="Live-Statistik">
+          <div class="ap-ls-item"><span class="ap-ls-glow"></span><strong class="ap-ls-val" id="ap-ls-bd">0</strong><span class="ap-ls-lbl">BD</span></div>
+          <span class="ap-ls-sep" aria-hidden="true"></span>
+          <div class="ap-ls-item"><span class="ap-ls-glow"></span><strong class="ap-ls-val" id="ap-ls-hg">0</strong><span class="ap-ls-lbl">HG</span></div>
+          <span class="ap-ls-sep" aria-hidden="true"></span>
+          <div class="ap-ls-item"><span class="ap-ls-glow"></span><strong class="ap-ls-val" id="ap-ls-rules">0</strong><span class="ap-ls-lbl">Regeln</span></div>
+          <span class="ap-ls-sep" aria-hidden="true"></span>
+          <div class="ap-ls-item"><span class="ap-ls-glow"></span><strong class="ap-ls-val" id="ap-ls-swaps">0</strong><span class="ap-ls-lbl">Moves</span></div>
         </div>
-        <div class="ap-live-stats" aria-label="Live-Statistik der Berechnung">
-          <div class="ap-ls-item">
-            <span class="ap-ls-glow"></span>
-            <strong class="ap-ls-val" id="ap-ls-bd">0</strong>
-            <span class="ap-ls-lbl">BD</span>
-          </div>
-          <span class="ap-ls-sep" aria-hidden="true"></span>
-          <div class="ap-ls-item">
-            <span class="ap-ls-glow"></span>
-            <strong class="ap-ls-val" id="ap-ls-hg">0</strong>
-            <span class="ap-ls-lbl">HG</span>
-          </div>
-          <span class="ap-ls-sep" aria-hidden="true"></span>
-          <div class="ap-ls-item">
-            <span class="ap-ls-glow"></span>
-            <strong class="ap-ls-val" id="ap-ls-rules">0</strong>
-            <span class="ap-ls-lbl">Regeln</span>
-          </div>
-          <span class="ap-ls-sep" aria-hidden="true"></span>
-          <div class="ap-ls-item">
-            <span class="ap-ls-glow"></span>
-            <strong class="ap-ls-val" id="ap-ls-swaps">0</strong>
-            <span class="ap-ls-lbl">Moves</span>
-          </div>
-        </div>
+
         <div class="ap-bar-wrap">
           <div class="ap-bar-track"><div class="ap-bar-fill" id="ap-prog-bar"></div><div class="ap-bar-glow" id="ap-prog-glow"></div><div class="ap-bar-scan"></div></div>
-          <div class="ap-bar-info"><span class="ap-bar-phase" id="ap-prog-title">Initialisierung</span><span class="ap-bar-pct" id="ap-prog-pct">0%</span></div>
-        </div>
-        <div class="ap-rule-theater ap-rule-theater-compact" id="ap-rule-theater">
-          <div class="ap-rule-theater-head ap-rule-theater-head-compact">
-            <div>
-              <div class="ap-rule-kicker">Constraint Flux</div>
-            </div>
-          </div>
-          <div class="ap-rule-stage ap-rule-stage-compact">
-            <div class="ap-algo-viz" id="ap-algo-viz" aria-hidden="true">
-              <div class="ap-algo-grid"></div>
-              <div class="ap-algo-nodes">
-                <span class="ap-algo-node" data-phase-node="init">Analyse</span>
-                <span class="ap-algo-node" data-phase-node="bd">BD</span>
-                <span class="ap-algo-node" data-phase-node="swap">Optimize</span>
-                <span class="ap-algo-node" data-phase-node="hg">HG</span>
-                <span class="ap-algo-node" data-phase-node="validate">Finish</span>
-              </div>
-              <div class="ap-substep-shell">
-                <div class="ap-substep-head">
-                  <span>Feingranulare Subschritte</span>
-                  <strong id="ap-substep-phase">Initialisierung</strong>
-                </div>
-                <div class="ap-substep-list" id="ap-substep-list"></div>
-              </div>
-            </div>
-            <div class="ap-rule-inspector ap-rule-inspector-decision">
-              <div class="ap-rule-inspector-card" id="ap-rule-inspector-card">
-                <div class="ap-rule-inline">
-                  <span class="ap-rule-inline-label">Aktuelle Phase</span>
-                  <strong id="ap-rule-active-inline">Initialisierung</strong>
-                </div>
-                <div class="ap-rule-scoreboard ap-rule-scoreboard-compact">
-                  <div class="ap-rule-score">
-                    <span>Regel-Events</span>
-                    <strong id="ap-rule-count">0</strong>
-                  </div>
-                </div>
-                <span class="ap-rule-chip" id="ap-rule-chip">Standby</span>
-                <strong id="ap-rule-label">Warte auf Regelkaskaden…</strong>
-                <p id="ap-rule-detail">Die Engine aggregiert harte und weiche Restriktionen, bevor die finale Feinoptimierung startet.</p>
-              </div>
-              <div class="ap-rule-decision-log" id="ap-rule-decision-log" aria-live="polite"></div>
-              <div class="ap-rule-spectrum">
-                <span class="ap-rule-spectrum-bar is-critical"></span>
-                <span class="ap-rule-spectrum-bar is-warn"></span>
-                <span class="ap-rule-spectrum-bar is-accent"></span>
-                <span class="ap-rule-spectrum-bar is-info"></span>
-              </div>
-            </div>
-          </div>
+          <div class="ap-bar-info"><span class="ap-bar-phase">System-Workload</span><span class="ap-bar-pct" id="ap-prog-pct">0%</span></div>
         </div>
       </div>
-      <div class="ap-terminal ap-terminal-deep ap-terminal-compact" id="ap-log">
-        <div class="ap-term-header"><span class="ap-term-dot" style="background:#FF5F57"></span><span class="ap-term-dot" style="background:#FFBD2E"></span><span class="ap-term-dot" style="background:#28C840"></span><span class="ap-term-title">RadPlan Auto-Scheduler // Quantum Trace Console</span></div>
-        <div class="ap-term-body" id="ap-term-body"></div>
+
+      <div class="ap-engine-main">
+        <div class="ap-flux-panel">
+          <div class="ap-flux-header">
+            <span>Constraint Flux Matrix</span>
+            <span class="ap-flux-header-pulse"></span>
+          </div>
+          <div class="ap-flux-body">
+            <div class="ap-flux-focus">
+              <span class="ap-flux-focus-lbl" id="ap-flux-lbl">Standby</span>
+              <span class="ap-flux-focus-val" id="ap-flux-val">Warte auf Daten...</span>
+              <span class="ap-flux-focus-detail" id="ap-flux-detail">Initialisiere Quantenkern</span>
+            </div>
+            <div class="ap-flux-stream" id="ap-flux-stream"></div>
+          </div>
+        </div>
+
+        <div class="ap-terminal ap-terminal-deep">
+          <div class="ap-term-header"><span class="ap-term-dot" style="background:#FF5F57"></span><span class="ap-term-dot" style="background:#FFBD2E"></span><span class="ap-term-dot" style="background:#28C840"></span><span class="ap-term-title">Trace Console</span></div>
+          <div class="ap-term-body" id="ap-term-body"></div>
+        </div>
       </div>
     </div>`;
 
+  const canvas = document.getElementById("ap-hud-canvas");
+  let ctx, cw, ch, particles = [], animationId;
+  if (canvas) {
+    ctx = canvas.getContext("2d");
+    cw = canvas.width = canvas.offsetWidth;
+    ch = canvas.height = canvas.offsetHeight;
+    for (let i = 0; i < 40; i++) {
+      particles.push({
+        x: Math.random() * cw,
+        y: Math.random() * ch,
+        vx: (Math.random() - 0.5) * 2,
+        vy: (Math.random() - 0.5) * 2,
+        r: Math.random() * 2 + 1
+      });
+    }
+    const drawMatrix = () => {
+      ctx.fillStyle = "rgba(6, 13, 22, 0.2)";
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.strokeStyle = "rgba(14, 165, 233, 0.4)";
+      ctx.lineWidth = 0.5;
+      
+      for (let i = 0; i < particles.length; i++) {
+        let p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > cw) p.vx *= -1;
+        if (p.y < 0 || p.y > ch) p.vy *= -1;
+        
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = "#38BDF8";
+        ctx.fill();
+        
+        for (let j = i + 1; j < particles.length; j++) {
+          let p2 = particles[j];
+          let dist = Math.hypot(p.x - p2.x, p.y - p2.y);
+          if (dist < 35) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        }
+      }
+      animationId = requestAnimationFrame(drawMatrix);
+    };
+    drawMatrix();
+  }
+
   const logContainer = document.getElementById("ap-term-body");
+  const fluxStream = document.getElementById("ap-flux-stream");
   const barEl = document.getElementById("ap-prog-bar");
   const glowEl = document.getElementById("ap-prog-glow");
   const pctEl = document.getElementById("ap-prog-pct");
   const titleEl = document.getElementById("ap-prog-title");
-  const pipeline = document.getElementById("ap-pipeline");
-  const algoViz = document.getElementById("ap-algo-viz");
-  const algoNodes = [...document.querySelectorAll(".ap-algo-node")];
-  const ruleActiveInlineEl = document.getElementById("ap-rule-active-inline");
-  const ruleCountEl = document.getElementById("ap-rule-count");
-  const ruleChipEl = document.getElementById("ap-rule-chip");
-  const ruleLabelEl = document.getElementById("ap-rule-label");
-  const ruleDetailEl = document.getElementById("ap-rule-detail");
-  const substepPhaseEl = document.getElementById("ap-substep-phase");
-  const substepListEl = document.getElementById("ap-substep-list");
-  const decisionLogEl = document.getElementById("ap-rule-decision-log");
-  const ruleInspectorCard = document.getElementById("ap-rule-inspector-card");
+  
+  const fluxLbl = document.getElementById("ap-flux-lbl");
+  const fluxVal = document.getElementById("ap-flux-val");
+  const fluxDetail = document.getElementById("ap-flux-detail");
+
   const log = result.log;
   const telemetryEvents = result.ruleTelemetry?.events || [];
+  
   const phaseNames = {
     init: "Datenanalyse",
     bd_weekend: "BD Wochenende",
@@ -4723,32 +4714,9 @@ async function renderProgressAndThenResult(result) {
     validate: "Validierung",
     done: "Abschluss",
   };
-  const phaseToNode = {
-    init: "init",
-    bd_weekend: "bd",
-    bd_workday: "bd",
-    bd_optimize: "swap",
-    hg_bundle: "hg",
-    hg_assign: "hg",
-    deep_optimize: "swap",
-    validate: "validate",
-    done: "validate",
-  };
-  const phaseSubsteps = {
-    init: ["Historie laden", "Fixe Einträge erkennen", "Ruhetag-Reparatur", "Basiskennzahlen berechnen"],
-    bd_weekend: ["WE/FT-Tage priorisieren", "Kandidaten scoren", "Restriktionen prüfen", "BD setzen"],
-    bd_workday: ["Werktage sortieren", "Soll-Ist-Differenz glätten", "Abwesenheiten prüfen", "BD setzen"],
-    bd_optimize: ["Swap-Kandidaten bilden", "Objektiv bewerten", "Verbesserung übernehmen", "Counters neu aufbauen"],
-    hg_bundle: ["Kopplungsfälle erkennen", "WE-Kette prüfen", "HG-Bindung setzen", "Konflikte protokollieren"],
-    hg_assign: ["HG-Kandidaten scoren", "WE-Last prüfen", "HG setzen", "Iterative Feinoptimierung"],
-    deep_optimize: ["Globale Mutation", "Nebenbedingungen prüfen", "Qualität vergleichen", "Bestlösung halten"],
-    validate: ["Doppeldienste prüfen", "Abdeckung validieren", "Warnungen aggregieren", "Qualität finalisieren"],
-    done: ["Plan finalisiert", "Telemetrie abschließen", "Ergebnis anzeigen"],
-  };
 
   let prevPhase = "";
   let telemetryIdx = 0;
-  let phaseTick = 0;
   let bdCount = 0;
   let hgCount = 0;
   let ruleCount = 0;
@@ -4766,73 +4734,43 @@ async function renderProgressAndThenResult(result) {
     if (swapsEl) swapsEl.textContent = swapCount;
   }
 
-  function activatePhaseNode(phase) {
-    const nodeKey = phaseToNode[phase] || phase;
-    pipeline.querySelectorAll(".ap-phase-node").forEach((n) => {
-      if (n.dataset.phase === nodeKey) {
-        n.classList.add("active");
-        n.classList.remove("done");
-      } else if (n.classList.contains("active")) {
-        n.classList.remove("active");
-        n.classList.add("done");
-      }
-    });
-    const nodes = [...pipeline.querySelectorAll(".ap-phase-node")];
-    const activeIdx = nodes.findIndex((n) => n.dataset.phase === nodeKey);
-    [...pipeline.querySelectorAll(".ap-phase-conn")].forEach((c, i) => c.classList.toggle("done", i < activeIdx));
-    algoNodes.forEach((node) => {
-      node.classList.toggle("active", node.dataset.phaseNode === nodeKey);
-    });
-    const substeps = phaseSubsteps[phase] || phaseSubsteps[nodeKey] || ["Analyse läuft"];
-    phaseTick = 0;
-    if (substepPhaseEl) substepPhaseEl.textContent = phaseNames[phase] || phase;
-    if (substepListEl) {
-      substepListEl.innerHTML = substeps
-        .map((step, idx) => `<div class="ap-substep-item${idx === 0 ? " active" : ""}" data-step-index="${idx}">${step}</div>`)
-        .join("");
-    }
+  function generateHex() {
+    return '0x' + Math.floor(Math.random() * 16777215).toString(16).toUpperCase().padStart(6, '0');
   }
 
-  function advanceSubstep(phase) {
-    const substeps = phaseSubsteps[phase] || [];
-    if (!substepListEl || substeps.length === 0) return;
-    phaseTick += 1;
-    const activeIdx = Math.min(substeps.length - 1, phaseTick % substeps.length);
-    substepListEl.querySelectorAll(".ap-substep-item").forEach((item, idx) => {
-      item.classList.toggle("active", idx === activeIdx);
-      item.classList.toggle("done", idx < activeIdx);
-    });
+  function appendFluxLine(msg) {
+    if (!fluxStream) return;
+    const div = document.createElement("div");
+    div.className = "ap-flux-line";
+    div.innerHTML = `<span class="ap-flux-hex">${generateHex()}</span><span class="ap-flux-msg">${msg}</span>`;
+    fluxStream.appendChild(div);
+    if (fluxStream.children.length > 50) fluxStream.removeChild(fluxStream.firstChild);
+    fluxStream.scrollTo({ top: fluxStream.scrollHeight, behavior: "auto" });
   }
 
   function stickLogToBottom() {
     if (!logContainer) return;
     logContainer.scrollTo({ top: logContainer.scrollHeight, behavior: "auto" });
   }
-  const autoScrollTimer = window.setInterval(stickLogToBottom, 160);
+
+  let fluxActive = true;
+  const fluxTimer = window.setInterval(() => {
+    if (fluxActive && Math.random() > 0.3) {
+      appendFluxLine(`EVAL_MAT: [${Math.random().toFixed(4)}] CONSTRAINT_PASS`);
+    }
+  }, 100);
+
+  const autoScrollTimer = window.setInterval(stickLogToBottom, 100);
 
   function renderRuleEvent(event) {
     if (!event) return;
-
     const activeText = event.phase ? (phaseNames[event.phase] || event.phase) : "Telemetry";
-    if (ruleActiveInlineEl) ruleActiveInlineEl.textContent = activeText;
-    ruleCountEl.textContent = ruleCount;
-    ruleChipEl.textContent = (event.severity || "info").toUpperCase();
-    ruleChipEl.className = `ap-rule-chip severity-${event.severity || "info"}`;
-    ruleLabelEl.textContent = event.label;
-    ruleDetailEl.textContent = event.detail;
-    ruleInspectorCard.className = `ap-rule-inspector-card severity-${event.severity || "info"}`;
-    if (algoViz) {
-      algoViz.classList.remove("severity-info", "severity-accent", "severity-warn", "severity-critical");
-      algoViz.classList.add(`severity-${event.severity || "info"}`);
-    }
-    if (decisionLogEl) {
-      const item = document.createElement("div");
-      item.className = `ap-rule-pill is-live severity-${event.severity || "info"}`;
-      item.innerHTML = `<span class="ap-rule-pill-label">${activeText}: ${event.label}</span><span class="ap-rule-pill-count">×${event.count || 1}</span>`;
-      decisionLogEl.prepend(item);
-      while (decisionLogEl.children.length > 6) decisionLogEl.removeChild(decisionLogEl.lastElementChild);
-    }
-    advanceSubstep(event.phase || prevPhase);
+    
+    if (fluxLbl) fluxLbl.textContent = `${activeText} // ${(event.severity || "info").toUpperCase()}`;
+    if (fluxVal) fluxVal.textContent = event.label;
+    if (fluxDetail) fluxDetail.textContent = event.detail;
+    
+    appendFluxLine(`> RULE_TRIGGER: ${event.label}`);
   }
 
   const weightedLog = log.map((entry) => {
@@ -4843,24 +4781,22 @@ async function renderProgressAndThenResult(result) {
     const weight = isDone ? 2.2 : isWarn ? 1.8 : isOptimize ? 1.4 : isAssign ? 1.15 : 0.9;
     return { ...entry, weight };
   });
+  
   const totalWeight = weightedLog.reduce((sum, entry) => sum + entry.weight, 0) || 1;
   const startedAt = performance.now();
   let consumedWeight = 0;
 
   for (const entry of weightedLog) {
     if (entry.phase !== prevPhase) {
-      titleEl.textContent = phaseNames[entry.phase] || entry.phase;
-      activatePhaseNode(entry.phase);
-      const phaseText = phaseNames[entry.phase] || entry.phase;
-      if (ruleActiveInlineEl) ruleActiveInlineEl.textContent = phaseText;
+      if (titleEl) titleEl.textContent = phaseNames[entry.phase] || entry.phase;
       prevPhase = entry.phase;
+      appendFluxLine(`>>> PHASE_SHIFT: ${phaseNames[entry.phase] || entry.phase}`);
     }
-    advanceSubstep(entry.phase);
 
     consumedWeight += entry.weight;
-    barEl.style.width = entry.pct + "%";
-    glowEl.style.width = entry.pct + "%";
-    pctEl.textContent = entry.pct + "%";
+    if (barEl) barEl.style.width = entry.pct + "%";
+    if (glowEl) glowEl.style.width = entry.pct + "%";
+    if (pctEl) pctEl.textContent = entry.pct + "%";
 
     if (entry.icon === "→" && entry.phase.startsWith("bd") && !entry.phase.includes("optimize")) bdCount++;
     if (entry.icon === "→" && entry.phase.includes("hg")) hgCount++;
@@ -4878,28 +4814,29 @@ async function renderProgressAndThenResult(result) {
       telemetryIdx += 1;
     }
 
-    const div = document.createElement("div");
-    let cls = "ap-log-entry";
-    if (entry.icon === "⚠" || entry.icon === "🚨") cls += " ap-log-warn";
-    if (entry.icon === "🚨") cls += " ap-log-critical";
-    if (entry.icon === "→") cls += " ap-log-assign";
-    if (entry.icon === "💡") cls += " ap-log-reason";
-    if (entry.icon === "🏖️") cls += " ap-log-vacation";
-    if (entry.phase === "hg_bundle" && entry.icon === "🔗") cls += " ap-log-bundle";
-    if (entry.icon === "✅" || entry.icon === "✓") cls += " ap-log-success";
-    if (["🔀", "🔁", "🧠", "🛰️"].includes(entry.icon)) cls += " ap-log-swap";
-    div.className = cls;
-    const t = ((performance.now() - logStarted) / 1000).toFixed(2).padStart(5, "0");
-    const phaseBadge = `<span class="ap-log-phase">${phaseNames[entry.phase] || entry.phase}</span>`;
-    div.innerHTML = `<span class="ap-log-icon">${entry.icon}</span><span class="ap-log-msg">[${t}s] ${entry.msg}</span>${phaseBadge}${entry.detail ? `<span class="ap-log-detail">${entry.detail}</span>` : ""}`;
-    logContainer.appendChild(div);
-    stickLogToBottom();
+    if (logContainer) {
+      const div = document.createElement("div");
+      let cls = "ap-log-entry";
+      if (entry.icon === "⚠" || entry.icon === "🚨") cls += " ap-log-warn";
+      if (entry.icon === "🚨") cls += " ap-log-critical";
+      if (entry.icon === "→") cls += " ap-log-assign";
+      if (entry.icon === "💡") cls += " ap-log-reason";
+      if (entry.icon === "🏖️") cls += " ap-log-vacation";
+      if (entry.phase === "hg_bundle" && entry.icon === "🔗") cls += " ap-log-bundle";
+      if (entry.icon === "✅" || entry.icon === "✓") cls += " ap-log-success";
+      if (["🔀", "🔁", "🧠", "🛰️"].includes(entry.icon)) cls += " ap-log-swap";
+      div.className = cls;
+      const t = ((performance.now() - logStarted) / 1000).toFixed(2).padStart(5, "0");
+      const phaseBadge = `<span class="ap-log-phase">${phaseNames[entry.phase] || entry.phase}</span>`;
+      div.innerHTML = `<span class="ap-log-icon">${entry.icon}</span><span class="ap-log-msg">[${t}s] ${entry.msg}</span>${phaseBadge}${entry.detail ? `<span class="ap-log-detail">${entry.detail}</span>` : ""}`;
+      logContainer.appendChild(div);
+      stickLogToBottom();
+    }
 
     const targetElapsed = (consumedWeight / totalWeight) * AUTO_PLAN_PROGRESS_MIN_MS;
     const waitMs = Math.max(24, targetElapsed - (performance.now() - startedAt));
     updateStats();
     await sleep(waitMs);
-    stickLogToBottom();
   }
 
   while (telemetryIdx < telemetryEvents.length) {
@@ -4907,21 +4844,23 @@ async function renderProgressAndThenResult(result) {
     renderRuleEvent(telemetryEvents[telemetryIdx]);
     telemetryIdx += 1;
     updateStats();
-    await sleep(120);
-    stickLogToBottom();
+    await sleep(80);
   }
 
-  pipeline.querySelectorAll(".ap-phase-node").forEach((n) => {
-    n.classList.remove("active");
-    n.classList.add("done");
-  });
-  pipeline.querySelectorAll(".ap-phase-conn").forEach((c) => c.classList.add("done"));
   const remainingMs = AUTO_PLAN_PROGRESS_MIN_MS - (performance.now() - startedAt);
   if (remainingMs > 0) await sleep(remainingMs);
-  stickLogToBottom();
+  
+  fluxActive = false;
+  window.clearInterval(fluxTimer);
   window.clearInterval(autoScrollTimer);
-  await sleep(320);
-  await sleep(450);
+  if (animationId) cancelAnimationFrame(animationId);
+  
+  if (fluxLbl) fluxLbl.textContent = "COMPLETED";
+  if (fluxVal) fluxVal.textContent = "Planung abgeschlossen";
+  if (fluxDetail) fluxDetail.textContent = "Alle Constraints erfolgreich validiert";
+  appendFluxLine(`>>> SYSTEM_HALT: 0x000000`);
+
+  await sleep(600);
   apViewMode = "result";
   renderResultView();
 }
@@ -4959,28 +4898,50 @@ function renderResultView() {
       <span class="ap-result-score-sub">von 100 Punkten</span>
     </div>
     <div class="ap-result-metrics">
-      <div class="ap-result-metric"><span>BD-Streuung</span><strong>${quality.bdSpread ?? 0}</strong></div>
-      <div class="ap-result-metric"><span>HG-Streuung</span><strong>${quality.hgSpread ?? 0}</strong></div>
-      <div class="ap-result-metric"><span>WE-Streuung</span><strong>${quality.weekendSpread ?? 0}</strong></div>
-      <div class="ap-result-metric"><span>Feinoptimierungen</span><strong>${quality.deepMoves ?? 0}</strong></div>
-      <div class="ap-result-metric"><span>Wunscherfüllung</span><strong>${Math.round(((quality.wishFulfillmentRate ?? 0) * 100))}%</strong></div>
-      <div class="ap-result-metric"><span>Lücken</span><strong>${(quality.dutyCoverageMisses ?? 0) + (quality.hgCoverageMisses ?? 0)}</strong></div>
+      <div class="ap-result-metric" data-tooltip="Standardabweichung der BD-Verteilung"><span>BD-Streuung</span><strong>${quality.bdSpread ?? 0}</strong></div>
+      <div class="ap-result-metric" data-tooltip="Standardabweichung der HG-Verteilung"><span>HG-Streuung</span><strong>${quality.hgSpread ?? 0}</strong></div>
+      <div class="ap-result-metric" data-tooltip="Standardabweichung der WE-Dienste"><span>WE-Streuung</span><strong>${quality.weekendSpread ?? 0}</strong></div>
+      <div class="ap-result-metric" data-tooltip="Anzahl finaler Optimierungsschritte"><span>Feinopt.</span><strong>${quality.deepMoves ?? 0}</strong></div>
+      <div class="ap-result-metric" data-tooltip="Prozentsatz erfüllter Dienstwünsche"><span>Wünsche</span><strong>${Math.round(((quality.wishFulfillmentRate ?? 0) * 100))}%</strong></div>
+      <div class="ap-result-metric" data-tooltip="Tage ohne vollständige Besetzung"><span>Lücken</span><strong>${(quality.dutyCoverageMisses ?? 0) + (quality.hgCoverageMisses ?? 0)}</strong></div>
     </div>
   </div>`;
-  html += `<div class="ap-sect-hd"><span class="ap-sect-badge" style="background:#EF4444;color:#fff">D</span>Bereitschaftsdienst-Verteilung</div>`;
-  html += `<div class="ap-table-wrap"><table class="ap-table"><thead><tr><th class="ap-th-name">Mitarbeitende</th><th class="ap-th">Ziel</th><th class="ap-th">Geplant</th><th class="ap-th-days">Tage</th><th class="ap-th">WE</th><th class="ap-th">FT</th></tr></thead><tbody>`;
+
+  function buildAccordion(title, badgeColor, badgeText, contentHtml, isExpanded = false) {
+    const expandedCls = isExpanded ? "" : " is-collapsed";
+    return `
+      <div class="ap-collapse-wrap${expandedCls}">
+        <div class="ap-collapse-head" onclick="this.parentElement.classList.toggle('is-collapsed')">
+          <div class="ap-collapse-title">
+            <span class="ap-sect-badge" style="background:${badgeColor};color:#fff">${badgeText}</span>
+            ${title}
+          </div>
+          <svg class="ap-collapse-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="ap-collapse-content">
+          <div class="ap-collapse-content-inner">
+            <div class="ap-collapse-content-pad">
+              ${contentHtml}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  let bdHtml = `<div class="ap-table-wrap"><table class="ap-table"><thead><tr><th class="ap-th-name">Mitarbeitende</th><th class="ap-th">Ziel</th><th class="ap-th">Geplant</th><th class="ap-th-days">Tage</th><th class="ap-th">WE</th><th class="ap-th">FT</th></tr></thead><tbody>`;
   dutyEmps.forEach((e) => {
     const bd = summary.bd[e];
     const meta = getEmpMeta(e);
     const pc = posColor(meta.position);
     const ok = bd.count >= bd.target;
     const dayLabels = bd.days.map((d) => dayTag(d)).join("");
-    html += `<tr><td class="ap-td-name" style="border-left:3px solid ${pc.border}"><span>${e}</span><span class="ap-pos" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span></td><td class="ap-td ap-td-num">${bd.target}</td><td class="ap-td ap-td-num" style="color:${ok ? "#15803D" : "#DC2626"};font-weight:700">${bd.count}</td><td class="ap-td ap-td-days">${dayLabels || "—"}</td><td class="ap-td ap-td-num" style="color:${bd.weDuty > RELAXED_WEEKEND_DUTY_LIMIT ? "#DC2626" : "#64748B"}">${bd.weDuty}</td><td class="ap-td ap-td-num" style="color:${(bd.holDuty || 0) > 0 ? "#78350F" : "#94A3B8"}">${bd.holDuty || 0}</td></tr>`;
+    bdHtml += `<tr><td class="ap-td-name" style="border-left:3px solid ${pc.border}"><span>${e}</span><span class="ap-pos" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span></td><td class="ap-td ap-td-num">${bd.target}</td><td class="ap-td ap-td-num" style="color:${ok ? "#15803D" : "#DC2626"};font-weight:700">${bd.count}</td><td class="ap-td ap-td-days">${dayLabels || "—"}</td><td class="ap-td ap-td-num" style="color:${bd.weDuty > RELAXED_WEEKEND_DUTY_LIMIT ? "#DC2626" : "#64748B"}">${bd.weDuty}</td><td class="ap-td ap-td-num" style="color:${(bd.holDuty || 0) > 0 ? "#78350F" : "#94A3B8"}">${bd.holDuty || 0}</td></tr>`;
   });
-  html += `</tbody></table></div>`;
+  bdHtml += `</tbody></table></div>`;
+  html += buildAccordion("Bereitschaftsdienst-Verteilung", "#EF4444", "D", bdHtml, true);
 
-  html += `<div class="ap-sect-hd" style="margin-top:18px"><span class="ap-sect-badge" style="background:#0EA5E9;color:#fff">HG</span>Hintergrunddienst-Verteilung</div>`;
-  html += `<div class="ap-table-wrap"><table class="ap-table"><thead><tr><th class="ap-th-name">Mitarbeitende</th><th class="ap-th">Geplant</th><th class="ap-th-days">Tage</th></tr></thead><tbody>`;
+  let hgHtml = `<div class="ap-table-wrap"><table class="ap-table"><thead><tr><th class="ap-th-name">Mitarbeitende</th><th class="ap-th">Geplant</th><th class="ap-th-days">Tage</th></tr></thead><tbody>`;
   emps
     .filter((e) => isFacharzt(e) && !isDutyExempt(e))
     .forEach((e) => {
@@ -4988,27 +4949,33 @@ function renderResultView() {
       const meta = getEmpMeta(e);
       const pc = posColor(meta.position);
       const dayLabels = hg.days.map((d) => dayTag(d)).join("");
-      html += `<tr><td class="ap-td-name" style="border-left:3px solid ${pc.border}"><span>${e}</span><span class="ap-pos" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span></td><td class="ap-td ap-td-num" style="font-weight:700">${hg.count}</td><td class="ap-td ap-td-days">${dayLabels || "—"}</td></tr>`;
+      hgHtml += `<tr><td class="ap-td-name" style="border-left:3px solid ${pc.border}"><span>${e}</span><span class="ap-pos" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span></td><td class="ap-td ap-td-num" style="font-weight:700">${hg.count}</td><td class="ap-td ap-td-days">${dayLabels || "—"}</td></tr>`;
     });
-  html += `</tbody></table></div>`;
+  hgHtml += `</tbody></table></div>`;
+  html += buildAccordion("Hintergrunddienst-Verteilung", "#0EA5E9", "HG", hgHtml, false);
 
   if (summary.infos && summary.infos.length) {
-    html += `<div class="ap-sect-hd" style="margin-top:18px"><span class="ap-sect-badge" style="background:#0EA5E9;color:#fff">i</span>Verteilungs-Details</div><div class="ap-infos">`;
+    let infoHtml = `<div class="ap-infos" style="margin-top:0">`;
     summary.infos.forEach((i) => {
-      html += `<div class="ap-info-item">${i}</div>`;
+      infoHtml += `<div class="ap-info-item">${i}</div>`;
     });
-    html += `</div>`;
+    infoHtml += `</div>`;
+    html += buildAccordion("Verteilungs-Details", "#0EA5E9", "i", infoHtml, false);
   }
+
   if (summary.warnings.length) {
-    html += `<div class="ap-sect-hd" style="margin-top:18px"><span class="ap-sect-badge" style="background:#F97316;color:#fff">!</span>Hinweise</div><div class="ap-warnings">`;
+    let warnHtml = `<div class="ap-warnings" style="margin-top:0">`;
     summary.warnings.forEach((w) => {
       const warnClass = /^KRITISCH:/.test(w) ? " ap-warn-item-critical" : "";
-      html += `<div class="ap-warn-item${warnClass}">${w}</div>`;
+      warnHtml += `<div class="ap-warn-item${warnClass}">${w}</div>`;
     });
-    html += `</div>`;
+    warnHtml += `</div>`;
+    html += buildAccordion("Hinweise", "#F97316", "!", warnHtml, true);
   }
+
   html += `<div class="ap-config-actions" style="margin-top:16px"><button class="mbtn mbtn-ghost" id="ap-back-config">Ziele anpassen &amp; neu berechnen</button></div>`;
   body.innerHTML = html;
+  
   document.getElementById("ap-back-config")?.addEventListener("click", () => {
     apViewMode = "config";
     autoPlanResult = null;
@@ -5118,7 +5085,7 @@ function init() {
         "Hr. El Houba",
         "Fr. Licenji",
         "Hr. Torki",
-        "Hr. Sebastian",
+        "Hr. Sebastian"
       ],
       assignments: {},
       rbn: {},
