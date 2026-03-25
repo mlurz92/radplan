@@ -1635,6 +1635,9 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
 }
 
 .ap-engine-compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, .95fr);
+  align-items: stretch;
   height: 100%;
   min-height: 0;
   gap: 12px;
@@ -1642,6 +1645,7 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
 .ap-hero-shell-compact {
   gap: 12px;
   padding: 14px;
+  min-height: 0;
 }
 .ap-rule-theater-compact {
   gap: 10px;
@@ -1677,16 +1681,75 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   50% { opacity: 1; transform: translateY(-1px); }
 }
 .ap-rule-stage-compact {
-  grid-template-columns: minmax(0, 1.3fr) minmax(220px, .8fr);
+  grid-template-columns: minmax(0, 1fr) minmax(240px, .95fr);
   gap: 12px;
 }
-.ap-rule-lanes-compact .ap-rule-lane {
-  min-height: 156px;
-  padding: 8px;
+.ap-algo-viz {
+  position: relative;
+  min-height: 178px;
+  border-radius: 16px;
+  border: 1px solid rgba(56,189,248,.16);
+  overflow: hidden;
+  background: linear-gradient(160deg, rgba(8,15,30,.95), rgba(8,15,30,.65));
 }
-.ap-rule-lanes-compact .ap-rule-pill {
-  padding: 8px 10px;
-  margin-bottom: 8px;
+.ap-algo-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(148,163,184,.12) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,.12) 1px, transparent 1px);
+  background-size: 18px 18px;
+  opacity: .22;
+}
+.ap-algo-stream {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(14,165,233,.35) 48%, transparent 66%);
+  transform: translateX(-100%);
+  animation: apAlgoStream 2.8s linear infinite;
+}
+.ap-algo-stream.reverse {
+  animation-duration: 3.6s;
+  animation-direction: reverse;
+  opacity: .45;
+}
+@keyframes apAlgoStream { to { transform: translateX(100%); } }
+.ap-algo-nodes {
+  position: absolute;
+  inset: 14px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  align-items: center;
+}
+.ap-algo-node {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  padding: 6px;
+  border-radius: 12px;
+  font-size: clamp(9px, 1.2vw, 11px);
+  font-family: var(--font-mono);
+  letter-spacing: .04em;
+  color: rgba(226,232,240,.86);
+  background: rgba(15,23,42,.7);
+  border: 1px solid rgba(148,163,184,.2);
+}
+.ap-algo-node.active {
+  color: #082F49;
+  background: linear-gradient(135deg, #67E8F9, #38BDF8);
+  border-color: rgba(103,232,249,.8);
+  box-shadow: 0 0 24px rgba(14,165,233,.4);
+}
+.ap-algo-viz.severity-critical { border-color: rgba(251,113,133,.45); }
+.ap-algo-viz.severity-warn { border-color: rgba(251,191,36,.45); }
+.ap-algo-viz.severity-accent { border-color: rgba(52,211,153,.45); }
+.ap-rule-inspector-decision {
+  min-height: 178px;
+}
+.ap-rule-decision-log {
+  display: grid;
+  gap: 8px;
+  max-height: 180px;
+  overflow: hidden;
 }
 .ap-rule-focus {
   display: flex;
@@ -1715,9 +1778,12 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
 .ap-rule-focus.severity-accent { border-color: rgba(52,211,153,.34); }
 .ap-terminal-compact {
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .ap-terminal-compact .ap-term-body {
-  max-height: 190px;
+  max-height: none;
+  flex: 1;
 }
 
 .ap-terminal {
@@ -1750,7 +1816,9 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   letter-spacing: .03em;
 }
 .ap-term-body {
-  max-height: 260px; overflow-y: auto;
+  max-height: none;
+  min-height: 0;
+  overflow-y: auto;
   background: rgba(10,10,20,.8);
   backdrop-filter: blur(8px);
   padding: 10px 12px; font-family: var(--font-mono); font-size: 10.5px;
@@ -2910,6 +2978,9 @@ body.is-mobile #modal-mobile-menu .modal-bd {
 }
 
 @media (max-width: 900px) {
+  .ap-engine-compact {
+    grid-template-columns: 1fr;
+  }
   .ap-rule-stage,
   .ap-rule-stage-compact,
   .ap-result-hero {
@@ -2943,6 +3014,9 @@ body.is-mobile #modal-mobile-menu .modal-bd {
   }
   .ap-terminal-compact .ap-term-body {
     max-height: 140px;
+  }
+  .ap-algo-nodes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .ap-result-metrics {
     grid-template-columns: 1fr;
