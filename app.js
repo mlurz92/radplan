@@ -3066,6 +3066,19 @@ function projectedWeekendDutyCount(y, m, emp, assignments, dutyCode, d) {
   return current;
 }
 
+function wouldCreateConsecutiveWeekendDuty(y, m, emp, assignments, d) {
+  const wd = weekday(y, m, d);
+  if (wd !== 5 && wd !== 6 && wd !== 0) return false;
+  const candidateKw = isoWeekNumber(y, m, d);
+  const kws = getWeekendDutyKWs(y, m, emp, assignments);
+  if (!kws.has(candidateKw)) kws.add(candidateKw);
+  const ordered = [...kws].sort((a, b) => a - b);
+  for (let i = 1; i < ordered.length; i++) {
+    if (ordered[i] - ordered[i - 1] === 1) return true;
+  }
+  return false;
+}
+
 function dutyKey(emp, day) {
   return `${emp}@@${day}`;
 }
@@ -3409,6 +3422,7 @@ function computeAutoPlan(customTargets) {
       if (currentBD[emp] >= bdTarget[emp]) return false;
       const projectedWe = projectedWeekendDutyCount(y, m, emp, assignments, "D", d);
       if (projectedWe > RELAXED_WEEKEND_DUTY_LIMIT) return false;
+      if (wouldCreateConsecutiveWeekendDuty(y, m, emp, assignments, d)) return false;
       if (emp === "Dr. Becker" && wd === 6) return false;
       const minDistD = minDistanceForDuty(emp, d, "D", assignments);
       if (minDistD < 3) return false;
@@ -3450,6 +3464,10 @@ function computeAutoPlan(customTargets) {
       score -= Math.abs(projectedWe - TARGET_WEEKEND_DUTY) * 220;
       if (projectedWe > RELAXED_WEEKEND_DUTY_LIMIT) {
         score -= (projectedWe - RELAXED_WEEKEND_DUTY_LIMIT) * 500;
+      }
+      if (wouldCreateConsecutiveWeekendDuty(y, m, emp, result, d)) {
+        score -= 900;
+        tags.push("WE-Puffer");
       }
       if (getWeekendDutyKWs(y, m, emp, result).has(isoWeekNumber(y, m, d) - 1)) {
         score -= 40;
@@ -3702,6 +3720,10 @@ function computeAutoPlan(customTargets) {
       if (weProjected > RELAXED_WEEKEND_DUTY_LIMIT) {
         score += (weProjected - RELAXED_WEEKEND_DUTY_LIMIT) * 12000;
       }
+      const weekendKws = [...getWeekendDutyKWs(y, m, emp, result)].sort((a, b) => a - b);
+      for (let i = 1; i < weekendKws.length; i++) {
+        if (weekendKws[i] - weekendKws[i - 1] === 1) score += 6000;
+      }
       if (isFacharzt(emp)) {
         score += (currentSatBD[emp] - satAvg) * (currentSatBD[emp] - satAvg) * 850;
       }
@@ -3810,6 +3832,7 @@ function computeAutoPlan(customTargets) {
       }
       const projectedWe = projectedWeekendDutyCount(y, m, emp, assignments, "HG", d);
       if (projectedWe > RELAXED_WEEKEND_DUTY_LIMIT) return false;
+      if (wouldCreateConsecutiveWeekendDuty(y, m, emp, assignments, d)) return false;
     }
     return true;
   }
@@ -3836,6 +3859,10 @@ function computeAutoPlan(customTargets) {
       score -= Math.abs(projectedWe - TARGET_WEEKEND_DUTY) * 150;
       if (projectedWe > RELAXED_WEEKEND_DUTY_LIMIT) {
         score -= (projectedWe - RELAXED_WEEKEND_DUTY_LIMIT) * 360;
+      }
+      if (wouldCreateConsecutiveWeekendDuty(y, m, emp, result, d)) {
+        score -= 700;
+        tags.push("WE-Puffer");
       }
       if (getWeekendDutyKWs(y, m, emp, result).has(isoWeekNumber(y, m, d) - 1)) {
         score -= 25;
@@ -4346,6 +4373,9 @@ function computeAutoPlan(customTargets) {
   summary.infos.push(
     `Wochenend-Dienste wurden auf ein Ziel von ${TARGET_WEEKEND_DUTY} WE-Äquivalenten pro Kopf optimiert (Maximum: ${maxWe}).`,
   );
+  summary.infos.push(
+    `Wenn zwei Wochenend-Einsätze notwendig sind, wird nach Möglichkeit ein freies Wochenende dazwischen eingeplant (keine direkte KW-Folge).`,
+  );
   summary.infos.push(`Samstags-Dienste für FA wurden im aktuellen Monat gleichverteilt.`);
   summary.infos.push(`Die Regel D-F-D-F wurde nur noch als Soft-Constraint gewichtet.`);
   summary.infos.push(
@@ -4546,10 +4576,11 @@ async function renderProgressAndThenResult(result) {
   const applyBtn = document.getElementById("ap-apply");
   if (!body || !applyBtn) return;
   applyBtn.style.display = "none";
-  body.style.height = "min(78vh, 760px)";
-  body.style.maxHeight = "min(78vh, 760px)";
-  body.style.overflow = "hidden";
-  body.style.padding = "12px";
+  body.style.height = "100%";
+  body.style.maxHeight = "100%";
+  body.style.overflowY = "auto";
+  body.style.overflowX = "hidden";
+  body.style.padding = "10px";
   body.innerHTML = `
     <div class="ap-engine ap-engine-immersive ap-engine-compact">
       <div class="ap-hero-grid" aria-hidden="true">
@@ -4560,9 +4591,6 @@ async function renderProgressAndThenResult(result) {
         <div class="ap-hero-hud">
           <div class="ap-hud-block">
             <span class="ap-hud-kicker">RadPlan Neural Scheduler</span>
-            <strong class="ap-hud-title">Auto-Plan Sequenz läuft</strong>
-            <strong class="ap-hud-title">Live-Allokation klinischer Dienstketten</strong>
-            <span class="ap-hud-sub">Adaptive Constraint-Telemetrie in Echtzeit</span>
           </div>
           <div class="ap-hud-radar" aria-hidden="true">
             <span class="ap-hud-ring ring-a"></span>
@@ -4612,28 +4640,35 @@ async function renderProgressAndThenResult(result) {
           <div class="ap-rule-theater-head ap-rule-theater-head-compact">
             <div>
               <div class="ap-rule-kicker">Constraint Flux</div>
-              <div class="ap-rule-title">Aktive Phase &amp; Regelanwendung</div>
-            </div>
-            <div class="ap-rule-inline">
-              <span class="ap-rule-inline-label">Live-Phase</span>
-              <strong id="ap-rule-active-inline">Initialisierung</strong>
             </div>
           </div>
           <div class="ap-rule-stage ap-rule-stage-compact">
-            <div class="ap-rule-lanes ap-rule-lanes-compact" id="ap-rule-lanes">
-              <div class="ap-rule-lane" data-lane="0"></div>
-              <div class="ap-rule-lane" data-lane="1"></div>
-              <div class="ap-rule-lane" data-lane="2"></div>
+            <div class="ap-algo-viz" id="ap-algo-viz" aria-hidden="true">
+              <div class="ap-algo-grid"></div>
+              <div class="ap-algo-nodes">
+                <span class="ap-algo-node" data-phase-node="init">Analyse</span>
+                <span class="ap-algo-node" data-phase-node="bd">BD</span>
+                <span class="ap-algo-node" data-phase-node="swap">Optimize</span>
+                <span class="ap-algo-node" data-phase-node="hg">HG</span>
+                <span class="ap-algo-node" data-phase-node="validate">Finish</span>
+              </div>
+              <div class="ap-substep-shell">
+                <div class="ap-substep-head">
+                  <span>Feingranulare Subschritte</span>
+                  <strong id="ap-substep-phase">Initialisierung</strong>
+                </div>
+                <div class="ap-substep-list" id="ap-substep-list"></div>
+              </div>
             </div>
-            <div class="ap-rule-inspector">
+            <div class="ap-rule-inspector ap-rule-inspector-decision">
               <div class="ap-rule-inspector-card" id="ap-rule-inspector-card">
-                <div class="ap-rule-scoreboard">
+                <div class="ap-rule-inline">
+                  <span class="ap-rule-inline-label">Aktuelle Phase</span>
+                  <strong id="ap-rule-active-inline">Initialisierung</strong>
+                </div>
+                <div class="ap-rule-scoreboard ap-rule-scoreboard-compact">
                   <div class="ap-rule-score">
-                    <span>Aktive Regel</span>
-                    <strong id="ap-rule-active-score">Initialisierung</strong>
-                  </div>
-                  <div class="ap-rule-score">
-                    <span>Events</span>
+                    <span>Regel-Events</span>
                     <strong id="ap-rule-count">0</strong>
                   </div>
                 </div>
@@ -4641,6 +4676,7 @@ async function renderProgressAndThenResult(result) {
                 <strong id="ap-rule-label">Warte auf Regelkaskaden…</strong>
                 <p id="ap-rule-detail">Die Engine aggregiert harte und weiche Restriktionen, bevor die finale Feinoptimierung startet.</p>
               </div>
+              <div class="ap-rule-decision-log" id="ap-rule-decision-log" aria-live="polite"></div>
               <div class="ap-rule-spectrum">
                 <span class="ap-rule-spectrum-bar is-critical"></span>
                 <span class="ap-rule-spectrum-bar is-warn"></span>
@@ -4663,13 +4699,16 @@ async function renderProgressAndThenResult(result) {
   const pctEl = document.getElementById("ap-prog-pct");
   const titleEl = document.getElementById("ap-prog-title");
   const pipeline = document.getElementById("ap-pipeline");
-  const ruleLanes = [...document.querySelectorAll(".ap-rule-lane")];
+  const algoViz = document.getElementById("ap-algo-viz");
+  const algoNodes = [...document.querySelectorAll(".ap-algo-node")];
   const ruleActiveInlineEl = document.getElementById("ap-rule-active-inline");
-  const ruleActiveScoreEl = document.getElementById("ap-rule-active-score");
   const ruleCountEl = document.getElementById("ap-rule-count");
   const ruleChipEl = document.getElementById("ap-rule-chip");
   const ruleLabelEl = document.getElementById("ap-rule-label");
   const ruleDetailEl = document.getElementById("ap-rule-detail");
+  const substepPhaseEl = document.getElementById("ap-substep-phase");
+  const substepListEl = document.getElementById("ap-substep-list");
+  const decisionLogEl = document.getElementById("ap-rule-decision-log");
   const ruleInspectorCard = document.getElementById("ap-rule-inspector-card");
   const log = result.log;
   const telemetryEvents = result.ruleTelemetry?.events || [];
@@ -4695,10 +4734,21 @@ async function renderProgressAndThenResult(result) {
     validate: "validate",
     done: "validate",
   };
+  const phaseSubsteps = {
+    init: ["Historie laden", "Fixe Einträge erkennen", "Ruhetag-Reparatur", "Basiskennzahlen berechnen"],
+    bd_weekend: ["WE/FT-Tage priorisieren", "Kandidaten scoren", "Restriktionen prüfen", "BD setzen"],
+    bd_workday: ["Werktage sortieren", "Soll-Ist-Differenz glätten", "Abwesenheiten prüfen", "BD setzen"],
+    bd_optimize: ["Swap-Kandidaten bilden", "Objektiv bewerten", "Verbesserung übernehmen", "Counters neu aufbauen"],
+    hg_bundle: ["Kopplungsfälle erkennen", "WE-Kette prüfen", "HG-Bindung setzen", "Konflikte protokollieren"],
+    hg_assign: ["HG-Kandidaten scoren", "WE-Last prüfen", "HG setzen", "Iterative Feinoptimierung"],
+    deep_optimize: ["Globale Mutation", "Nebenbedingungen prüfen", "Qualität vergleichen", "Bestlösung halten"],
+    validate: ["Doppeldienste prüfen", "Abdeckung validieren", "Warnungen aggregieren", "Qualität finalisieren"],
+    done: ["Plan finalisiert", "Telemetrie abschließen", "Ergebnis anzeigen"],
+  };
 
   let prevPhase = "";
   let telemetryIdx = 0;
-  let laneCursor = 0;
+  let phaseTick = 0;
   let bdCount = 0;
   let hgCount = 0;
   let ruleCount = 0;
@@ -4730,30 +4780,59 @@ async function renderProgressAndThenResult(result) {
     const nodes = [...pipeline.querySelectorAll(".ap-phase-node")];
     const activeIdx = nodes.findIndex((n) => n.dataset.phase === nodeKey);
     [...pipeline.querySelectorAll(".ap-phase-conn")].forEach((c, i) => c.classList.toggle("done", i < activeIdx));
+    algoNodes.forEach((node) => {
+      node.classList.toggle("active", node.dataset.phaseNode === nodeKey);
+    });
+    const substeps = phaseSubsteps[phase] || phaseSubsteps[nodeKey] || ["Analyse läuft"];
+    phaseTick = 0;
+    if (substepPhaseEl) substepPhaseEl.textContent = phaseNames[phase] || phase;
+    if (substepListEl) {
+      substepListEl.innerHTML = substeps
+        .map((step, idx) => `<div class="ap-substep-item${idx === 0 ? " active" : ""}" data-step-index="${idx}">${step}</div>`)
+        .join("");
+    }
   }
 
+  function advanceSubstep(phase) {
+    const substeps = phaseSubsteps[phase] || [];
+    if (!substepListEl || substeps.length === 0) return;
+    phaseTick += 1;
+    const activeIdx = Math.min(substeps.length - 1, phaseTick % substeps.length);
+    substepListEl.querySelectorAll(".ap-substep-item").forEach((item, idx) => {
+      item.classList.toggle("active", idx === activeIdx);
+      item.classList.toggle("done", idx < activeIdx);
+    });
+  }
+
+  function stickLogToBottom() {
+    if (!logContainer) return;
+    logContainer.scrollTo({ top: logContainer.scrollHeight, behavior: "auto" });
+  }
+  const autoScrollTimer = window.setInterval(stickLogToBottom, 160);
+
   function renderRuleEvent(event) {
-    if (!event || !ruleLanes.length) return;
-    const lane = ruleLanes[laneCursor % ruleLanes.length];
-    laneCursor += 1;
-    const pill = document.createElement("div");
-    pill.className = `ap-rule-pill severity-${event.severity || "info"}`;
-    pill.innerHTML = `<span class="ap-rule-pill-label">${event.label}</span><span class="ap-rule-pill-count">×${event.count || 1}</span>`;
-    lane.prepend(pill);
-    if (lane.children.length > 3) lane.removeChild(lane.lastElementChild);
-    if (lane.children.length > 4) lane.removeChild(lane.lastElementChild);
-    requestAnimationFrame(() => pill.classList.add("is-live"));
-    setTimeout(() => pill.classList.remove("is-live"), 1200);
+    if (!event) return;
 
     const activeText = event.phase ? (phaseNames[event.phase] || event.phase) : "Telemetry";
     if (ruleActiveInlineEl) ruleActiveInlineEl.textContent = activeText;
-    if (ruleActiveScoreEl) ruleActiveScoreEl.textContent = activeText;
     ruleCountEl.textContent = ruleCount;
     ruleChipEl.textContent = (event.severity || "info").toUpperCase();
     ruleChipEl.className = `ap-rule-chip severity-${event.severity || "info"}`;
     ruleLabelEl.textContent = event.label;
     ruleDetailEl.textContent = event.detail;
     ruleInspectorCard.className = `ap-rule-inspector-card severity-${event.severity || "info"}`;
+    if (algoViz) {
+      algoViz.classList.remove("severity-info", "severity-accent", "severity-warn", "severity-critical");
+      algoViz.classList.add(`severity-${event.severity || "info"}`);
+    }
+    if (decisionLogEl) {
+      const item = document.createElement("div");
+      item.className = `ap-rule-pill is-live severity-${event.severity || "info"}`;
+      item.innerHTML = `<span class="ap-rule-pill-label">${activeText}: ${event.label}</span><span class="ap-rule-pill-count">×${event.count || 1}</span>`;
+      decisionLogEl.prepend(item);
+      while (decisionLogEl.children.length > 6) decisionLogEl.removeChild(decisionLogEl.lastElementChild);
+    }
+    advanceSubstep(event.phase || prevPhase);
   }
 
   const weightedLog = log.map((entry) => {
@@ -4774,9 +4853,9 @@ async function renderProgressAndThenResult(result) {
       activatePhaseNode(entry.phase);
       const phaseText = phaseNames[entry.phase] || entry.phase;
       if (ruleActiveInlineEl) ruleActiveInlineEl.textContent = phaseText;
-      if (ruleActiveScoreEl) ruleActiveScoreEl.textContent = phaseText;
       prevPhase = entry.phase;
     }
+    advanceSubstep(entry.phase);
 
     consumedWeight += entry.weight;
     barEl.style.width = entry.pct + "%";
@@ -4814,12 +4893,13 @@ async function renderProgressAndThenResult(result) {
     const phaseBadge = `<span class="ap-log-phase">${phaseNames[entry.phase] || entry.phase}</span>`;
     div.innerHTML = `<span class="ap-log-icon">${entry.icon}</span><span class="ap-log-msg">[${t}s] ${entry.msg}</span>${phaseBadge}${entry.detail ? `<span class="ap-log-detail">${entry.detail}</span>` : ""}`;
     logContainer.appendChild(div);
-    logContainer.scrollTop = logContainer.scrollHeight;
+    stickLogToBottom();
 
     const targetElapsed = (consumedWeight / totalWeight) * AUTO_PLAN_PROGRESS_MIN_MS;
     const waitMs = Math.max(24, targetElapsed - (performance.now() - startedAt));
     updateStats();
     await sleep(waitMs);
+    stickLogToBottom();
   }
 
   while (telemetryIdx < telemetryEvents.length) {
@@ -4828,6 +4908,7 @@ async function renderProgressAndThenResult(result) {
     telemetryIdx += 1;
     updateStats();
     await sleep(120);
+    stickLogToBottom();
   }
 
   pipeline.querySelectorAll(".ap-phase-node").forEach((n) => {
@@ -4837,6 +4918,8 @@ async function renderProgressAndThenResult(result) {
   pipeline.querySelectorAll(".ap-phase-conn").forEach((c) => c.classList.add("done"));
   const remainingMs = AUTO_PLAN_PROGRESS_MIN_MS - (performance.now() - startedAt);
   if (remainingMs > 0) await sleep(remainingMs);
+  stickLogToBottom();
+  window.clearInterval(autoScrollTimer);
   await sleep(320);
   await sleep(450);
   apViewMode = "result";
