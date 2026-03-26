@@ -4734,8 +4734,6 @@ async function renderProgressAndThenResult(result) {
   };
 
   let prevPhase = "";
-  let telemetryIdx = 0;
-  let fluxIdx = 0;
   let bdCount = 0;
   let hgCount = 0;
   let ruleCount = 0;
@@ -4757,6 +4755,9 @@ async function renderProgressAndThenResult(result) {
     return '0x' + Math.floor(Math.random() * 16777215).toString(16).toUpperCase().padStart(6, '0');
   }
 
+  const fluxQueue = [];
+  let isFluxing = false;
+
   function appendFluxLine(msg) {
     if (!fluxStream) return;
     const div = document.createElement("div");
@@ -4767,23 +4768,38 @@ async function renderProgressAndThenResult(result) {
     fluxStream.scrollTo({ top: fluxStream.scrollHeight, behavior: "auto" });
   }
 
+  async function processFluxQueue(targetEndTime) {
+    if (isFluxing) return;
+    isFluxing = true;
+    while (fluxQueue.length > 0) {
+      const item = fluxQueue.shift();
+      if (item.type === "telemetry") {
+        ruleCount++;
+        const activeText = item.data.phase ? (phaseNames[item.data.phase] || item.data.phase) : "Telemetry";
+        if (fluxLbl) fluxLbl.textContent = `${activeText} // ${(item.data.severity || "info").toUpperCase()}`;
+        if (fluxVal) fluxVal.textContent = item.data.label;
+        if (fluxDetail) fluxDetail.textContent = item.data.detail;
+        appendFluxLine(`> RULE_TRIGGER: ${item.data.label}`);
+      } else if (item.type === "trace") {
+        appendFluxLine(item.data.msg);
+      }
+      updateStats();
+      
+      const now = performance.now();
+      const remainingTime = Math.max(10, targetEndTime - now);
+      const itemsLeft = fluxQueue.length;
+      const waitMs = itemsLeft > 0 ? Math.min(40, remainingTime / itemsLeft) : 10;
+      await sleep(waitMs);
+    }
+    isFluxing = false;
+  }
+
   function stickLogToBottom() {
     if (!logContainer) return;
     logContainer.scrollTo({ top: logContainer.scrollHeight, behavior: "auto" });
   }
 
   const autoScrollTimer = window.setInterval(stickLogToBottom, 100);
-
-  function renderRuleEvent(event) {
-    if (!event) return;
-    const activeText = event.phase ? (phaseNames[event.phase] || event.phase) : "Telemetry";
-    
-    if (fluxLbl) fluxLbl.textContent = `${activeText} // ${(event.severity || "info").toUpperCase()}`;
-    if (fluxVal) fluxVal.textContent = event.label;
-    if (fluxDetail) fluxDetail.textContent = event.detail;
-    
-    appendFluxLine(`> RULE_TRIGGER: ${event.label}`);
-  }
 
   const weightedLog = log.map((entry) => {
     const isAssign = entry.icon === "→" || entry.icon === "🔗";
@@ -4802,7 +4818,7 @@ async function renderProgressAndThenResult(result) {
     if (entry.phase !== prevPhase) {
       if (titleEl) titleEl.textContent = phaseNames[entry.phase] || entry.phase;
       prevPhase = entry.phase;
-      appendFluxLine(`>>> PHASE_SHIFT: ${phaseNames[entry.phase] || entry.phase}`);
+      fluxQueue.push({ type: "trace", data: { msg: `>>> PHASE_SHIFT: ${phaseNames[entry.phase] || entry.phase}` }});
     }
 
     consumedWeight += entry.weight;
@@ -4820,16 +4836,14 @@ async function renderProgressAndThenResult(result) {
       else swapCount++;
     }
 
-    while (telemetryIdx < telemetryEvents.length && telemetryEvents[telemetryIdx].phase === entry.phase) {
-      ruleCount++;
-      renderRuleEvent(telemetryEvents[telemetryIdx]);
-      telemetryIdx += 1;
-    }
+    const phaseTelemetry = telemetryEvents.filter(t => t.phase === entry.phase);
+    const phaseTraces = fluxTraces.filter(t => t.phase === entry.phase);
+    
+    phaseTelemetry.forEach(t => fluxQueue.push({ type: "telemetry", data: t }));
+    phaseTraces.forEach(t => fluxQueue.push({ type: "trace", data: t }));
 
-    while (fluxIdx < fluxTraces.length && fluxTraces[fluxIdx].phase === entry.phase) {
-      appendFluxLine(fluxTraces[fluxIdx].msg);
-      fluxIdx += 1;
-    }
+    telemetryEvents.splice(0, phaseTelemetry.length);
+    fluxTraces.splice(0, phaseTraces.length);
 
     if (logContainer) {
       const div = document.createElement("div");
@@ -4851,24 +4865,21 @@ async function renderProgressAndThenResult(result) {
     }
 
     const targetElapsed = (consumedWeight / totalWeight) * AUTO_PLAN_PROGRESS_MIN_MS;
-    const waitMs = Math.max(24, targetElapsed - (performance.now() - startedAt));
+    const targetEndTime = startedAt + targetElapsed;
+    
+    await processFluxQueue(targetEndTime);
+    
+    const waitMs = Math.max(10, targetEndTime - performance.now());
     updateStats();
     await sleep(waitMs);
   }
 
-  while (telemetryIdx < telemetryEvents.length) {
-    ruleCount++;
-    renderRuleEvent(telemetryEvents[telemetryIdx]);
-    telemetryIdx += 1;
-    updateStats();
-    await sleep(40);
+  while (telemetryEvents.length > 0 || fluxTraces.length > 0) {
+     if (telemetryEvents.length > 0) fluxQueue.push({ type: "telemetry", data: telemetryEvents.shift() });
+     if (fluxTraces.length > 0) fluxQueue.push({ type: "trace", data: fluxTraces.shift() });
   }
-
-  while (fluxIdx < fluxTraces.length) {
-    appendFluxLine(fluxTraces[fluxIdx].msg);
-    fluxIdx += 1;
-    await sleep(20);
-  }
+  
+  await processFluxQueue(performance.now() + 500);
 
   const remainingMs = AUTO_PLAN_PROGRESS_MIN_MS - (performance.now() - startedAt);
   if (remainingMs > 0) await sleep(remainingMs);
