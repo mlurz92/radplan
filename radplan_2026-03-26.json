@@ -31326,7 +31326,38 @@
           }
         }
       },
-      "rbn": {}
+      "rbn": {
+        "1": "Dr. Schüngel (NRAD)",
+        "2": "Dr. Schüngel (NRAD)",
+        "3": "Fr. Dalitz (RAD)",
+        "4": "Dr. Bailis (NRAD)",
+        "5": "Dr. Bailis (NRAD)",
+        "6": "Dr. Bailis (NRAD)",
+        "7": "Dr. Schüngel (NRAD)",
+        "8": "Prof. Schob (NRAD)",
+        "9": "Dr. Bailis (NRAD)",
+        "10": "Dr. Schüngel (NRAD)",
+        "11": "Dr. Schüngel (NRAD)",
+        "12": "Dr. Schüngel (NRAD)",
+        "13": "Dr. Maybaum (NRAD)",
+        "14": "Prof. Schob (NRAD)",
+        "15": "Fr. Dalitz (RAD)",
+        "16": "Dr. Schüngel (NRAD)",
+        "17": "Fr. Dalitz (RAD)",
+        "18": "Fr. Dalitz (RAD)",
+        "19": "Fr. Dalitz (RAD)",
+        "20": "Dr. Maybaum (NRAD)",
+        "21": "Prof. Schob (NRAD)",
+        "22": "Dr. Maybaum (NRAD)",
+        "23": "Dr. Schüngel (NRAD)",
+        "24": "Dr. Maybaum (NRAD)",
+        "25": "Dr. Bailis (NRAD)",
+        "26": "Dr. Maybaum (NRAD)",
+        "27": "Fr. Dalitz (RAD)",
+        "28": "Prof. Schob (NRAD)",
+        "29": "Dr. Maybaum (NRAD)",
+        "30": "Fr. Dalitz (RAD)"
+      }
     },
     "2026-4": {
       "employees": [
@@ -31666,6 +31697,9 @@
           }
         },
         "Dr. Lurz": {
+          "1": {
+            "assignment": "F"
+          },
           "27": {
             "assignment": "U"
           },
@@ -31708,7 +31742,11 @@
             "assignment": "U"
           }
         },
-        "Fr. Dalitz": {},
+        "Fr. Dalitz": {
+          "1": {
+            "assignment": "F"
+          }
+        },
         "Dr. Becker": {},
         "Dr. Martin": {
           "1": {
@@ -31733,8 +31771,16 @@
             "assignment": "U"
           }
         },
-        "Hr. El Houba": {},
-        "Fr. Licenji": {},
+        "Hr. El Houba": {
+          "1": {
+            "assignment": "F"
+          }
+        },
+        "Fr. Licenji": {
+          "1": {
+            "assignment": "F"
+          }
+        },
         "Hr. Torki": {
           "18": {
             "duty": "D"
@@ -31776,7 +31822,11 @@
             "assignment": "U"
           }
         },
-        "Hr. Sebastian": {}
+        "Hr. Sebastian": {
+          "1": {
+            "assignment": "F"
+          }
+        }
       },
       "rbn": {}
     },

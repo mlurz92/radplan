@@ -4602,6 +4602,7 @@ async function renderProgressAndThenResult(result) {
   const body = document.getElementById("ap-body");
   const applyBtn = document.getElementById("ap-apply");
   if (!body || !applyBtn) return;
+  
   applyBtn.style.display = "none";
   body.style.height = "100%";
   body.style.maxHeight = "100%";
