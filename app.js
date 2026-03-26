@@ -3155,9 +3155,14 @@ function computeAutoPlan(customTargets) {
   const externalAssignments = {};
   const log = [];
   const report = [];
+  const fluxTraces = [];
   const fixedDutyKeys = new Set();
   const autoRestDays = new Set();
   const ruleTelemetry = buildRuleTelemetryBucket();
+
+  function trace(phase, msg) {
+    fluxTraces.push({ phase, msg });
+  }
 
   function recordRule(phase, label, detail, severity = "info") {
     trackRuleTelemetry(ruleTelemetry, phase, label, detail, severity);
@@ -3428,8 +3433,8 @@ function computeAutoPlan(customTargets) {
     return true;
   }
 
-  function scoreBDCandidate(emp, d, relaxed) {
-    if (!canDoBD(emp, d, relaxed)) return -Infinity;
+  function scoreBDCandidate(emp, d, relaxed, phaseKey) {
+    if (!canDoBD(emp, d, relaxed)) return { score: -Infinity, tags: [] };
     let score = 100;
     const wd = weekday(y, m, d);
     const isWE = wd === 5 || wd === 6 || wd === 0;
@@ -3502,6 +3507,7 @@ function computeAutoPlan(customTargets) {
     }
 
     score += ((emp.charCodeAt(0) * 31 + d * 7) % 10) * 0.1;
+    trace(phaseKey || "bd_eval", `EVAL [${emp}|D${d}] Base:100 Final:${Math.round(score)} Tags:[${tags.join(',')}]`);
     return { score, tags };
   }
 
@@ -3531,13 +3537,13 @@ function computeAutoPlan(customTargets) {
 
   function assignBD(d, phaseKey, pctBase, pctRange, total) {
     let candidates = dutyEmps
-      .map((e) => ({ emp: e, ...scoreBDCandidate(e, d, false) }))
+      .map((e) => ({ emp: e, ...scoreBDCandidate(e, d, false, phaseKey) }))
       .filter((c) => c.score > -Infinity)
       .sort((a, b) => b.score - a.score);
     let relaxed = false;
     if (candidates.length === 0) {
       candidates = dutyEmps
-        .map((e) => ({ emp: e, ...scoreBDCandidate(e, d, true) }))
+        .map((e) => ({ emp: e, ...scoreBDCandidate(e, d, true, phaseKey) }))
         .filter((c) => c.score > -Infinity)
         .sort((a, b) => b.score - a.score);
       if (candidates.length > 0) {
@@ -3627,6 +3633,7 @@ function computeAutoPlan(customTargets) {
       chosen.tags.forEach((tag) => {
         recordRule(phaseKey, tag, `Tag ${d}: ${chosen.emp} für BD (${tag}).`, tag === "Regeln gelockert" ? "warn" : "info");
       });
+      trace(phaseKey, `RANK D${d}: Selected ${chosen.emp} (Score: ${Math.round(chosen.score)})`);
       log.push({
         phase: phaseKey,
         icon: "→",
@@ -3739,6 +3746,7 @@ function computeAutoPlan(customTargets) {
     score += deficitSum * 9000;
     score += surplusSum * 7000;
     score += Math.abs(deficitSum - surplusSum) * 6000;
+    trace("bd_optimize", `OBJ_FUNC_BD: Global Fairness Score = ${Math.round(score)}`);
     return score;
   }
 
@@ -3777,6 +3785,7 @@ function computeAutoPlan(customTargets) {
         setDutyAssignment(candidate, day, "D");
         rebuildCurrentCounters();
         const newFairness = computeBDObjective();
+        trace("bd_optimize", `SWAP_TEST D${day}: ${currentEmp} -> ${candidate} (Delta: ${Math.round(newFairness - bestFairness)})`);
         if (newFairness + 0.01 < bestFairness) {
           bestFairness = newFairness;
           improved = true;
@@ -3835,8 +3844,8 @@ function computeAutoPlan(customTargets) {
     return true;
   }
 
-  function scoreHGCandidate(emp, d, relaxed) {
-    if (!canDoHG(emp, d, relaxed)) return -Infinity;
+  function scoreHGCandidate(emp, d, relaxed, phaseKey) {
+    if (!canDoHG(emp, d, relaxed)) return { score: -Infinity, tags: [] };
     let score = 100;
     const tags = [];
     const projectedHG = currentHG[emp] + 1;
@@ -3874,6 +3883,7 @@ function computeAutoPlan(customTargets) {
     }
 
     score += ((emp.charCodeAt(1 % emp.length) * 17 + d * 13) % 10) * 0.1;
+    trace(phaseKey || "hg_assign", `EVAL [${emp}|HG${d}] Base:100 Final:${Math.round(score)} Tags:[${tags.join(',')}]`);
     return { score, tags };
   }
 
@@ -3923,6 +3933,7 @@ function computeAutoPlan(customTargets) {
         tags: ["Gekoppelt", allowAdjacentHG ? "WE-Kette priorisiert" : null].filter(Boolean),
       });
       recordRule("hg_bundle", allowAdjacentHG ? "WE-Kette priorisiert" : "Gekoppelt", `Tag ${d}: ${emp} via Kopplungsregel.`, "accent");
+      trace("hg_bundle", `BIND [${emp}|HG${d}] Source: BD-Link`);
       log.push({
         phase: "hg_bundle",
         icon: "🔗",
@@ -4004,12 +4015,12 @@ function computeAutoPlan(customTargets) {
     for (const d of hgRemaining) {
       if (emps.some((e) => result[e]?.[d]?.duty === "HG")) continue;
       let candidates = hgFAs
-        .map((e) => ({ emp: e, ...scoreHGCandidate(e, d, false) }))
+        .map((e) => ({ emp: e, ...scoreHGCandidate(e, d, false, "hg_assign") }))
         .filter((c) => c.score > -Infinity)
         .sort((a, b) => b.score - a.score);
       if (candidates.length === 0) {
         candidates = hgFAs
-          .map((e) => ({ emp: e, ...scoreHGCandidate(e, d, true) }))
+          .map((e) => ({ emp: e, ...scoreHGCandidate(e, d, true, "hg_assign") }))
           .filter((c) => c.score > -Infinity)
           .sort((a, b) => b.score - a.score);
         if (candidates.length > 0) {
@@ -4046,6 +4057,7 @@ function computeAutoPlan(customTargets) {
         chosen.tags.forEach((tag) => {
           recordRule("hg_assign", tag, `Tag ${d}: ${chosen.emp} für HG (${tag}).`, tag === "Regeln gelockert" ? "warn" : "info");
         });
+        trace("hg_assign", `RANK HG${d}: Selected ${chosen.emp} (Score: ${Math.round(chosen.score)})`);
         log.push({
           phase: "hg_assign",
           icon: "→",
@@ -4091,6 +4103,7 @@ function computeAutoPlan(customTargets) {
           if (day < dim && result[emp]?.[day + 1]?.duty === "D" && wd !== 5) score += 24000;
         }
       });
+      trace("hg_optimize", `OBJ_FUNC_HG: Global Fairness Score = ${Math.round(score)}`);
       return score;
     }
 
@@ -4126,6 +4139,7 @@ function computeAutoPlan(customTargets) {
           setDutyAssignment(candidate, day, "HG");
           rebuildCurrentCounters();
           const newObjective = computeHGObjective();
+          trace("hg_optimize", `SWAP_TEST HG${day}: ${currentEmp} -> ${candidate} (Delta: ${Math.round(newObjective - bestHGObjective)})`);
           if (newObjective + 0.01 < bestHGObjective) {
             bestHGObjective = newObjective;
             improved = true;
@@ -4168,7 +4182,9 @@ function computeAutoPlan(customTargets) {
       if (!dutyEmps.some((emp) => result[emp]?.[day]?.duty === "D")) coveragePenalty += 25000;
       if (!hgFAs.some((emp) => result[emp]?.[day]?.duty === "HG")) coveragePenalty += 18000;
     }
-    return bdObjective + hgObjective + coveragePenalty;
+    const total = bdObjective + hgObjective + coveragePenalty;
+    trace("deep_optimize", `OBJ_FUNC_META: Global Quality Score = ${Math.round(total)}`);
+    return total;
   }
 
   log.push({
@@ -4209,6 +4225,7 @@ function computeAutoPlan(customTargets) {
       setDutyAssignment(candidate, day, dutyCode);
       rebuildCurrentCounters();
       const newObjective = computeGlobalObjective();
+      trace("deep_optimize", `META_SWAP_TEST ${dutyCode}${day}: ${currentEmp} -> ${candidate} (Delta: ${Math.round(newObjective - bestGlobalObjective)})`);
       if (newObjective + 0.01 < bestGlobalObjective) {
         bestGlobalObjective = newObjective;
         deepMoves++;
@@ -4429,7 +4446,7 @@ function computeAutoPlan(customTargets) {
 
   report.sort((a, b) => a.day - b.day || (a.duty === "D" ? -1 : 1));
 
-  return { assignments: result, summary, log, report, externalAssignments, ruleTelemetry };
+  return { assignments: result, summary, log, report, externalAssignments, ruleTelemetry, fluxTraces };
 }
 
 function openAutoPlanModal() {
@@ -4702,6 +4719,7 @@ async function renderProgressAndThenResult(result) {
 
   const log = result.log;
   const telemetryEvents = result.ruleTelemetry?.events || [];
+  const fluxTraces = result.fluxTraces || [];
   
   const phaseNames = {
     init: "Datenanalyse",
@@ -4717,6 +4735,7 @@ async function renderProgressAndThenResult(result) {
 
   let prevPhase = "";
   let telemetryIdx = 0;
+  let fluxIdx = 0;
   let bdCount = 0;
   let hgCount = 0;
   let ruleCount = 0;
@@ -4752,13 +4771,6 @@ async function renderProgressAndThenResult(result) {
     if (!logContainer) return;
     logContainer.scrollTo({ top: logContainer.scrollHeight, behavior: "auto" });
   }
-
-  let fluxActive = true;
-  const fluxTimer = window.setInterval(() => {
-    if (fluxActive && Math.random() > 0.3) {
-      appendFluxLine(`EVAL_MAT: [${Math.random().toFixed(4)}] CONSTRAINT_PASS`);
-    }
-  }, 100);
 
   const autoScrollTimer = window.setInterval(stickLogToBottom, 100);
 
@@ -4814,6 +4826,11 @@ async function renderProgressAndThenResult(result) {
       telemetryIdx += 1;
     }
 
+    while (fluxIdx < fluxTraces.length && fluxTraces[fluxIdx].phase === entry.phase) {
+      appendFluxLine(fluxTraces[fluxIdx].msg);
+      fluxIdx += 1;
+    }
+
     if (logContainer) {
       const div = document.createElement("div");
       let cls = "ap-log-entry";
@@ -4844,14 +4861,18 @@ async function renderProgressAndThenResult(result) {
     renderRuleEvent(telemetryEvents[telemetryIdx]);
     telemetryIdx += 1;
     updateStats();
-    await sleep(80);
+    await sleep(40);
+  }
+
+  while (fluxIdx < fluxTraces.length) {
+    appendFluxLine(fluxTraces[fluxIdx].msg);
+    fluxIdx += 1;
+    await sleep(20);
   }
 
   const remainingMs = AUTO_PLAN_PROGRESS_MIN_MS - (performance.now() - startedAt);
   if (remainingMs > 0) await sleep(remainingMs);
   
-  fluxActive = false;
-  window.clearInterval(fluxTimer);
   window.clearInterval(autoScrollTimer);
   if (animationId) cancelAnimationFrame(animationId);
   
