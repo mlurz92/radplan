@@ -4473,6 +4473,7 @@ async function renderAutoPlanModal(renderToken = null) {
     body.style.height = "auto";
     body.style.maxHeight = "none";
     body.style.overflowY = "auto";
+    body.classList.remove("ap-body-overview");
     applyBtn.style.display = "none";
     
     const hist = await collectHistoricalDutyStatsAsync(y, m);
@@ -4582,6 +4583,7 @@ async function renderProgressAndThenResult(result) {
   body.style.maxHeight = "100%";
   body.style.overflowY = "hidden";
   body.style.overflowX = "hidden";
+  body.classList.remove("ap-body-overview");
   body.style.padding = "10px";
   
   body.innerHTML = `
@@ -4628,6 +4630,20 @@ async function renderProgressAndThenResult(result) {
               <span class="ap-flux-focus-lbl" id="ap-flux-lbl">Standby</span>
               <span class="ap-flux-focus-val" id="ap-flux-val">Warte auf Daten...</span>
               <span class="ap-flux-focus-detail" id="ap-flux-detail">Initialisiere Quantenkern</span>
+              <div class="ap-flux-meta-grid" aria-live="polite">
+                <div class="ap-flux-meta-item">
+                  <span class="ap-flux-meta-k">Regel</span>
+                  <strong class="ap-flux-meta-v" id="ap-flux-rule">—</strong>
+                </div>
+                <div class="ap-flux-meta-item">
+                  <span class="ap-flux-meta-k">Entscheidung</span>
+                  <strong class="ap-flux-meta-v" id="ap-flux-decision">—</strong>
+                </div>
+                <div class="ap-flux-meta-item ap-flux-meta-item-wide">
+                  <span class="ap-flux-meta-k">Kontext</span>
+                  <strong class="ap-flux-meta-v" id="ap-flux-context">Warte auf Telemetrie…</strong>
+                </div>
+              </div>
             </div>
             <div class="ap-flux-stream" id="ap-flux-stream"></div>
           </div>
@@ -4699,6 +4715,9 @@ async function renderProgressAndThenResult(result) {
   const fluxLbl = document.getElementById("ap-flux-lbl");
   const fluxVal = document.getElementById("ap-flux-val");
   const fluxDetail = document.getElementById("ap-flux-detail");
+  const fluxRule = document.getElementById("ap-flux-rule");
+  const fluxDecision = document.getElementById("ap-flux-decision");
+  const fluxContext = document.getElementById("ap-flux-context");
 
   const log = result.log;
   const telemetryEvents = result.ruleTelemetry?.events || [];
@@ -4753,6 +4772,22 @@ async function renderProgressAndThenResult(result) {
     logContainer.scrollTo({ top: logContainer.scrollHeight, behavior: "auto" });
   }
 
+  function deriveFluxMetaFromEntry(entry) {
+    const phaseLabel = phaseNames[entry.phase] || entry.phase || "Phase";
+    let decision = "Kandidatenscoring";
+    if (entry.icon === "→") decision = "Dienstzuweisung";
+    else if (entry.icon === "🔗") decision = "Kopplungsentscheidung";
+    else if (["🔀", "🔁", "🧠", "🛰️"].includes(entry.icon)) decision = "Rebalancing / Swap";
+    else if (["⚠", "🚨"].includes(entry.icon)) decision = "Regelverletzung abgefangen";
+    else if (["✅", "✓"].includes(entry.icon)) decision = "Validierung bestätigt";
+    const context = entry.detail || entry.msg || "";
+    return {
+      rule: phaseLabel,
+      decision,
+      context: context.slice(0, 140) || "Ohne Zusatzkontext",
+    };
+  }
+
   let fluxActive = true;
   const fluxTimer = window.setInterval(() => {
     if (fluxActive && Math.random() > 0.3) {
@@ -4769,6 +4804,9 @@ async function renderProgressAndThenResult(result) {
     if (fluxLbl) fluxLbl.textContent = `${activeText} // ${(event.severity || "info").toUpperCase()}`;
     if (fluxVal) fluxVal.textContent = event.label;
     if (fluxDetail) fluxDetail.textContent = event.detail;
+    if (fluxRule) fluxRule.textContent = event.rule || event.label || activeText;
+    if (fluxDecision) fluxDecision.textContent = event.decision || (event.severity ? `Severity ${String(event.severity).toUpperCase()}` : "Evaluation");
+    if (fluxContext) fluxContext.textContent = event.detail || event.context || "Regelereignis verarbeitet";
     
     appendFluxLine(`> RULE_TRIGGER: ${event.label}`);
   }
@@ -4814,6 +4852,11 @@ async function renderProgressAndThenResult(result) {
       telemetryIdx += 1;
     }
 
+    const entryMeta = deriveFluxMetaFromEntry(entry);
+    if (fluxRule) fluxRule.textContent = entryMeta.rule;
+    if (fluxDecision) fluxDecision.textContent = entryMeta.decision;
+    if (fluxContext) fluxContext.textContent = entryMeta.context;
+
     if (logContainer) {
       const div = document.createElement("div");
       let cls = "ap-log-entry";
@@ -4858,6 +4901,9 @@ async function renderProgressAndThenResult(result) {
   if (fluxLbl) fluxLbl.textContent = "COMPLETED";
   if (fluxVal) fluxVal.textContent = "Planung abgeschlossen";
   if (fluxDetail) fluxDetail.textContent = "Alle Constraints erfolgreich validiert";
+  if (fluxRule) fluxRule.textContent = "Validierung";
+  if (fluxDecision) fluxDecision.textContent = "Ergebnis fixiert";
+  if (fluxContext) fluxContext.textContent = "Keine offenen Konflikte";
   appendFluxLine(`>>> SYSTEM_HALT: 0x000000`);
 
   await sleep(600);
@@ -4873,10 +4919,11 @@ function renderResultView() {
   const { summary } = autoPlanResult;
   const quality = summary.quality || {};
   const body = document.getElementById("ap-body");
-  body.style.height = "auto";
-  body.style.maxHeight = "72vh";
+  body.style.height = "100%";
+  body.style.maxHeight = "none";
   body.style.overflowY = "auto";
   body.style.overflowX = "hidden";
+  body.classList.add("ap-body-overview");
   body.style.padding = "24px";
   const applyBtn = document.getElementById("ap-apply");
   const reportBtn = document.getElementById("ap-report-btn");
@@ -4907,25 +4954,25 @@ function renderResultView() {
     </div>
   </div>`;
 
-  function buildAccordion(title, badgeColor, badgeText, contentHtml, isExpanded = false) {
+  function buildAccordion(id, title, badgeColor, badgeText, contentHtml, isExpanded = false) {
     const expandedCls = isExpanded ? "" : " is-collapsed";
     return `
-      <div class="ap-collapse-wrap${expandedCls}">
-        <div class="ap-collapse-head" onclick="this.parentElement.classList.toggle('is-collapsed')">
-          <div class="ap-collapse-title">
+      <section class="ap-collapse-wrap${expandedCls}" data-collapse-id="${id}">
+        <button type="button" class="ap-collapse-head" aria-expanded="${isExpanded ? "true" : "false"}" aria-controls="${id}-panel" id="${id}-button">
+          <span class="ap-collapse-title">
             <span class="ap-sect-badge" style="background:${badgeColor};color:#fff">${badgeText}</span>
             ${title}
-          </div>
+          </span>
           <svg class="ap-collapse-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="ap-collapse-content">
+        </button>
+        <div class="ap-collapse-content" id="${id}-panel" role="region" aria-labelledby="${id}-button">
           <div class="ap-collapse-content-inner">
             <div class="ap-collapse-content-pad">
               ${contentHtml}
             </div>
           </div>
         </div>
-      </div>
+      </section>
     `;
   }
 
@@ -4939,7 +4986,7 @@ function renderResultView() {
     bdHtml += `<tr><td class="ap-td-name" style="border-left:3px solid ${pc.border}"><span>${e}</span><span class="ap-pos" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span></td><td class="ap-td ap-td-num">${bd.target}</td><td class="ap-td ap-td-num" style="color:${ok ? "#15803D" : "#DC2626"};font-weight:700">${bd.count}</td><td class="ap-td ap-td-days">${dayLabels || "—"}</td><td class="ap-td ap-td-num" style="color:${bd.weDuty > RELAXED_WEEKEND_DUTY_LIMIT ? "#DC2626" : "#64748B"}">${bd.weDuty}</td><td class="ap-td ap-td-num" style="color:${(bd.holDuty || 0) > 0 ? "#78350F" : "#94A3B8"}">${bd.holDuty || 0}</td></tr>`;
   });
   bdHtml += `</tbody></table></div>`;
-  html += buildAccordion("Bereitschaftsdienst-Verteilung", "#EF4444", "D", bdHtml, true);
+  html += buildAccordion("ap-chapter-bd", "Kapitel 1 · Bereitschaftsdienst-Verteilung", "#EF4444", "D", bdHtml, true);
 
   let hgHtml = `<div class="ap-table-wrap"><table class="ap-table"><thead><tr><th class="ap-th-name">Mitarbeitende</th><th class="ap-th">Geplant</th><th class="ap-th-days">Tage</th></tr></thead><tbody>`;
   emps
@@ -4952,29 +4999,48 @@ function renderResultView() {
       hgHtml += `<tr><td class="ap-td-name" style="border-left:3px solid ${pc.border}"><span>${e}</span><span class="ap-pos" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span></td><td class="ap-td ap-td-num" style="font-weight:700">${hg.count}</td><td class="ap-td ap-td-days">${dayLabels || "—"}</td></tr>`;
     });
   hgHtml += `</tbody></table></div>`;
-  html += buildAccordion("Hintergrunddienst-Verteilung", "#0EA5E9", "HG", hgHtml, false);
+  html += buildAccordion("ap-chapter-hg", "Kapitel 2 · Hintergrunddienst-Verteilung", "#0EA5E9", "HG", hgHtml, false);
 
+  let infoHtml = `<div class="ap-infos" style="margin-top:0">`;
   if (summary.infos && summary.infos.length) {
-    let infoHtml = `<div class="ap-infos" style="margin-top:0">`;
     summary.infos.forEach((i) => {
       infoHtml += `<div class="ap-info-item">${i}</div>`;
     });
-    infoHtml += `</div>`;
-    html += buildAccordion("Verteilungs-Details", "#0EA5E9", "i", infoHtml, false);
+  } else {
+    infoHtml += `<div class="ap-info-item">Keine zusätzlichen Verteilungsdetails erforderlich.</div>`;
   }
+  infoHtml += `</div>`;
+  html += buildAccordion("ap-chapter-detail", "Kapitel 3 · Verteilungs-Details", "#0EA5E9", "i", infoHtml, false);
 
+  let warnHtml = `<div class="ap-warnings" style="margin-top:0">`;
   if (summary.warnings.length) {
-    let warnHtml = `<div class="ap-warnings" style="margin-top:0">`;
     summary.warnings.forEach((w) => {
       const warnClass = /^KRITISCH:/.test(w) ? " ap-warn-item-critical" : "";
       warnHtml += `<div class="ap-warn-item${warnClass}">${w}</div>`;
     });
-    warnHtml += `</div>`;
-    html += buildAccordion("Hinweise", "#F97316", "!", warnHtml, true);
+  } else {
+    warnHtml += `<div class="ap-warn-item">Keine offenen Hinweise. Alle Prüfpfade ohne Zusatzwarnung abgeschlossen.</div>`;
   }
+  warnHtml += `</div>`;
+  html += buildAccordion("ap-chapter-notes", "Kapitel 4 · Hinweise & Validierung", "#F97316", "!", warnHtml, true);
 
   html += `<div class="ap-config-actions" style="margin-top:16px"><button class="mbtn mbtn-ghost" id="ap-back-config">Ziele anpassen &amp; neu berechnen</button></div>`;
   body.innerHTML = html;
+
+  body.querySelectorAll(".ap-collapse-wrap").forEach((section) => {
+    const head = section.querySelector(".ap-collapse-head");
+    const panel = section.querySelector(".ap-collapse-content");
+    const initiallyCollapsed = section.classList.contains("is-collapsed");
+    if (panel) panel.setAttribute("aria-hidden", initiallyCollapsed ? "true" : "false");
+    if (!head) return;
+    head.addEventListener("click", () => {
+      section.classList.toggle("is-collapsed");
+      const isCollapsed = section.classList.contains("is-collapsed");
+      head.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+      const panel = section.querySelector(".ap-collapse-content");
+      if (panel) panel.setAttribute("aria-hidden", isCollapsed ? "true" : "false");
+    });
+  });
   
   document.getElementById("ap-back-config")?.addEventListener("click", () => {
     apViewMode = "config";
