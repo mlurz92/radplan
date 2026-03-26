@@ -1,250 +1,184 @@
-# RadPlan
+# RadPlan — Digitaler Dienstplan
 
-RadPlan ist eine vollständig clientseitige Web-Anwendung zur Erstellung, Simulation und Qualitätssicherung von Dienstplänen für die Klinik für Radiologie & Nuklearmedizin. Die Anwendung kombiniert klassische Kalenderplanung, einen sicheren Planungsmodus mit Entwurfslogik, umfangreiche Auswertungen sowie eine Auto-Plan-Engine mit Live-Telemetrie und regelbasierter Optimierung.
+RadPlan ist eine hochspezialisierte, vollständig im Browser laufende Single-Page-Application (SPA) zur digitalen Dienst- und Arbeitsplatzplanung für die Klinik für Radiologie & Nuklearmedizin. 
 
----
-
-## 1) Produktziel und Nutzungskontext
-
-RadPlan adressiert die tägliche Praxis der klinischen Dienstplanung:
-
-- Monatsplanung pro Mitarbeitenden-Zeile und Kalendertag.
-- Trennung von **Hauptplan** und **Entwurfsplan** (Planungsmodus), damit Planungsvarianten risikofrei ausprobiert werden können.
-- Automatisierte Verteilung von Bereitschafts- (`D`) und Hintergrunddiensten (`HG`) mit Nebenbedingungen.
-- Nachvollziehbare Entscheidungsdokumentation über Telemetrie, Report und Qualitätskennzahlen.
-- Persistenz im Browser (Local Storage) plus vollständiger JSON-Import/Export.
-
-Die Anwendung benötigt keinen Server und läuft direkt im Browser aus statischen Dateien (`index.html`, `app.css`, `app.js`).
+Die Anwendung zeichnet sich durch ein modernes, responsives Glassmorphism-UI aus und benötigt kein Backend. Alle Daten werden lokal im Browser (`localStorage`) gespeichert. Das Herzstück der Anwendung bildet der **RadPlan Neural Scheduler**, ein hochentwickelter, heuristischer Algorithmus zur vollautomatischen und extrem fairen Zuweisung von Bereitschafts- und Hintergrunddiensten.
 
 ---
 
-## 2) Fachdomäne und Planungsobjekte
+## Inhaltsverzeichnis
 
-### 2.1 Mitarbeitende
-
-- Mitarbeitende sind monatsbezogen definiert.
-- Positionen (z. B. Facharzt/Assistenzarzt) steuern fachliche Regeln im Algorithmus.
-- Duty-Exempt-Personen werden von der Auto-Plan-Dienstverteilung ausgeschlossen.
-
-### 2.2 Tageszelle
-
-Jede Zelle kann zwei Informationsarten tragen:
-
-1. **assignment** (Arbeitsplatz-/Statuscode, auch kombiniert wie `MR/CT`),
-2. **duty** (`D` oder `HG`).
-
-### 2.3 Dienste
-
-- **D (Bereitschaftsdienst)**: genau eine Person pro Tag.
-- **HG (Hintergrunddienst)**: genau eine Person pro Tag.
-- Zuweisung ist je Tag exklusiv und wird algorithmisch sowie bei manueller Eingabe validiert.
-
-### 2.4 Sonderzeile RD Neurorad (RBN)
-
-Ab **Juni 2025** gibt es eine dedizierte Zeile `RD Neurorad (RBN)`:
-
-- rein manuelle Pflege,
-- keine Auto-Plan-Manipulation,
-- Import/Export-fähig,
-- mit definierter Personenauswahl.
+1. [Architektur & Technologie](#architektur--technologie)
+2. [Benutzeroberfläche (UI/UX)](#benutzeroberfläche-uiux)
+3. [Kernfunktionen & Module](#kernfunktionen--module)
+4. [Der RadPlan Neural Scheduler (Auto-Planung)](#der-radplan-neural-scheduler-auto-planung)
+    - [Planungsphasen](#planungsphasen)
+    - [Harte Nebenbedingungen (Hard Constraints)](#harte-nebenbedingungen-hard-constraints)
+    - [Weiche Nebenbedingungen & Scoring (Soft Constraints)](#weiche-nebenbedingungen--scoring-soft-constraints)
+    - [Sonderregeln](#sonderregeln)
+    - [Metaheuristik & Global Objective Function](#metaheuristik--global-objective-function)
+5. [Bedienung & Tastenkürzel](#bedienung--tastenkürzel)
+6. [Datenmodell & Persistenz](#datenmodell--persistenz)
 
 ---
 
-## 3) Bedienoberfläche
+## 1. Architektur & Technologie
 
-## 3.1 Kopfbereich
-
-- Monatsnavigation (vor/zurück, Heute, selektierbarer Zeitraum-Flyout).
-- Aktionsbuttons für Abteilung, Planung, Mitarbeitendenverwaltung, Import/Export.
-- Tastatur-/Workflow-freundliche Toolbar-Struktur.
-
-### 3.2 Monatsraster (Desktop)
-
-- Tabellenlayout mit Tageskopf, KW-/Feiertagskontext und Mitarbeitendenzeilen.
-- Direktes Öffnen des Editors aus einer Tageszelle.
-- Footer-Zusammenfassungen (u. a. Dienststatistiken).
-
-### 3.3 Mobile Ansicht
-
-- Tageskarten statt großer Tabelle.
-- Fokus auf schnelle Zellenbearbeitung pro Tag und Person.
-- Bottom-Navigation für Kernaktionen.
-
-### 3.4 Modals
-
-- Einheitliches Overlay-/Modal-System mit responsiven Höhenbegrenzungen.
-- Auto-Plan-Modal mit:
-  - Konfigurationsansicht,
-  - Engine-Liveansicht,
-  - Ergebnis-/Qualitätsansicht,
-  - Abschlussbericht.
+* **Frontend-Only:** Die gesamte Anwendung besteht aus reinem Vanilla HTML5, CSS3 und JavaScript (ES6+). Es werden keine externen Frameworks (wie React oder Vue) und keine Build-Tools (wie Webpack oder Vite) benötigt.
+* **Persistenz:** Die Datenspeicherung erfolgt synchron im `localStorage` des Browsers unter dem Key `radplan_v3`. 
+* **Performance:** DOM-Manipulationen sind optimiert (Vermeidung unnötiger Reflows, Nutzung von `requestAnimationFrame` für Layout-Updates). Komplexe Berechnungen (Auto-Planung) nutzen asynchrone `sleep()`-Pausen, um den Main-Thread nicht zu blockieren und flüssige UI-Animationen während der Laufzeit zu garantieren.
+* **Responsive Design:** Die Anwendung passt sich nahtlos an Desktop-Monitore, Tablets und Smartphones an. Unterhalb von 768px Viewport-Breite wechselt die App in ein stark optimiertes Mobile-Layout mit Bottom-Navigation und Touch-freundlichen Tages-Karten.
 
 ---
 
-## 4) Planungsmodus (Entwurfssicherheit)
+## 2. Benutzeroberfläche (UI/UX)
 
-Der Planungsmodus ist ein isolierter Arbeitsbereich:
+Das Design nutzt eine dunkle "Navy"-Farbpalette kombiniert mit **Glassmorphism**-Elementen (halbtransparente Hintergründe, `backdrop-filter: blur`, subtile Ränder und Schatten).
 
-- Änderungen wirken zunächst nur im Entwurf.
-- Undo/Redo-Historie ist separat verfügbar.
-- Entwurf kann gespeichert, verworfen oder in den Hauptplan übernommen werden.
-- Wünsche (`wishes`) werden nur im Planungsmodus gepflegt und ausgewertet.
-
-Technisch verwaltete Entwurfsbereiche:
-
-- `employees`
-- `assignments`
-- `rbn`
-- `wishes`
+* **Desktop-Ansicht:** Eine klassische, horizontal scrollbare Matrix-Tabelle. Zeilen repräsentieren Mitarbeiter, Spalten die Tage des Monats. Eine fixierte Kopfzeile (Tage/Wochentage) und eine fixierte linke Spalte (Namen) erleichtern die Navigation.
+* **Mobile-Ansicht:** Die Matrix wird durch eine vertikale Liste von "Tages-Karten" ersetzt. Ein Klick auf einen Tag öffnet ein Bottom-Sheet, in dem alle Mitarbeiter für diesen Tag untereinander gelistet sind und bearbeitet werden können.
+* **Modals:** Alle Dialoge (Editor, Dashboards, Import/Export) sind als zentrierte Overlays (bzw. auf mobilen Geräten als Bottom-Sheets) umgesetzt. Sie skalieren dynamisch und bieten eigene Scroll-Bereiche, ohne den Viewport zu sprengen.
 
 ---
 
-## 5) Auto-Plan-Engine (Regelwerk + Optimierung)
+## 3. Kernfunktionen & Module
 
-## 5.1 Pipeline-Phasen
+### 3.1 Arbeitsplätze und Statuscodes
+Jeder Zelle im Kalender kann ein Arbeitsplatz (auch Kombinationen, z. B. `MR/CT`) oder ein Abwesenheitsstatus zugewiesen werden.
+* **Arbeitsplätze:** MRT (MR), CT (CT), Sonographie (US), Angiographie (AN), Mammographie (MA), Kinder-US (KUS), Wermsdorf (W), Teleradiologie (T).
+* **Statuscodes:** Frei (F), Urlaub (U), Zusatzurlaub (ZU), Sonderurlaub (SU), Freizeitausgleich (FZA), Krank (K), Kind Krank (KK), §15c, Weiterbildung (WB).
 
-Die Engine läuft mehrstufig:
+### 3.2 Dienste und Hintergrund
+Unabhängig vom Arbeitsplatz kann ein Dienst zugewiesen werden:
+* **D:** Bereitschaftsdienst (Rot). Setzt automatisch am Folgetag den Status "F" (Frei/Ruhetag).
+* **HG:** Hintergrunddienst (Blau). Nur für Fachärzte.
 
-1. **Initialisierung / Datenanalyse**
-2. **BD-Wochenenden & Feiertage**
-3. **BD-Werktage**
-4. **BD-Optimierung (Reassignments)**
-5. **HG-Bündelung (Wochenend-/Kopplungsregeln)**
-6. **HG-Verteilung + HG-Optimierung**
-7. **Finale Metaheuristik über D/HG**
-8. **Validierung**
-9. **Abschluss**
+### 3.3 Planungsmodus (Sandkasten)
+Über den Button "Planung" wird ein isolierter Modus gestartet. Der aktuelle Zustand des Monats wird in eine Session kopiert. Änderungen hier beeinflussen den Hauptplan nicht, bis sie explizit "übernommen" werden.
+* Bietet eine **Undo/Redo**-Historie (Strg+Z / Strg+Y).
+* Erlaubt das Eintragen von **Dienstwünschen** (Wunsch-D, Wunsch-HG, Kein Dienst).
+* Schaltet das Auto-Plan-Modul frei.
 
-### 5.2 Hauptrestriktionen (Auszug)
-
-- Keine Doppelbelegung gleicher Dienstart am selben Tag.
-- Abwesenheiten/Urlaub/Krankheit sperren Kandidaturen.
-- No-Duty-Wünsche werden respektiert.
-- Distanzregeln zwischen Diensten.
-- Feiertags-/Wochenendlast wird ausgeglichen.
-- HG-/BD-spezifische Kopplungsregeln (z. B. WE-Ketten, Freitags-/Samstagskopplung).
-- Becker-spezifische Samstags-/FZA-Sonderlogik inkl. Warnpfad.
-
-### 5.3 Neue Wochenend-Abstandslogik
-
-Die aktuelle Version priorisiert explizit:
-
-- Wenn eine Person an zwei Wochenenden arbeiten muss, wird **ein freies Wochenende dazwischen** bevorzugt.
-- Direkte Wochenend-Folgen (aufeinanderfolgende Kalenderwochen mit WE-Dienst) werden in der harten Kandidatenauswahl blockiert und nur im Relaxed-Fallback zugelassen.
-- Zusätzlich fließt diese Bedingung in Scoring und Optimierungsziel ein.
-
-### 5.4 Soft-Constraints und Relaxed-Fallback
-
-Falls keine harte Lösung verfügbar ist, kann die Engine einzelne Sperren lockern, um Vollabdeckung zu erreichen. Diese Fälle werden:
-
-- in Telemetrie/Log markiert,
-- in Summary-Infos dokumentiert,
-- über Warn-/Info-Kanäle transparent gemacht.
+### 3.4 Dashboards und Statistiken
+* **Monats-Statistik-Leiste:** Zeigt live die Summen aller Zuweisungen des aktuell angezeigten Monats.
+* **Mitarbeiter-Dashboard:** Zeigt Jahresstatistiken für ausgewählte Mitarbeiter (Dienste, Urlaub, Arbeitsplatzverteilung, Abdeckung in %).
+* **Abteilungsübersicht:** Zeigt die Besetzungsquote (Coverage) für MR, CT, D und HG an Werktagen an und listet die Gesamtleistung des Teams auf.
+* **Jahresübersicht:** Aggregiert alle AP-Tage, Urlaube und Dienste eines Jahres pro Mitarbeiter.
 
 ---
 
-## 6) Live-Visualisierung der Engine
+## 4. Der RadPlan Neural Scheduler (Auto-Planung)
 
-Die Fortschrittsansicht zeigt in Echtzeit:
+Die automatische Diensteinteilung ist das komplexeste Modul der Anwendung. Sie berechnet auf Basis historischer Daten (bis zurück zum Jahresanfang) und einer Vielzahl von Regeln einen optimalen, fairen und regelkonformen Dienstplan für den aktuellen Monat.
 
-- Pipeline-Status mit aktiver Phase,
-- Live-Metriken (BD, HG, Regel-Events, Moves),
-- Constraint-Flux-Bereich mit Algorithmus-Animation,
-- Entscheidungsbox mit laufenden Regeln und aktuellen Detailentscheidungen,
-- Quantum-Trace-Konsole mit chronologischem Event-Stream.
+### 4.1 Planungsphasen
+Der Algorithmus arbeitet sequenziell in folgenden Phasen:
+1. **Init (Datenanalyse):** Sammeln historischer Dienst-Zähler (BD, HG, Wochenenden, Feiertage, Samstage). Überprüfen manuell gesetzter Dienste.
+2. **BD Wochenende:** Zuweisung der Bereitschaftsdienste an Wochenenden und Feiertagen (höchste Priorität, da schwerste Restriktionen).
+3. **BD Werktage:** Auffüllen der verbleibenden Bereitschaftsdienste.
+4. **BD Optimierung:** Iterative Swaps (Tausche) zur Glättung der Fairness-Verteilung.
+5. **HG Bündelung (Kopplung):** Feste Zuweisung von HG-Diensten an Wochenenden basierend auf den gesetzten BDs (z. B. Freitags-AA koppelt an Samstags-FA).
+6. **HG Verteilung:** Auffüllen der restlichen Hintergrunddienste.
+7. **Metaheuristik (Deep Optimize):** Globale Überprüfung aller D- und HG-Dienste zur Minimierung der `Global Objective Function`.
+8. **Validierung:** Letzter Sanity-Check (z. B. Entfernung illegaler Doppel-Dienste).
 
-Layout und Skalierung sind so ausgelegt, dass die verfügbaren Modalflächen auf unterschiedlichen Viewportgrößen effektiv genutzt werden und alle Hauptbereiche sichtbar bleiben.
+### 4.2 Harte Nebenbedingungen (Hard Constraints)
+Diese Regeln dürfen **niemals** gebrochen werden (außer der Algorithmus findet keine Lösung und wechselt für einen spezifischen Tag in den "Relaxed Mode"):
+* **Befreiung:** Mitarbeiter in der `DUTY_EXEMPT` Liste (Prof. Schäfer) erhalten keine Dienste.
+* **Abwesenheit:** An Tagen mit Urlaub, Krank, FZA etc. ist kein Dienst möglich.
+* **Wünsche:** Ein "NO_DUTY"-Wunsch verbietet den Dienst strikt.
+* **Qualifikation:** Wochenend-BDs (Samstag/Sonntag) dürfen nur von Fachärzten besetzt werden. HGs dürfen generell nur von Fachärzten besetzt werden.
+* **Vor/Nachlauf:** Am Tag vor und nach einem BD darf kein weiterer BD stattfinden.
+* **Urlaubsschutz:** Ist der Folgetag ein Urlaubstag, darf kein Dienst absolviert werden.
+* **Feiertagsblöcke:** Wer an Ostern arbeitet, darf nicht an Pfingsten arbeiten (und umgekehrt).
+* **Ausnahmeregeln:** 
+  * Dr. Polednia macht keine Dienste an Sonntagen, Dienstagen und Donnerstagen.
+  * Dr. Becker und Dr. Martin dürfen nicht gleichzeitig abwesend/im Ruhetag sein.
 
----
+### 4.3 Weiche Nebenbedingungen & Scoring (Soft Constraints)
+Kandidaten für einen Dienst erhalten einen Basis-Score von `100`. Durch Boni und Mali wird der beste Kandidat ermittelt.
 
-## 7) Ergebnis- und Qualitätsmodell
+#### BD-Scoring:
+* **Zielerfüllung:** `+220` Punkte pro fehlendem Dienst bis zum Soll. `-7000` Punkte pro Dienst über dem Soll.
+* **Wünsche:** `+220` Punkte für einen "BD_WISH".
+* **Vor Urlaub (Donnerstag):** `+150` Punkte, wenn der Arzt in der Folgewoche Urlaub hat (ermöglicht langen Übergang).
+* **Wochenend-Soll:** Ziel ist genau 1 WE-Äquivalent (Fr/Sa/So/FT) pro Monat. Abweichung kostet `-220` Punkte pro Einheit. Übersteigt der Wert 1.5, kostet dies `-500` Punkte Strafe.
+* **WE-Rhythmus:** Zwei Wochenenden in direkter Folge (ohne freies WE dazwischen) kosten `-900` Punkte.
+* **Samstags-Ausgleich (nur FA):** Abweichung vom Durchschnitt der Samstags-Dienste aller FAs kostet `-700` Punkte.
+* **Distanz:** Liegen weniger als 4 Tage zwischen zwei BDs, kostet das `-(4 - Distanz) * 120` Punkte.
+* **D-F-D-F Vermeidung:** Ein Rhythmus von Dienst-Frei-Dienst-Frei kostet `-260` Punkte.
+* **Feiertagsausgleich:** Differenz zum historischen Feiertags-Durchschnitt bringt `+6` Punkte pro fehlendem Feiertag.
 
-Nach Abschluss erzeugt die Engine:
+#### HG-Scoring:
+* **Monatsausgleich:** Abweichung vom HG-Durchschnitt aller FAs kostet `-240` Punkte.
+* **Wünsche:** `+220` Punkte für "HG_WISH".
+* **Wochenend-Soll:** Analog zum BD (`-150` für Abweichung, `-360` für Überschreitung von 1.5, `-700` für aufeinanderfolgende WEs).
+* **Direktfolge:** Zwei HGs an aufeinanderfolgenden Tagen kosten `-220` Punkte.
 
-- konkrete `assignments` (D/HG),
-- `summary` je Mitarbeitenden (Soll/Ist, Tage, WE-/FT-Anteile),
-- `warnings` (kritische oder unvollständige Situationen),
-- `infos` (angewandte Strategiehinweise),
-- `quality` mit Score und Teilmetriken,
-- `report` mit Entscheidungsbegründungen pro Dienst,
-- `ruleTelemetry` als Event-Historie.
+### 4.4 Sonderregeln
+* **HG Bündelung (Freitag bis Sonntag):**
+  * Hat ein Assistenzarzt am Freitag BD, wird der HG zwingend an den Facharzt vergeben, der am Samstag BD hat (für kontinuierliche Befundfreigabe).
+  * Hat ein Facharzt am Samstag BD, wird ihm zwingend auch der Sonntag als HG zugewiesen (HG-D-HG Kette aus einer Hand).
+  * Vor Feiertagen gilt analog: AA hat BD -> HG geht an den FA des Feiertags.
+* **Becker-Samstag:** Dr. Becker macht Samstags-BDs nur als absoluten Notnagel (`-2000` Punkte). Lässt es sich nicht vermeiden, trägt der Algorithmus zwingend für den nächsten Werktag einen **FZA** für sie ein. Ist dieser Tag blockiert, wird eine kritische rote Warnung generiert.
+* **Neurorad (RBN):** Die RBN-Zeile wird von der Auto-Planung vollständig ignoriert. Fr. Thaler steht ab März 2026 nicht mehr für RBN zur Verfügung.
 
-Kennzahlen umfassen u. a.:
+### 4.5 Metaheuristik & Global Objective Function
+Nach der initialen Verteilung versucht der Algorithmus in bis zu 16 Durchläufen, die Gesamtqualität des Plans zu maximieren, indem er Dienste testweise zwischen Mitarbeitern tauscht (`SWAP_TEST`).
+Die **Global Objective Function** berechnet "Strafpunkte" für den gesamten Plan (je niedriger, desto besser):
+* Ungedeckter BD: `+20000`
+* Ungedeckter HG: `+15000`
+* BD-Abweichung vom Soll: `(Diff^2 * 3200) + (|Diff| * 1400)`
+* WE-Abweichung vom Soll: `Diff^2 * 480`
+* WE-Überlastung (>1.5): `+12000` pro Einheit
+* Aufeinanderfolgende WEs: `+6000`
+* Samstags-Ungleichgewicht (FA): `Diff^2 * 850`
+* Illegale BD-Folge (Tag an Tag): `+40000`
+* Zu geringe Distanz (<3 Tage): `+6000`
+* HG-Abweichung vom Ideal: `Diff^2 * 520` (Idealwert berücksichtigt, dass FAs mit vielen BDs weniger HGs machen müssen).
+* HG an aufeinanderfolgenden Tagen: `+1800`
 
-- Versorgungsabdeckung (D/HG-Lücken),
-- Streuung BD/HG/WE,
-- Wunscherfüllungsrate,
-- Anzahl Optimierungsbewegungen,
-- aggregierten Quality-Score (0–100).
-
----
-
-## 8) Datenhaltung und Dateiformate
-
-### 8.1 Browserpersistenz
-
-- Monatsdaten werden lokal gespeichert.
-- Historische Monate fließen in bestimmte Fairness-/Kontextentscheidungen ein.
-
-### 8.2 Export
-
-JSON-Export enthält:
-
-- `main` (Hauptplandaten)
-- `plans` (Planungsentwürfe)
-
-inklusive `assignments`, `wishes`, `rbn`.
-
-### 8.3 Import
-
-Unterstützt:
-
-- vollständige Exportstruktur,
-- direkte Monatsdaten.
-
-Beim Import werden Daten normalisiert und inkonsistente Folgetags-Ruhetage nach `D` repariert.
-
----
-
-## 9) UX-, Accessibility- und Responsiveness-Prinzipien
-
-- Semantische Rollen/Labels für zentrale Bereiche (Dialoge, Toolbars, Status).
-- Visuelles Feedback über Chips, Badges, Toasters, Farbcodierung.
-- Mobile-spezifische Modal- und Touch-Anpassungen.
-- Kompakte Skalen (Typography/Spacing) in dichten Informationsbereichen.
-- Scroll-Verhalten so begrenzt, dass Interaktion stabil und nachvollziehbar bleibt.
-
----
-
-## 10) Code-Struktur
-
-- `index.html` – komplette Struktur und Modalgerüst.
-- `app.css` – Designsystem, Responsiveness, Tabellen, Modal- und Engine-Styling.
-- `app.js` – Zustand, Rendering, Editor-Workflows, Persistenz, Import/Export, Auto-Plan-Algorithmus.
-
-Begleitdokumente im Repository:
-
-- `Algorithmusregeln*.txt`, `Algorithm_check*.md`, `Algorithmus-Kriterien.txt` für fachliche Regelhinweise/Prüfnotizen.
+Jeder Tausch, der diesen Gesamt-Score auch nur um 0.01 verbessert, wird permanent übernommen.
 
 ---
 
-## 11) Betriebs- und Deploymenthinweise
+## 5. Bedienung & Tastenkürzel
 
-- Lokaler Start: `index.html` im Browser öffnen.
-- Keine Build-Pipeline zwingend erforderlich.
-- Empfehlung im Betrieb: regelmäßiger JSON-Export als Backup.
-- Für produktive Kliniknutzung sollte zusätzlich ein organisatorischer Review-Prozess für Warnfälle bestehen.
-
----
-
-## 12) Grenzen und bewusste Designentscheidungen
-
-- Die Engine optimiert unter Nebenbedingungen, garantiert jedoch nicht in jedem Randfall ein globales Optimum.
-- Relaxed-Fallback priorisiert Vollabdeckung, kann aber weiche Regeln temporär schwächen.
-- RBN bleibt absichtlich manuell, damit fachlich sensible Neurorad-Absprachen nicht durch Automatik überschrieben werden.
+Die UI ist auf maximale Effizienz ausgelegt. Im Editor-Modal (Klick auf eine Zelle) können folgende Kürzel verwendet werden:
+* `1` bis `8`: Weist den entsprechenden Arbeitsplatz zu (1=MR, 2=CT, etc.). Mehrfachauswahl möglich.
+* `D`: Schaltet den Bereitschaftsdienst um (Rot).
+* `H`: Schaltet den Hintergrunddienst um (Blau).
+* `S` oder `Enter`: Speichert die Eingabe und schließt den Editor.
+* `Escape`: Schließt Modals ohne zu speichern.
+* `Alt + Pfeil Links/Rechts`: Wechselt den Monat.
+* `Strg + Z` / `Strg + Y`: Undo / Redo (nur im Planungsmodus).
+* `Strg + S`: Speichert den Planungsentwurf bzw. exportiert die Daten im Hauptmodus.
 
 ---
 
-## 13) Kurzfazit
+## 6. Datenmodell & Persistenz
 
-RadPlan verbindet praktische Planungsoberflächen mit nachvollziehbarer algorithmischer Verteilung. Die Anwendung ist auf Transparenz, sichere Entwurfsarbeit und robuste klinische Planungsabläufe ausgelegt und dokumentiert Entscheidungen bis auf Regel-/Eventebene.
+Alle Daten liegen im `localStorage` unter dem Key `radplan_v3`. Das JSON-Format sieht wie folgt aus:
+
+```json
+{
+  "2026-0": {
+    "employees": ["Prof. Schäfer", "Dr. Lurz", "..."],
+    "assignments": {
+      "Dr. Lurz": {
+        "5": { "assignment": "MR/CT", "duty": "HG" },
+        "12": { "assignment": "F" }
+      }
+    },
+    "rbn": {
+      "1": "Dr. Maybaum (NRAD)"
+    }
+  }
+}
+```
+* Der Key setzt sich aus `Jahr-Monatsindex` zusammen (0 = Januar, 11 = Dezember).
+* `employees` speichert die sortierte Liste der Mitarbeiter für diesen spezifischen Monat.
+* `assignments` mappt Mitarbeiternamen auf Tage (1-31) und deren Inhalte.
+* Entwürfe aus dem Planungsmodus werden temporär unter `radplan_v3_plan_YYYY-M` gespeichert und beim "Übernehmen" in das Hauptobjekt gemerged.
+
+---
