@@ -4432,6 +4432,21 @@ function computeAutoPlan(customTargets) {
   return { assignments: result, summary, log, report, externalAssignments, ruleTelemetry };
 }
 
+function setAutoPlanBodyMode(mode) {
+  const body = document.getElementById("ap-body");
+  if (!body) return;
+  body.classList.remove("ap-body-config", "ap-body-progress", "ap-body-overview");
+  body.classList.add(`ap-body-${mode}`);
+}
+
+function toggleReportAccordion(btn) {
+  if (!btn) return;
+  const wrap = btn.closest(".ap-collapse-wrap");
+  if (!wrap) return;
+  const collapsed = wrap.classList.toggle("is-collapsed");
+  btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+}
+
 function openAutoPlanModal() {
   if (!planMode) return;
   const emps = [...planData.employees];
@@ -4470,6 +4485,7 @@ async function renderAutoPlanModal(renderToken = null) {
   if (reportBtn) reportBtn.style.display = "none";
 
   if (apViewMode === "config") {
+    setAutoPlanBodyMode("config");
     body.style.height = "auto";
     body.style.maxHeight = "none";
     body.style.overflowY = "auto";
@@ -4578,6 +4594,7 @@ async function renderProgressAndThenResult(result) {
   if (!body || !applyBtn) return;
   
   applyBtn.style.display = "none";
+  setAutoPlanBodyMode("progress");
   body.style.height = "100%";
   body.style.maxHeight = "100%";
   body.style.overflowY = "hidden";
@@ -4628,6 +4645,12 @@ async function renderProgressAndThenResult(result) {
               <span class="ap-flux-focus-lbl" id="ap-flux-lbl">Standby</span>
               <span class="ap-flux-focus-val" id="ap-flux-val">Warte auf Daten...</span>
               <span class="ap-flux-focus-detail" id="ap-flux-detail">Initialisiere Quantenkern</span>
+              <div class="ap-flux-granular" id="ap-flux-granular">
+                <div class="ap-flux-granular-item"><span class="ap-flux-granular-key">Regel</span><span class="ap-flux-granular-val" id="ap-flux-rule">—</span></div>
+                <div class="ap-flux-granular-item"><span class="ap-flux-granular-key">Detail</span><span class="ap-flux-granular-val" id="ap-flux-detail-short">—</span></div>
+                <div class="ap-flux-granular-item"><span class="ap-flux-granular-key">Priorität</span><span class="ap-flux-granular-val" id="ap-flux-severity">INFO</span></div>
+                <div class="ap-flux-granular-item"><span class="ap-flux-granular-key">Treffer</span><span class="ap-flux-granular-val" id="ap-flux-count">0</span></div>
+              </div>
             </div>
             <div class="ap-flux-stream" id="ap-flux-stream"></div>
           </div>
@@ -4699,6 +4722,10 @@ async function renderProgressAndThenResult(result) {
   const fluxLbl = document.getElementById("ap-flux-lbl");
   const fluxVal = document.getElementById("ap-flux-val");
   const fluxDetail = document.getElementById("ap-flux-detail");
+  const fluxRule = document.getElementById("ap-flux-rule");
+  const fluxDetailShort = document.getElementById("ap-flux-detail-short");
+  const fluxSeverity = document.getElementById("ap-flux-severity");
+  const fluxCount = document.getElementById("ap-flux-count");
 
   const log = result.log;
   const telemetryEvents = result.ruleTelemetry?.events || [];
@@ -4766,10 +4793,17 @@ async function renderProgressAndThenResult(result) {
     if (!event) return;
     const activeText = event.phase ? (phaseNames[event.phase] || event.phase) : "Telemetry";
     
-    if (fluxLbl) fluxLbl.textContent = `${activeText} // ${(event.severity || "info").toUpperCase()}`;
+    const severity = (event.severity || "info").toUpperCase();
+    const detailText = event.detail || "Keine Zusatzdetails";
+
+    if (fluxLbl) fluxLbl.textContent = `${activeText} // ${severity}`;
     if (fluxVal) fluxVal.textContent = event.label;
-    if (fluxDetail) fluxDetail.textContent = event.detail;
-    
+    if (fluxDetail) fluxDetail.textContent = detailText;
+    if (fluxRule) fluxRule.textContent = event.label || "—";
+    if (fluxDetailShort) fluxDetailShort.textContent = detailText;
+    if (fluxSeverity) fluxSeverity.textContent = severity;
+    if (fluxCount) fluxCount.textContent = String(event.count || 0);
+
     appendFluxLine(`> RULE_TRIGGER: ${event.label}`);
   }
 
@@ -4873,6 +4907,7 @@ function renderResultView() {
   const { summary } = autoPlanResult;
   const quality = summary.quality || {};
   const body = document.getElementById("ap-body");
+  setAutoPlanBodyMode("overview");
   body.style.height = "auto";
   body.style.maxHeight = "72vh";
   body.style.overflowY = "auto";
@@ -4911,13 +4946,13 @@ function renderResultView() {
     const expandedCls = isExpanded ? "" : " is-collapsed";
     return `
       <div class="ap-collapse-wrap${expandedCls}">
-        <div class="ap-collapse-head" onclick="this.parentElement.classList.toggle('is-collapsed')">
+        <button type="button" class="ap-collapse-head" onclick="toggleReportAccordion(this)" aria-expanded="${isExpanded ? 'true' : 'false'}">
           <div class="ap-collapse-title">
             <span class="ap-sect-badge" style="background:${badgeColor};color:#fff">${badgeText}</span>
             ${title}
           </div>
           <svg class="ap-collapse-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
+        </button>
         <div class="ap-collapse-content">
           <div class="ap-collapse-content-inner">
             <div class="ap-collapse-content-pad">
