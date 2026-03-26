@@ -362,6 +362,13 @@ tr:hover .emp-del { opacity: 1; }
   font-family: var(--font-mono); font-size: 10px; font-weight: 700;
   text-align: center; line-height: 1.2; word-break: break-all; max-width: 100%;
 }
+.cell-assign-rbn {
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+  word-break: normal !important;
+  letter-spacing: -0.01em;
+}
 .td-cell.empty-wd .cell-inner::after {
   content: ''; width: 5px; height: 5px; border-radius: 50%;
   background: var(--gray-200); transition: background .1s, transform 0.15s; flex-shrink: 0;
@@ -1066,8 +1073,6 @@ body.plan-mode-active #app-header::after {
   opacity: .8;
 }
 body.plan-mode-active #btn-plan { background: rgba(251,191,36,.2) !important; border-color: rgba(251,191,36,.45) !important; color: #FCD34D !important; }
-body.plan-mode-active .month-nav { border-color: rgba(245,158,11,.3); }
-body.plan-mode-active #btn-import,
 body.plan-mode-active #grid-wrapper { box-shadow: inset 0 0 0 3px rgba(245,158,11,.35); outline: none; }
 body.plan-mode-active .th-corner { background: linear-gradient(135deg, #3B1000 0%, #6B2100 100%); }
 body.plan-mode-active .th-corner-inner::after {
@@ -1665,7 +1670,7 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
 }
 .td-cell-rbn .cell-assign-rbn {
   color: #0C4A6E;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -1782,12 +1787,8 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   background: var(--gray-100);
 }
 .ap-collapse-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--gray-800);
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 700; color: var(--gray-800);
 }
 .ap-collapse-icon {
   transition: transform .3s cubic-bezier(.34,1.2,.64,1);
@@ -1822,8 +1823,7 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   border-radius: var(--radius-sm);
   padding: 12px;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: column; gap: 6px;
   animation: modalIn 0.3s ease-out backwards;
 }
 .ap-report-header {
@@ -1997,6 +1997,7 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   #month-label { min-width: 70px; font-size: 11px; }
   .nav-btn { padding: 4px 6px; font-size: 14px; }
   .cell-assign { font-size: 8px; }
+  .cell-assign-rbn { font-size: 7.5px !important; }
   .td-name { padding: 0 4px 0 6px; }
   .emp-label { font-size: 11px; }
   .emp-pos-tag { font-size: 7.5px; padding: 1px 3px; }
@@ -2413,8 +2414,7 @@ body.is-mobile.plan-mode-active .mobile-day-list {
   background: #F8FAFC;
   border-bottom: 1px solid rgba(226,232,240,.5);
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: center; gap: 6px;
   flex-shrink: 0;
 }
 .mday-section-hd::before {

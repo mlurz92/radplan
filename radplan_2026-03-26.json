@@ -31864,6 +31864,9 @@
         },
         "Dr. Polednia": {},
         "Fr. Dalitz": {
+          "1": {
+            "assignment": "F"
+          },
           "29": {
             "duty": "D"
           },
@@ -31875,6 +31878,9 @@
           }
         },
         "Dr. Becker": {
+          "1": {
+            "assignment": "F"
+          },
           "4": {
             "assignment": "U"
           },
@@ -31930,6 +31936,9 @@
           }
         },
         "Hr. El Houba": {
+          "1": {
+            "assignment": "F"
+          },
           "25": {
             "assignment": "U"
           },
@@ -31953,6 +31962,9 @@
           }
         },
         "Fr. Licenji": {
+          "1": {
+            "assignment": "F"
+          },
           "15": {
             "duty": "D"
           },
@@ -32007,7 +32019,11 @@
             "assignment": "U"
           }
         },
-        "Hr. Sebastian": {}
+        "Hr. Sebastian": {
+          "1": {
+            "assignment": "F"
+          }
+        }
       },
       "rbn": {}
     },

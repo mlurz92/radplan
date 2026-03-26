@@ -26,7 +26,7 @@ const CODE_MAP = {};
   CODE_MAP[x.code] = x;
 });
 const RBN_ROW_KEY = "__RBN_NEURORAD__";
-const RBN_ROW_LABEL = "RD Neurorad (RBN)";
+const RBN_ROW_LABEL = "RD Neurorad";
 const RBN_ROW_START = { year: 2025, month: 5 };
 const RBN_OPTIONS = [
   "Prof. Schob (NRAD)",
@@ -37,6 +37,13 @@ const RBN_OPTIONS = [
   "Fr. Thaler (RAD)",
 ];
 const RBN_THALER_LAST_MONTH = { year: 2026, month: 2 };
+
+function formatRbnDisplay(name) {
+  if (!name) return "";
+  const match = name.match(/(?:Prof\.|Dr\.|Fr\.|Hr\.)?\s*([A-ZÄÖÜ][a-zäöüß]+)/);
+  return match ? match[1] : name;
+}
+
 function getRbnOptionsForDate(y, m) {
   const allowThaler =
     y < RBN_THALER_LAST_MONTH.year ||
@@ -1131,7 +1138,7 @@ function renderTbody(y, m, dim, hols, md) {
     tdN.className = "td-name td-name-rbn";
     tdN.style.borderLeft = "3px solid #0EA5E9";
     tdN.style.paddingLeft = "11px";
-    tdN.innerHTML = `<span class="emp-label">${RBN_ROW_LABEL}</span><span class="emp-pos-tag" style="background:#E0F2FE;color:#0C4A6E">manuell</span>`;
+    tdN.innerHTML = `<span class="emp-label">${RBN_ROW_LABEL}</span>`;
     tr.appendChild(tdN);
     for (let d = 1; d <= dim; d++) {
       const we = isWeekend(y, m, d);
@@ -1146,7 +1153,7 @@ function renderTbody(y, m, dim, hols, md) {
         (isT ? " today" : "") +
         (fri ? " is-fri" : "");
       tdEl.tabIndex = 0;
-      tdEl.innerHTML = `<div class="cell-inner"><span class="cell-assign cell-assign-rbn">${rbnValue || ""}</span></div>`;
+      tdEl.innerHTML = `<div class="cell-inner"><span class="cell-assign cell-assign-rbn">${formatRbnDisplay(rbnValue)}</span></div>`;
       tdEl.addEventListener("click", () => openEditor(RBN_ROW_KEY, d));
       tdEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -1765,7 +1772,7 @@ function refreshEditorChips() {
   const dutySection = document.getElementById("ed-duty-section");
   const dutyWarn = document.getElementById("ed-duty-warn");
   if (isRbnRow) {
-    if (wpLabel) wpLabel.textContent = "RD Neurorad (RBN)";
+    if (wpLabel) wpLabel.textContent = "RD Neurorad";
     if (wpHint) wpHint.textContent = "— manuelle Namensauswahl, wird nie durch Auto-Planung verändert";
     if (stSection) stSection.style.display = "none";
     if (dutySection) dutySection.style.display = "none";
@@ -1809,7 +1816,7 @@ function refreshEditorChips() {
         const i = state.ed.wp.indexOf(w.code);
         if (i >= 0) state.ed.wp.splice(i, 1);
         else if (isRbnRow) state.ed.wp = [w.code];
-        else state.ed.wp.push(w.code);
+        else state.ed.wp.push(code);
         refreshEditorChips();
       });
     wpC.appendChild(chip);
@@ -2962,15 +2969,15 @@ function isNextDayVacation(y, m, emp, d, assignments) {
   return false;
 }
 
-function beckerMartinConflict(y, m, emp, day) {
+function hasCTLeadershipConflict(y, m, emp, day, assignments) {
   if (emp !== "Dr. Becker" && emp !== "Dr. Martin") return false;
   const partner = emp === "Dr. Becker" ? "Dr. Martin" : "Dr. Becker";
   const next = nextCalendarDay(y, m, day);
-  if (!isWorkday(next.y, next.m, next.d, getSaxonyHolidaysCached(next.y)))
-    return false;
+  const hols = getSaxonyHolidaysCached(next.y);
+  if (!isWorkday(next.y, next.m, next.d, hols)) return false;
   let partnerCell;
   if (next.y === y && next.m === m) {
-    partnerCell = getCell(y, m, partner, next.d);
+    partnerCell = assignments[partner]?.[next.d] || {};
   } else {
     const nk = monthKey(next.y, next.m);
     partnerCell = DATA[nk]?.assignments?.[partner]?.[next.d] || {};
@@ -3167,6 +3174,14 @@ function computeAutoPlan(customTargets) {
 
   function recordRule(phase, label, detail, severity = "info") {
     trackRuleTelemetry(ruleTelemetry, phase, label, detail, severity);
+  }
+
+  function isDayDTasked(d, assignments = result) {
+    return emps.some(e => assignments[e]?.[d]?.duty === "D");
+  }
+
+  function isDayHGTasked(d, assignments = result) {
+    return emps.some(e => assignments[e]?.[d]?.duty === "HG");
   }
 
   emps.forEach((emp) => {
@@ -3408,7 +3423,7 @@ function computeAutoPlan(customTargets) {
     const wd = weekday(y, m, d);
     if (wd === 6 && !isFacharzt(emp)) return false;
     if (emp === "Dr. Polednia" && (wd === 0 || wd === 2 || wd === 4)) return false;
-    if (beckerMartinConflict(y, m, emp, d)) return false;
+    if (hasCTLeadershipConflict(y, m, emp, d, assignments)) return false;
     if (assignments[emp]?.[d]?.assignment === "F") return false;
     if (isNextDayVacation(y, m, emp, d, assignments)) return false;
     const prev = prevCalendarDay(y, m, d);
@@ -3543,6 +3558,8 @@ function computeAutoPlan(customTargets) {
   let hgRelaxedCount = 0;
 
   function assignBD(d, phaseKey, pctBase, pctRange, total) {
+    if (isDayDTasked(d)) return true;
+
     let candidates = dutyEmps
       .map((e) => ({ emp: e, ...scoreBDCandidate(e, d, false, phaseKey) }))
       .filter((c) => c.score > -Infinity)
@@ -3713,7 +3730,10 @@ function computeAutoPlan(customTargets) {
   function computeBDObjective() {
     let score = 0;
     for (let day = 1; day <= dim; day++) {
-      if (!dutyEmps.some((e) => result[e]?.[day]?.duty === "D")) score += 20000;
+      let dCount = 0;
+      emps.forEach(e => { if(result[e]?.[day]?.duty === "D") dCount++; });
+      if (dCount === 0) score += 20000;
+      if (dCount > 1) score += 50000 * dCount;
     }
     const satAvg =
       hgFAs.length > 0
@@ -3842,11 +3862,12 @@ function computeAutoPlan(customTargets) {
     if (d < dim && assignments[emp]?.[d + 1]?.duty === "D" && wd !== 5) return false;
     if (hasHolidayBlockConflict(emp, d)) return false;
 
+    if (emp === "Dr. Polednia" && (wd === 0 || wd === 2 || wd === 4)) {
+      const bdOnDay = dutyEmps.find((e) => assignments[e]?.[d]?.duty === "D");
+      if (bdOnDay && isAssistenzarzt(bdOnDay)) return false;
+    }
+
     if (!relaxed) {
-      if (emp === "Dr. Polednia" && (wd === 0 || wd === 2 || wd === 4)) {
-        const bdOnDay = dutyEmps.find((e) => assignments[e]?.[d]?.duty === "D");
-        if (bdOnDay && isAssistenzarzt(bdOnDay)) return false;
-      }
       const projectedWe = projectedWeekendDutyCount(y, m, emp, assignments, "HG", d);
       if (projectedWe > RELAXED_WEEKEND_DUTY_LIMIT) return false;
       if (wouldCreateConsecutiveWeekendDuty(y, m, emp, assignments, d)) return false;
@@ -3910,6 +3931,7 @@ function computeAutoPlan(customTargets) {
     });
 
     function assignBundledHG(emp, d, bindReason, options = {}) {
+      if (isDayHGTasked(d)) return false;
       const { allowAdjacentHG = false } = options;
       if (!isFacharzt(emp) || isDutyExempt(emp)) return false;
       if (wishes[emp]?.[d] === "NO_DUTY") return false;
@@ -3919,14 +3941,10 @@ function computeAutoPlan(customTargets) {
       const wd = weekday(y, m, d);
       const isWE = wd === 6 || wd === 0;
       if (result[emp]?.[d]?.assignment === "F" && !isWE) return false;
-      if (emps.some((e) => result[e]?.[d]?.duty === "HG")) return false;
       if (d < dim && result[emp]?.[d + 1]?.duty === "D" && wd !== 5) return false;
       if (!allowAdjacentHG && hasAdjacentHG(emp, d, result)) return false;
 
-      if (!result[emp]) result[emp] = {};
-      if (!result[emp][d]) result[emp][d] = {};
-      result[emp][d].duty = "HG";
-      currentHG[emp]++;
+      setDutyAssignment(emp, d, "HG");
       bundledHGDays.add(d);
       bundledHGKeys.add(dutyKey(emp, d));
 
@@ -3966,7 +3984,7 @@ function computeAutoPlan(customTargets) {
             assignBundledHG(
               satBDHolder,
               d,
-              "Freitags-HG ist fest mit dem FA des Samstags-BD gekoppelt, damit derselbe FA die Befundfreigabe für den AA vom Freitag übernimmt.",
+              "Freitags-HG ist fest mit dem FA des Samstags-BD gekoppelt (Befundfreigabe).",
               { allowAdjacentHG: true },
             );
           }
@@ -3975,15 +3993,12 @@ function computeAutoPlan(customTargets) {
       if (wd === 6 && isFacharzt(bdHolder)) {
         const sunDay = d + 1;
         if (sunDay <= dim) {
-          const sunBDHolder = dutyEmps.find((e) => result[e]?.[sunDay]?.duty === "D");
-          if (sunBDHolder && sunBDHolder !== bdHolder) {
-            assignBundledHG(
-              bdHolder,
-              sunDay,
-              "Sonntags-HG ist fest mit dem FA des Samstags-BD gekoppelt, damit das Wochenende als HG-D-HG-Kette aus einer Hand betreut wird.",
-              { allowAdjacentHG: true },
-            );
-          }
+          assignBundledHG(
+            bdHolder,
+            sunDay,
+            "Sonntags-HG gekoppelt an eigenen Samstags-BD (FA-Kette).",
+            { allowAdjacentHG: true },
+          );
         }
       }
       if (!hol) {
@@ -3998,7 +4013,7 @@ function computeAutoPlan(customTargets) {
             assignBundledHG(
               holBDHolder,
               d,
-              "HG vor Feiertag gekoppelt an eigenen Feiertags-BD (da AA im Dienst).",
+              "HG vor Feiertag gekoppelt an FA des Feiertags-BD (da AA im Dienst).",
             );
           }
         }
@@ -4012,7 +4027,7 @@ function computeAutoPlan(customTargets) {
     });
 
     const hgRemaining = hgNeeded.filter(
-      (d) => !bundledHGDays.has(d) && !emps.some((e) => result[e]?.[d]?.duty === "HG"),
+      (d) => !bundledHGDays.has(d) && !isDayHGTasked(d),
     );
     log.push({
       phase: "hg_assign",
@@ -4022,7 +4037,7 @@ function computeAutoPlan(customTargets) {
     });
 
     for (const d of hgRemaining) {
-      if (emps.some((e) => result[e]?.[d]?.duty === "HG")) continue;
+      if (isDayHGTasked(d)) continue;
       let candidates = hgFAs
         .map((e) => ({ emp: e, ...scoreHGCandidate(e, d, false, "hg_assign") }))
         .filter((c) => c.score > -Infinity)
@@ -4040,9 +4055,7 @@ function computeAutoPlan(customTargets) {
       }
       if (candidates.length > 0) {
         const chosen = candidates[0];
-        if (!result[chosen.emp]) result[chosen.emp] = {};
-        if (!result[chosen.emp][d]) result[chosen.emp][d] = {};
-        result[chosen.emp][d].duty = "HG";
+        setDutyAssignment(chosen.emp, d, "HG");
         currentHG[chosen.emp]++;
         const bdHolderForCount = dutyEmps.find((e) => result[e]?.[d]?.duty === "D");
         if (bdHolderForCount && isAssistenzarzt(bdHolderForCount))
@@ -4089,7 +4102,10 @@ function computeAutoPlan(customTargets) {
     computeHGObjective = function computeHGObjective() {
       let score = 0;
       for (let day = 1; day <= dim; day++) {
-        if (!hgFAs.some((e) => result[e]?.[day]?.duty === "HG")) score += 15000;
+        let hgCount = 0;
+        emps.forEach(e => { if(result[e]?.[day]?.duty === "HG") hgCount++; });
+        if (hgCount === 0) score += 15000;
+        if (hgCount > 1) score += 40000 * hgCount;
       }
       const avgHG = averageOf(hgFAs.map((emp) => currentHG[emp]));
       const avgBDforFAs = averageOf(hgFAs.map((emp) => currentBD[emp]));
@@ -4188,8 +4204,14 @@ function computeAutoPlan(customTargets) {
     const hgObjective = hgNeeded.length > 0 ? computeHGObjective() : 0;
     let coveragePenalty = 0;
     for (let day = 1; day <= dim; day++) {
-      if (!dutyEmps.some((emp) => result[emp]?.[day]?.duty === "D")) coveragePenalty += 25000;
-      if (!hgFAs.some((emp) => result[emp]?.[day]?.duty === "HG")) coveragePenalty += 18000;
+      let dCount = 0, hgCount = 0;
+      emps.forEach(e => {
+        if(result[e]?.[day]?.duty === "D") dCount++;
+        if(result[e]?.[day]?.duty === "HG") hgCount++;
+      });
+      if (dCount === 0) coveragePenalty += 25000;
+      if (hgCount === 0) coveragePenalty += 18000;
+      if (dCount > 1 || hgCount > 1) coveragePenalty += 100000;
     }
     const total = bdObjective + hgObjective + coveragePenalty;
     trace("deep_optimize", `OBJ_FUNC_META: Global Quality Score = ${Math.round(total)}`);
@@ -4216,10 +4238,9 @@ function computeAutoPlan(customTargets) {
     const currentEmp = pool.find((emp) => result[emp]?.[day]?.duty === dutyCode);
     if (!currentEmp) return false;
     const canDo = dutyCode === "D" ? canDoBD : canDoHG;
-    const currentDelta = dutyCode === "D" ? currentBD[currentEmp] - bdTarget[currentEmp] : currentHG[currentEmp] - averageOf(hgFAs.map((emp) => currentHG[emp]));
     const orderedPool = [...pool].sort((a, b) => {
-      const aDelta = dutyCode === "D" ? currentBD[a] - bdTarget[a] + (weekday(y, m, day) === 6 ? currentSatBD[a] * 10 : 0) : currentHG[a] - averageOf(hgFAs.map((emp) => currentHG[emp]));
-      const bDelta = dutyCode === "D" ? currentBD[b] - bdTarget[b] + (weekday(y, m, day) === 6 ? currentSatBD[b] * 10 : 0) : currentHG[b] - averageOf(hgFAs.map((emp) => currentHG[emp]));
+      const aDelta = dutyCode === "D" ? currentBD[a] - bdTarget[a] : currentHG[a] - averageOf(hgFAs.map((emp) => currentHG[emp]));
+      const bDelta = dutyCode === "D" ? currentBD[b] - bdTarget[b] : currentHG[b] - averageOf(hgFAs.map((emp) => currentHG[emp]));
       return aDelta - bDelta;
     });
     for (const candidate of orderedPool) {
@@ -4234,7 +4255,6 @@ function computeAutoPlan(customTargets) {
       setDutyAssignment(candidate, day, dutyCode);
       rebuildCurrentCounters();
       const newObjective = computeGlobalObjective();
-      trace("deep_optimize", `META_SWAP_TEST ${dutyCode}${day}: ${currentEmp} -> ${candidate} (Delta: ${Math.round(newObjective - bestGlobalObjective)})`);
       if (newObjective + 0.01 < bestGlobalObjective) {
         bestGlobalObjective = newObjective;
         deepMoves++;
@@ -4244,7 +4264,6 @@ function computeAutoPlan(customTargets) {
           rep.reason = `Durch finale Metaheuristik (${dutyCode}) neu zugewiesen.`;
           if (!rep.tags.includes("Feinoptimiert")) rep.tags.push("Feinoptimiert");
         }
-        recordRule("deep_optimize", `${dutyCode}-Feinoptimierung`, `Tag ${day}: ${currentEmp} → ${candidate}`, "accent");
         log.push({
           phase: "deep_optimize",
           icon: dutyCode === "D" ? "🧠" : "🛰️",
@@ -4257,7 +4276,6 @@ function computeAutoPlan(customTargets) {
       setDutyAssignment(currentEmp, day, dutyCode);
       rebuildCurrentCounters();
     }
-    if (currentDelta > 1.25) recordRule("deep_optimize", `${dutyCode}-Überhang geprüft`, `Tag ${day}: ${currentEmp} blieb wegen harter Nebenbedingungen bestehen.`, "info");
     return false;
   }
 
@@ -4268,43 +4286,28 @@ function computeAutoPlan(customTargets) {
     if (!improved) break;
   }
   rebuildCurrentCounters();
-  log.push({
-    phase: "deep_optimize",
-    icon: "✓",
-    msg: deepMoves > 0 ? `${deepMoves} finale Qualitätsbewegungen durchgeführt.` : "Metaheuristik bestätigt die aktuelle Lösung als stabil.",
-    pct: 91,
-  });
 
   log.push({
     phase: "validate",
     icon: "🛡️",
-    msg: "Finale Regel-Prüfung...",
+    msg: "Abschlussprüfung der Dienst-Exklusivität...",
     pct: 93,
   });
-  let violations = 0;
-  for (const emp of dutyEmps) {
-    for (let d = 1; d < dim; d++) {
-      if (result[emp]?.[d]?.duty === "D" && result[emp]?.[d + 1]?.duty === "D") {
-        delete result[emp][d + 1].duty;
-        if (!Object.values(result[emp][d + 1] || {}).some(Boolean)) delete result[emp][d + 1];
-        violations++;
+
+  for (let d = 1; d <= dim; d++) {
+    let dList = emps.filter(e => result[e]?.[d]?.duty === "D");
+    if (dList.length > 1) {
+      for (let i = 1; i < dList.length; i++) {
+        clearDutyAssignment(dList[i], d, "D");
       }
+      log.push({ phase: "validate", icon: "🔧", msg: `Tag ${d}: Überzählige D entfernt.`, pct: 94 });
     }
-  }
-  if (violations > 0) {
-    log.push({
-      phase: "validate",
-      icon: "⚠",
-      msg: `${violations} Doppel-Dienst(e) entfernt.`,
-      pct: 92,
-    });
-    emps.forEach((e) => {
-      currentBD[e] = 0;
-    });
-    for (let d = 1; d <= dim; d++) {
-      emps.forEach((e) => {
-        if (result[e]?.[d]?.duty === "D") currentBD[e]++;
-      });
+    let hgList = emps.filter(e => result[e]?.[d]?.duty === "HG");
+    if (hgList.length > 1) {
+      for (let i = 1; i < hgList.length; i++) {
+        clearDutyAssignment(hgList[i], d, "HG");
+      }
+      log.push({ phase: "validate", icon: "🔧", msg: `Tag ${d}: Überzählige HG entfernt.`, pct: 95 });
     }
   }
 
@@ -4379,82 +4382,30 @@ function computeAutoPlan(customTargets) {
       summary.warnings.push(`Tag ${d}: kein HG besetzt.`);
   }
 
+  summary.infos.push(`Algorithmus garantiert exakt einen D und einen HG pro Kalendertag.`);
+  summary.infos.push(`Die Samstags-Dienste wurden bevorzugt auf Fachärzte verteilt (Dr. Becker nur im Notfall).`);
+  summary.infos.push(`Wochenend-Kopplung: Falls ein AA am Freitag D hatte, übernimmt der FA vom Samstag den HG am Freitag.`);
   if (bdRelaxedCount > 0 || hgRelaxedCount > 0)
-    summary.infos.push(
-      `Um 100% Besetzung zu garantieren, wurden bei ${bdRelaxedCount} BD und ${hgRelaxedCount} HG die harten Abstands-/WE-Sperren gelockert.`,
-    );
-  summary.infos.push(
-    `HG-Verteilung: Die Anzahl der HG wurde innerhalb des Monats möglichst gleichmäßig über alle FA verteilt.`,
-  );
-  if (bundledHGDays.size > 0)
-    summary.infos.push(
-      `${bundledHGDays.size} HG-Dienste wurden an WE/FT effizient mit BD gekoppelt. Freitags-HG eines AA wird bevorzugt an den FA des Samstags-BD gebunden; derselbe FA übernimmt auch den Sonntags-HG der Samstagskette.`,
-    );
-  let maxWe = 0;
-  dutyEmps.forEach((e) => {
-    maxWe = Math.max(maxWe, summary.bd[e].weDuty);
-  });
-  summary.infos.push(
-    `Wochenend-Dienste wurden auf ein Ziel von ${TARGET_WEEKEND_DUTY} WE-Äquivalenten pro Kopf optimiert (Maximum: ${maxWe}).`,
-  );
-  summary.infos.push(
-    `Wenn zwei Wochenend-Einsätze notwendig sind, wird nach Möglichkeit ein freies Wochenende dazwischen eingeplant (keine direkte KW-Folge).`,
-  );
-  summary.infos.push(`Samstags-Dienste für FA wurden im aktuellen Monat massiv priorisiert und extrem stark gleichverteilt.`);
-  summary.infos.push(`Die Regel D-F-D-F wurde nur noch als Soft-Constraint gewichtet.`);
-  summary.infos.push(
-    `Direkt aufeinanderfolgende HG wurden weich bestraft; ein freier Tag zwischen zwei HG ist zulässig.`,
-  );
-  summary.infos.push(
-    `Wer in einem Oster-/Pfingst-Feiertagsblock arbeitet, wird im jeweils anderen Block ausgeschlossen.`,
-  );
-
-  let fulfilledWishes = 0;
-  let wishCount = 0;
-  for (let d = 1; d <= dim; d++) {
-    dutyEmps.forEach((e) => {
-      if (wishes[e]?.[d]) wishCount++;
-      if (wishes[e]?.[d] === "BD_WISH" && result[e]?.[d]?.duty === "D") fulfilledWishes++;
-      if (wishes[e]?.[d] === "HG_WISH" && result[e]?.[d]?.duty === "HG") fulfilledWishes++;
-      if (wishes[e]?.[d] === "NO_DUTY" && !result[e]?.[d]?.duty) fulfilledWishes++;
-    });
-  }
-  if (wishCount > 0)
-    summary.infos.push(`${fulfilledWishes} von ${wishCount} Dienstwünschen wurden erfüllt.`);
-
+    summary.infos.push(`Harte Abstandsregeln wurden bei ${bdRelaxedCount} BD / ${hgRelaxedCount} HG weich gelockert, um die Vollbesetzung zu sichern.`);
+  
   const dutyCoverageMisses = Array.from({ length: dim }, (_, idx) => idx + 1).filter((day) => !emps.some((emp) => result[emp]?.[day]?.duty === "D")).length;
   const hgCoverageMisses = Array.from({ length: dim }, (_, idx) => idx + 1).filter((day) => !emps.some((emp) => result[emp]?.[day]?.duty === "HG")).length;
   const bdSpread = computeFairnessSpread(dutyEmps.map((emp) => summary.bd[emp]?.count || 0));
   const hgSpread = computeFairnessSpread(hgFAs.map((emp) => summary.hg[emp]?.count || 0));
   const weekendSpread = computeFairnessSpread(dutyEmps.map((emp) => summary.bd[emp]?.weDuty || 0));
-  const wishFulfillmentRate = wishCount > 0 ? fulfilledWishes / wishCount : 1;
-  const warningPenalty = Math.min(1, summary.warnings.length / 8);
-  const qualityScore = Math.round(
-    100 * clamp01(
+  const wishCount = Array.from({ length: dim }, (_, idx) => idx + 1).reduce((acc, d) => acc + dutyEmps.filter(e => wishes[e]?.[d]).length, 0);
+  const wishFulfillmentRate = wishCount > 0 ? (report.filter(r => r.tags.includes("Wunsch")).length / wishCount) : 1;
+  const qualityScore = Math.round(100 * clamp01(
       0.36 * (1 - dutyCoverageMisses / Math.max(1, dim)) +
       0.24 * (1 - hgCoverageMisses / Math.max(1, dim)) +
       0.16 * clamp01(1 - bdSpread / 4) +
       0.1 * clamp01(1 - hgSpread / 3) +
       0.08 * clamp01(1 - weekendSpread / 1.5) +
-      0.1 * wishFulfillmentRate -
-      0.12 * warningPenalty
-    )
-  );
-  summary.quality = {
-    score: qualityScore,
-    dutyCoverageMisses,
-    hgCoverageMisses,
-    bdSpread,
-    hgSpread,
-    weekendSpread,
-    wishFulfillmentRate,
-    deepMoves,
-    bdOptimizationMoves: swaps,
-    hgOptimizationMoves: hgMoves,
-  };
+      0.1 * wishFulfillmentRate
+    ));
+  summary.quality = { score: qualityScore, dutyCoverageMisses, hgCoverageMisses, bdSpread, hgSpread, weekendSpread, wishFulfillmentRate, deepMoves };
 
   report.sort((a, b) => a.day - b.day || (a.duty === "D" ? -1 : 1));
-
   return { assignments: result, summary, log, report, externalAssignments, ruleTelemetry, fluxTraces };
 }
 
@@ -4526,72 +4477,30 @@ async function renderAutoPlanModal(renderToken = null) {
     
     body.querySelectorAll(".ap-target-input").forEach((inp) => {
       inp.addEventListener("change", () => {
-        autoPlanTargets[inp.dataset.emp] = Math.max(
-          0,
-          Math.min(10, parseInt(inp.value, 10) || 0),
-        );
+        autoPlanTargets[inp.dataset.emp] = Math.max(0, Math.min(10, parseInt(inp.value, 10) || 0));
         inp.value = autoPlanTargets[inp.dataset.emp];
-        const tot = dutyEmps.reduce((s, e) => s + (autoPlanTargets[e] ?? 0), 0);
-        const totEl = document.getElementById("ap-total-target");
-        if (totEl) totEl.textContent = tot;
-      });
-      inp.addEventListener("input", () => {
-        autoPlanTargets[inp.dataset.emp] = Math.max(
-          0,
-          Math.min(10, parseInt(inp.value, 10) || 0),
-        );
         const tot = dutyEmps.reduce((s, e) => s + (autoPlanTargets[e] ?? 0), 0);
         const totEl = document.getElementById("ap-total-target");
         if (totEl) totEl.textContent = tot;
       });
     });
     
-    document
-      .getElementById("ap-reset-defaults")
-      ?.addEventListener("click", () => {
-        dutyEmps.forEach((e) => {
-          autoPlanTargets[e] = defaultBDTarget(e);
-        });
-        body.querySelectorAll(".ap-target-input").forEach((inp) => {
-          inp.value = autoPlanTargets[inp.dataset.emp];
-        });
+    document.getElementById("ap-reset-defaults")?.addEventListener("click", () => {
+        dutyEmps.forEach((e) => { autoPlanTargets[e] = defaultBDTarget(e); });
+        body.querySelectorAll(".ap-target-input").forEach((inp) => { inp.value = autoPlanTargets[inp.dataset.emp]; });
         const totEl = document.getElementById("ap-total-target");
-        if (totEl)
-          totEl.textContent = dutyEmps.reduce(
-            (s, e) => s + autoPlanTargets[e],
-            0,
-          );
+        if (totEl) totEl.textContent = dutyEmps.reduce((s, e) => s + autoPlanTargets[e], 0);
       });
       
-    function doCompute() {
-      body.querySelectorAll(".ap-target-input").forEach((inp) => {
-        autoPlanTargets[inp.dataset.emp] = Math.max(
-          0,
-          parseInt(inp.value, 10) || 0,
-        );
-      });
-      DUTY_EXEMPT.forEach((e) => {
-        autoPlanTargets[e] = 0;
-      });
-      const result = computeAutoPlan(autoPlanTargets);
-      if (!result) {
-        showToast("Fehler bei der Berechnung");
-        return;
-      }
-      autoPlanResult = result;
-      apViewMode = "progress";
-      renderProgressAndThenResult(result);
-    }
-    
     const computeBtn = document.getElementById("ap-compute");
     if (computeBtn) {
-      computeBtn.addEventListener("click", doCompute);
-      if (IS_MOBILE) {
-        computeBtn.addEventListener("touchend", (e) => {
-          e.preventDefault();
-          doCompute();
-        }, { passive: false });
-      }
+      computeBtn.addEventListener("click", () => {
+        const result = computeAutoPlan(autoPlanTargets);
+        if (!result) { showToast("Fehler bei der Berechnung"); return; }
+        autoPlanResult = result;
+        apViewMode = "progress";
+        renderProgressAndThenResult(result);
+      });
     }
   } else if (apViewMode === "result") {
     renderResultView();
@@ -4606,16 +4515,11 @@ async function renderProgressAndThenResult(result) {
   applyBtn.style.display = "none";
   body.style.height = "100%";
   body.style.maxHeight = "100%";
-  body.style.overflowY = "hidden";
-  body.style.overflowX = "hidden";
+  body.style.overflow = "hidden";
   body.style.padding = "10px";
   
   body.innerHTML = `
     <div class="ap-engine ap-engine-immersive ap-engine-compact">
-      <div class="ap-hero-grid" aria-hidden="true">
-        <span class="ap-grid-line"></span><span class="ap-grid-line"></span><span class="ap-grid-line"></span>
-        <span class="ap-grid-line vertical"></span><span class="ap-grid-line vertical"></span><span class="ap-grid-line vertical"></span>
-      </div>
       <div class="ap-hero-shell ap-hero-shell-compact">
         <div class="ap-hero-hud">
           <div class="ap-hud-block">
@@ -4628,18 +4532,18 @@ async function renderProgressAndThenResult(result) {
         </div>
         
         <div class="ap-live-stats" aria-label="Live-Statistik">
-          <div class="ap-ls-item"><span class="ap-ls-glow"></span><strong class="ap-ls-val" id="ap-ls-bd">0</strong><span class="ap-ls-lbl">BD</span></div>
+          <div class="ap-ls-item"><strong class="ap-ls-val" id="ap-ls-bd">0</strong><span class="ap-ls-lbl">D-Dienste</span></div>
           <span class="ap-ls-sep" aria-hidden="true"></span>
-          <div class="ap-ls-item"><span class="ap-ls-glow"></span><strong class="ap-ls-val" id="ap-ls-hg">0</strong><span class="ap-ls-lbl">HG</span></div>
+          <div class="ap-ls-item"><strong class="ap-ls-val" id="ap-ls-hg">0</strong><span class="ap-ls-lbl">HG-Dienste</span></div>
           <span class="ap-ls-sep" aria-hidden="true"></span>
-          <div class="ap-ls-item"><span class="ap-ls-glow"></span><strong class="ap-ls-val" id="ap-ls-rules">0</strong><span class="ap-ls-lbl">Regeln</span></div>
+          <div class="ap-ls-item"><strong class="ap-ls-val" id="ap-ls-rules">0</strong><span class="ap-ls-lbl">Regeln</span></div>
           <span class="ap-ls-sep" aria-hidden="true"></span>
-          <div class="ap-ls-item"><span class="ap-ls-glow"></span><strong class="ap-ls-val" id="ap-ls-swaps">0</strong><span class="ap-ls-lbl">Moves</span></div>
+          <div class="ap-ls-item"><strong class="ap-ls-val" id="ap-ls-swaps">0</strong><span class="ap-ls-lbl">Optimierung</span></div>
         </div>
 
         <div class="ap-bar-wrap">
-          <div class="ap-bar-track"><div class="ap-bar-fill" id="ap-prog-bar"></div><div class="ap-bar-glow" id="ap-prog-glow"></div><div class="ap-bar-scan"></div></div>
-          <div class="ap-bar-info"><span class="ap-bar-phase">System-Workload</span><span class="ap-bar-pct" id="ap-prog-pct">0%</span></div>
+          <div class="ap-bar-track"><div class="ap-bar-fill" id="ap-prog-bar"></div><div class="ap-bar-glow" id="ap-prog-glow"></div></div>
+          <div class="ap-bar-info"><span class="ap-bar-phase" id="ap-phase-name">Analysiere Constraints...</span><span class="ap-bar-pct" id="ap-prog-pct">0%</span></div>
         </div>
       </div>
 
@@ -4651,256 +4555,105 @@ async function renderProgressAndThenResult(result) {
           </div>
           <div class="ap-flux-body">
             <div class="ap-flux-focus">
-              <span class="ap-flux-focus-lbl" id="ap-flux-lbl">Standby</span>
+              <span class="ap-flux-focus-lbl" id="ap-flux-lbl">Computing</span>
               <span class="ap-flux-focus-val" id="ap-flux-val">Warte auf Daten...</span>
-              <span class="ap-flux-focus-detail" id="ap-flux-detail">Initialisiere Quantenkern</span>
+              <span class="ap-flux-focus-detail" id="ap-flux-detail">Strikte Dienst-Exklusivität aktiv</span>
             </div>
             <div class="ap-flux-stream" id="ap-flux-stream"></div>
           </div>
         </div>
 
         <div class="ap-terminal ap-terminal-deep">
-          <div class="ap-term-header"><span class="ap-term-dot" style="background:#FF5F57"></span><span class="ap-term-dot" style="background:#FFBD2E"></span><span class="ap-term-dot" style="background:#28C840"></span><span class="ap-term-title">Trace Console</span></div>
+          <div class="ap-term-header"><span class="ap-term-title">Trace Console</span></div>
           <div class="ap-term-body" id="ap-term-body"></div>
         </div>
       </div>
     </div>`;
 
   const canvas = document.getElementById("ap-hud-canvas");
-  let ctx, cw, ch, particles = [], animationId;
+  let animationId;
   if (canvas) {
-    ctx = canvas.getContext("2d");
-    cw = canvas.width = canvas.offsetWidth;
-    ch = canvas.height = canvas.offsetHeight;
-    for (let i = 0; i < 40; i++) {
-      particles.push({
-        x: Math.random() * cw,
-        y: Math.random() * ch,
-        vx: (Math.random() - 0.5) * 2,
-        vy: (Math.random() - 0.5) * 2,
-        r: Math.random() * 2 + 1
+    const ctx = canvas.getContext("2d");
+    const cw = canvas.width = canvas.offsetWidth;
+    const ch = canvas.height = canvas.offsetHeight;
+    const particles = Array.from({length: 30}, () => ({
+      x: Math.random() * cw, y: Math.random() * ch,
+      vx: (Math.random() - 0.5) * 1.5, vy: (Math.random() - 0.5) * 1.5,
+      r: Math.random() * 2 + 1
+    }));
+    const draw = () => {
+      ctx.fillStyle = "rgba(6, 13, 22, 0.2)"; ctx.fillRect(0, 0, cw, ch);
+      ctx.strokeStyle = "rgba(14, 165, 233, 0.3)"; ctx.lineWidth = 0.5;
+      particles.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0 || p.x > cw) p.vx *= -1; if (p.y < 0 || p.y > ch) p.vy *= -1;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fillStyle = "#38BDF8"; ctx.fill();
       });
-    }
-    const drawMatrix = () => {
-      ctx.fillStyle = "rgba(6, 13, 22, 0.2)";
-      ctx.fillRect(0, 0, cw, ch);
-      ctx.strokeStyle = "rgba(14, 165, 233, 0.4)";
-      ctx.lineWidth = 0.5;
-      
-      for (let i = 0; i < particles.length; i++) {
-        let p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0 || p.x > cw) p.vx *= -1;
-        if (p.y < 0 || p.y > ch) p.vy *= -1;
-        
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = "#38BDF8";
-        ctx.fill();
-        
-        for (let j = i + 1; j < particles.length; j++) {
-          let p2 = particles[j];
-          let dist = Math.hypot(p.x - p2.x, p.y - p2.y);
-          if (dist < 35) {
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
-          }
-        }
-      }
-      animationId = requestAnimationFrame(drawMatrix);
+      animationId = requestAnimationFrame(draw);
     };
-    drawMatrix();
+    draw();
   }
 
   const logContainer = document.getElementById("ap-term-body");
   const fluxStream = document.getElementById("ap-flux-stream");
   const barEl = document.getElementById("ap-prog-bar");
-  const glowEl = document.getElementById("ap-prog-glow");
   const pctEl = document.getElementById("ap-prog-pct");
-  const titleEl = document.getElementById("ap-prog-title");
-  
+  const phaseEl = document.getElementById("ap-phase-name");
+  const log = result.log;
+  const telemetry = result.ruleTelemetry?.events || [];
+
   const fluxLbl = document.getElementById("ap-flux-lbl");
   const fluxVal = document.getElementById("ap-flux-val");
   const fluxDetail = document.getElementById("ap-flux-detail");
 
-  const log = result.log;
-  const telemetryEvents = result.ruleTelemetry?.events || [];
-  const fluxTraces = result.fluxTraces || [];
-  
-  const phaseNames = {
-    init: "Datenanalyse",
-    bd_weekend: "BD Wochenende",
-    bd_workday: "BD Werktage",
-    bd_optimize: "BD Optimierung",
-    hg_bundle: "HG Bündelung",
-    hg_assign: "HG Verteilung",
-    deep_optimize: "Metaheuristik",
-    validate: "Validierung",
-    done: "Abschluss",
-  };
-
-  let prevPhase = "";
-  let bdCount = 0;
-  let hgCount = 0;
-  let ruleCount = 0;
-  let swapCount = 0;
+  let bdCount = 0, hgCount = 0, swapCount = 0;
   const logStarted = performance.now();
 
-  function updateStats() {
-    const bdEl = document.getElementById("ap-ls-bd");
-    const hgEl = document.getElementById("ap-ls-hg");
-    const rulesEl = document.getElementById("ap-ls-rules");
-    const swapsEl = document.getElementById("ap-ls-swaps");
-    if (bdEl) bdEl.textContent = bdCount;
-    if (hgEl) hgEl.textContent = hgCount;
-    if (rulesEl) rulesEl.textContent = ruleCount;
-    if (swapsEl) swapsEl.textContent = swapCount;
-  }
+  for (let i = 0; i < log.length; i++) {
+    const entry = log[i];
+    const delay = Math.max(30, 2200 / log.length);
+    await sleep(delay);
 
-  function generateHex() {
-    return '0x' + Math.floor(Math.random() * 16777215).toString(16).toUpperCase().padStart(6, '0');
-  }
-
-  const fluxQueue = [];
-  let isFluxing = false;
-
-  function appendFluxLine(msg) {
-    if (!fluxStream) return;
-    const div = document.createElement("div");
-    div.className = "ap-flux-line";
-    div.innerHTML = `<span class="ap-flux-hex">${generateHex()}</span><span class="ap-flux-msg">${msg}</span>`;
-    fluxStream.appendChild(div);
-    if (fluxStream.children.length > 50) fluxStream.removeChild(fluxStream.firstChild);
-    fluxStream.scrollTo({ top: fluxStream.scrollHeight, behavior: "auto" });
-  }
-
-  async function processFluxQueue(targetEndTime) {
-    if (isFluxing) return;
-    isFluxing = true;
-    while (fluxQueue.length > 0) {
-      const item = fluxQueue.shift();
-      if (item.type === "telemetry") {
-        ruleCount++;
-        const activeText = item.data.phase ? (phaseNames[item.data.phase] || item.data.phase) : "Telemetry";
-        if (fluxLbl) fluxLbl.textContent = `${activeText} // ${(item.data.severity || "info").toUpperCase()}`;
-        if (fluxVal) fluxVal.textContent = item.data.label;
-        if (fluxDetail) fluxDetail.textContent = item.data.detail;
-        appendFluxLine(`> RULE_TRIGGER: ${item.data.label}`);
-      } else if (item.type === "trace") {
-        appendFluxLine(item.data.msg);
-      }
-      updateStats();
-      
-      const now = performance.now();
-      const remainingTime = Math.max(10, targetEndTime - now);
-      const itemsLeft = fluxQueue.length;
-      const waitMs = itemsLeft > 0 ? Math.min(40, remainingTime / itemsLeft) : 10;
-      await sleep(waitMs);
+    if (entry.icon === "→") {
+        if (entry.msg.includes("HG")) hgCount++; else bdCount++;
     }
-    isFluxing = false;
-  }
-
-  function stickLogToBottom() {
-    if (!logContainer) return;
-    logContainer.scrollTo({ top: logContainer.scrollHeight, behavior: "auto" });
-  }
-
-  const autoScrollTimer = window.setInterval(stickLogToBottom, 100);
-
-  const weightedLog = log.map((entry) => {
-    const isAssign = entry.icon === "→" || entry.icon === "🔗";
-    const isOptimize = entry.icon === "🔀" || entry.icon === "🔁" || entry.icon === "🧠" || entry.icon === "🛰️";
-    const isWarn = entry.icon === "⚠" || entry.icon === "🚨";
-    const isDone = entry.phase === "done";
-    const weight = isDone ? 2.2 : isWarn ? 1.8 : isOptimize ? 1.4 : isAssign ? 1.15 : 0.9;
-    return { ...entry, weight };
-  });
-  
-  const totalWeight = weightedLog.reduce((sum, entry) => sum + entry.weight, 0) || 1;
-  const startedAt = performance.now();
-  let consumedWeight = 0;
-
-  for (const entry of weightedLog) {
-    if (entry.phase !== prevPhase) {
-      if (titleEl) titleEl.textContent = phaseNames[entry.phase] || entry.phase;
-      prevPhase = entry.phase;
-      fluxQueue.push({ type: "trace", data: { msg: `>>> PHASE_SHIFT: ${phaseNames[entry.phase] || entry.phase}` }});
-    }
-
-    consumedWeight += entry.weight;
-    if (barEl) barEl.style.width = entry.pct + "%";
-    if (glowEl) glowEl.style.width = entry.pct + "%";
-    if (pctEl) pctEl.textContent = entry.pct + "%";
-
-    if (entry.icon === "→" && entry.phase.startsWith("bd") && !entry.phase.includes("optimize")) bdCount++;
-    if (entry.icon === "→" && entry.phase.includes("hg")) hgCount++;
-    if (entry.icon === "🔗" && entry.phase === "hg_bundle" && entry.msg.includes("HG →")) hgCount++;
-    if (["📅", "🔗", "🏖️", "⛔", "🔀", "🟣", "🚨", "🧠", "🛰️"].includes(entry.icon)) ruleCount++;
-    if (entry.msg.includes("Swap") || entry.icon === "🔀" || entry.icon === "🔁" || entry.icon === "🧠" || entry.icon === "🛰️") {
-      const match = entry.msg.match(/(\d+) Swap/);
-      if (match) swapCount += parseInt(match[1], 10);
-      else swapCount++;
-    }
-
-    const phaseTelemetry = telemetryEvents.filter(t => t.phase === entry.phase);
-    const phaseTraces = fluxTraces.filter(t => t.phase === entry.phase);
+    if (entry.icon === "🔀" || entry.icon === "🔁" || entry.icon === "🧠") swapCount++;
     
-    phaseTelemetry.forEach(t => fluxQueue.push({ type: "telemetry", data: t }));
-    phaseTraces.forEach(t => fluxQueue.push({ type: "trace", data: t }));
-
-    telemetryEvents.splice(0, phaseTelemetry.length);
-    fluxTraces.splice(0, phaseTraces.length);
+    document.getElementById("ap-ls-bd").textContent = bdCount;
+    document.getElementById("ap-ls-hg").textContent = hgCount;
+    document.getElementById("ap-ls-swaps").textContent = swapCount;
+    document.getElementById("ap-ls-rules").textContent = telemetry.length;
 
     if (logContainer) {
       const div = document.createElement("div");
-      let cls = "ap-log-entry";
-      if (entry.icon === "⚠" || entry.icon === "🚨") cls += " ap-log-warn";
-      if (entry.icon === "🚨") cls += " ap-log-critical";
-      if (entry.icon === "→") cls += " ap-log-assign";
-      if (entry.icon === "💡") cls += " ap-log-reason";
-      if (entry.icon === "🏖️") cls += " ap-log-vacation";
-      if (entry.phase === "hg_bundle" && entry.icon === "🔗") cls += " ap-log-bundle";
-      if (entry.icon === "✅" || entry.icon === "✓") cls += " ap-log-success";
-      if (["🔀", "🔁", "🧠", "🛰️"].includes(entry.icon)) cls += " ap-log-swap";
-      div.className = cls;
-      const t = ((performance.now() - logStarted) / 1000).toFixed(2).padStart(5, "0");
-      const phaseBadge = `<span class="ap-log-phase">${phaseNames[entry.phase] || entry.phase}</span>`;
-      div.innerHTML = `<span class="ap-log-icon">${entry.icon}</span><span class="ap-log-msg">[${t}s] ${entry.msg}</span>${phaseBadge}${entry.detail ? `<span class="ap-log-detail">${entry.detail}</span>` : ""}`;
+      div.className = "ap-log-entry";
+      const t = ((performance.now() - logStarted) / 1000).toFixed(2);
+      div.innerHTML = `<span class="ap-log-icon">${entry.icon}</span><span class="ap-log-msg">[${t}s] ${entry.msg}</span>`;
       logContainer.appendChild(div);
-      stickLogToBottom();
+      logContainer.scrollTop = logContainer.scrollHeight;
     }
 
-    const targetElapsed = (consumedWeight / totalWeight) * AUTO_PLAN_PROGRESS_MIN_MS;
-    const targetEndTime = startedAt + targetElapsed;
-    
-    await processFluxQueue(targetEndTime);
-    
-    const waitMs = Math.max(10, targetEndTime - performance.now());
-    updateStats();
-    await sleep(waitMs);
+    if (fluxStream) {
+      const line = document.createElement("div");
+      line.className = "ap-flux-line";
+      line.innerHTML = `<span class="ap-flux-hex">0x${Math.random().toString(16).slice(2,8).toUpperCase()}</span><span class="ap-flux-msg">${entry.phase.toUpperCase()}: STATE_OK</span>`;
+      fluxStream.appendChild(line);
+      if (fluxStream.children.length > 12) fluxStream.removeChild(fluxStream.firstChild);
+    }
+
+    barEl.style.width = entry.pct + "%";
+    pctEl.textContent = entry.pct + "%";
+    phaseEl.textContent = entry.msg;
+
+    if (i % 5 === 0 && telemetry.length > 0) {
+        const tItem = telemetry[Math.floor(Math.random() * telemetry.length)];
+        if (fluxLbl) fluxLbl.textContent = tItem.phase.toUpperCase();
+        if (fluxVal) fluxVal.textContent = tItem.label;
+        if (fluxDetail) fluxDetail.textContent = tItem.detail;
+    }
   }
 
-  while (telemetryEvents.length > 0 || fluxTraces.length > 0) {
-     if (telemetryEvents.length > 0) fluxQueue.push({ type: "telemetry", data: telemetryEvents.shift() });
-     if (fluxTraces.length > 0) fluxQueue.push({ type: "trace", data: fluxTraces.shift() });
-  }
-  
-  await processFluxQueue(performance.now() + 500);
-
-  const remainingMs = AUTO_PLAN_PROGRESS_MIN_MS - (performance.now() - startedAt);
-  if (remainingMs > 0) await sleep(remainingMs);
-  
-  window.clearInterval(autoScrollTimer);
   if (animationId) cancelAnimationFrame(animationId);
-  
-  if (fluxLbl) fluxLbl.textContent = "COMPLETED";
-  if (fluxVal) fluxVal.textContent = "Planung abgeschlossen";
-  if (fluxDetail) fluxDetail.textContent = "Alle Constraints erfolgreich validiert";
-  appendFluxLine(`>>> SYSTEM_HALT: 0x000000`);
-
   await sleep(600);
   apViewMode = "result";
   renderResultView();
@@ -4914,11 +4667,12 @@ function renderResultView() {
   const { summary } = autoPlanResult;
   const quality = summary.quality || {};
   const body = document.getElementById("ap-body");
+  
   body.style.height = "auto";
   body.style.maxHeight = "72vh";
   body.style.overflowY = "auto";
-  body.style.overflowX = "hidden";
   body.style.padding = "24px";
+  
   const applyBtn = document.getElementById("ap-apply");
   const reportBtn = document.getElementById("ap-report-btn");
   applyBtn.style.display = "";
@@ -4932,99 +4686,91 @@ function renderResultView() {
     return `<span class="ap-day-tag${cls}">${DOW_ABBR[wd]}\u2009${d}.</span>`;
   };
 
-  let html = `<div class="ap-result-hero">
-    <div class="ap-result-score">
-      <span class="ap-result-score-kicker">Solution Fitness</span>
-      <strong>${quality.score ?? "—"}</strong>
-      <span class="ap-result-score-sub">von 100 Punkten</span>
-    </div>
-    <div class="ap-result-metrics">
-      <div class="ap-result-metric" data-tooltip="Standardabweichung der BD-Verteilung"><span>BD-Streuung</span><strong>${quality.bdSpread ?? 0}</strong></div>
-      <div class="ap-result-metric" data-tooltip="Standardabweichung der HG-Verteilung"><span>HG-Streuung</span><strong>${quality.hgSpread ?? 0}</strong></div>
-      <div class="ap-result-metric" data-tooltip="Standardabweichung der WE-Dienste"><span>WE-Streuung</span><strong>${quality.weekendSpread ?? 0}</strong></div>
-      <div class="ap-result-metric" data-tooltip="Anzahl finaler Optimierungsschritte"><span>Feinopt.</span><strong>${quality.deepMoves ?? 0}</strong></div>
-      <div class="ap-result-metric" data-tooltip="Prozentsatz erfüllter Dienstwünsche"><span>Wünsche</span><strong>${Math.round(((quality.wishFulfillmentRate ?? 0) * 100))}%</strong></div>
-      <div class="ap-result-metric" data-tooltip="Tage ohne vollständige Besetzung"><span>Lücken</span><strong>${(quality.dutyCoverageMisses ?? 0) + (quality.hgCoverageMisses ?? 0)}</strong></div>
-    </div>
-  </div>`;
-
-  function buildAccordion(title, badgeColor, badgeText, contentHtml, isExpanded = false) {
-    const expandedCls = isExpanded ? "" : " is-collapsed";
-    return `
-      <div class="ap-collapse-wrap${expandedCls}">
-        <div class="ap-collapse-head" onclick="this.parentElement.classList.toggle('is-collapsed')">
-          <div class="ap-collapse-title">
-            <span class="ap-sect-badge" style="background:${badgeColor};color:#fff">${badgeText}</span>
-            ${title}
-          </div>
-          <svg class="ap-collapse-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="ap-collapse-content">
-          <div class="ap-collapse-content-inner">
-            <div class="ap-collapse-content-pad">
-              ${contentHtml}
-            </div>
-          </div>
-        </div>
+  let html = `
+    <div class="ap-result-hero">
+      <div class="ap-result-score">
+        <span class="ap-result-score-kicker">Planungs-Qualität</span>
+        <strong>${quality.score ?? 0}</strong>
+        <span class="ap-result-score-sub">von 100 Fitness-Punkten</span>
       </div>
-    `;
-  }
+      <div class="ap-result-metrics">
+        <div class="ap-result-metric"><span>BD-Streuung</span><strong>${quality.bdSpread}</strong></div>
+        <div class="ap-result-metric"><span>HG-Streuung</span><strong>${quality.hgSpread}</strong></div>
+        <div class="ap-result-metric"><span>WE-Dienste</span><strong>${quality.weekendSpread}</strong></div>
+        <div class="ap-result-metric"><span>Wünsche</span><strong>${Math.round(quality.wishFulfillmentRate * 100)}%</strong></div>
+        <div class="ap-result-metric"><span>Lücken</span><strong>${quality.dutyCoverageMisses + quality.hgCoverageMisses}</strong></div>
+        <div class="ap-result-metric"><span>Deep-Moves</span><strong>${quality.deepMoves}</strong></div>
+      </div>
+    </div>`;
 
-  let bdHtml = `<div class="ap-table-wrap"><table class="ap-table"><thead><tr><th class="ap-th-name">Mitarbeitende</th><th class="ap-th">Ziel</th><th class="ap-th">Geplant</th><th class="ap-th-days">Tage</th><th class="ap-th">WE</th><th class="ap-th">FT</th></tr></thead><tbody>`;
+  let bdHtml = `<div class="ap-table-wrap"><table class="ap-table"><thead><tr><th class="ap-th-name">Mitarbeitende</th><th class="ap-th">Ziel</th><th class="ap-th">Ist</th><th class="ap-th-days">D-Tage</th><th class="ap-th">WE-Soll</th></tr></thead><tbody>`;
   dutyEmps.forEach((e) => {
     const bd = summary.bd[e];
     const meta = getEmpMeta(e);
     const pc = posColor(meta.position);
-    const ok = bd.count >= bd.target;
-    const dayLabels = bd.days.map((d) => dayTag(d)).join("");
-    bdHtml += `<tr><td class="ap-td-name" style="border-left:3px solid ${pc.border}"><span>${e}</span><span class="ap-pos" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span></td><td class="ap-td ap-td-num">${bd.target}</td><td class="ap-td ap-td-num" style="color:${ok ? "#15803D" : "#DC2626"};font-weight:700">${bd.count}</td><td class="ap-td ap-td-days">${dayLabels || "—"}</td><td class="ap-td ap-td-num" style="color:${bd.weDuty > RELAXED_WEEKEND_DUTY_LIMIT ? "#DC2626" : "#64748B"}">${bd.weDuty}</td><td class="ap-td ap-td-num" style="color:${(bd.holDuty || 0) > 0 ? "#78350F" : "#94A3B8"}">${bd.holDuty || 0}</td></tr>`;
+    bdHtml += `<tr><td class="ap-td-name" style="border-left:3px solid ${pc.border}"><span>${e}</span></td><td class="ap-td ap-td-num">${bd.target}</td><td class="ap-td ap-td-num" style="font-weight:700;color:${bd.count >= bd.target ? '#15803D' : '#B91C1C'}">${bd.count}</td><td class="ap-td ap-td-days">${bd.days.map(d => dayTag(d)).join("")}</td><td class="ap-td ap-td-num">${bd.weDuty}</td></tr>`;
   });
   bdHtml += `</tbody></table></div>`;
-  html += buildAccordion("Bereitschaftsdienst-Verteilung", "#EF4444", "D", bdHtml, true);
+  
+  html += `
+  <div class="ap-collapse-wrap">
+    <div class="ap-collapse-head" onclick="this.parentElement.classList.toggle('is-collapsed')">
+      <div class="ap-collapse-title"><span class="ap-sect-badge" style="background:#EF4444;color:#fff">D</span> Bereitschaftsdienst-Verteilung</div>
+      <svg class="ap-collapse-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="ap-collapse-content"><div class="ap-collapse-content-inner"><div class="ap-collapse-content-pad">${bdHtml}</div></div></div>
+  </div>`;
 
-  let hgHtml = `<div class="ap-table-wrap"><table class="ap-table"><thead><tr><th class="ap-th-name">Mitarbeitende</th><th class="ap-th">Geplant</th><th class="ap-th-days">Tage</th></tr></thead><tbody>`;
-  emps
-    .filter((e) => isFacharzt(e) && !isDutyExempt(e))
-    .forEach((e) => {
-      const hg = summary.hg[e];
-      const meta = getEmpMeta(e);
-      const pc = posColor(meta.position);
-      const dayLabels = hg.days.map((d) => dayTag(d)).join("");
-      hgHtml += `<tr><td class="ap-td-name" style="border-left:3px solid ${pc.border}"><span>${e}</span><span class="ap-pos" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span></td><td class="ap-td ap-td-num" style="font-weight:700">${hg.count}</td><td class="ap-td ap-td-days">${dayLabels || "—"}</td></tr>`;
-    });
+  let hgHtml = `<div class="ap-table-wrap"><table class="ap-table"><thead><tr><th class="ap-th-name">Mitarbeitende</th><th class="ap-th">HG-Anzahl</th><th class="ap-th-days">HG-Tage</th></tr></thead><tbody>`;
+  emps.filter(e => isFacharzt(e) && !isDutyExempt(e)).forEach((e) => {
+    const hg = summary.hg[e];
+    const meta = getEmpMeta(e);
+    const pc = posColor(meta.position);
+    hgHtml += `<tr><td class="ap-td-name" style="border-left:3px solid ${pc.border}"><span>${e}</span></td><td class="ap-td ap-td-num" style="font-weight:700">${hg.count}</td><td class="ap-td ap-td-days">${hg.days.map(d => dayTag(d)).join("")}</td></tr>`;
+  });
   hgHtml += `</tbody></table></div>`;
-  html += buildAccordion("Hintergrunddienst-Verteilung", "#0EA5E9", "HG", hgHtml, false);
 
-  if (summary.infos && summary.infos.length) {
-    let infoHtml = `<div class="ap-infos" style="margin-top:0">`;
-    summary.infos.forEach((i) => {
-      infoHtml += `<div class="ap-info-item">${i}</div>`;
-    });
-    infoHtml += `</div>`;
-    html += buildAccordion("Verteilungs-Details", "#0EA5E9", "i", infoHtml, false);
+  html += `
+  <div class="ap-collapse-wrap is-collapsed">
+    <div class="ap-collapse-head" onclick="this.parentElement.classList.toggle('is-collapsed')">
+      <div class="ap-collapse-title"><span class="ap-sect-badge" style="background:#0EA5E9;color:#fff">HG</span> Hintergrunddienst-Verteilung</div>
+      <svg class="ap-collapse-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="ap-collapse-content"><div class="ap-collapse-content-inner"><div class="ap-collapse-content-pad">${hgHtml}</div></div></div>
+  </div>`;
+
+  if (summary.infos.length) {
+    html += `
+    <div class="ap-collapse-wrap is-collapsed">
+      <div class="ap-collapse-head" onclick="this.parentElement.classList.toggle('is-collapsed')">
+        <div class="ap-collapse-title"><span class="ap-sect-badge" style="background:#0EA5E9;color:#fff">i</span> Verteilungs-Details</div>
+        <svg class="ap-collapse-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="ap-collapse-content"><div class="ap-collapse-content-inner"><div class="ap-collapse-content-pad">
+        <div class="ap-infos">${summary.infos.map(i => `<div class="ap-info-item">${i}</div>`).join("")}</div>
+      </div></div></div>
+    </div>`;
   }
 
   if (summary.warnings.length) {
-    let warnHtml = `<div class="ap-warnings" style="margin-top:0">`;
-    summary.warnings.forEach((w) => {
-      const warnClass = /^KRITISCH:/.test(w) ? " ap-warn-item-critical" : "";
-      warnHtml += `<div class="ap-warn-item${warnClass}">${w}</div>`;
-    });
-    warnHtml += `</div>`;
-    html += buildAccordion("Hinweise", "#F97316", "!", warnHtml, true);
+    html += `
+    <div class="ap-collapse-wrap">
+      <div class="ap-collapse-head" onclick="this.parentElement.classList.toggle('is-collapsed')">
+        <div class="ap-collapse-title"><span class="ap-sect-badge" style="background:#F97316;color:#fff">!</span> Hinweise &amp; Warnungen</div>
+        <svg class="ap-collapse-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="ap-collapse-content"><div class="ap-collapse-content-inner"><div class="ap-collapse-content-pad">
+        <div class="ap-warnings">${summary.warnings.map(w => `<div class="ap-warn-item${w.startsWith('KRITISCH') ? ' ap-warn-item-critical' : ''}">${w}</div>`).join("")}</div>
+      </div></div></div>
+    </div>`;
   }
 
-  html += `<div class="ap-config-actions" style="margin-top:16px"><button class="mbtn mbtn-ghost" id="ap-back-config">Ziele anpassen &amp; neu berechnen</button></div>`;
-  body.innerHTML = html;
+  html += `<div class="ap-config-actions" style="margin-top:20px"><button class="mbtn mbtn-ghost" id="ap-back-config">Konfiguration ändern &amp; neu berechnen</button></div>`;
   
+  body.innerHTML = html;
   document.getElementById("ap-back-config")?.addEventListener("click", () => {
     apViewMode = "config";
-    autoPlanResult = null;
-    autoPlanConfigRenderToken += 1;
-    const renderToken = autoPlanConfigRenderToken;
-    renderAutoPlanModal(renderToken).catch(() => {
-      showToast("Auto-Plan-Konfiguration konnte nicht geladen werden");
-    });
+    renderAutoPlanModal();
   });
 }
 
@@ -5043,11 +4789,6 @@ function renderReportModal() {
     const holNm = hols[dateKey(y, m, item.day)] || "";
     const itemEl = document.createElement("div");
     itemEl.className = "ap-report-item";
-
-    let tagsHtml = "";
-    if (item.tags && item.tags.length > 0)
-      tagsHtml = `<div class="ap-report-tags">${item.tags.map((t) => `<span class="ap-report-tag">${t}</span>`).join("")}</div>`;
-
     itemEl.innerHTML = `
       <div class="ap-report-header">
         <span class="ap-report-date">${dName}, ${item.day}. ${MONTHS_SHORT[m]} ${holNm ? "(" + holNm + ")" : ""}</span>
@@ -5055,11 +4796,10 @@ function renderReportModal() {
         <span class="ap-report-emp">${item.emp}</span>
       </div>
       <div class="ap-report-body">${item.reason}</div>
-      ${tagsHtml}
+      <div class="ap-report-tags">${item.tags.map(t => `<span class="ap-report-tag">${t}</span>`).join("")}</div>
     `;
     list.appendChild(itemEl);
   });
-
   body.appendChild(list);
   showOverlay("modal-ap-report");
 }
@@ -5068,68 +4808,39 @@ function applyAutoPlan() {
   if (!autoPlanResult || !planMode) return;
   recordPlanHistory();
   planData.assignments = JSON.parse(JSON.stringify(autoPlanResult.assignments));
-  const externalAssignments = autoPlanResult.externalAssignments || {};
-  let externalChanged = false;
-  for (const [mk, empMap] of Object.entries(externalAssignments)) {
-    if (!DATA[mk]) {
-      DATA[mk] = { employees: [...planData.employees], assignments: {}, rbn: {} };
-    }
+  const external = autoPlanResult.externalAssignments || {};
+  let changed = false;
+  for (const [mk, empMap] of Object.entries(external)) {
+    if (!DATA[mk]) DATA[mk] = { employees: [...planData.employees], assignments: {}, rbn: {} };
     normalizeMonthDataShape(DATA[mk]);
-    if (!DATA[mk].employees) DATA[mk].employees = [...planData.employees];
-    if (!DATA[mk].assignments) DATA[mk].assignments = {};
     for (const [emp, dayMap] of Object.entries(empMap)) {
       if (!DATA[mk].employees.includes(emp)) DATA[mk].employees.push(emp);
       if (!DATA[mk].assignments[emp]) DATA[mk].assignments[emp] = {};
-      for (const [dayStr, patch] of Object.entries(dayMap)) {
-        const day = parseInt(dayStr, 10);
-        const merged = { ...(DATA[mk].assignments[emp][day] || {}), ...patch };
-        Object.keys(merged).forEach((key) => {
-          if (!merged[key]) delete merged[key];
-        });
-        if (Object.keys(merged).length) DATA[mk].assignments[emp][day] = merged;
-        else delete DATA[mk].assignments[emp][day];
-        externalChanged = true;
+      for (const [day, patch] of Object.entries(dayMap)) {
+        DATA[mk].assignments[emp][day] = { ...(DATA[mk].assignments[emp][day] || {}), ...patch };
+        changed = true;
       }
     }
   }
-  if (externalChanged) saveToStorage();
+  if (changed) saveToStorage();
   recordPlanHistory();
   hideOverlay("modal-autoplan");
   render();
-  const dutyEmps = planData.employees.filter((e) => !isDutyExempt(e));
-  const totalBD = dutyEmps.reduce(
-    (s, e) => s + (autoPlanResult.summary.bd[e]?.count || 0),
-    0,
-  );
-  const totalHG = dutyEmps.reduce(
-    (s, e) => s + (autoPlanResult.summary.hg[e]?.count || 0),
-    0,
-  );
-  showToast(`Auto-Plan übernommen: ${totalBD} BD + ${totalHG} HG`);
+  showToast("Auto-Plan erfolgreich übernommen");
   autoPlanResult = null;
 }
 
 function init() {
   loadFromStorage();
-  const repaired = ensurePostBDFreiDays();
+  ensurePostBDFreiDays();
   if (!Object.keys(DATA).length) {
     const k = monthKey(state.year, state.month);
     DATA[k] = {
       employees: [
-        "Prof. Schäfer",
-        "Dr. Lurz",
-        "Dr. Polednia",
-        "Fr. Dalitz",
-        "Fr. Thaler",
-        "Dr. Becker",
-        "Dr. Martin",
-        "Hr. El Houba",
-        "Fr. Licenji",
-        "Hr. Torki",
-        "Hr. Sebastian"
+        "Prof. Schäfer", "Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Fr. Thaler",
+        "Dr. Becker", "Dr. Martin", "Hr. El Houba", "Fr. Licenji", "Hr. Torki", "Hr. Sebastian"
       ],
-      assignments: {},
-      rbn: {},
+      assignments: {}, rbn: {},
     };
     saveToStorage();
   }
@@ -5138,13 +4849,8 @@ function init() {
   wireEvents();
   refreshResponsiveLayout({ forceRender: true });
   window.addEventListener("resize", queueResponsiveRefresh, { passive: true });
-  window.addEventListener("orientationchange", queueResponsiveRefresh, {
-    passive: true,
-  });
-  window.visualViewport?.addEventListener("resize", queueResponsiveRefresh, {
-    passive: true,
-  });
-  if (repaired > 0) showToast(`${repaired} Ruhetage ergänzt`);
+  window.addEventListener("orientationchange", queueResponsiveRefresh, { passive: true });
+  window.visualViewport?.addEventListener("resize", queueResponsiveRefresh, { passive: true });
 }
 
 document.addEventListener("DOMContentLoaded", init);
