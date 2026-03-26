@@ -3159,6 +3159,7 @@ function computeAutoPlan(customTargets) {
   const fixedDutyKeys = new Set();
   const autoRestDays = new Set();
   const ruleTelemetry = buildRuleTelemetryBucket();
+  const beckerSaturdayFzaWarnings = [];
 
   function trace(phase, msg) {
     fluxTraces.push({ phase, msg });
@@ -3480,11 +3481,17 @@ function computeAutoPlan(customTargets) {
 
     if (wd === 6 && isFacharzt(emp)) {
       const projectedSat = currentSatBD[emp] + 1;
+      if (projectedSat > 1) {
+        score -= 15000 * projectedSat;
+        tags.push("Doppel-Samstag");
+      } else if (currentSatBD[emp] === 0) {
+        score += 2000;
+        tags.push("Samstags-Priorität");
+      }
       const avgProjectedSat =
         (hgFAs.reduce((s, e) => s + currentSatBD[e], 0) + 1) /
         Math.max(1, hgFAs.length);
       score -= Math.abs(projectedSat - avgProjectedSat) * 700;
-      tags.push("Samstags-Ausgleich");
     }
 
     if (emp === "Dr. Becker" && wd === 6 && relaxed) {
@@ -3566,8 +3573,8 @@ function computeAutoPlan(customTargets) {
       if (chosen.tags.includes("Wunsch")) reason = "Wunschdienst berücksichtigt.";
       if (chosen.tags.includes("Vor Urlaub"))
         reason = "Donnerstags-Dienst vor Urlaub priorisiert.";
-      if (chosen.tags.includes("Samstags-Ausgleich"))
-        reason += " Samstags-Belastung im Monat ausgeglichen.";
+      if (chosen.tags.includes("Samstags-Priorität"))
+        reason += " Person hatte noch keinen Samstag im Monat.";
       if (chosen.tags.includes("D-F-D-F weich vermieden"))
         reason += " D-F-D-F wurde nur weich bestraft.";
       if (relaxed) reason += " Auswahl im gelockerten Modus.";
@@ -3730,6 +3737,9 @@ function computeAutoPlan(customTargets) {
         if (weekendKws[i] - weekendKws[i - 1] === 1) score += 6000;
       }
       if (isFacharzt(emp)) {
+        if (currentSatBD[emp] > 1) {
+          score += 50000 * currentSatBD[emp];
+        }
         score += (currentSatBD[emp] - satAvg) * (currentSatBD[emp] - satAvg) * 850;
       }
       for (let day = 1; day <= dim; day++) {
@@ -3768,9 +3778,9 @@ function computeAutoPlan(customTargets) {
       if (!currentEmp) continue;
       const candidateOrder = [...dutyEmps].sort((a, b) => {
         const aScore =
-          Math.abs((currentBD[a] + 1) - bdTarget[a]) + projectedWeekendDutyCount(y, m, a, result, "D", day);
+          Math.abs((currentBD[a] + 1) - bdTarget[a]) + projectedWeekendDutyCount(y, m, a, result, "D", day) + (weekday(y, m, day) === 6 ? currentSatBD[a] * 10 : 0);
         const bScore =
-          Math.abs((currentBD[b] + 1) - bdTarget[b]) + projectedWeekendDutyCount(y, m, b, result, "D", day);
+          Math.abs((currentBD[b] + 1) - bdTarget[b]) + projectedWeekendDutyCount(y, m, b, result, "D", day) + (weekday(y, m, day) === 6 ? currentSatBD[b] * 10 : 0);
         return aScore - bScore;
       });
       for (const candidate of candidateOrder) {
@@ -3889,7 +3899,6 @@ function computeAutoPlan(customTargets) {
 
   const bundledHGDays = new Set();
   const bundledHGKeys = new Set();
-  const beckerSaturdayFzaWarnings = [];
   let hgMoves = 0;
   let computeHGObjective = () => 0;
   if (hgNeeded.length > 0) {
@@ -4209,8 +4218,8 @@ function computeAutoPlan(customTargets) {
     const canDo = dutyCode === "D" ? canDoBD : canDoHG;
     const currentDelta = dutyCode === "D" ? currentBD[currentEmp] - bdTarget[currentEmp] : currentHG[currentEmp] - averageOf(hgFAs.map((emp) => currentHG[emp]));
     const orderedPool = [...pool].sort((a, b) => {
-      const aDelta = dutyCode === "D" ? currentBD[a] - bdTarget[a] : currentHG[a] - averageOf(hgFAs.map((emp) => currentHG[emp]));
-      const bDelta = dutyCode === "D" ? currentBD[b] - bdTarget[b] : currentHG[b] - averageOf(hgFAs.map((emp) => currentHG[emp]));
+      const aDelta = dutyCode === "D" ? currentBD[a] - bdTarget[a] + (weekday(y, m, day) === 6 ? currentSatBD[a] * 10 : 0) : currentHG[a] - averageOf(hgFAs.map((emp) => currentHG[emp]));
+      const bDelta = dutyCode === "D" ? currentBD[b] - bdTarget[b] + (weekday(y, m, day) === 6 ? currentSatBD[b] * 10 : 0) : currentHG[b] - averageOf(hgFAs.map((emp) => currentHG[emp]));
       return aDelta - bDelta;
     });
     for (const candidate of orderedPool) {
@@ -4391,7 +4400,7 @@ function computeAutoPlan(customTargets) {
   summary.infos.push(
     `Wenn zwei Wochenend-Einsätze notwendig sind, wird nach Möglichkeit ein freies Wochenende dazwischen eingeplant (keine direkte KW-Folge).`,
   );
-  summary.infos.push(`Samstags-Dienste für FA wurden im aktuellen Monat gleichverteilt.`);
+  summary.infos.push(`Samstags-Dienste für FA wurden im aktuellen Monat massiv priorisiert und extrem stark gleichverteilt.`);
   summary.infos.push(`Die Regel D-F-D-F wurde nur noch als Soft-Constraint gewichtet.`);
   summary.infos.push(
     `Direkt aufeinanderfolgende HG wurden weich bestraft; ein freier Tag zwischen zwei HG ist zulässig.`,
@@ -4593,7 +4602,6 @@ async function renderProgressAndThenResult(result) {
   const body = document.getElementById("ap-body");
   const applyBtn = document.getElementById("ap-apply");
   if (!body || !applyBtn) return;
-  
   applyBtn.style.display = "none";
   body.style.height = "100%";
   body.style.maxHeight = "100%";
