@@ -2669,7 +2669,8 @@ function wireEvents() {
         "modal-autoplan",
         "modal-ap-report",
         "modal-mobile-menu",
-        "modal-mobile-day"
+        "modal-mobile-day",
+        "modal-score-info"
       ].forEach((id) => {
         const el = document.getElementById(id);
         if (el && !el.hasAttribute("hidden")) hideOverlay(id);
@@ -4688,7 +4689,7 @@ function renderResultView() {
 
   let html = `
     <div class="ap-result-hero">
-      <div class="ap-result-score">
+      <div class="ap-result-score is-clickable" onclick="openScoreInfoModal()">
         <span class="ap-result-score-kicker">Planungs-Qualität</span>
         <strong>${quality.score ?? 0}</strong>
         <span class="ap-result-score-sub">von 100 Fitness-Punkten</span>
@@ -4828,6 +4829,76 @@ function applyAutoPlan() {
   render();
   showToast("Auto-Plan erfolgreich übernommen");
   autoPlanResult = null;
+}
+
+function openScoreInfoModal() {
+  if (!autoPlanResult || !autoPlanResult.summary || !autoPlanResult.summary.quality) return;
+  const q = autoPlanResult.summary.quality;
+  const dim = daysInMonth(state.year, state.month);
+
+  const f1 = Math.max(0, Math.min(1, 1 - q.dutyCoverageMisses / Math.max(1, dim)));
+  const f2 = Math.max(0, Math.min(1, 1 - q.hgCoverageMisses / Math.max(1, dim)));
+  const f3 = Math.max(0, Math.min(1, 1 - q.bdSpread / 4));
+  const f4 = Math.max(0, Math.min(1, 1 - q.hgSpread / 3));
+  const f5 = Math.max(0, Math.min(1, 1 - q.weekendSpread / 1.5));
+  const f6 = q.wishFulfillmentRate;
+
+  const body = document.getElementById("score-info-body");
+  if (!body) return;
+
+  let html = `<div class="score-info-intro">Die Planungs-Qualität (Fitness-Score) misst die Güte des generierten Dienstplans anhand von sechs gewichteten Kriterien. Ein Wert von 100 bedeutet perfekte Abdeckung, absolute Fairness und Erfüllung aller Dienstwünsche.</div>`;
+
+  html += `<div class="score-detail-list">`;
+
+  const rows = [
+    { lbl: "BD-Abdeckung", weight: 36, val: f1, desc: `${dim - q.dutyCoverageMisses} von ${dim} Tagen besetzt` },
+    { lbl: "HG-Abdeckung", weight: 24, val: f2, desc: `${dim - q.hgCoverageMisses} von ${dim} Tagen besetzt` },
+    { lbl: "BD-Fairness", weight: 16, val: f3, desc: `Max. Differenz zwischen MA: ${q.bdSpread} Dienste (Toleranz: 4)` },
+    { lbl: "HG-Fairness", weight: 10, val: f4, desc: `Max. Differenz zwischen FAs: ${q.hgSpread} Dienste (Toleranz: 3)` },
+    { lbl: "WE-Fairness", weight: 8, val: f5, desc: `Max. Differenz (Wochenenden): ${q.weekendSpread} (Toleranz: 1.5)` },
+    { lbl: "Wunscherfüllung", weight: 10, val: f6, desc: `${Math.round(q.wishFulfillmentRate * 100)}% der Dienstwünsche erfüllt` }
+  ];
+
+  rows.forEach(r => {
+    const pct = Math.round(r.val * 100);
+    const pts = (r.weight * r.val).toFixed(1);
+    const color = pct >= 90 ? "#22C55E" : pct >= 60 ? "#F59E0B" : "#EF4444";
+    html += `
+      <div class="score-detail-item">
+        <div class="score-detail-main">
+          <span class="score-detail-lbl">${r.lbl} (${r.weight}%)</span>
+          <div class="score-detail-bar-wrap"><div class="score-detail-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          <span class="score-detail-val" style="color:${color}">${pts}</span>
+        </div>
+        <div class="score-detail-desc">${r.desc}</div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+
+  html += `
+    <div class="score-math-box">
+      <div class="score-math-title">Mathematische Funktion</div>
+      <div class="score-math-formula">Score = &Sigma; (Gewicht &times; Normierter Faktor)<br><br>= (36 &times; ${f1.toFixed(2)}) + (24 &times; ${f2.toFixed(2)}) + (16 &times; ${f3.toFixed(2)}) + (10 &times; ${f4.toFixed(2)}) + (8 &times; ${f5.toFixed(2)}) + (10 &times; ${f6.toFixed(2)})<br>= ${q.score}</div>
+    </div>
+  `;
+
+  body.innerHTML = html;
+  showOverlay("modal-score-info");
+
+  setTimeout(() => {
+    const bars = body.querySelectorAll(".score-detail-bar-fill");
+    bars.forEach(b => {
+      const w = b.style.width;
+      b.style.width = "0%";
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          b.style.width = w;
+        });
+      });
+    });
+  }, 50);
 }
 
 function init() {

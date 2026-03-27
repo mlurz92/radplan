@@ -31251,7 +31251,7 @@
             "duty": "HG"
           },
           "13": {
-            "duty": "HG",
+            "duty": "D",
             "assignment": "CT"
           },
           "14": {
@@ -31499,7 +31499,7 @@
             "assignment": "CT/US"
           },
           "13": {
-            "duty": "D"
+            "duty": "HG"
           },
           "14": {
             "assignment": "F"

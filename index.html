@@ -562,6 +562,24 @@
     </div>
   </div>
 
+  <div class="overlay" id="modal-score-info" role="dialog" aria-modal="true" aria-labelledby="score-info-title" hidden style="display:none">
+    <div class="modal modal-score">
+      <div class="modal-hd" style="background:linear-gradient(180deg,#0F172A 0%,#1E293B 100%); border-bottom: 1px solid rgba(251,191,36,0.3);">
+        <div>
+          <div class="modal-hd-title" id="score-info-title" style="color:#FDE68A;">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:-3px;margin-right:6px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            Planungs-Qualität im Detail
+          </div>
+        </div>
+        <button type="button" class="modal-x" data-close="modal-score-info" aria-label="Schließen">✕</button>
+      </div>
+      <div class="modal-bd" id="score-info-body" style="background:#0F172A; color:#E2E8F0; padding:20px;"></div>
+      <div class="modal-ft" style="background:#0F172A; border-top: 1px solid rgba(255,255,255,0.1);">
+        <button type="button" class="mbtn mbtn-ghost" data-close="modal-score-info" style="color:#E2E8F0; border-color:rgba(255,255,255,0.2);">Schließen</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <script src="app.js" defer></script>
