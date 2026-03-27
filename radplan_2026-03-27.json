@@ -894,9 +894,9 @@
         "24": "Dr. Bailis (NRAD)",
         "25": "Dr. Schüngel (NRAD)",
         "26": "Dr. Bailis (NRAD)",
-        "27": "Dr. Maybaum (NRAD)",
-        "28": "Dr. Maybaum (NRAD)",
-        "29": "Dr. Maybaum (NRAD)",
+        "27": "Dr. Schüngel (NRAD)",
+        "28": "Dr. Schüngel (NRAD)",
+        "29": "Dr. Schüngel (NRAD)",
         "30": "Dr. Bailis (NRAD)",
         "31": "Fr. Dalitz (RAD)"
       }
@@ -30078,7 +30078,36 @@
           }
         }
       },
-      "rbn": {}
+      "rbn": {
+        "1": "Dr. Maybaum (NRAD)",
+        "2": "Fr. Thaler (RAD)",
+        "3": "Dr. Schüngel (NRAD)",
+        "4": "Fr. Dalitz (RAD)",
+        "5": "Dr. Maybaum (NRAD)",
+        "6": "Dr. Bailis (NRAD)",
+        "7": "Dr. Bailis (NRAD)",
+        "8": "Dr. Bailis (NRAD)",
+        "9": "Fr. Dalitz (RAD)",
+        "10": "Prof. Schob (NRAD)",
+        "11": "Dr. Bailis (NRAD)",
+        "12": "Dr. Schüngel (NRAD)",
+        "13": "Prof. Schob (NRAD)",
+        "14": "Prof. Schob (NRAD)",
+        "15": "Prof. Schob (NRAD)",
+        "16": "Dr. Schüngel (NRAD)",
+        "17": "Fr. Thaler (RAD)",
+        "18": "Fr. Thaler (RAD)",
+        "19": "Dr. Maybaum (NRAD)",
+        "20": "Dr. Schüngel (NRAD)",
+        "21": "Dr. Schüngel (NRAD)",
+        "22": "Dr. Schüngel (NRAD)",
+        "23": "Fr. Dalitz (RAD)",
+        "24": "Prof. Schob (NRAD)",
+        "25": "Dr. Schüngel (NRAD)",
+        "26": "Fr. Dalitz (RAD)",
+        "27": "Fr. Thaler (RAD)",
+        "28": "Fr. Thaler (RAD)"
+      }
     },
     "2026-0": {
       "employees": [
@@ -30912,7 +30941,39 @@
           }
         }
       },
-      "rbn": {}
+      "rbn": {
+        "1": "Dr. Maybaum (NRAD)",
+        "2": "Prof. Schob (NRAD)",
+        "3": "Prof. Schob (NRAD)",
+        "4": "Dr. Maybaum (NRAD)",
+        "5": "Prof. Schob (NRAD)",
+        "6": "Fr. Dalitz (RAD)",
+        "7": "Fr. Thaler (RAD)",
+        "8": "Dr. Schüngel (NRAD)",
+        "9": "Dr. Bailis (NRAD)",
+        "10": "Dr. Bailis (NRAD)",
+        "11": "Dr. Bailis (NRAD)",
+        "12": "Fr. Dalitz (RAD)",
+        "13": "Fr. Thaler (RAD)",
+        "14": "Fr. Thaler (RAD)",
+        "15": "Dr. Bailis (NRAD)",
+        "16": "Fr. Dalitz (RAD)",
+        "17": "Fr. Dalitz (RAD)",
+        "18": "Fr. Dalitz (RAD)",
+        "19": "Fr. Thaler (RAD)",
+        "20": "Dr. Bailis (NRAD)",
+        "21": "Dr. Maybaum (NRAD)",
+        "22": "Dr. Schüngel (NRAD)",
+        "23": "Dr. Schüngel (NRAD)",
+        "24": "Dr. Schüngel (NRAD)",
+        "25": "Dr. Schüngel (NRAD)",
+        "26": "Dr. Maybaum (NRAD)",
+        "27": "Dr. Bailis (NRAD)",
+        "28": "Dr. Schüngel (NRAD)",
+        "29": "Fr. Dalitz (RAD)",
+        "30": "Dr. Maybaum (NRAD)",
+        "31": "Dr. Maybaum (NRAD)"
+      }
     },
     "2026-3": {
       "employees": [
