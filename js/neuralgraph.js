@@ -42,31 +42,33 @@ export class NeuralGraph {
 
   createLabelSprite(text, isEmp) {
     const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 64;
+    canvas.width = 512;
+    canvas.height = 128;
     const ctx = canvas.getContext('2d');
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     ctx.fillStyle = isEmp ? 'rgba(251, 191, 36, 0.15)' : 'rgba(56, 189, 248, 0.15)';
     ctx.beginPath();
-    ctx.roundRect(10, 10, 236, 44, 22);
+    ctx.roundRect(20, 20, 472, 88, 44);
     ctx.fill();
     
-    ctx.strokeStyle = isEmp ? 'rgba(251, 191, 36, 0.5)' : 'rgba(56, 189, 248, 0.5)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = isEmp ? 'rgba(251, 191, 36, 0.6)' : 'rgba(56, 189, 248, 0.6)';
+    ctx.lineWidth = 4;
     ctx.stroke();
 
     ctx.fillStyle = isEmp ? '#FDE68A' : '#E0F2FE';
-    ctx.font = isEmp ? "bold 22px 'IBM Plex Mono', monospace" : "bold 26px 'IBM Plex Mono', monospace";
+    ctx.font = isEmp ? "bold 44px 'IBM Plex Mono', monospace" : "bold 52px 'IBM Plex Mono', monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     
     const displayText = isEmp ? text.split(' ').pop() : `${text}.`;
-    ctx.fillText(displayText, 128, 32);
+    ctx.fillText(displayText, 256, 64);
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false; 
     
     const material = new THREE.SpriteMaterial({ 
       map: texture, 
@@ -76,7 +78,7 @@ export class NeuralGraph {
     });
     
     const sprite = new THREE.Sprite(material);
-    sprite.scale.set(isEmp ? 12 : 10, isEmp ? 3 : 2.5, 1);
+    sprite.scale.set(isEmp ? 14 : 11, isEmp ? 3.5 : 2.75, 1);
     return sprite;
   }
 
@@ -107,7 +109,10 @@ export class NeuralGraph {
       const child = this.mainGroup.children[0];
       this.mainGroup.remove(child);
       if (child.geometry) child.geometry.dispose();
-      if (child.material) child.material.dispose();
+      if (child.material) {
+        if (child.material.map) child.material.map.dispose();
+        child.material.dispose();
+      }
     }
     this.nodes.clear();
     this.activeEdges.forEach(edge => {
@@ -353,6 +358,26 @@ export class NeuralGraph {
 
   render() {
     if (!this.isActive) return;
+    if (this.daysMesh) {
+      const positions = this.daysMesh.geometry.attributes.position.array;
+      for(let i=0; i<positions.length; i+=3) {
+        positions[i+1] += Math.sin(Date.now() * 0.002 + i) * 0.015;
+      }
+      this.daysMesh.geometry.attributes.position.needsUpdate = true;
+    }
+    if (this.empsMesh) {
+      const ePositions = this.empsMesh.geometry.attributes.position.array;
+      for(let i=0; i<ePositions.length; i+=3) {
+        ePositions[i+1] += Math.cos(Date.now() * 0.0015 + i) * 0.01;
+      }
+      this.empsMesh.geometry.attributes.position.needsUpdate = true;
+    }
+    
+    this.activeEdges.forEach(edge => {
+      const pts = edge.line.geometry.attributes.position.array;
+      edge.line.geometry.attributes.position.needsUpdate = true;
+    });
+
     this.renderer.render(this.scene, this.camera);
     requestAnimationFrame(this.render);
   }
