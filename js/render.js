@@ -21,6 +21,7 @@ import {
   isWeekend, 
   isFriday, 
   isHoliday, 
+  isWorkday,
   isTodayCol, 
   isoWeekNumber, 
   cellColor, 
@@ -51,7 +52,9 @@ import {
   getEmployeesForYear, 
   getRoleFilterBuckets, 
   getEmployeeYearCardMetrics, 
-  matchRoleFilter
+  matchRoleFilter,
+  addEmployee,
+  removeEmployee
 } from './model.js';
 
 import { 

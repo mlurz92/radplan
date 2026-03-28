@@ -23,6 +23,7 @@ import {
   isWeekend,
   isFriday,
   isHoliday,
+  isTodayCol,
   isoWeekNumber,
   nextCalendarDay,
   cellColor,
