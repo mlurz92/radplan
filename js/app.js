@@ -105,6 +105,17 @@ let localApViewMode = "config";
 let localAutoPlanConfigRenderToken = 0;
 let localApAnimationId = null;
 
+const DECISION_REACTOR_CONSTRAINTS = [
+  { key: "availability", label: "Abwesenheit", type: "HARD", hints: ["urlaub", "krank", "abwesen", "fza", "wb"] },
+  { key: "wish", label: "No-Duty Wunsch", type: "HARD", hints: ["no_duty", "kein dienst", "wunsch"] },
+  { key: "distance", label: "Dienstabstand", type: "HARD", hints: ["abstand", "adjacent", "d-f-d-f", "dist"] },
+  { key: "weekend", label: "Wochenendlast", type: "SOFT", hints: ["wochenend", "samstag", "sonntag", "we-"] },
+  { key: "role", label: "Qualifikation", type: "HARD", hints: ["facharzt", "assistenz", "hg", "samstags"] },
+  { key: "coupling", label: "HG-Kopplung", type: "SMART", hints: ["koppl", "bundle", "hg"] },
+  { key: "ct", label: "CT-Leitung", type: "HARD", hints: ["becker", "martin", "ct"] },
+  { key: "coverage", label: "Coverage", type: "CRITICAL", hints: ["coverage", "lücke", "zwangsbelegung"] },
+];
+
 export function isPeriodFlyoutOpen() {
   const el = document.getElementById("period-flyout");
   return !!el && !el.hasAttribute("hidden");
@@ -1348,18 +1359,35 @@ export function renderProgressShell() {
       </div>
 
       <div class="ap-engine-main">
-        <div class="ap-flux-panel">
-          <div class="ap-flux-header">
-            <span>Constraint Flux Matrix</span>
-            <span class="ap-flux-header-pulse"></span>
+        <div class="ap-reactor-panel" id="ap-reactor-panel">
+          <div class="ap-reactor-header">
+            <span>Decision Reactor</span>
+            <span class="ap-reactor-header-pulse"></span>
           </div>
-          <div class="ap-flux-body">
-            <div class="ap-flux-focus">
-              <span class="ap-flux-focus-lbl" id="ap-flux-lbl">Computing</span>
-              <span class="ap-flux-focus-val" id="ap-flux-val">Warte auf Daten...</span>
-              <span class="ap-flux-focus-detail" id="ap-flux-detail">Strikte Dienst-Exklusivität aktiv</span>
+          <div class="ap-reactor-body">
+            <div class="ap-reactor-hero">
+              <div class="ap-reactor-orbit" id="ap-reactor-orbit" aria-hidden="true">
+                <div class="ap-reactor-ring ap-reactor-ring-a"></div>
+                <div class="ap-reactor-ring ap-reactor-ring-b"></div>
+                <div class="ap-reactor-ring ap-reactor-ring-c"></div>
+                <div class="ap-reactor-core" id="ap-reactor-core">
+                  <span class="ap-reactor-core-phase" id="ap-reactor-phase">INIT</span>
+                  <span class="ap-reactor-core-title" id="ap-reactor-decision">Warte auf Simulationsdaten…</span>
+                  <span class="ap-reactor-core-sub" id="ap-reactor-rationale">Constraint-Orchestrierung wird vorbereitet</span>
+                </div>
+              </div>
+              <div class="ap-reactor-events" id="ap-reactor-events"></div>
             </div>
-            <div class="ap-flux-stream" id="ap-flux-stream"></div>
+            <div class="ap-reactor-constraints" id="ap-reactor-constraints">
+              ${DECISION_REACTOR_CONSTRAINTS.map((item) => `
+                <div class="ap-rc-card" data-constraint="${item.key}" data-status="idle">
+                  <span class="ap-rc-type">${item.type}</span>
+                  <span class="ap-rc-label">${item.label}</span>
+                  <span class="ap-rc-state">PENDING</span>
+                </div>
+              `).join("")}
+            </div>
+            <div class="ap-reactor-feed" id="ap-reactor-feed"></div>
           </div>
         </div>
 
@@ -1435,17 +1463,22 @@ export function renderProgressShell() {
 
 export async function streamProgressLogs(result) {
   const logContainer = document.getElementById("ap-term-body");
-  const fluxStream = document.getElementById("ap-flux-stream");
+  const reactorFeed = document.getElementById("ap-reactor-feed");
+  const reactorEvents = document.getElementById("ap-reactor-events");
   const barEl = document.getElementById("ap-prog-bar");
   const pctEl = document.getElementById("ap-prog-pct");
   const phaseEl = document.getElementById("ap-phase-name");
+  const reactorOrbit = document.getElementById("ap-reactor-orbit");
   
   const log = result.log;
   const telemetry = result.ruleTelemetry?.events || [];
+  const traces = result.fluxTraces || [];
 
-  const fluxLbl = document.getElementById("ap-flux-lbl");
-  const fluxVal = document.getElementById("ap-flux-val");
-  const fluxDetail = document.getElementById("ap-flux-detail");
+  const reactorPhaseEl = document.getElementById("ap-reactor-phase");
+  const reactorDecisionEl = document.getElementById("ap-reactor-decision");
+  const reactorRationaleEl = document.getElementById("ap-reactor-rationale");
+  const constraintNodes = Array.from(document.querySelectorAll(".ap-rc-card"));
+  const constraintsByKey = new Map(constraintNodes.map((node) => [node.dataset.constraint, node]));
 
   let bdCount = 0;
   let hgCount = 0;
@@ -1454,6 +1487,38 @@ export async function streamProgressLogs(result) {
 
   const totalTargetDurationMs = 22000;
   const delayPerEntry = Math.max(50, totalTargetDurationMs / log.length);
+
+  function inferConstraintKey(text) {
+    const txt = String(text || "").toLowerCase();
+    for (const rule of DECISION_REACTOR_CONSTRAINTS) {
+      if (rule.hints.some((hint) => txt.includes(hint))) {
+        return rule.key;
+      }
+    }
+    return "coverage";
+  }
+
+  function setConstraintStatus(key, status, detail = "") {
+    const node = constraintsByKey.get(key);
+    if (!node) return;
+    node.dataset.status = status;
+    const stateEl = node.querySelector(".ap-rc-state");
+    if (stateEl) {
+      stateEl.textContent = detail || status.toUpperCase();
+    }
+  }
+
+  function pushReactorLine(container, className, icon, text, max = 12) {
+    if (!container) return;
+    const line = document.createElement("div");
+    line.className = className;
+    line.innerHTML = `<span class="ap-reactor-line-icon">${icon}</span><span class="ap-reactor-line-msg">${text}</span>`;
+    container.appendChild(line);
+    while (container.children.length > max) {
+      container.removeChild(container.firstChild);
+    }
+    container.scrollTop = container.scrollHeight;
+  }
 
   for (let i = 0; i < log.length; i++) {
     const entry = log[i];
@@ -1492,25 +1557,57 @@ export async function streamProgressLogs(result) {
       logContainer.scrollTop = logContainer.scrollHeight;
     }
 
-    if (fluxStream) {
-      const line = document.createElement("div");
-      line.className = "ap-flux-line";
-      line.innerHTML = `<span class="ap-flux-hex">0x${Math.random().toString(16).slice(2,8).toUpperCase()}</span><span class="ap-flux-msg">${entry.phase.toUpperCase()}: STATE_OK</span>`;
-      fluxStream.appendChild(line);
-      if (fluxStream.children.length > 12) {
-        fluxStream.removeChild(fluxStream.firstChild);
-      }
-    }
+    pushReactorLine(
+      reactorFeed,
+      "ap-reactor-line ap-reactor-feed-line",
+      entry.icon || "•",
+      `${entry.phase.toUpperCase()} · ${entry.msg}`,
+      14
+    );
+
+    if (reactorPhaseEl) reactorPhaseEl.textContent = String(entry.phase || "phase").toUpperCase();
+    if (reactorDecisionEl) reactorDecisionEl.textContent = entry.msg || "Laufende Bewertung";
+    if (reactorRationaleEl) reactorRationaleEl.textContent = `Schritt ${i + 1}/${log.length} · Fortschritt ${entry.pct}%`;
 
     if (barEl) barEl.style.width = entry.pct + "%";
     if (pctEl) pctEl.textContent = entry.pct + "%";
     if (phaseEl) phaseEl.textContent = entry.msg;
+    if (reactorOrbit) {
+      reactorOrbit.style.setProperty("--reactor-progress", `${Math.max(0, Math.min(100, entry.pct))}%`);
+    }
 
-    if (i % 5 === 0 && telemetry.length > 0) {
-      const tItem = telemetry[Math.floor(Math.random() * telemetry.length)];
-      if (fluxLbl) fluxLbl.textContent = tItem.phase.toUpperCase();
-      if (fluxVal) fluxVal.textContent = tItem.label;
-      if (fluxDetail) fluxDetail.textContent = tItem.detail;
+    const telemetryItem = telemetry[i % Math.max(1, telemetry.length)];
+    if (telemetryItem) {
+      const key = inferConstraintKey(`${telemetryItem.label} ${telemetryItem.detail}`);
+      const status = telemetryItem.severity === "critical"
+        ? "block"
+        : telemetryItem.severity === "warn"
+          ? "risk"
+          : "pass";
+      setConstraintStatus(key, status, telemetryItem.severity === "warn" ? "WARN" : telemetryItem.severity === "critical" ? "BLOCK" : "PASS");
+      pushReactorLine(
+        reactorEvents,
+        `ap-reactor-line ap-reactor-event-line ${status === "block" ? "is-critical" : status === "risk" ? "is-warn" : "is-pass"}`,
+        telemetryItem.severity === "critical" ? "⛔" : telemetryItem.severity === "warn" ? "⚠️" : "✓",
+        `${telemetryItem.label}: ${telemetryItem.detail}`,
+        8
+      );
+      if (reactorRationaleEl) {
+        reactorRationaleEl.textContent = `${telemetryItem.label} · ${telemetryItem.detail}`;
+      }
+    }
+
+    const traceItem = traces[i];
+    if (traceItem && reactorEvents) {
+      pushReactorLine(
+        reactorEvents,
+        "ap-reactor-line ap-reactor-event-line is-trace",
+        "🧪",
+        traceItem.msg.replace(/^EVAL\s*/, ""),
+        8
+      );
+      const key = inferConstraintKey(traceItem.msg);
+      if (key) setConstraintStatus(key, "active", "ACTIVE");
     }
   }
 
