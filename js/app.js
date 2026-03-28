@@ -1466,7 +1466,7 @@ export async function streamProgressLogs(result) {
     const entry = log[i];
     await sleep(delayPerEntry);
 
-    if (entry.icon === "→") {
+    if (entry.icon === "→" || entry.icon === "🟣") {
       if (entry.msg.includes("HG")) {
         hgCount++; 
       } else {
@@ -1501,13 +1501,22 @@ export async function streamProgressLogs(result) {
 
     if (neuralGraphInstance) {
       if (entry.icon === "🔀" || entry.icon === "🔁" || entry.icon === "🧠") {
-        const dayIdx = entry.dayIdx !== undefined ? entry.dayIdx : Math.floor(Math.random() * daysInMonth(state.year, state.month));
-        const empId = entry.empId || planData.employees[Math.floor(Math.random() * planData.employees.length)];
-        neuralGraphInstance.triggerSwap(dayIdx, empId);
+        if (entry.dayIdx !== undefined && entry.oldEmpId && entry.newEmpId) {
+          neuralGraphInstance.triggerSwap(entry.dayIdx, entry.oldEmpId, entry.newEmpId);
+        }
+      } else if (entry.icon === "→" || entry.icon === "🟣") {
+        if (entry.dayIdx !== undefined) {
+          if (entry.oldEmpId && entry.newEmpId) {
+            neuralGraphInstance.triggerSwap(entry.dayIdx, entry.oldEmpId, entry.newEmpId);
+          } else if (entry.newEmpId || entry.empId) {
+            neuralGraphInstance.triggerAssignment(entry.dayIdx, entry.newEmpId || entry.empId);
+          }
+        }
       }
-      if (entry.msg.includes("KRITISCH") || entry.msg.includes("Penalty") || entry.icon === "⚠" || entry.icon === "❌") {
-        const dayIdx = entry.dayIdx !== undefined ? entry.dayIdx : Math.floor(Math.random() * daysInMonth(state.year, state.month));
-        neuralGraphInstance.triggerError(dayIdx);
+      if (entry.msg.includes("KRITISCH") || entry.msg.includes("Penalty") || entry.icon === "⚠" || entry.icon === "🚨") {
+        if (entry.dayIdx !== undefined) {
+          neuralGraphInstance.triggerError(entry.dayIdx, entry.newEmpId || entry.empId);
+        }
       }
       
       const phasePill = document.getElementById("ap-ng-phase-pill");
@@ -1519,7 +1528,7 @@ export async function streamProgressLogs(result) {
         } else if (entry.phase === "hg") {
           phasePill.textContent = "HG BUNDLING";
           phasePill.style.color = "#38BDF8";
-        } else if (entry.phase === "greedy") {
+        } else if (entry.phase === "greedy" || entry.phase === "bd_weekend" || entry.phase === "bd_workday") {
           phasePill.textContent = "GREEDY PASS";
           phasePill.style.color = "#FBBF24";
         }

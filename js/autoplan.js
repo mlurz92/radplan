@@ -912,7 +912,7 @@ export async function computeAutoPlan(customTargets) {
         relaxed = true; 
         candidates[0].tags.push("Regeln gelockert"); 
         recordRule("bd_weekend", "BD-Constraint gelockert", `Tag ${d}: Keine harte BD-Lösung.`, "warn"); 
-        log.push({ phase: "bd_weekend", icon: "⚠", msg: `BD-Regeln gelockert für Tag ${d}`, dayIdx: d, empId: candidates[0].emp, pct: 22 });
+        log.push({ phase: "bd_weekend", icon: "⚠", msg: `BD-Regeln gelockert für Tag ${d}`, dayIdx: d, newEmpId: candidates[0].emp, pct: 22 });
       }
     }
     
@@ -952,7 +952,7 @@ export async function computeAutoPlan(customTargets) {
             } else {
               queueExternalAssignment(nextWorkday.y, nextWorkday.m, chosen.emp, nextWorkday.d, { assignment: "FZA" });
             }
-            log.push({ phase: "bd_weekend", icon: "🟣", msg: `Dr. Becker erhält FZA am ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]}.`, dayIdx: nextWorkday.d, empId: chosen.emp, pct: Math.min(40, 22 + 2) });
+            log.push({ phase: "bd_weekend", icon: "🟣", msg: `Dr. Becker erhält FZA am ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]}.`, dayIdx: nextWorkday.d, newEmpId: chosen.emp, pct: Math.min(40, 22 + 2) });
             recordRule("bd_weekend", "Becker-FZA-Kompensation", `Ausgleich nach Samstags-BD am ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]}.`, "accent");
           } else {
             const warnMsg = blockedByOtherFA
@@ -960,14 +960,14 @@ export async function computeAutoPlan(customTargets) {
               : `KRITISCH: Dr. Becker hat am ${d}. einen Samstags-BD, aber am nächsten Werktag ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]} besteht bereits eine Belegung (${beckerAssignments.join("/")}). FZA bitte manuell prüfen.`;
             beckerSaturdayFzaWarnings.push(warnMsg);
             reason += " FZA konnte nicht automatisch gesetzt werden; sichtbare Warnung erzeugt.";
-            log.push({ phase: "bd_weekend", icon: "🚨", msg: warnMsg, dayIdx: d, empId: chosen.emp, pct: Math.min(40, 22 + 2) });
+            log.push({ phase: "bd_weekend", icon: "🚨", msg: warnMsg, dayIdx: d, newEmpId: chosen.emp, pct: Math.min(40, 22 + 2) });
             recordRule("bd_weekend", "Kritische Becker-Prüfung", warnMsg, "critical");
           }
         }
       }
       
       report.push({ day: d, emp: chosen.emp, duty: "D", reason: reason, tags: chosen.tags });
-      log.push({ phase: "bd_weekend", icon: "→", msg: `Tag ${d}. → ${chosen.emp}`, dayIdx: d, empId: chosen.emp, pct: 22 + Math.round((i / Math.max(1, weBDs.length)) * 18) });
+      log.push({ phase: "bd_weekend", icon: "→", msg: `Tag ${d}. → ${chosen.emp}`, dayIdx: d, newEmpId: chosen.emp, pct: 22 + Math.round((i / Math.max(1, weBDs.length)) * 18) });
     }
   }
 
@@ -986,7 +986,7 @@ export async function computeAutoPlan(customTargets) {
         bdRelaxedCount++; 
         relaxed = true; 
         candidates[0].tags.push("Regeln gelockert");
-        log.push({ phase: "bd_workday", icon: "⚠", msg: `BD-Regeln gelockert für Tag ${d}`, dayIdx: d, empId: candidates[0].emp, pct: 42 });
+        log.push({ phase: "bd_workday", icon: "⚠", msg: `BD-Regeln gelockert für Tag ${d}`, dayIdx: d, newEmpId: candidates[0].emp, pct: 42 });
       }
     }
     
@@ -1000,7 +1000,7 @@ export async function computeAutoPlan(customTargets) {
       updateAutoF(chosen.emp, d);
       
       report.push({ day: d, emp: chosen.emp, duty: "D", reason: `Bester Score (${Math.round(chosen.score)}).`, tags: chosen.tags });
-      log.push({ phase: "bd_workday", icon: "→", msg: `Tag ${d}. → ${chosen.emp}`, dayIdx: d, empId: chosen.emp, pct: 42 + Math.round((i / Math.max(1, nonWeBDs.length)) * 18) });
+      log.push({ phase: "bd_workday", icon: "→", msg: `Tag ${d}. → ${chosen.emp}`, dayIdx: d, newEmpId: chosen.emp, pct: 42 + Math.round((i / Math.max(1, nonWeBDs.length)) * 18) });
     }
   }
 
@@ -1401,7 +1401,7 @@ export async function computeAutoPlan(customTargets) {
             bestBD = newBD; 
             improved = true; 
             swaps++; 
-            log.push({ phase: "greedy", icon: "🔀", msg: `BD Swap Tag ${day}: ${currentEmp} ➔ ${candidate}`, dayIdx: day, empId: candidate, pct: cyclePct });
+            log.push({ phase: "greedy", icon: "🔀", msg: `BD Swap Tag ${day}: ${currentEmp} ➔ ${candidate}`, dayIdx: day, oldEmpId: currentEmp, newEmpId: candidate, pct: cyclePct });
             break; 
           }
           
@@ -1439,12 +1439,14 @@ export async function computeAutoPlan(customTargets) {
         if (satDay <= dim) {
           const satBDHolder = dutyEmps.find(e => result[e]?.[satDay]?.duty === "D");
           if (satBDHolder && isFacharzt(satBDHolder) && satBDHolder !== bdHolder) {
-            const currentHGHolder = hgFAs.find(e => result[e]?.[d]?.duty === "HG");
+            let currentHGHolder = hgFAs.find(e => result[e]?.[d]?.duty === "HG");
             if (currentHGHolder && currentHGHolder !== satBDHolder && !fixedDutyKeys.has(`HG:${dutyKey(currentHGHolder, d)}`)) {
               clearDutyAssignment(currentHGHolder, d, "HG");
+            } else {
+              currentHGHolder = null;
             }
             if (assignBundledHG(satBDHolder, d, "Freitags-HG gekoppelt an FA des Samstags-BD.", { allowAdjacentHG: true })) {
-               log.push({ phase: "hg", icon: "→", msg: `HG Tag ${d}. → ${satBDHolder}`, dayIdx: d, empId: satBDHolder, pct: cyclePct });
+               log.push({ phase: "hg", icon: "→", msg: `HG Tag ${d}. → ${satBDHolder}`, dayIdx: d, oldEmpId: currentHGHolder, newEmpId: satBDHolder, pct: cyclePct });
             }
           }
         }
@@ -1453,12 +1455,14 @@ export async function computeAutoPlan(customTargets) {
       if (wd === 6 && isFacharzt(bdHolder)) {
         const sunDay = d + 1;
         if (sunDay <= dim) {
-          const currentHGHolder = hgFAs.find(e => result[e]?.[sunDay]?.duty === "HG");
+          let currentHGHolder = hgFAs.find(e => result[e]?.[sunDay]?.duty === "HG");
           if (currentHGHolder && currentHGHolder !== bdHolder && !fixedDutyKeys.has(`HG:${dutyKey(currentHGHolder, sunDay)}`)) {
             clearDutyAssignment(currentHGHolder, sunDay, "HG");
+          } else {
+            currentHGHolder = null;
           }
           if (assignBundledHG(bdHolder, sunDay, "Sonntags-HG gekoppelt an eigenen Samstags-BD.", { allowAdjacentHG: true })) {
-             log.push({ phase: "hg", icon: "→", msg: `HG Tag ${sunDay}. → ${bdHolder}`, dayIdx: sunDay, empId: bdHolder, pct: cyclePct });
+             log.push({ phase: "hg", icon: "→", msg: `HG Tag ${sunDay}. → ${bdHolder}`, dayIdx: sunDay, oldEmpId: currentHGHolder, newEmpId: bdHolder, pct: cyclePct });
           }
         }
       }
@@ -1469,12 +1473,14 @@ export async function computeAutoPlan(customTargets) {
         if (isNxtHol && isAssistenzarzt(bdHolder)) {
           const holBDHolder = dutyEmps.find(e => result[e]?.[nxtHolObj.d]?.duty === "D");
           if (holBDHolder && isFacharzt(holBDHolder) && holBDHolder !== bdHolder) {
-            const currentHGHolder = hgFAs.find(e => result[e]?.[d]?.duty === "HG");
+            let currentHGHolder = hgFAs.find(e => result[e]?.[d]?.duty === "HG");
             if (currentHGHolder && currentHGHolder !== holBDHolder && !fixedDutyKeys.has(`HG:${dutyKey(currentHGHolder, d)}`)) {
               clearDutyAssignment(currentHGHolder, d, "HG");
+            } else {
+              currentHGHolder = null;
             }
             if (assignBundledHG(holBDHolder, d, "Vortag-Feiertag-HG (AA im D) gekoppelt an FA des Feiertags-BD.", { allowAdjacentHG: true })) {
-               log.push({ phase: "hg", icon: "→", msg: `HG Tag ${d}. → ${holBDHolder}`, dayIdx: d, empId: holBDHolder, pct: cyclePct });
+               log.push({ phase: "hg", icon: "→", msg: `HG Tag ${d}. → ${holBDHolder}`, dayIdx: d, oldEmpId: currentHGHolder, newEmpId: holBDHolder, pct: cyclePct });
             }
           }
         }
@@ -1495,7 +1501,7 @@ export async function computeAutoPlan(customTargets) {
         if (candidates.length > 0) {
           hgRelaxedCount++;
           candidates[0].tags.push("Regeln gelockert");
-          log.push({ phase: "hg", icon: "⚠", msg: `HG-Regeln gelockert für Tag ${d}`, dayIdx: d, empId: candidates[0].emp, pct: cyclePct });
+          log.push({ phase: "hg", icon: "⚠", msg: `HG-Regeln gelockert für Tag ${d}`, dayIdx: d, newEmpId: candidates[0].emp, pct: cyclePct });
         }
       }
       
@@ -1504,7 +1510,7 @@ export async function computeAutoPlan(customTargets) {
         setDutyAssignment(chosen.emp, d, "HG");
         rebuildCurrentCounters();
         report.push({ day: d, emp: chosen.emp, duty: "HG", reason: "Gleichmäßige Verteilung.", tags: chosen.tags });
-        log.push({ phase: "hg", icon: "→", msg: `HG Tag ${d}. → ${chosen.emp}`, dayIdx: d, empId: chosen.emp, pct: cyclePct });
+        log.push({ phase: "hg", icon: "→", msg: `HG Tag ${d}. → ${chosen.emp}`, dayIdx: d, newEmpId: chosen.emp, pct: cyclePct });
       }
     }
   }
@@ -1554,7 +1560,7 @@ export async function computeAutoPlan(customTargets) {
             bestHG = newHG;
             improved = true;
             hgMoves++;
-            log.push({ phase: "hg", icon: "🔁", msg: `HG Swap Tag ${day}: ${currentEmp} ➔ ${candidate}`, dayIdx: day, empId: candidate, pct: cyclePct });
+            log.push({ phase: "hg", icon: "🔁", msg: `HG Swap Tag ${day}: ${currentEmp} ➔ ${candidate}`, dayIdx: day, oldEmpId: currentEmp, newEmpId: candidate, pct: cyclePct });
             break;
           }
           
@@ -1610,7 +1616,7 @@ export async function computeAutoPlan(customTargets) {
         if (newGlobal + 0.01 < bestGlobal) {
           bestGlobal = newGlobal;
           deepMoves++;
-          log.push({ phase: "deep", icon: "🧠", msg: `Deep Move Tag ${day} (${dutyCode}): ${currentEmp} ➔ ${candidate}`, dayIdx: day, empId: candidate, pct: cyclePct });
+          log.push({ phase: "deep", icon: "🧠", msg: `Deep Move Tag ${day} (${dutyCode}): ${currentEmp} ➔ ${candidate}`, dayIdx: day, oldEmpId: currentEmp, newEmpId: candidate, pct: cyclePct });
           return true;
         }
         
@@ -1662,7 +1668,7 @@ export async function computeAutoPlan(customTargets) {
           rebuildCurrentCounters();
           report.push({ day: d, emp: chosen, duty: "D", reason: "Zwangsbelegung (Coverage Repair).", tags: ["Coverage Repair"] });
           recordRule("coverage_repair", "BD-Lücke gefüllt", `Tag ${d}: ${chosen}`, "warn");
-          log.push({ phase: "repair", icon: "⚠", msg: `BD-Lücke Tag ${d} gefüllt mit ${chosen}`, dayIdx: d, empId: chosen, pct: cyclePct });
+          log.push({ phase: "repair", icon: "⚠", msg: `BD-Lücke Tag ${d} gefüllt mit ${chosen}`, dayIdx: d, newEmpId: chosen, pct: cyclePct });
         }
       }
       
@@ -1685,7 +1691,7 @@ export async function computeAutoPlan(customTargets) {
           rebuildCurrentCounters();
           report.push({ day: d, emp: chosen, duty: "HG", reason: "Zwangsbelegung (Coverage Repair).", tags: ["Coverage Repair"] });
           recordRule("coverage_repair", "HG-Lücke gefüllt", `Tag ${d}: ${chosen}`, "warn");
-          log.push({ phase: "repair", icon: "⚠", msg: `HG-Lücke Tag ${d} gefüllt mit ${chosen}`, dayIdx: d, empId: chosen, pct: cyclePct });
+          log.push({ phase: "repair", icon: "⚠", msg: `HG-Lücke Tag ${d} gefüllt mit ${chosen}`, dayIdx: d, newEmpId: chosen, pct: cyclePct });
         }
       }
     }
