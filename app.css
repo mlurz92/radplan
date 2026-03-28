@@ -1476,7 +1476,6 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   color: #D97706;
 }
 
-.ap-twin-panel,
 .ap-flux-panel {
   background: rgba(6,13,22,0.9);
   border: 1px solid rgba(56,189,248,.2);
@@ -1487,7 +1486,6 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   position: relative;
   box-shadow: inset 0 0 30px rgba(14,165,233,.05);
 }
-.ap-twin-header,
 .ap-flux-header {
   padding: 8px 12px;
   background: rgba(14,165,233,.1);
@@ -1501,14 +1499,12 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   justify-content: space-between;
   align-items: center;
 }
-.ap-twin-header-pulse,
 .ap-flux-header-pulse {
   width: 6px; height: 6px; border-radius: 50%;
   background: #38BDF8;
   box-shadow: 0 0 8px #38BDF8;
   animation: apNodePulse 1.5s infinite;
 }
-.ap-twin-body,
 .ap-flux-body {
   flex: 1;
   min-height: 0;
@@ -1517,7 +1513,6 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   padding: 12px;
   gap: 12px;
 }
-.ap-twin-focus,
 .ap-flux-focus {
   background: rgba(14,165,233,.05);
   border: 1px solid rgba(56,189,248,.3);
@@ -1530,7 +1525,6 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   overflow: hidden;
   flex-shrink: 0;
 }
-.ap-twin-focus::before,
 .ap-flux-focus::before {
   content: '';
   position: absolute;
@@ -1541,7 +1535,6 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   pointer-events: none;
 }
 @keyframes fluxScan { to { left: 200%; } }
-.ap-twin-focus-lbl,
 .ap-flux-focus-lbl {
   font-family: var(--font-mono);
   font-size: 9px;
@@ -1549,127 +1542,16 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
-.ap-twin-focus-val,
 .ap-flux-focus-val {
   font-size: 15px;
   font-weight: 700;
   color: #F8FAFC;
   line-height: 1.3;
 }
-.ap-twin-focus-detail,
 .ap-flux-focus-detail {
   font-family: var(--font-mono);
   font-size: 10px;
   color: #94A3B8;
-}
-.ap-twin-focus-main {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-.ap-twin-focus-phase {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: rgba(56,189,248,.14);
-  border: 1px solid rgba(56,189,248,.3);
-  color: #BAE6FD;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-.ap-twin-grid {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
-  gap: 8px;
-  align-content: start;
-  padding-right: 2px;
-}
-.ap-twin-grid::-webkit-scrollbar { width: 4px; }
-.ap-twin-grid::-webkit-scrollbar-thumb { background: rgba(125,211,252,.25); border-radius: 2px; }
-.ap-twin-day {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  padding: 8px;
-  border-radius: 9px;
-  border: 1px solid rgba(56,189,248,.16);
-  background: linear-gradient(180deg, rgba(14,22,37,.75), rgba(8,13,24,.84));
-  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
-  transform: translateZ(0);
-}
-.ap-twin-day.is-weekend {
-  border-color: rgba(251,191,36,.2);
-  background: linear-gradient(180deg, rgba(40,24,9,.6), rgba(11,11,18,.88));
-}
-.ap-twin-day.is-holiday {
-  box-shadow: inset 0 0 0 1px rgba(239,68,68,.24);
-}
-.ap-twin-day.is-active {
-  border-color: rgba(34,211,238,.7);
-  box-shadow: 0 0 0 1px rgba(34,211,238,.35), 0 0 18px rgba(14,165,233,.25);
-  transform: translateY(-1px);
-}
-.ap-twin-day-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.ap-twin-day-num {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: #E2E8F0;
-}
-.ap-twin-day-dow {
-  font-size: 8.5px;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: #7DD3FC;
-}
-.ap-twin-duty-track {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 5px;
-}
-.ap-twin-duty-slot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  border-radius: 7px;
-  padding: 4px 6px;
-  border: 1px solid rgba(148,163,184,.24);
-  background: rgba(15,23,42,.72);
-}
-.ap-twin-duty-slot.is-filled {
-  border-color: rgba(74,222,128,.45);
-  box-shadow: inset 0 0 0 1px rgba(34,197,94,.25);
-  animation: apTwinFlash .35s cubic-bezier(.34,1.2,.64,1);
-}
-.ap-twin-duty-d.is-filled { background: linear-gradient(90deg, rgba(30,64,175,.34), rgba(14,116,144,.28)); }
-.ap-twin-duty-hg.is-filled { background: linear-gradient(90deg, rgba(34,197,94,.3), rgba(16,185,129,.2)); }
-.ap-twin-duty-code {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: rgba(186,230,253,.85);
-  letter-spacing: .06em;
-}
-.ap-twin-duty-val {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: #F8FAFC;
-  font-weight: 700;
-}
-@keyframes apTwinFlash {
-  from { transform: translateX(-3px); opacity: .45; }
-  to { transform: none; opacity: 1; }
 }
 .ap-flux-stream {
   flex: 1;
@@ -2735,26 +2617,6 @@ body.is-mobile #modal-score-info #score-info-body {
 body.is-mobile #modal-autoplan .modal-bd {
   padding: 18px !important;
 }
-body.is-mobile #modal-autoplan .ap-engine-main {
-  grid-template-columns: 1fr !important;
-  gap: 10px !important;
-}
-body.is-mobile #modal-autoplan .ap-twin-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  max-height: 42vh;
-}
-body.is-mobile #modal-autoplan .ap-twin-day {
-  padding: 7px;
-}
-body.is-mobile #modal-autoplan .ap-twin-focus {
-  padding: 12px;
-}
-body.is-mobile #modal-autoplan .ap-twin-duty-code {
-  font-size: 8px;
-}
-body.is-mobile #modal-autoplan .ap-twin-duty-val {
-  font-size: 10px;
-}
 body.is-mobile input[type="text"],
 body.is-mobile input[type="number"],
 body.is-mobile textarea,
@@ -3072,8 +2934,5 @@ body.is-mobile #modal-mobile-menu .modal-bd {
 @media (max-width: 900px) {
   .ap-engine-main {
     grid-template-columns: 1fr;
-  }
-  .ap-twin-grid {
-    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   }
 }
