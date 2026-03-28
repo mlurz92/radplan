@@ -66,6 +66,38 @@ import {
 
 import { autoPlanResult } from './autoplan.js';
 
+const originalFetch = window.fetch;
+window.fetch = async function(...args) {
+  const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+  if (url.includes('/api?action=save')) {
+    showToast("🔄 Speichere Daten...");
+    try {
+      const res = await originalFetch.apply(this, args);
+      if (res.ok) {
+        showToast("✅ Auf Server gespeichert");
+      } else {
+        showToast("❌ Speicherfehler (lokal gesichert)");
+      }
+      return res;
+    } catch (err) {
+      showToast("⚠️ Offline (lokal gesichert)");
+      throw err;
+    }
+  } else if (url.includes('/api?action=load')) {
+    try {
+      const res = await originalFetch.apply(this, args);
+      if (!res.ok) {
+        showToast("⚠️ Lade lokalen Cache");
+      }
+      return res;
+    } catch (err) {
+      showToast("⚠️ Offline (lokaler Cache)");
+      throw err;
+    }
+  }
+  return originalFetch.apply(this, args);
+};
+
 export function getViewportWidth() {
   const vv = window.visualViewport?.width;
   const dw = document.documentElement?.clientWidth;

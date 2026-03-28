@@ -15,7 +15,6 @@ import {
 
 import {
   DATA,
-  DRAFTS,
   state,
   planMode,
   planData,
@@ -488,10 +487,12 @@ export function cloneData(obj) {
 }
 
 export function getStoredPlanDraft(key) {
-  if (DRAFTS && DRAFTS[key]) {
-    return cloneData(DRAFTS[key]);
+  try {
+    const raw = localStorage.getItem(`radplan_v3_plan_${key}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
   }
-  return null;
 }
 
 export function persistPlanSessionRefs() {

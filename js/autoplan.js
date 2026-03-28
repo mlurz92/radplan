@@ -912,6 +912,7 @@ export async function computeAutoPlan(customTargets) {
         relaxed = true; 
         candidates[0].tags.push("Regeln gelockert"); 
         recordRule("bd_weekend", "BD-Constraint gelockert", `Tag ${d}: Keine harte BD-Lösung.`, "warn"); 
+        log.push({ phase: "bd_weekend", icon: "⚠", msg: `BD-Regeln gelockert für Tag ${d}`, dayIdx: d, empId: candidates[0].emp, pct: 22 });
       }
     }
     
@@ -951,7 +952,7 @@ export async function computeAutoPlan(customTargets) {
             } else {
               queueExternalAssignment(nextWorkday.y, nextWorkday.m, chosen.emp, nextWorkday.d, { assignment: "FZA" });
             }
-            log.push({ phase: "bd_weekend", icon: "🟣", msg: `Dr. Becker erhält FZA am ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]}.`, pct: Math.min(40, 22 + 2) });
+            log.push({ phase: "bd_weekend", icon: "🟣", msg: `Dr. Becker erhält FZA am ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]}.`, dayIdx: nextWorkday.d, empId: chosen.emp, pct: Math.min(40, 22 + 2) });
             recordRule("bd_weekend", "Becker-FZA-Kompensation", `Ausgleich nach Samstags-BD am ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]}.`, "accent");
           } else {
             const warnMsg = blockedByOtherFA
@@ -959,14 +960,14 @@ export async function computeAutoPlan(customTargets) {
               : `KRITISCH: Dr. Becker hat am ${d}. einen Samstags-BD, aber am nächsten Werktag ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]} besteht bereits eine Belegung (${beckerAssignments.join("/")}). FZA bitte manuell prüfen.`;
             beckerSaturdayFzaWarnings.push(warnMsg);
             reason += " FZA konnte nicht automatisch gesetzt werden; sichtbare Warnung erzeugt.";
-            log.push({ phase: "bd_weekend", icon: "🚨", msg: warnMsg, pct: Math.min(40, 22 + 2) });
+            log.push({ phase: "bd_weekend", icon: "🚨", msg: warnMsg, dayIdx: d, empId: chosen.emp, pct: Math.min(40, 22 + 2) });
             recordRule("bd_weekend", "Kritische Becker-Prüfung", warnMsg, "critical");
           }
         }
       }
       
       report.push({ day: d, emp: chosen.emp, duty: "D", reason: reason, tags: chosen.tags });
-      log.push({ phase: "bd_weekend", icon: "→", msg: `Tag ${d}. → ${chosen.emp}`, pct: 22 + Math.round((i / Math.max(1, weBDs.length)) * 18) });
+      log.push({ phase: "bd_weekend", icon: "→", msg: `Tag ${d}. → ${chosen.emp}`, dayIdx: d, empId: chosen.emp, pct: 22 + Math.round((i / Math.max(1, weBDs.length)) * 18) });
     }
   }
 
@@ -985,6 +986,7 @@ export async function computeAutoPlan(customTargets) {
         bdRelaxedCount++; 
         relaxed = true; 
         candidates[0].tags.push("Regeln gelockert");
+        log.push({ phase: "bd_workday", icon: "⚠", msg: `BD-Regeln gelockert für Tag ${d}`, dayIdx: d, empId: candidates[0].emp, pct: 42 });
       }
     }
     
@@ -998,7 +1000,7 @@ export async function computeAutoPlan(customTargets) {
       updateAutoF(chosen.emp, d);
       
       report.push({ day: d, emp: chosen.emp, duty: "D", reason: `Bester Score (${Math.round(chosen.score)}).`, tags: chosen.tags });
-      log.push({ phase: "bd_workday", icon: "→", msg: `Tag ${d}. → ${chosen.emp}`, pct: 42 + Math.round((i / Math.max(1, nonWeBDs.length)) * 18) });
+      log.push({ phase: "bd_workday", icon: "→", msg: `Tag ${d}. → ${chosen.emp}`, dayIdx: d, empId: chosen.emp, pct: 42 + Math.round((i / Math.max(1, nonWeBDs.length)) * 18) });
     }
   }
 
@@ -1359,7 +1361,7 @@ export async function computeAutoPlan(customTargets) {
     return bdObjective + hgObjective + coveragePenalty;
   }
 
-  function runPhase4_BDOptimize() {
+  function runPhase4_BDOptimize(cyclePct) {
     const mutableBDDays = listDutyAssignments(dutyEmps, dim, result, "D")
       .filter(({ emp, day }) => !fixedDutyKeys.has(`D:${dutyKey(emp, day)}`))
       .map(({ day }) => day);
@@ -1399,6 +1401,7 @@ export async function computeAutoPlan(customTargets) {
             bestBD = newBD; 
             improved = true; 
             swaps++; 
+            log.push({ phase: "greedy", icon: "🔀", msg: `BD Swap Tag ${day}: ${currentEmp} ➔ ${candidate}`, dayIdx: day, empId: candidate, pct: cyclePct });
             break; 
           }
           
@@ -1411,7 +1414,7 @@ export async function computeAutoPlan(customTargets) {
     }
   }
 
-  function runPhase5_HGBundle() {
+  function runPhase5_HGBundle(cyclePct) {
     const prevBundledKeys = new Set(bundledHGKeys);
     for (const key of prevBundledKeys) {
       const atIdx = key.indexOf("@@");
@@ -1440,7 +1443,9 @@ export async function computeAutoPlan(customTargets) {
             if (currentHGHolder && currentHGHolder !== satBDHolder && !fixedDutyKeys.has(`HG:${dutyKey(currentHGHolder, d)}`)) {
               clearDutyAssignment(currentHGHolder, d, "HG");
             }
-            assignBundledHG(satBDHolder, d, "Freitags-HG gekoppelt an FA des Samstags-BD.", { allowAdjacentHG: true });
+            if (assignBundledHG(satBDHolder, d, "Freitags-HG gekoppelt an FA des Samstags-BD.", { allowAdjacentHG: true })) {
+               log.push({ phase: "hg", icon: "→", msg: `HG Tag ${d}. → ${satBDHolder}`, dayIdx: d, empId: satBDHolder, pct: cyclePct });
+            }
           }
         }
       }
@@ -1452,7 +1457,9 @@ export async function computeAutoPlan(customTargets) {
           if (currentHGHolder && currentHGHolder !== bdHolder && !fixedDutyKeys.has(`HG:${dutyKey(currentHGHolder, sunDay)}`)) {
             clearDutyAssignment(currentHGHolder, sunDay, "HG");
           }
-          assignBundledHG(bdHolder, sunDay, "Sonntags-HG gekoppelt an eigenen Samstags-BD.", { allowAdjacentHG: true });
+          if (assignBundledHG(bdHolder, sunDay, "Sonntags-HG gekoppelt an eigenen Samstags-BD.", { allowAdjacentHG: true })) {
+             log.push({ phase: "hg", icon: "→", msg: `HG Tag ${sunDay}. → ${bdHolder}`, dayIdx: sunDay, empId: bdHolder, pct: cyclePct });
+          }
         }
       }
 
@@ -1466,7 +1473,9 @@ export async function computeAutoPlan(customTargets) {
             if (currentHGHolder && currentHGHolder !== holBDHolder && !fixedDutyKeys.has(`HG:${dutyKey(currentHGHolder, d)}`)) {
               clearDutyAssignment(currentHGHolder, d, "HG");
             }
-            assignBundledHG(holBDHolder, d, "Vortag-Feiertag-HG (AA im D) gekoppelt an FA des Feiertags-BD.", { allowAdjacentHG: true });
+            if (assignBundledHG(holBDHolder, d, "Vortag-Feiertag-HG (AA im D) gekoppelt an FA des Feiertags-BD.", { allowAdjacentHG: true })) {
+               log.push({ phase: "hg", icon: "→", msg: `HG Tag ${d}. → ${holBDHolder}`, dayIdx: d, empId: holBDHolder, pct: cyclePct });
+            }
           }
         }
       }
@@ -1475,7 +1484,7 @@ export async function computeAutoPlan(customTargets) {
     rebuildCurrentCounters();
   }
 
-  function runPhase6_HGAssign() {
+  function runPhase6_HGAssign(cyclePct) {
     for (let d = 1; d <= dim; d++) {
       if (bundledHGDays.has(d) || isDayHGTasked(d)) continue;
       
@@ -1486,6 +1495,7 @@ export async function computeAutoPlan(customTargets) {
         if (candidates.length > 0) {
           hgRelaxedCount++;
           candidates[0].tags.push("Regeln gelockert");
+          log.push({ phase: "hg", icon: "⚠", msg: `HG-Regeln gelockert für Tag ${d}`, dayIdx: d, empId: candidates[0].emp, pct: cyclePct });
         }
       }
       
@@ -1494,11 +1504,12 @@ export async function computeAutoPlan(customTargets) {
         setDutyAssignment(chosen.emp, d, "HG");
         rebuildCurrentCounters();
         report.push({ day: d, emp: chosen.emp, duty: "HG", reason: "Gleichmäßige Verteilung.", tags: chosen.tags });
+        log.push({ phase: "hg", icon: "→", msg: `HG Tag ${d}. → ${chosen.emp}`, dayIdx: d, empId: chosen.emp, pct: cyclePct });
       }
     }
   }
 
-  function runPhase7_HGOptimize() {
+  function runPhase7_HGOptimize(cyclePct) {
     const mutableHGDays = listDutyAssignments(hgFAs, dim, result, "HG")
       .filter(({ emp, day }) => !fixedDutyKeys.has(`HG:${dutyKey(emp, day)}`) && !bundledHGKeys.has(dutyKey(emp, day)))
       .map(({ day }) => day);
@@ -1543,6 +1554,7 @@ export async function computeAutoPlan(customTargets) {
             bestHG = newHG;
             improved = true;
             hgMoves++;
+            log.push({ phase: "hg", icon: "🔁", msg: `HG Swap Tag ${day}: ${currentEmp} ➔ ${candidate}`, dayIdx: day, empId: candidate, pct: cyclePct });
             break;
           }
           
@@ -1555,7 +1567,7 @@ export async function computeAutoPlan(customTargets) {
     }
   }
 
-  function runPhase8_DeepOptimize() {
+  function runPhase8_DeepOptimize(cyclePct) {
     const deepMutableBDDays = listDutyAssignments(dutyEmps, dim, result, "D")
       .filter(({ emp, day }) => !fixedDutyKeys.has(`D:${dutyKey(emp, day)}`))
       .map(({ day }) => day);
@@ -1598,6 +1610,7 @@ export async function computeAutoPlan(customTargets) {
         if (newGlobal + 0.01 < bestGlobal) {
           bestGlobal = newGlobal;
           deepMoves++;
+          log.push({ phase: "deep", icon: "🧠", msg: `Deep Move Tag ${day} (${dutyCode}): ${currentEmp} ➔ ${candidate}`, dayIdx: day, empId: candidate, pct: cyclePct });
           return true;
         }
         
@@ -1620,7 +1633,7 @@ export async function computeAutoPlan(customTargets) {
     }
   }
 
-  function runCoverageRepair() {
+  function runCoverageRepair(cyclePct) {
     for (let d = 1; d <= dim; d++) {
       if (!emps.some(e => result[e]?.[d]?.duty === "D")) {
         const wd = weekday(y, m, d);
@@ -1649,6 +1662,7 @@ export async function computeAutoPlan(customTargets) {
           rebuildCurrentCounters();
           report.push({ day: d, emp: chosen, duty: "D", reason: "Zwangsbelegung (Coverage Repair).", tags: ["Coverage Repair"] });
           recordRule("coverage_repair", "BD-Lücke gefüllt", `Tag ${d}: ${chosen}`, "warn");
+          log.push({ phase: "repair", icon: "⚠", msg: `BD-Lücke Tag ${d} gefüllt mit ${chosen}`, dayIdx: d, empId: chosen, pct: cyclePct });
         }
       }
       
@@ -1671,16 +1685,17 @@ export async function computeAutoPlan(customTargets) {
           rebuildCurrentCounters();
           report.push({ day: d, emp: chosen, duty: "HG", reason: "Zwangsbelegung (Coverage Repair).", tags: ["Coverage Repair"] });
           recordRule("coverage_repair", "HG-Lücke gefüllt", `Tag ${d}: ${chosen}`, "warn");
+          log.push({ phase: "repair", icon: "⚠", msg: `HG-Lücke Tag ${d} gefüllt mit ${chosen}`, dayIdx: d, empId: chosen, pct: cyclePct });
         }
       }
     }
   }
 
   log.push({ phase: "hg_bundle", icon: "🔗", msg: "Initiale Wochenend-Kopplung für HG...", pct: 62 });
-  runPhase5_HGBundle();
+  runPhase5_HGBundle(62);
 
   log.push({ phase: "hg_assign", icon: "📞", msg: "Initiale HG-Verteilung...", pct: 65 });
-  runPhase6_HGAssign();
+  runPhase6_HGAssign(65);
   rebuildCurrentCounters();
 
   log.push({ phase: "optimize", icon: "⚙️", msg: `Starte Multi-Zyklus-Optimierung (${MAX_OPTIMIZATION_CYCLES} Zyklen, BD:${BD_MAX_PASSES}/HG:${HG_MAX_PASSES}/Deep:${DEEP_MAX_PASSES} Passes)...`, pct: 68 });
@@ -1692,27 +1707,27 @@ export async function computeAutoPlan(customTargets) {
     const cyclePct = 68 + Math.round((cycle / MAX_OPTIMIZATION_CYCLES) * 22);
     
     log.push({ phase: "optimize", icon: "🔄", msg: `Zyklus ${cycle + 1}/${MAX_OPTIMIZATION_CYCLES}: BD-Optimierung läuft...`, pct: cyclePct });
-    runPhase4_BDOptimize();
+    runPhase4_BDOptimize(cyclePct);
     rebuildCurrentCounters();
     
     log.push({ phase: "optimize", icon: "🔗", msg: `Zyklus ${cycle + 1}: HG-Wochenend-Kopplung aktualisieren...`, pct: cyclePct + 1 });
-    runPhase5_HGBundle();
+    runPhase5_HGBundle(cyclePct + 1);
     rebuildCurrentCounters();
     
     log.push({ phase: "optimize", icon: "📞", msg: `Zyklus ${cycle + 1}: HG-Lücken auffüllen...`, pct: cyclePct + 2 });
-    runPhase6_HGAssign();
+    runPhase6_HGAssign(cyclePct + 2);
     rebuildCurrentCounters();
     
     log.push({ phase: "optimize", icon: "🧠", msg: `Zyklus ${cycle + 1}: HG-Optimierung läuft...`, pct: cyclePct + 2 });
-    runPhase7_HGOptimize();
+    runPhase7_HGOptimize(cyclePct + 2);
     rebuildCurrentCounters();
     
     log.push({ phase: "optimize", icon: "🧬", msg: `Zyklus ${cycle + 1}: Globale Metaheuristik läuft...`, pct: cyclePct + 3 });
-    runPhase8_DeepOptimize();
+    runPhase8_DeepOptimize(cyclePct + 3);
     rebuildCurrentCounters();
     
     log.push({ phase: "optimize", icon: "🛠️", msg: `Zyklus ${cycle + 1}: Coverage Repair...`, pct: cyclePct + 3 });
-    runCoverageRepair();
+    runCoverageRepair(cyclePct + 3);
     rebuildCurrentCounters();
     
     const newGlobalForCycle = computeGlobalObjective();

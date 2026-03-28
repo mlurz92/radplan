@@ -35,7 +35,6 @@ import {
 import {
   state,
   DATA,
-  DRAFTS,
   planMode,
   planData,
   planBaseline,
@@ -100,11 +99,14 @@ import {
   DUTY_EXEMPT
 } from './autoplan.js';
 
+import { NeuralGraph } from './neuralgraph.js';
+
 let localAutoPlanResult = null;
 let localAutoPlanTargets = {};
 let localApViewMode = "config";
 let localAutoPlanConfigRenderToken = 0;
 let localApAnimationId = null;
+let neuralGraphInstance = null;
 
 export function isPeriodFlyoutOpen() {
   const el = document.getElementById("period-flyout");
@@ -353,21 +355,24 @@ export function abortPlanChanges() {
   showToast("Zurückgesetzt");
 }
 
-export async function savePlanDraft() {
+export function savePlanDraft() {
   if (!planMode || !planData) {
     return;
   }
   
-  const key = monthKey(state.year, state.month);
+  const key = `radplan_v3_plan_${monthKey(state.year, state.month)}`;
   
   try {
     persistPlanSessionRefs();
-    DRAFTS[key] = {
-      employees: planData.employees,
-      assignments: planData.assignments,
-      rbn: planData.rbn || {},
-      wishes: planData.wishes || {},
-    };
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        employees: planData.employees,
+        assignments: planData.assignments,
+        rbn: planData.rbn || {},
+        wishes: planData.wishes || {},
+      })
+    );
     
     setPlanBaseline({
       assignments: cloneData(planData.assignments),
@@ -376,14 +381,14 @@ export async function savePlanDraft() {
     
     persistPlanSessionRefs();
     updatePlanBarUI();
-    await saveToStorage();
+    saveToStorage();
     showToast("Entwurf gespeichert");
   } catch (e) {
     showToast("Fehler beim Speichern");
   }
 }
 
-export async function applyPlanToMain() {
+export function applyPlanToMain() {
   if (!planMode || !planData) {
     return;
   }
@@ -398,7 +403,7 @@ export async function applyPlanToMain() {
   DATA[k].assignments = cloneData(planData.assignments);
   DATA[k].rbn = cloneData(planData.rbn || {});
   
-  await saveToStorage();
+  saveToStorage();
   exitPlanMode();
   showToast("Planung übernommen");
 }
@@ -910,7 +915,18 @@ export function openMobileDay(day) {
 }
 
 export function doExport() {
-  const exportObj = { main: DATA, plans: DRAFTS };
+  const plans = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith("radplan_v3_plan_")) {
+      try {
+        plans[k.replace("radplan_v3_plan_", "")] = JSON.parse(localStorage.getItem(k));
+      } catch (e) {
+      }
+    }
+  }
+  
+  const exportObj = { main: DATA, plans };
   const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = Object.assign(document.createElement("a"), {
@@ -943,7 +959,7 @@ export function openImportModal() {
   showOverlay("modal-import");
 }
 
-export async function doImport() {
+export function doImport() {
   const ta = document.getElementById("import-ta");
   if (!ta) return;
   
@@ -957,19 +973,21 @@ export async function doImport() {
       throw new Error("Ungültiges Format");
     }
     
-    Object.keys(DATA).forEach(k => delete DATA[k]);
-    Object.keys(DRAFTS).forEach(k => delete DRAFTS[k]);
-    
     if (parsed.main && typeof parsed.main === "object") {
       Object.assign(DATA, parsed.main);
       if (parsed.plans && typeof parsed.plans === "object") {
-        Object.assign(DRAFTS, parsed.plans);
+        for (const [pk, pv] of Object.entries(parsed.plans)) {
+          if (pv && typeof pv === "object" && !pv.rbn) {
+            pv.rbn = {};
+          }
+          localStorage.setItem(`radplan_v3_plan_${pk}`, JSON.stringify(pv));
+        }
       }
     } else {
       Object.assign(DATA, parsed);
     }
     
-    await saveToStorage();
+    saveToStorage();
     const repaired = ensurePostBDFreiDays();
     hideOverlay("modal-import");
     render();
@@ -1334,18 +1352,15 @@ export function renderProgressShell() {
       </div>
 
       <div class="ap-engine-main">
-        <div class="ap-flux-panel">
-          <div class="ap-flux-header">
-            <span>Constraint Flux Matrix</span>
-            <span class="ap-flux-header-pulse"></span>
+        <div id="ap-neural-container" class="ap-neural-view">
+          <div class="ap-neural-vignette"></div>
+          <div class="ap-neural-hud-layer">
+             <div class="ap-neural-hud-item"><span class="ap-nhi-lbl">Topologie</span><span class="ap-nhi-val">Neural Constellation</span></div>
+             <div class="ap-neural-hud-item"><span class="ap-nhi-lbl">Status</span><span class="ap-nhi-val" id="ap-ng-status">COMPUTING</span></div>
           </div>
-          <div class="ap-flux-body">
-            <div class="ap-flux-focus">
-              <span class="ap-flux-focus-lbl" id="ap-flux-lbl">Computing</span>
-              <span class="ap-flux-focus-val" id="ap-flux-val">Warte auf Daten...</span>
-              <span class="ap-flux-focus-detail" id="ap-flux-detail">Strikte Dienst-Exklusivität aktiv</span>
-            </div>
-            <div class="ap-flux-stream" id="ap-flux-stream"></div>
+          <div class="ap-neural-stats">
+             <span class="ap-neural-stat-pill">WebGL Active</span>
+             <span class="ap-neural-stat-pill" style="color:#FBBF24" id="ap-ng-phase-pill">INITIALIZING</span>
           </div>
         </div>
 
@@ -1417,21 +1432,27 @@ export function renderProgressShell() {
     };
     draw();
   }
+
+  const container = document.getElementById("ap-neural-container");
+  if (container) {
+    if (neuralGraphInstance) {
+      neuralGraphInstance.dispose();
+    }
+    neuralGraphInstance = new NeuralGraph(container);
+    const daysCount = daysInMonth(state.year, state.month);
+    neuralGraphInstance.initData(daysCount, planData.employees);
+    document.getElementById("ap-ng-status").textContent = `${daysCount} TAGE × ${planData.employees.length} MA`;
+  }
 }
 
 export async function streamProgressLogs(result) {
   const logContainer = document.getElementById("ap-term-body");
-  const fluxStream = document.getElementById("ap-flux-stream");
   const barEl = document.getElementById("ap-prog-bar");
   const pctEl = document.getElementById("ap-prog-pct");
   const phaseEl = document.getElementById("ap-phase-name");
   
   const log = result.log;
   const telemetry = result.ruleTelemetry?.events || [];
-
-  const fluxLbl = document.getElementById("ap-flux-lbl");
-  const fluxVal = document.getElementById("ap-flux-val");
-  const fluxDetail = document.getElementById("ap-flux-detail");
 
   let bdCount = 0;
   let hgCount = 0;
@@ -1478,30 +1499,49 @@ export async function streamProgressLogs(result) {
       logContainer.scrollTop = logContainer.scrollHeight;
     }
 
-    if (fluxStream) {
-      const line = document.createElement("div");
-      line.className = "ap-flux-line";
-      line.innerHTML = `<span class="ap-flux-hex">0x${Math.random().toString(16).slice(2,8).toUpperCase()}</span><span class="ap-flux-msg">${entry.phase.toUpperCase()}: STATE_OK</span>`;
-      fluxStream.appendChild(line);
-      if (fluxStream.children.length > 12) {
-        fluxStream.removeChild(fluxStream.firstChild);
+    if (neuralGraphInstance) {
+      if (entry.icon === "🔀" || entry.icon === "🔁" || entry.icon === "🧠") {
+        const dayIdx = entry.dayIdx !== undefined ? entry.dayIdx : Math.floor(Math.random() * daysInMonth(state.year, state.month));
+        const empId = entry.empId || planData.employees[Math.floor(Math.random() * planData.employees.length)];
+        neuralGraphInstance.triggerSwap(dayIdx, empId);
+      }
+      if (entry.msg.includes("KRITISCH") || entry.msg.includes("Penalty") || entry.icon === "⚠" || entry.icon === "❌") {
+        const dayIdx = entry.dayIdx !== undefined ? entry.dayIdx : Math.floor(Math.random() * daysInMonth(state.year, state.month));
+        neuralGraphInstance.triggerError(dayIdx);
+      }
+      
+      const phasePill = document.getElementById("ap-ng-phase-pill");
+      if (phasePill) {
+        if (entry.phase === "deep") {
+          if (i % 10 === 0) neuralGraphInstance.setPhase("deep");
+          phasePill.textContent = "DEEP OPTIMIZE";
+          phasePill.style.color = "#A855F7";
+        } else if (entry.phase === "hg") {
+          phasePill.textContent = "HG BUNDLING";
+          phasePill.style.color = "#38BDF8";
+        } else if (entry.phase === "greedy") {
+          phasePill.textContent = "GREEDY PASS";
+          phasePill.style.color = "#FBBF24";
+        }
       }
     }
 
     if (barEl) barEl.style.width = entry.pct + "%";
     if (pctEl) pctEl.textContent = entry.pct + "%";
     if (phaseEl) phaseEl.textContent = entry.msg;
-
-    if (i % 5 === 0 && telemetry.length > 0) {
-      const tItem = telemetry[Math.floor(Math.random() * telemetry.length)];
-      if (fluxLbl) fluxLbl.textContent = tItem.phase.toUpperCase();
-      if (fluxVal) fluxVal.textContent = tItem.label;
-      if (fluxDetail) fluxDetail.textContent = tItem.detail;
-    }
   }
 
   if (localApAnimationId) {
     cancelAnimationFrame(localApAnimationId);
+  }
+
+  if (neuralGraphInstance) {
+     neuralGraphInstance.triggerSuccess();
+     const phasePill = document.getElementById("ap-ng-phase-pill");
+     if (phasePill) {
+       phasePill.textContent = "CONVERGED";
+       phasePill.style.color = "#22C55E";
+     }
   }
   
   await sleep(1000);
@@ -1785,7 +1825,7 @@ export function renderReportModal() {
   showOverlay("modal-ap-report");
 }
 
-export async function applyAutoPlan() {
+export function applyAutoPlan() {
   if (!localAutoPlanResult || !planMode) return;
   
   recordPlanHistory();
@@ -1814,7 +1854,7 @@ export async function applyAutoPlan() {
   }
   
   if (changed) {
-    await saveToStorage();
+    saveToStorage();
   }
   
   recordPlanHistory();
@@ -2180,9 +2220,6 @@ export function wireEvents() {
 }
 
 export async function init() {
-  const loader = document.getElementById("app-loader");
-  if (loader) loader.style.display = "flex";
-
   await loadFromStorage();
   ensurePostBDFreiDays();
   
@@ -2196,7 +2233,7 @@ export async function init() {
       assignments: {}, 
       rbn: {},
     };
-    await saveToStorage();
+    saveToStorage();
   }
   
   populatePeriodMonthSelect();
@@ -2204,6 +2241,20 @@ export async function init() {
   wireEvents();
   
   refreshResponsiveLayout({ forceRender: true });
+
+  const apModal = document.getElementById("modal-autoplan");
+  if (apModal) {
+    new MutationObserver((mutations) => {
+      mutations.forEach((m) => {
+        if (m.attributeName === "hidden" && apModal.hasAttribute("hidden")) {
+          if (neuralGraphInstance) {
+            neuralGraphInstance.dispose();
+            neuralGraphInstance = null;
+          }
+        }
+      });
+    }).observe(apModal, { attributes: true });
+  }
   
   window.addEventListener("resize", () => {
     queueResponsiveRefresh();
@@ -2218,8 +2269,6 @@ export async function init() {
       queueResponsiveRefresh();
     }, { passive: true });
   }
-
-  if (loader) loader.style.display = "none";
 }
 
 document.addEventListener("DOMContentLoaded", init);
