@@ -1,87 +1,98 @@
-# Algorithmische Spezifikation: RadPlan Neural Scheduler
+# Algorithmische Spezifikation: RadPlan Neural Scheduler (v3)
 
-Diese Dokumentation beschreibt die vollständige Logik, die mathematischen Priorisierungen und die Einschränkungen des RadPlan Neural Schedulers. Der Algorithmus nutzt einen hybriden Ansatz aus konstruktiver Heuristik (greedy) und einer iterativen Metaheuristik (Swap-Optimierung).
+Der RadPlan Neural Scheduler ist ein hochpräzises Optimierungssystem zur automatisierten Erstellung von ärztlichen Dienstplänen. Er basiert auf einem hybriden Modell aus konstruktiven Heuristiken (Greedy-Ansatz) und einer mehrstufigen iterativen Metaheuristik (Swap-Optimierung). Das System verfolgt das Ziel, eine mathematisch perfekte Balance zwischen Dienstabdeckung, gesetzlichen Ruhezeiten, spezifischen personellen Einschränkungen und individueller Fairness zu finden.
 
-## 1. Grundprinzipien
-* **Zielsetzung:** Maximale Dienstabdeckung bei gleichzeitiger Maximierung der Fairness (Verteilungsgerechtigkeit) für alle Mitarbeiter unter Einhaltung aller medizinisch-rechtlichen und operativen Regeln.
-* **Strategie:** "Hard Constraints" werden primär durch die Auswahlfunktion (`canDoBD`, `canDoHG`) erzwungen. "Soft Constraints" werden über Scoring-Funktionen (`scoreBDCandidate`, `scoreHGCandidate`) in das Ranking der Kandidaten einbezogen. Die globale Optimierung erfolgt über eine Kostenfunktion (`Global Objective Function`).
+## 1. Fundamentale Architektur
+Der Algorithmus arbeitet nicht linear, sondern in einem 15-fachen Zyklus-Verfahren. Er simuliert tausende von möglichen Dienstkombinationen und bewertet diese anhand einer komplexen Kostenfunktion (Global Objective Function). Ein niedrigerer Kosten-Score korreliert dabei mit einer höheren Planungsqualität.
 
-## 2. Daten und Planungsgrundlagen
-* **Historische Daten:** Der Algorithmus aggregiert Dienstdaten (BD, HG, WE-Dienste, Samstage, Feiertagsdienste) seit dem 01.01. des aktuellen Jahres.
-* **Fairness-Maß:** Die "Fairness" wird über die Standardabweichung (Fairness Spread) der Dienstanzahl pro Mitarbeiter berechnet.
-* **Targets:** Das monatliche Ziel für BDs pro Mitarbeiter (Default: 4, Dr. Polednia/Becker/Sebastian: 3) ist der Ankerpunkt für die Verteilungslogik.
+### Die drei Säulen der Entscheidung:
+1. **Harte Constraints (Hard Constraints):** Unverhandelbare Regeln (z. B. Ruhezeiten, Urlaub). Verletzungen führen zum sofortigen Ausschluss eines Kandidaten (-Infinity).
+2. **Weiche Constraints (Soft Constraints):** Präferenzen und Fairness-Ziele. Sie modulieren den Score eines Kandidaten (Scoring).
+3. **Globale Metaheuristik:** Nach der initialen Verteilung werden Dienste zwischen Personen getauscht (Swaps), um lokale Minima zu verlassen und die Gesamtverteilung zu glätten.
 
-## 3. Phasen der Berechnung
+## 2. Der Optimierungsprozess (The Pipeline)
 
-### Phase 1: Initialisierung
-- Laden der historischen Statistiken.
-- Identifikation fixer Dienste (manuell durch den Planer gesetzte Dienste).
-- Korrektur von Lücken: Nach jedem manuell gesetzten "D" wird automatisch ein "F" (Frei) am Folgetag reserviert (automatischer Ruhetag).
+### Phase 1: Initialisierung & Daten-Integrität
+* **Historische Analyse:** Aggregation aller geleisteten Dienste (BD, HG, WE, Samstage, Feiertage) seit dem 01.01. des aktuellen Kalenderjahres. Diese Daten dienen in Grenzfällen als "Tie-Breaker".
+* **Fix-Dienst-Anker:** Identifikation aller manuell durch den Planer gesetzten Dienste. Diese werden als unveränderlich markiert.
+* **Auto-F-Repair:** Automatische Reservierung eines "F" (Freizeitausgleich) am Folgetag für jeden manuell gesetzten BD, sofern dieser auf einen Werktag fällt.
 
-### Phase 2: Wochenende & Feiertage (BD)
-- **Priorität:** Höchste Priorität, da diese Tage am schwersten zu besetzen sind.
-- Sortierung der Tage nach WE/FT-Status.
-- Auswahl der Kandidaten erfolgt über den `scoreBDCandidate`.
+### Phase 2: Priorisierte BD-Verteilung (Wochenende & Feiertage)
+Wochenenden und Feiertage sind am schwersten zu besetzen und bilden das Gerüst des Plans.
+* Der Algorithmus sortiert diese Tage und weist sie den Kandidaten mit dem höchsten `scoreBDCandidate` zu.
+* Falls kein Kandidat die harten Regeln erfüllt, schaltet das System in den "Relaxed Mode" (Lockern von Abstandsregeln), um eine Lücke zu vermeiden.
 
-### Phase 3: Werktage (BD)
-- Verteilung der restlichen BDs von Montag bis Freitag.
-- Berücksichtigung der "Vor-Urlaub-Priorisierung": Am Donnerstag vor einer Urlaubswoche eines Mitarbeiters wird dieser bevorzugt für den BD eingeteilt, um den Urlaubseffekt durch den Ruhetag am Freitag zu maximieren.
+### Phase 3: Sekundäre BD-Verteilung (Werktage)
+* Verteilung der verbleibenden BD-Dienste (Montag bis Donnerstag).
+* Hier greift die "Vor-Urlaub-Priorisierung": Personen, die in der Folgewoche Urlaub haben, werden bevorzugt am Donnerstag eingeteilt, um den Ruhetag am Freitag als Urlaubsverlängerung zu nutzen.
 
-### Phase 4: Iterative BD-Optimierung
-- Durchführung von Swaps: Der Algorithmus testet für jeden BD-Tag, ob ein Tausch zwischen dem aktuell eingeteilten Mitarbeiter und einem anderen Kandidaten den `Global Fairness Score` verbessert.
+### Phase 4: Lokale BD-Optimierung (80 Durchläufe pro Zyklus)
+* Das System prüft für jeden Tag des Monats, ob ein Tausch des BD-Inhabers mit einer anderen qualifizierten Person die `computeBDObjective` (Kostenfunktion für Bereitschaftsdienste) senkt.
 
-### Phase 5: HG-Bündelung (Kopplung)
-- **Regel:** Wenn ein AA am Freitag BD hat, wird der HG zwingend an den FA vergeben, der am Samstag BD hat.
-- **Regel:** Wenn ein FA am Samstag BD hat, übernimmt er zwingend den Sonntag-HG (HG-D-HG Kette).
-- **Regel:** Wenn AA am Vortag eines Feiertags BD hat, wird der HG an den FA des Feiertags-BDs gebunden.
+### Phase 5: Deterministische HG-Bündelung (Kopplungs-Logik)
+Bevor HG-Dienste frei verteilt werden, greifen zwingende medizinisch-operative Kopplungsregeln:
+1. **AA-Freitags-Kopplung:** Hat ein Assistenzarzt (AA) am Freitag BD, muss der Facharzt (FA), der am Samstag BD hat, zwingend den HG am Freitag übernehmen.
+2. **FA-Samstags-Kette:** Ein Facharzt, der am Samstag BD hat, übernimmt zwingend den HG am Sonntag (Modell: HG-D-HG).
+3. **Feiertags-Vortags-Kopplung:** Hat ein AA am Vortag eines Feiertags BD, übernimmt der FA des Feiertags-BDs zwingend den HG am Vortag.
 
-### Phase 6: HG-Verteilung (Rest)
-- Auffüllen verbleibender HG-Dienste durch FAs unter Berücksichtigung der monatlichen Gleichverteilung.
+### Phase 6: HG-Initialzuweisung & Fairness-Ausgleich
+* Verteilung der restlichen HG-Lücken.
+* **Zentrale Fairness-Regel:** FA mit weniger BD im aktuellen Monat erhalten anteilig mehr HG-Dienste, um die Gesamt-Arbeitslast (Workload) innerhalb des Monats auszugleichen.
 
-### Phase 7: Metaheuristik (Deep Optimize)
-- Laufzeit-intensive Phase. Tausche von Diensten zwischen Mitarbeitern, um die "Global Objective Function" zu minimieren.
-- Hier werden auch komplexe Abhängigkeiten (z.B. Dr. Becker/Dr. Martin CT-Leitung) über den gesamten Monat hinweg berechnet.
+### Phase 7: Lokale HG-Optimierung (100 Durchläufe pro Zyklus)
+* Iterative Swaps von HG-Diensten zur Minimierung der `computeHGObjective`. Ziel ist die Glättung der Verteilung von "HG für AA" (hohe Belastung) und "HG für FA" (niedrige Belastung).
 
-### Phase 8: Validierung & Doppel-Dienst-Bereinigung
-- Identifikation und Entfernung von `D-D` Kombinationen, die durch die Metaheuristik entstanden sein könnten.
+### Phase 8: Globale Metaheuristik (Deep Optimize - 120 Durchläufe pro Zyklus)
+* Dies ist die rechenintensivste Phase. Das System führt Cross-Role-Swaps durch und evaluiert die `computeGlobalObjective`. Hier werden komplexe Interdependenzen (wie die CT-Leitung Becker/Martin) über den gesamten Monat hinweg harmonisiert.
 
-## 4. Constraint-Katalog
+### Phase 9: Final Validation & Exclusivity Check
+* Abschlussprüfung auf Dienst-Exklusivität (maximal ein Dienst pro Person pro Tag) und Bereinigung etwaiger Artefakte aus der Swap-Phase.
 
-### 4.1 Harte Constraints (Hard Constraints)
-* **Status-Blocker:** An Tagen mit Urlaub (U, ZU, SU, §15c), Krank (K, KK), FZA oder WB ist kein Dienst möglich.
-* **Ruhezeit:** D am Tag `d` -> F am Tag `d+1` (wenn Werktag).
-* **Doppel-D:** D am Tag `d` -> Kein D am Tag `d+1`.
-* **Samstag-Qualifikation:** Samstags-Dienst nur für FAs.
-* **Spezialisierung:** Dr. Polednia: Kein D an So, Di, Do.
-* **CT-Leitung:** Dr. Becker und Dr. Martin dürfen nicht am selben Tag "F" (Frei) haben, um die CT-Leitung zu gewährleisten.
-* **Becker-Regel:** Samstags-Dienst für Dr. Becker führt zwingend zum FZA am nächsten Werktag.
+## 3. Das Regelwerk (Constraint Catalog)
 
-### 4.2 Weiche Constraints & Scoring (Soft Constraints)
-* **BD-Soll:** Erfüllung des Ziels `+220` Pkt/Dienst. Übererfüllung strafbar (`-7000` Pkt).
-* **Samstags-Dienste:** 
-  * FA mit 0 Samstags-Diensten: `+2000` Pkt.
-  * Zweiter Samstags-Dienst im Monat: `-15000` Pkt (Metaheuristik-Bestrafung bei Spread > 1).
-* **Wochenend-Soll:** Ziel: 1 WE-Äquivalent. Abweichung ` -220` Pkt. Überschreitung > 1.5: `-500` Pkt.
-* **WE-Abstand:** Aufeinanderfolgende WEs: `-900` Pkt.
-* **D-F-D-F Vermeidung:** Weiche Strafe von `-260` Pkt.
-* **HG-Adjacent:** HG-Dienste an aufeinanderfolgenden Tagen: `-220` Pkt.
+### 3.1 Harte Constraints (K.-o.-Kriterien)
+* **Abwesenheits-Sperre:** Dienste sind bei Status U, ZU, SU, §15c, K, KK, FZA, WB oder dem Wunsch "Kein Dienst" absolut ausgeschlossen.
+* **Ruhezeit-Gesetz:** BD am Tag X erzwingt F am Tag X+1 (wenn Werktag).
+* **Doppel-D-Verbot:** Niemals zwei Bereitschaftsdienste an aufeinanderfolgenden Tagen.
+* **Qualifikations-Check:** Samstage und HG-Dienste sind Fachärzten vorbehalten.
+* **Spezial-Ausschluss Dr. Polednia:**
+    * Kein BD an Sonntag, Dienstag, Donnerstag (wegen KUS am Folgetag).
+    * Kein HG für AA an Sonntag, Dienstag, Donnerstag (Befundfreigabe-Konflikt mit KUS).
+* **CT-Leitungs-Erhalt:** Dr. Becker und Dr. Martin dürfen an Werktagen nicht gleichzeitig "Frei" oder "Urlaub" haben.
+* **Dienst-Kontinuität:** Kein HG für einen AA, wenn der FA am Folgetag selbst BD hat (wegen späterem Dienstbeginn des FAs und verzögerter Befundfreigabe).
+* **Feiertags-Block:** Wer an Ostern Dienst hat, darf an Pfingsten keinen Dienst haben (und umgekehrt).
+* **Urlaubs-Puffer:** Kein BD am Tag unmittelbar vor einem Urlaubsantritt.
 
-## 5. Mathematische Gewichtung (Global Objective Function)
-Die Funktion `computeGlobalObjective` bewertet den Plan mit einem "Straf-Score". Je niedriger, desto besser.
+### 3.2 Weiche Constraints (Scoring-Faktoren)
+* **Monats-Ziel (Target):** Erfüllung des personenspezifischen Ziels (+5000 Pkt). Übererfüllung wird massiv bestraft (-50000 Pkt).
+* **Wochenend-Limit:** Ziel ist exakt 1.0 WE-Äquivalente. Abweichungen werden quadratisch bestraft.
+* **Samstags-Gerechtigkeit:** Ein zweiter Samstags-BD im Monat führt zu einem extremen Malus (-25000 Pkt).
+* **Becker-Samstags-Regel:** Dr. Becker wird für Samstage nachrangig behandelt (Malus -5000 Pkt). Wird sie dennoch eingeteilt, erzwingt der Algorithmus einen FZA-Tag am nächsten Werktag.
+* **Erholungs-Abstand:** Ein Abstand von weniger als 3 Tagen zwischen BDs wird mit -15000 Pkt bestraft.
+* **D-F-D-F-Vermeidung:** Dieses fragmentierte Muster wird mit einem Malus belegt, um zusammenhängende Arbeitsblöcke zu fördern.
 
-| Metrik | Straffaktor |
+## 4. Mathematische Bewertungsmetriken (Objective Functions)
+
+Die Kostenfunktionen nutzen quadratische Strafen ($Penalty = Diff^2 \times Faktor$), um Ungerechtigkeiten exponentiell abzuwerten.
+
+| Verstoß / Abweichung | Straffaktor (Gewichtung) |
 | :--- | :--- |
-| Ungedeckter BD | 20.000 |
-| Ungedeckter HG | 15.000 |
-| BD-Soll-Abweichung | (Diff^2 * 3.200) + (|Diff| * 1.400) |
-| WE-Dienst-Abweichung | Diff^2 * 480 |
-| Samstags-Dienst Spread (FA) | Diff^2 * 50.000 |
-| Illegale BD-Folge | 40.000 |
-| Distanz BD < 3 Tage | (3-Distanz) * 6.000 |
-| HG an aufeinanderfolgenden Tagen | 1.800 |
+| **Ungedeckter BD-Tag** | 25.000 |
+| **Ungedeckter HG-Tag** | 18.000 |
+| **Abweichung vom BD-Monatsziel** | (Diff² * 25.000) + (|Diff| * 10.000) |
+| **Verletzung WE-Toleranz (>1.5)** | 30.000 |
+| **Aufeinanderfolgende Wochenenden** | 15.000 |
+| **Zweiter Samstags-BD (FA)** | 80.000 |
+| **Illegale BD-Folge (D-D)** | 100.000 |
+| **HG-Dienst direkt vor eigenem BD** | 60.000 |
 
-## 6. Besonderheiten für Dr. Polednia & Dr. Becker
-* **Dr. Polednia:** Er ist der einzige, der KUS (Kinder-US) am Tag darauf durchführen kann. Daher die strikte Sperre für D am Sonntag, Dienstag und Donnerstag. Zusätzlich darf er keinen HG für einen AA an diesen Tagen machen, da die Befundfreigabe mit dem KUS am Vormittag kollidieren würde.
-* **Dr. Becker:** Die Samstags-Priorisierung ist für sie inaktiv. Sie wird nur als "Letzte-Instanz-FA" für Samstags-Dienste gewählt. Sobald ein Samstag zugewiesen wird, erzwingt die Logik den FZA am Folgetag.
+## 5. Qualitäts-Score (0–100%)
+Der im UI angezeigte Score berechnet sich aus der gewichteten Erfüllung aller Ziele:
+* **36% Abdeckung BD:** Sind alle Tage besetzt?
+* **24% Abdeckung HG:** Sind alle Hintergründe besetzt?
+* **16% BD-Fairness:** Wie hoch ist die Streuung der BDs zwischen den Personen im Monat?
+* **10% HG-Fairness:** Wie gerecht sind die HG-Lasten (für AA vs. für FA) verteilt?
+* **8% WE-Fairness:** Gleichmäßige Verteilung der Wochenend-Belastung.
+* **6% Wünsche:** Prozentsatz der erfüllten `BD_WISH` und `HG_WISH`.
 
 ---
