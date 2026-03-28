@@ -1,174 +1,124 @@
-# RadPlan — Systemarchitektur & Algorithmische Spezifikation
+# RadPlan – Systemarchitektur & Algorithmische Spezifikation
 
-**System:** RadPlan Neural Scheduler (v3)
-**Umgebung:** Klinikum St. Georg, Klinik für Radiologie & Nuklearmedizin
-**Architektur:** Autarke Single-Page-Application (SPA)
-**Speicher:** Browser-nativer `localStorage` (Key: `radplan_v3`)
-**Netzwerk:** **Kein Backend-Server vorhanden.** **Kein externer Datentransfer.** Maximale Datenintegrität und Latenzfreiheit durch lokale Ausführung.
+Dieses Dokument definiert die vollständige Systemarchitektur, die deterministischen Regelwerke und die algorithmischen Entscheidungsschritte der RadPlan-Anwendung. Es dient als absolute Source of Truth für Infrastruktur, Datenmodellierung und den Auto-Plan-Algorithmus (Neural Scheduler).
 
----
+## 1. Infrastruktur & Umgebungsvariablen
 
-## 1. Fundamentale Systemparameter
+Die Anwendung operiert serverless über Cloudflare Pages mit direkter Anbindung an den Cloudflare KV-Store. Die Trennung von Frontend (Client-seitiges DOM-Rendering) und Backend (Edge-Functions) ist strikt.
 
-Das System basiert auf einer strikten Trennung von medizinisch-operativen Entitäten, um eine präzise Matrix-Planung zu ermöglichen.
+### 1.1 Cloudflare KV Binding & Environment Variables
+Die Laufzeitumgebung erfordert exakt eine definierte Umgebungsvariable (Environment Variable) für die asynchrone Persistenz:
 
-### 1.1 Arbeitsplätze (Modalitäten)
-| Code | Modalität | UI-Farbcode (BG/FG) |
-| :--- | :--- | :--- |
-| **MR** | MRT | `#DBEAFE` / `#1D4ED8` |
-| **CT** | CT | `#FFEDD5` / `#C2410C` |
-| **US** | Sonographie | `#CCFBF1` / `#0F766E` |
-| **AN** | Angiographie | `#F3E8FF` / `#7E22CE` |
-| **MA** | Mammographie | `#FCE7F3` / `#BE185D` |
-| **KUS** | Kinder-US | `#DCFCE7` / `#15803D` |
-| **W** | Wermsdorf | `#FEF9C3` / `#854D0E` |
-| **T** | Teleradiologie | `#E0E7FF` / `#3730A3` |
+* **Variable:** `RADPLAN_KV`
+* **Typ:** KV Namespace Binding
+* **Funktion:** Verknüpft die Edge-Function (`functions/api/data.js`) mit dem global verteilten Key-Value-Store.
+* **Primärer Key:** `radplan_state`
+* **Negative Befunde:** Keine relationalen Datenbanken im Einsatz. Keine lokalen Fallbacks bei Netzwerkausfall (`localStorage` ist vollständig deprecared und entfernt). Keine weiteren Umgebungsvariablen (wie API-Keys externer Dienste) erforderlich.
 
-### 1.2 Status- & Abwesenheitscodes
-**Expliziter Negativbefund:** Keine Dienstzuweisung bei Vorliegen eines Abwesenheitscodes. Die Codes werden in `ABSENCE_CODES` (strikte Sperre) und `VACATION_CODES` (Vor-Urlaubs-Priorisierung relevant) unterteilt.
+### 1.2 Daten-Schema (`radplan_state`)
+Das unter `radplan_state` serialisierte JSON-Dokument ist das globale Singleton-Objekt der Anwendung. Es erzwingt folgende Struktur:
 
-* **F** (Frei)
-* **U** (Urlaub) — *VACATION*
-* **ZU** (Zusatzurlaub) — *VACATION*
-* **SU** (Sonderurlaub) — *VACATION*
-* **FZA** (Freizeitausgleich)
-* **K** (Krank)
-* **KK** (Kind Krank)
-* **§15c** (Sonderstatus §15c) — *VACATION*
-* **WB** (Weiterbildung)
+```json
+{
+  "main": {
+    "YYYY-MM": {
+      "employees": ["String", "..."],
+      "assignments": {
+        "MitarbeiterName": {
+          "TagAlsInteger": {
+            "assignment": "String (z.B. MR/CT oder U)",
+            "duty": "String (D oder HG)"
+          }
+        }
+      },
+      "rbn": {
+        "TagAlsInteger": "String (MitarbeiterName für Neurorad)"
+      }
+    }
+  },
+  "drafts": {
+    "YYYY-MM": { /* Identische Struktur wie main, inkl. 'wishes' Dictionary */ }
+  }
+}
+```
 
-### 1.3 Personalmatrix & Qualifikationsprofile
-Die ärztliche Besetzung diktiert die Algorithmus-Befugnisse. **Fachärzte (FA)** sind autorisiert für Wochenend-BD und HG. **Assistenzärzte (AA)** sind auf Werktags-BD und Freitags-BD limitiert.
+## 2. Kriterien & Regelwerk der Diensteinteilung
 
-| Mitarbeiter | Qualifikation | Spezialstatus / Targets |
-| :--- | :--- | :--- |
-| **Prof. Schäfer** | CA | **Dienstbefreit** (Target: 0). |
-| **Dr. Lurz** | LOA (FA) | Deputy CA/Polednia. Target: 4. |
-| **Dr. Polednia** | OA (FA) | Leiter Kinderradiologie. Target: 3. **Ausschluss So, Di, Do.** |
-| **Fr. Dalitz** | OÄ (FA) | Leiterin Mammographie. Target: 4. |
-| **Dr. Becker** | OÄ (FA) | CT-Leitung. Target: 3. **Samstags-Ausschluss (nur Notlösung).** |
-| **Dr. Martin** | FA | Target: 4. CT-Leitung-Interdependenz. |
-| **Hr. El Houba** | AA | Target: 4. |
-| **Fr. Licenji** | AÄ | Target: 4. |
-| **Hr. Torki** | AA | Target: 4. |
-| **Hr. Sebastian**| AA | Target: 3. |
+Die Kernlogik der Anwendung stützt sich auf ein medizinisches und arbeitsrechtliches Regelwerk. Der Algorithmus unterscheidet strikt zwischen **Hard Constraints** (unverhandelbare Ausschlusskriterien) und **Soft Constraints** (weiche Ziele für maximale NFI-Scores).
 
----
+### 2.1 Qualifikations- und Rollen-Matrix
+* **Bereitschaftsdienst (D):**
+  * **Zugelassen:** Assistenzärzte (AA), Fachärzte (FA).
+  * **Ausgeschlossen:** Chefärzte (CA), Oberärzte (OA, LOA, OÄ), sowie explizit via `isDutyExempt` befreite Personen (Rotationsärzte, Schwangere, etc.).
+* **Hintergrunddienst (HG):**
+  * **Zugelassen:** Fachärzte (FA), Oberärzte (OA, LOA, OÄ), Chefärzte (CA).
+  * **Ausgeschlossen:** Assistenzärzte (AA).
 
-## 2. Der RadPlan Neural Scheduler (Algorithmus-Logik)
+### 2.2 Hard Constraints (Ausschlusskriterien - Rule Failures)
+Jede algorithmische Permutation oder manuelle Zuweisung, die einen dieser Parameter verletzt, ist invalid.
 
-Der Kern der Anwendung ist ein deterministischer, heuristischer Optimierer. Er kombiniert **Greedy-Zuweisungen** mit einer **mehrstufigen Metaheuristik** (Swap-Optimierung). Die Berechnung simuliert historische Verteilungen ab dem 01.01. des laufenden Jahres für kumulative Gerechtigkeit.
+1.  **Status-Interferenz:** Kein Dienst ("D" oder "HG") an Tagen mit den Status: `U` (Urlaub), `K` / `KK` (Krankheit), `WB` (Weiterbildung), `FZA` (Freizeitausgleich), `F` (Frei).
+2.  **Dienst-Exklusivität (Anti-Kollision):** Ein Mitarbeiter kann an Tag `d` **niemals** zeitgleich "D" und "HG" besetzen.
+3.  **Gesetzliche Ruhezeiten (Post-BD-Frei):** Auf einen "D"-Dienst an Tag `d` muss zwingend ein arbeitsfreier Tag an `d+1` folgen (Status `F` oder `U`/`FZA`). Der Algorithmus schreibt das "F" automatisch prospektiv in den Folgetag (auch monatsübergreifend).
+4.  **Sequentielle Dienst-Sperre:** Zwei "D"-Dienste an aufeinanderfolgenden Tagen (`d` und `d+1`) für dieselbe Person sind hart blockiert.
+5.  **Fixierte Vorbelegungen (Locked State):** Manuell im Editor gesetzte Dienste ("D" oder "HG") vor Ausführung des Auto-Plans gelten als "Fixed". Der Algorithmus darf diese modifizieren, **nur** wenn Hard Constraints verletzt sind, ansonsten umgeht er sie.
 
-### 2.1 Harte Constraints (K.-o.-Kriterien)
-Jeder Kandidat muss zwingend diese Bedingungen erfüllen, andernfalls wird er mit `-Infinity` bewertet.
+### 2.3 Zielwerte & Gewichtungen (Targets)
+* **Standard-BD-Soll:** 4 Bereitschaftsdienste pro Monat.
+* **Individuelle Ausnahmen (Hardcoded basierend auf Vertragsmodellen):**
+  * Dr. Polednia: 3
+  * Dr. Becker: 3
+  * Hr. Sebastian: 3
+* **HG-Verteilung:** Kein hartes Soll, wird als Gleichverteilung (Spread-Minimierung) über den Pool der berechtigten FA/OA kalkuliert.
 
-1.  **Status-Blocker:** Kein Dienst bei Abwesenheitscodes oder explizitem "Kein Dienst" (NO_DUTY) Wunsch.
-2.  **Exklusivität:** Maximal ein D oder HG pro Kalendertag pro Person.
-3.  **Gesetzliche Ruhezeit:** Nach jedem Bereitschaftsdienst (D) wird **zwingend** am Folgetag (sofern Werktag) ein "F" (Freizeitausgleich) systemseitig eingetragen.
-4.  **D-D-Ausschluss:** Keine Bereitschaftsdienste an zwei aufeinanderfolgenden Tagen.
-5.  **Qualifikations-Ausschluss:** Samstags-Dienste und alle HG-Dienste sind streng auf das FA-Kader limitiert.
-6.  **Spezial-Ausschluss Polednia:** Kein BD an Sonntag, Dienstag, Donnerstag. Kein HG für einen AA an diesen Tagen (Vermeidung von Befundfreigabe-Kollision mit morgendlichem KUS).
-7.  **CT-Leitungs-Interdependenz:** Dr. Becker und Dr. Martin dürfen an Werktagen niemals zeitgleich abwesend sein (Urlaub/Frei). Der Algorithmus plant Dienste so, dass der automatische Ruhetag diese Regel nicht bricht.
-8.  **Feiertags-Blocker:** Wer an den Ostertagen (Karfreitag, Ostersonntag, Ostermontag) Dienst leistet, ist für die Pfingsttage (Pfingstsonntag, Pfingstmontag) strikt gesperrt (und vice versa).
-9.  **Urlaubs-Puffer:** Kein BD am Tag direkt vor einem Urlaubsbeginn (`isNextDayVacation`).
+## 3. Algorithmische Entscheidungsschritte (Neural Scheduler)
 
-### 2.2 Weiche Constraints & Base-Scoring
-Kandidaten starten mit einem Basis-Score von `100`. Faktoren modulieren diesen Wert zur Findung des optimalen Kandidaten.
+Der Auto-Plan-Algorithmus nutzt ein heuristisches **Backtracking-Verfahren kombiniert mit einer Deep-Move-Swapping-Phase**. Er evaluiert prospektiv und retrospektiv.
 
-**Bereitschaftsdienst (BD) Modulatoren:**
-* **Target-Delta:** `+220` Punkte pro fehlendem Dienst bis zum Ziel. `-7000` Punkte pro Dienst über dem Ziel.
-* **Wunscherfüllung (`BD_WISH`):** `+220` Punkte.
-* **Donnerstags-Urlaubs-Bonus:** `+150` Punkte, falls in der Folgewoche Urlaub besteht (maximiert Erholung durch F-Tag am Freitag).
-* **Wochenend-Soll:** Zielwert ist `1.0` WE-Äquivalente (Sa/So = 1, Fr = 0.5). Abweichung kostet `220` Punkte. Überschreitung der Toleranzgrenze (>1.5) kostet `500` Punkte je Einheit.
-* **WE-Erschöpfung:** Aufeinanderfolgende Wochenenden (`-900` Punkte). Dienst am direkten Vorwochenende (`-40` Punkte).
-* **Samstags-Priorität (FA):** Erster Samstag im Monat wird extrem gefördert (`+2000` Punkte). Ein zweiter Samstag wird hart bestraft (`-15000` Punkte). Abweichung vom FA-Samstags-Durchschnitt kostet `700` Punkte.
-* **Becker-Samstag (Notfall):** Nur im gelockerten Modus möglich (`-2000` Punkte).
-* **Distanz-Puffer:** Abstand zum letzten BD < 4 Tage (`-120` Punkte pro fehlendem Tag).
-* **D-F-D-F Vermeidung:** Weiche Strafe (`-260` Punkte) zur Verhinderung von Fragmentierung.
-* **Feiertags-Ausgleich:** Historisches Defizit an Feiertagen im Vergleich zum Abteilungsdurchschnitt (`+6` Punkte pro fehlendem Feiertag).
+### Phase 1: Historien-Analyse & Telemetrie
+* **Lookback:** Der Algorithmus lädt die Daten des Vormonats.
+* **Post-BD-Check:** Wer am letzten Tag des Vormonats "D" hatte, wird am 1. des aktuellen Monats hart für "D" und "HG" gesperrt.
+* **Historische Last:** Das historische Wochenend-Soll (`satBd`, `weDuty`) wird akkumuliert, um Ausgleiche im Zielmonat zu erzwingen.
 
-**Hintergrunddienst (HG) Modulatoren:**
-* **Historischer Ausgleich:** Abweichung vom aktuellen FA-Durchschnitt (`-240` Punkte).
-* **Wunscherfüllung (`HG_WISH`):** `+220` Punkte.
-* **Adjacent HG:** HG am direkten Vortag oder Folgetag (`-220` Punkte).
-* **Urlaubspuffer:** Nächster Tag Urlaub (`-20` Punkte).
+### Phase 2: Heuristische Zuteilung Bereitschaftsdienst (D)
+Iteration über alle Tage (`d = 1` bis `daysInMonth`).
+1.  **Kandidaten-Identifikation:** Filterung aller AA und FA, die an Tag `d` keine Hard Constraints verletzen.
+2.  **Scoring-Matrix (Sortierung der Kandidaten):** Jeder valide Kandidat erhält einen Score. Niedrigster Score = höchste Zuteilungspriorität.
+    * *Target-Delta:* (Bisherige Dienste in diesem Durchlauf + 1) - Individuelles Ziel. Hohe Prio für Ärzte unter Soll.
+    * *Cluster-Penalty:* Hatte der Kandidat in den letzten 3 Tagen Dienst? Wenn ja, starker Malus (Vermeidung von D-D-D Clustern mit nur einem Tag Pause).
+    * *Wochenend-Ausgleich:* Ist Tag `d` ein Wochenende/Feiertag? Kandidaten mit historisch hohem WE-Dienst-Konto erhalten einen massiven Malus (+1000 Penalty-Punkte).
+    * *Wunsch-Bonus:* "D-Wunsch" im Planungsmodus senkt den Score (-500 Punkte). "Kein D"-Wunsch erhöht den Score maximal (+5000 Punkte).
+3.  **Zuweisung:** Der Top-Kandidat erhält "D". Das System markiert Tag `d+1` sofort als blockiert für diesen Kandidaten.
+4.  **Backtracking:** Ist an Tag `d` **kein** Kandidat verfügbar (Leere Liste), erfolgt ein Rollback (`d-1`), der vorherige Tag wird mit dem zweitbesten Kandidaten besetzt und der Baum neu evaluiert.
 
-### 2.3 Spezifische Kopplungs-Logik (HG Bundling)
-Vor der freien Verteilung greifen deterministische Bindungsregeln zur Sicherung der Kontinuität:
-* **Freitags-Kopplung:** Leistet ein AA den Freitags-BD, wird der HG für diesen Freitag **zwingend** an den FA gekoppelt, der den Samstags-BD leistet (Erlaubt `Adjacent HG`).
-* **Wochenend-Kopplung:** Leistet ein FA den Samstags-BD, wird der Sonntags-HG **zwingend** an denselben FA gekoppelt.
+### Phase 3: Heuristische Zuteilung Hintergrunddienst (HG)
+Iteration über alle Tage.
+1.  **Kandidaten-Identifikation:** Filterung aller FA, OA, CA. Striktes Ausschlusskriterium: Der Kandidat darf an Tag `d` nicht bereits in Phase 2 für "D" eingeteilt worden sein.
+2.  **Scoring-Matrix:** Fokus liegt auf absoluter Gleichverteilung (Spread). Der Kandidat mit der aktuell niedrigsten HG-Zahl im Monat wird priorisiert. Urlaubs- und Wunsch-Constraints greifen analog zu Phase 2.
 
-### 2.4 Die Becker-FZA-Regel (Kompensationslogik)
-Sollte Dr. Becker durch den gelockerten Modus einen Samstags-BD zugewiesen bekommen, triggert das System eine automatische Nachbearbeitung:
-1.  Suche des nächsten regulären Werktages.
-2.  Prüfung, ob dieser Tag durch Freistellung eines anderen FAs blockiert ist (CT-Leitungs-Erhalt).
-3.  Prüfung, ob Dr. Becker bereits eingeteilt ist.
-4.  **Erfolg:** Automatischer Eintrag von `FZA` am entsprechenden Werktag.
-5.  **Fehlschlag:** Generierung einer UI-Warnung (Sichtbar im Modal) zur manuellen Prüfung.
+### Phase 4: Deep-Move-Optimierung (Spread Minimization)
+Der Algorithmus begnügt sich nicht mit der Erstlösung. Er führt eine stochastische Tiefensuche nach Tauschpaaren (Swaps) durch.
+* **Ziel:** Reduktion der Standardabweichung (Spread) zwischen den Dienstkonten der Ärzte.
+* **Logik:** Das System identifiziert den Arzt mit den meisten BDs (Max-D) und den Arzt mit den wenigsten BDs (Min-D). Es sucht einen Tag, an dem Max-D eingeteilt ist und Min-D regelkonform übernehmen könnte. Ist ein Tausch möglich, ohne Post-BD-Frei-Konflikte bei Min-D auszulösen, wird getauscht.
+* **Iteration:** Dieser Prozess wiederholt sich, bis keine legalen Tausche mehr möglich sind oder das Iterationslimit (Deep-Moves) erreicht ist.
 
----
+### Phase 5: Kalkulation des Neural Fitness Index (NFI)
+Der NFI ist die finale Qualitätsmetrik des generierten Plans.
+* **Base Score:** 100.0
+* **Gap Penalty:** -15.0 Punkte für jeden Tag ohne zugewiesenen "D" oder "HG".
+* **Spread Penalty:** -2.5 Punkte für jede Einheit Varianz im D-Dienst und HG-Dienst (Streuung zwischen den Ärzten).
+* **Weekend Spread Penalty:** -5.0 Punkte für hohe Ungerechtigkeit bei der Wochenendverteilung.
+* **Wish Penalty:** -2.0 Punkte für jeden nicht erfüllten Mitarbeiter-Wunsch.
 
-## 3. Phasen der Meta-Optimierung (The Pipeline)
+Ein Score über 85.0 gilt als exzellent. Unter 70.0 deutet auf massive Personalengpässe (z.B. hohe Urlaubsquote) hin.
 
-Der Algorithmus durchläuft 9 sequentielle Epochen, orchestriert in `computeAutoPlan()`:
+## 4. State Management & Planungs-Sandbox
+Der Planungsmodus operiert auf einem isolierten `state`-Zweig.
+* **Baseline (`planBaseline`):** Der unmodifizierte Zustand beim Start. Dient der Deltaberechnung beim Abbrechen (Verhinderung von "Unsaved Changes" Warnungen, wenn nichts geändert wurde).
+* **History-Stack (`planHistory` & `planHistoryIdx`):** Jeder Schreibzugriff auf das Plan-Grid (Manuell oder Auto-Plan) pusht einen Deep-Clone der aktuellen Assignments in ein Array. Undo/Redo navigiert lediglich den Index dieses Arrays.
+* **Merge-Commit:** "In Planung übernehmen" führt einen destruktiven Überschreibvorgang (`Object.assign`) des Plan-States in den `DATA`-Main-State des aktuellen Monats aus und triggert den `saveToStorage` API-Call an Cloudflare.
 
-| Phase | Funktion | Logik / Methodik |
-| :--- | :--- | :--- |
-| **1. Init** | Daten-Präparation | Sammlung historischer Daten bis zum aktuellen Monat. Ergänzung von fehlenden `F`-Tagen hinter bereits manuell gesetzten `D`-Diensten. Initialisierung der Zähler. |
-| **2. BD Weekend**| Heuristische Zuweisung | Greedy-Zuweisung der komplexesten Tage (Fr, Sa, So, Feiertage). Fallback auf "gelockerte Regeln" (z.B. Verletzung der Abstandsregeln), falls kein Kandidat regulär passt. |
-| **3. BD Workday**| Heuristische Zuweisung | Greedy-Zuweisung der regulären Werktage (Mo-Do). |
-| **4. BD Optimize**| Lokale Metaheuristik | 12 Iterationen (Passes). Simuliert für jeden Tag den Tausch des BD-Inhabers mit allen anderen Kandidaten. Tausch wird vollzogen, wenn `computeBDObjective()` sinkt. |
-| **5. HG Bundle** | Deterministischer Link | Ausführung der Kopplungs-Logiken (siehe 2.3). Setzt feste Anker für das HG-Grid. |
-| **6. HG Assign** | Heuristische Zuweisung | Greedy-Auffüllung der verbleibenden HG-Lücken durch berechtigte FAs. |
-| **7. HG Optimize**| Lokale Metaheuristik | 14 Iterationen. Analoge Swap-Logik für HG zur Glättung der `computeHGObjective()`. |
-| **8. Deep Optimize**| Globale Metaheuristik| 16 Iterationen **Cross-Duty-Swaps**. Prüft jeden Tag (D und HG). Evaluiert Zuweisungen gegen die `computeGlobalObjective()`. Dies löst lokale Minima auf. |
-| **9. Validate** | Exklusivitäts-Sicherung | Post-Processing Loop: Bereinigt Artefakte, löscht überschüssige Dienste, falls >1 pro Tag pro Rolle. |
-
----
-
-## 4. Die Mathematischen Zielfunktionen (Objective Functions)
-
-Die Swap-Algorithmen nutzen quadratische Bestrafungen zur exponentiellen Abwertung von Unfairness. Ein niedrigerer Score ist besser.
-
-### 4.1 BD Objective (`computeBDObjective`)
-* **Abdeckung:** Tag ohne BD: `+20.000`. Tag mit >1 BD: `+50.000 * count`.
-* **Target-Spread:** `(Diff^2 * 3.200) + (|Diff| * 1.400)`. Gesamtes Abteilungsdefizit: `+9.000 * Summe`. Gesamter Überschuss: `+7.000 * Summe`. Unbalance-Strafe: `|Defizit - Überschuss| * 6.000`.
-* **Wochenend-Spread:** `(WE_Diff)^2 * 480`. Verletzung der 1.5 Toleranz: `+12.000` pro Einheit. Aufeinanderfolgende WE: `+6.000`.
-* **Samstags-Spread (FA):** Zwei Samstage: `+50.000`. Abweichung vom Durchschnitt: `Diff^2 * 850`.
-* **Struktur-Verstöße:** `D-D` Folge (Artefakt-Prävention): `+40.000`. Distanz < 3: `(3-dist) * 6.000`. Distanz < 5: `(5-dist) * 350`. D-F-D-F Muster: `+380`. Becker an Samstag: `+30.000`.
-
-### 4.2 HG Objective (`computeHGObjective`)
-* **Abdeckung:** Tag ohne HG: `+15.000`. Tag mit >1 HG: `+40.000 * count`.
-* **Fairness-Kalkül:** Ideal-HG für einen FA = `Abteilungs_Avg_HG + (Avg_BD_FA - Eigener_BD) * 0.7`. (Weniger BD = mehr HG). Strafe: `(Diff_zum_Ideal)^2 * 520`.
-* **Lastenverteilung:** Abweichung bei "HG für AA" (`Diff^2 * 700`). Abweichung bei "HG für FA" (`Diff^2 * 280`).
-* **Wochenend-Spread:** `(WE_Diff)^2 * 260`. Toleranzbruch (>1.5): `+8.000`.
-* **Struktur-Verstöße:** Adjacent HG: `+1.800`. HG vor eigenem BD (außer Freitag): `+24.000`.
-
-### 4.3 Global Objective (`computeGlobalObjective`)
-Summe aus BD und HG Objective, plus massiver Deckungsstrafen:
-* Fehlender BD: `+25.000`
-* Fehlender HG: `+18.000`
-* Doppelbesetzung: `+100.000`
-
----
-
-## 5. UI & Qualitätsmetriken
-
-### 5.1 Planungsmodus (Sandbox)
-Das UI operiert mit einem gekapselten State (`planData`), der den Live-Betrieb nicht affektiert. Änderungen (manuelle Dienste, Wünsche) werden auf einen Baseline-Snapshot (`planBaseline`) angewendet. Ein dedizierter History-Stack (`planHistory`, `planHistoryIdx`) ermöglicht granulare Undo/Redo Operationen (`Strg+Z` / `Strg+Y`).
-
-### 5.2 Quality Score Berechnung
-Der finale Prozent-Score (0-100%) aggregiert Parameter nach Vollendung von Phase 9:
-* `36%`: BD-Abdeckungsquote
-* `24%`: HG-Abdeckungsquote
-* `16%`: BD-Fairness (Spread normiert auf 4)
-* `10%`: HG-Fairness (Spread normiert auf 3)
-* `8%`: WE-Fairness (Spread normiert auf 1.5)
-* `10%`: Wunsch-Erfüllungsquote (Erfüllte Wünsche / Gesamtwünsche)
-
-### 5.3 RBN-Neuroradiologie (Sonderlogik)
-Ein dediziertes Grid (`RBN_ROW_KEY`) steuert neuroradiologische Zuordnungen ab Mai 2025.
-**Regel:** Fr. Thaler wird dynamisch ab März 2026 (`RBN_THALER_LAST_MONTH`) aus den RBN-Optionen gefiltert.
-
-### 5.4 Dynamische Feiertagsberechnung
-Sämtliche sächsischen Feiertage werden algorithmisch pro Jahr generiert (`getSaxonyHolidays`), inklusive der Gaußschen Osterformel zur dynamischen Terminierung von Karfreitag bis Pfingstmontag und der Rückrechnung des Buß- und Bettags (Mittwoch vor dem 23. November). Ergebnisse werden zur Laufzeitoptimierung memoisiert (`HOLIDAY_CACHE`).
+## 5. Negative Befunde (Design-Entscheidungen)
+* **Keine automatische Zuweisung von regulären Arbeitsplätzen (MR/CT/Röntgen):** Der Auto-Plan fokussiert sich **ausschließlich** auf D und HG. Tagesarbeitsplätze müssen manuell disponiert werden.
+* **Kein Server-Side-Rendering (SSR):** Die Cloudflare Function liefert nur JSON. Das vollständige UI-Rendering passiert Client-seitig in `app.js` via Vanilla JS DOM-Manipulation.
+* **Keine externen Libraries:** Chart.js, Moment.js oder Lodash sind nicht integriert. Datumskalkulationen (`isWorkday`, `daysInMonth`) und Diagramme (`#pm-wp-chart`) sind nativ via ES6 und CSS-Grid/Flexbox gelöst. Dies garantiert absolute Wartbarkeitskontrolle und Zero-Dependency.

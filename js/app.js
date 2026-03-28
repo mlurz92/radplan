@@ -35,6 +35,7 @@ import {
 import {
   state,
   DATA,
+  DRAFTS,
   planMode,
   planData,
   planBaseline,
@@ -352,24 +353,21 @@ export function abortPlanChanges() {
   showToast("Zurückgesetzt");
 }
 
-export function savePlanDraft() {
+export async function savePlanDraft() {
   if (!planMode || !planData) {
     return;
   }
   
-  const key = `radplan_v3_plan_${monthKey(state.year, state.month)}`;
+  const key = monthKey(state.year, state.month);
   
   try {
     persistPlanSessionRefs();
-    localStorage.setItem(
-      key,
-      JSON.stringify({
-        employees: planData.employees,
-        assignments: planData.assignments,
-        rbn: planData.rbn || {},
-        wishes: planData.wishes || {},
-      })
-    );
+    DRAFTS[key] = {
+      employees: planData.employees,
+      assignments: planData.assignments,
+      rbn: planData.rbn || {},
+      wishes: planData.wishes || {},
+    };
     
     setPlanBaseline({
       assignments: cloneData(planData.assignments),
@@ -378,13 +376,14 @@ export function savePlanDraft() {
     
     persistPlanSessionRefs();
     updatePlanBarUI();
+    await saveToStorage();
     showToast("Entwurf gespeichert");
   } catch (e) {
     showToast("Fehler beim Speichern");
   }
 }
 
-export function applyPlanToMain() {
+export async function applyPlanToMain() {
   if (!planMode || !planData) {
     return;
   }
@@ -399,7 +398,7 @@ export function applyPlanToMain() {
   DATA[k].assignments = cloneData(planData.assignments);
   DATA[k].rbn = cloneData(planData.rbn || {});
   
-  saveToStorage();
+  await saveToStorage();
   exitPlanMode();
   showToast("Planung übernommen");
 }
@@ -911,18 +910,7 @@ export function openMobileDay(day) {
 }
 
 export function doExport() {
-  const plans = {};
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (k && k.startsWith("radplan_v3_plan_")) {
-      try {
-        plans[k.replace("radplan_v3_plan_", "")] = JSON.parse(localStorage.getItem(k));
-      } catch (e) {
-      }
-    }
-  }
-  
-  const exportObj = { main: DATA, plans };
+  const exportObj = { main: DATA, plans: DRAFTS };
   const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = Object.assign(document.createElement("a"), {
@@ -955,7 +943,7 @@ export function openImportModal() {
   showOverlay("modal-import");
 }
 
-export function doImport() {
+export async function doImport() {
   const ta = document.getElementById("import-ta");
   if (!ta) return;
   
@@ -969,21 +957,19 @@ export function doImport() {
       throw new Error("Ungültiges Format");
     }
     
+    Object.keys(DATA).forEach(k => delete DATA[k]);
+    Object.keys(DRAFTS).forEach(k => delete DRAFTS[k]);
+    
     if (parsed.main && typeof parsed.main === "object") {
       Object.assign(DATA, parsed.main);
       if (parsed.plans && typeof parsed.plans === "object") {
-        for (const [pk, pv] of Object.entries(parsed.plans)) {
-          if (pv && typeof pv === "object" && !pv.rbn) {
-            pv.rbn = {};
-          }
-          localStorage.setItem(`radplan_v3_plan_${pk}`, JSON.stringify(pv));
-        }
+        Object.assign(DRAFTS, parsed.plans);
       }
     } else {
       Object.assign(DATA, parsed);
     }
     
-    saveToStorage();
+    await saveToStorage();
     const repaired = ensurePostBDFreiDays();
     hideOverlay("modal-import");
     render();
@@ -1799,7 +1785,7 @@ export function renderReportModal() {
   showOverlay("modal-ap-report");
 }
 
-export function applyAutoPlan() {
+export async function applyAutoPlan() {
   if (!localAutoPlanResult || !planMode) return;
   
   recordPlanHistory();
@@ -1828,7 +1814,7 @@ export function applyAutoPlan() {
   }
   
   if (changed) {
-    saveToStorage();
+    await saveToStorage();
   }
   
   recordPlanHistory();
@@ -2193,8 +2179,11 @@ export function wireEvents() {
   }
 }
 
-export function init() {
-  loadFromStorage();
+export async function init() {
+  const loader = document.getElementById("app-loader");
+  if (loader) loader.style.display = "flex";
+
+  await loadFromStorage();
   ensurePostBDFreiDays();
   
   if (!Object.keys(DATA).length) {
@@ -2207,7 +2196,7 @@ export function init() {
       assignments: {}, 
       rbn: {},
     };
-    saveToStorage();
+    await saveToStorage();
   }
   
   populatePeriodMonthSelect();
@@ -2229,6 +2218,8 @@ export function init() {
       queueResponsiveRefresh();
     }, { passive: true });
   }
+
+  if (loader) loader.style.display = "none";
 }
 
 document.addEventListener("DOMContentLoaded", init);

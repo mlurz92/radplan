@@ -16,8 +16,44 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="app.css">
+  <style>
+    #app-loader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #0B1929;
+      z-index: 99999;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #E0F2FE;
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .app-loader-spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(14, 165, 233, 0.2);
+      border-top-color: #0EA5E9;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
+
+  <div id="app-loader">
+    <div class="app-loader-spinner"></div>
+    <div>Lade Daten...</div>
+  </div>
 
   <header id="app-header">
     <div class="brand">
@@ -164,7 +200,9 @@
     </div>
 
     <div class="plan-bar-right">
-      <button type="button" class="plan-btn plan-btn-auto" id="btn-plan-auto" title="Automatische Diensteinteilung nach fairen Kriterien berechnen" aria-label="Auto-Planung starten">
+      <button type="button" class="plan-btn plan-btn-auto" id="btn-plan-auto"
+              title="Automatische Diensteinteilung nach fairen Kriterien berechnen"
+              aria-label="Auto-Planung starten">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 2L2 7l10 5 10-5-10-5z"/>
           <path d="M2 17l10 5 10-5"/>
@@ -173,7 +211,9 @@
         <span>Auto-Plan</span>
       </button>
 
-      <button type="button" class="plan-btn plan-btn-abort" id="btn-plan-abort" title="Alle nicht gespeicherten Änderungen verwerfen" aria-label="Änderungen abbrechen">
+      <button type="button" class="plan-btn plan-btn-abort" id="btn-plan-abort"
+              title="Alle nicht gespeicherten Änderungen verwerfen"
+              aria-label="Änderungen abbrechen">
         <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
           <polyline points="1 4 1 10 7 10"/>
           <path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
@@ -181,7 +221,9 @@
         <span>Abbrechen</span>
       </button>
 
-      <button type="button" class="plan-btn plan-btn-save" id="btn-plan-save" title="Planung als Entwurf speichern" aria-label="Planung speichern">
+      <button type="button" class="plan-btn plan-btn-save" id="btn-plan-save"
+              title="Planung als Entwurf speichern"
+              aria-label="Planung speichern">
         <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
           <polyline points="17 21 17 13 7 13 7 21"/>
@@ -190,7 +232,9 @@
         <span>Speichern</span>
       </button>
 
-      <button type="button" class="plan-btn plan-btn-close" id="btn-plan-close" title="Planungsmodus verlassen" aria-label="Planungsmodus schließen">
+      <button type="button" class="plan-btn plan-btn-close" id="btn-plan-close"
+              title="Planungsmodus verlassen"
+              aria-label="Planungsmodus schließen">
         <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <line x1="18" y1="6" x2="6" y2="18"/>
           <line x1="6"  y1="6" x2="18" y2="18"/>
@@ -198,7 +242,9 @@
         <span>Schließen</span>
       </button>
 
-      <button type="button" class="plan-btn plan-btn-apply" id="btn-plan-apply" title="Planungsentwurf in den Hauptplan übernehmen" aria-label="Planung in Hauptplan übernehmen">
+      <button type="button" class="plan-btn plan-btn-apply" id="btn-plan-apply"
+              title="Planungsentwurf in den Hauptplan übernehmen"
+              aria-label="Planung in Hauptplan übernehmen">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
           <polyline points="20 6 9 17 4 12"/>
         </svg>
@@ -572,7 +618,6 @@
 
   <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
-  <!-- Neues, modulares Script-Tag -->
-  <script type="module" src="js/app.js"></script>
+  <script src="app.js" defer></script>
 </body>
 </html>

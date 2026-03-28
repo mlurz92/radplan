@@ -1,6 +1,7 @@
 import { STORAGE_KEY, normalizeMonthDataShape } from './constants.js';
 
 export let DATA = {};
+export let DRAFTS = {};
 
 export let state = {
   year: 2026,
@@ -39,23 +40,44 @@ export const TOD_Y = today.getFullYear();
 export const TOD_M = today.getMonth();
 export const TOD_D = today.getDate();
 
-export function loadFromStorage() {
+export async function loadFromStorage() {
   try {
-    const r = localStorage.getItem(STORAGE_KEY);
-    if (r) {
-      DATA = JSON.parse(r);
+    const response = await fetch('/api/data');
+    if (response.ok) {
+      const payload = await response.json();
+      if (payload && payload.main) {
+        DATA = payload.main;
+      } else {
+        DATA = payload || {};
+      }
+      if (payload && payload.drafts) {
+        DRAFTS = payload.drafts;
+      }
     }
+    
     Object.values(DATA).forEach((md) => {
       normalizeMonthDataShape(md);
     });
   } catch (e) {
     DATA = {};
+    DRAFTS = {};
   }
 }
 
-export function saveToStorage() {
+export async function saveToStorage() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
+    const payload = {
+      main: DATA,
+      drafts: DRAFTS
+    };
+    
+    await fetch('/api/data', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
   } catch (e) {
   }
 }
