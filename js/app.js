@@ -104,6 +104,17 @@ let localAutoPlanTargets = {};
 let localApViewMode = "config";
 let localAutoPlanConfigRenderToken = 0;
 let localApAnimationId = null;
+let localWaterfallAnimationId = null;
+
+const WATERFALL_FACTORS = [
+  { key: "coverage", label: "Coverage", color: "#F97316", hints: ["coverage", "lücke", "zwangsbelegung", "besetzt"], direction: "negative" },
+  { key: "fairness", label: "Fairness", color: "#A855F7", hints: ["ziel", "streu", "ausgleich", "swap", "deep"], direction: "negative" },
+  { key: "distance", label: "Abstand", color: "#EF4444", hints: ["abstand", "adjacent", "d-f-d-f", "dist"], direction: "negative" },
+  { key: "weekend", label: "Wochenende", color: "#F59E0B", hints: ["wochenend", "samstag", "sonntag", "we"], direction: "negative" },
+  { key: "constraints", label: "Regeltreue", color: "#38BDF8", hints: ["constraint", "kritisch", "regel"], direction: "positive" },
+  { key: "wishes", label: "Wünsche", color: "#22C55E", hints: ["wunsch"], direction: "positive" },
+  { key: "coupling", label: "Kopplung", color: "#14B8A6", hints: ["koppl", "bundle"], direction: "positive" },
+];
 
 export function isPeriodFlyoutOpen() {
   const el = document.getElementById("period-flyout");
@@ -1348,18 +1359,48 @@ export function renderProgressShell() {
       </div>
 
       <div class="ap-engine-main">
-        <div class="ap-flux-panel">
-          <div class="ap-flux-header">
-            <span>Constraint Flux Matrix</span>
-            <span class="ap-flux-header-pulse"></span>
+        <div class="ap-waterfall-panel" id="ap-waterfall-panel">
+          <div class="ap-waterfall-header">
+            <span>Constraint Waterfall</span>
+            <span class="ap-waterfall-header-pulse"></span>
           </div>
-          <div class="ap-flux-body">
-            <div class="ap-flux-focus">
-              <span class="ap-flux-focus-lbl" id="ap-flux-lbl">Computing</span>
-              <span class="ap-flux-focus-val" id="ap-flux-val">Warte auf Daten...</span>
-              <span class="ap-flux-focus-detail" id="ap-flux-detail">Strikte Dienst-Exklusivität aktiv</span>
+          <div class="ap-waterfall-body">
+            <div class="ap-waterfall-focus">
+              <div class="ap-waterfall-focus-top">
+                <span class="ap-waterfall-phase" id="ap-waterfall-phase">INIT</span>
+                <span class="ap-waterfall-step" id="ap-waterfall-step">Warte auf Simulationsdaten…</span>
+              </div>
+              <div class="ap-waterfall-rationale" id="ap-waterfall-rationale">Initialisiere Zielfunktionen und Constraints</div>
+              <div class="ap-waterfall-score">
+                <div class="ap-waterfall-score-box">
+                  <span class="ap-waterfall-score-lbl">Base</span>
+                  <strong class="ap-waterfall-score-val">100.0</strong>
+                </div>
+                <div class="ap-waterfall-score-arrow" aria-hidden="true">→</div>
+                <div class="ap-waterfall-score-box ap-waterfall-score-box-live">
+                  <span class="ap-waterfall-score-lbl">Live</span>
+                  <strong class="ap-waterfall-score-val" id="ap-waterfall-live-score">100.0</strong>
+                </div>
+              </div>
             </div>
-            <div class="ap-flux-stream" id="ap-flux-stream"></div>
+
+            <div class="ap-waterfall-lanes" id="ap-waterfall-lanes">
+              ${WATERFALL_FACTORS.map((factor) => `
+                <div class="ap-wf-lane" data-factor="${factor.key}" style="--wf-color:${factor.color}">
+                  <div class="ap-wf-head">
+                    <span class="ap-wf-label">${factor.label}</span>
+                    <span class="ap-wf-delta" id="ap-wf-delta-${factor.key}">±0.0</span>
+                  </div>
+                  <div class="ap-wf-bar-track">
+                    <div class="ap-wf-bar ap-wf-bar-neg" id="ap-wf-neg-${factor.key}"></div>
+                    <div class="ap-wf-bar ap-wf-bar-pos" id="ap-wf-pos-${factor.key}"></div>
+                    <span class="ap-wf-zero-line" aria-hidden="true"></span>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+
+            <div class="ap-waterfall-events" id="ap-waterfall-events"></div>
           </div>
         </div>
 
@@ -1435,17 +1476,18 @@ export function renderProgressShell() {
 
 export async function streamProgressLogs(result) {
   const logContainer = document.getElementById("ap-term-body");
-  const fluxStream = document.getElementById("ap-flux-stream");
+  const waterfallEvents = document.getElementById("ap-waterfall-events");
   const barEl = document.getElementById("ap-prog-bar");
   const pctEl = document.getElementById("ap-prog-pct");
   const phaseEl = document.getElementById("ap-phase-name");
+  const waterfallPhaseEl = document.getElementById("ap-waterfall-phase");
+  const waterfallStepEl = document.getElementById("ap-waterfall-step");
+  const waterfallRationaleEl = document.getElementById("ap-waterfall-rationale");
+  const waterfallLiveScoreEl = document.getElementById("ap-waterfall-live-score");
   
   const log = result.log;
   const telemetry = result.ruleTelemetry?.events || [];
-
-  const fluxLbl = document.getElementById("ap-flux-lbl");
-  const fluxVal = document.getElementById("ap-flux-val");
-  const fluxDetail = document.getElementById("ap-flux-detail");
+  const traces = result.fluxTraces || [];
 
   let bdCount = 0;
   let hgCount = 0;
@@ -1454,6 +1496,93 @@ export async function streamProgressLogs(result) {
 
   const totalTargetDurationMs = 22000;
   const delayPerEntry = Math.max(50, totalTargetDurationMs / log.length);
+
+  function inferFactorKey(text) {
+    const txt = String(text || "").toLowerCase();
+    for (const factor of WATERFALL_FACTORS) {
+      if (factor.hints.some((hint) => txt.includes(hint))) {
+        return factor.key;
+      }
+    }
+    return "fairness";
+  }
+
+  function pushWaterfallLine(container, className, icon, text, max = 10) {
+    if (!container) return;
+    const line = document.createElement("div");
+    line.className = className;
+    line.innerHTML = `<span class="ap-wf-evt-icon">${icon}</span><span class="ap-wf-evt-msg">${text}</span>`;
+    container.appendChild(line);
+    while (container.children.length > max) {
+      container.removeChild(container.firstChild);
+    }
+    container.scrollTop = container.scrollHeight;
+  }
+
+  const waterfallModel = {};
+  const waterfallDisplay = {};
+  WATERFALL_FACTORS.forEach((factor) => {
+    waterfallModel[factor.key] = 0;
+    waterfallDisplay[factor.key] = 0;
+  });
+
+  let liveScoreTarget = 100;
+  let liveScoreDisplay = 100;
+
+  function impactFromTelemetry(item) {
+    if (!item) return 0;
+    if (item.severity === "critical") return -14;
+    if (item.severity === "warn") return -7;
+    if (item.severity === "accent") return 5;
+    return 3;
+  }
+
+  function phaseImpact(entry) {
+    if (!entry) return 0;
+    const msg = String(entry.msg || "").toLowerCase();
+    if (msg.includes("konvergenz") || msg.includes("abgeschlossen")) return 6;
+    if (msg.includes("kritisch") || msg.includes("warn")) return -8;
+    if (msg.includes("coverage repair")) return -5;
+    if (entry.icon === "✓" || entry.icon === "✅") return 8;
+    if (entry.icon === "🚨") return -12;
+    if (entry.icon === "🧠" || entry.icon === "🧬") return 4;
+    return 1.5;
+  }
+
+  function renderWaterfallFrame() {
+    WATERFALL_FACTORS.forEach((factor) => {
+      const key = factor.key;
+      const target = waterfallModel[key];
+      waterfallDisplay[key] += (target - waterfallDisplay[key]) * 0.18;
+
+      const val = waterfallDisplay[key];
+      const magnitude = Math.min(1, Math.abs(val) / 40);
+      const posEl = document.getElementById(`ap-wf-pos-${key}`);
+      const negEl = document.getElementById(`ap-wf-neg-${key}`);
+      const deltaEl = document.getElementById(`ap-wf-delta-${key}`);
+
+      if (posEl) posEl.style.transform = `scaleX(${val > 0 ? magnitude : 0})`;
+      if (negEl) negEl.style.transform = `scaleX(${val < 0 ? magnitude : 0})`;
+      if (deltaEl) {
+        const signed = `${val >= 0 ? "+" : ""}${val.toFixed(1)}`;
+        deltaEl.textContent = signed;
+        deltaEl.classList.toggle("is-positive", val >= 0);
+        deltaEl.classList.toggle("is-negative", val < 0);
+      }
+    });
+
+    liveScoreDisplay += (liveScoreTarget - liveScoreDisplay) * 0.14;
+    if (waterfallLiveScoreEl) {
+      waterfallLiveScoreEl.textContent = liveScoreDisplay.toFixed(1);
+    }
+
+    localWaterfallAnimationId = requestAnimationFrame(renderWaterfallFrame);
+  }
+
+  if (localWaterfallAnimationId) {
+    cancelAnimationFrame(localWaterfallAnimationId);
+  }
+  localWaterfallAnimationId = requestAnimationFrame(renderWaterfallFrame);
 
   for (let i = 0; i < log.length; i++) {
     const entry = log[i];
@@ -1492,26 +1621,62 @@ export async function streamProgressLogs(result) {
       logContainer.scrollTop = logContainer.scrollHeight;
     }
 
-    if (fluxStream) {
-      const line = document.createElement("div");
-      line.className = "ap-flux-line";
-      line.innerHTML = `<span class="ap-flux-hex">0x${Math.random().toString(16).slice(2,8).toUpperCase()}</span><span class="ap-flux-msg">${entry.phase.toUpperCase()}: STATE_OK</span>`;
-      fluxStream.appendChild(line);
-      if (fluxStream.children.length > 12) {
-        fluxStream.removeChild(fluxStream.firstChild);
-      }
-    }
+    if (waterfallPhaseEl) waterfallPhaseEl.textContent = String(entry.phase || "phase").toUpperCase();
+    if (waterfallStepEl) waterfallStepEl.textContent = entry.msg || "Laufende Bewertung";
+    if (waterfallRationaleEl) waterfallRationaleEl.textContent = `Schritt ${i + 1}/${log.length} · Fortschritt ${entry.pct}%`;
 
     if (barEl) barEl.style.width = entry.pct + "%";
     if (pctEl) pctEl.textContent = entry.pct + "%";
     if (phaseEl) phaseEl.textContent = entry.msg;
 
-    if (i % 5 === 0 && telemetry.length > 0) {
-      const tItem = telemetry[Math.floor(Math.random() * telemetry.length)];
-      if (fluxLbl) fluxLbl.textContent = tItem.phase.toUpperCase();
-      if (fluxVal) fluxVal.textContent = tItem.label;
-      if (fluxDetail) fluxDetail.textContent = tItem.detail;
+    const telemetryItem = telemetry[i % Math.max(1, telemetry.length)];
+    if (telemetryItem) {
+      const key = inferFactorKey(`${telemetryItem.label} ${telemetryItem.detail}`);
+      const factorMeta = WATERFALL_FACTORS.find((f) => f.key === key);
+      const impact = impactFromTelemetry(telemetryItem) * (factorMeta?.direction === "negative" ? -1 : 1);
+      waterfallModel[key] = Math.max(-42, Math.min(42, waterfallModel[key] + impact));
+      liveScoreTarget = Math.max(0, Math.min(140, liveScoreTarget + impact * 0.24));
+
+      const severityClass = telemetryItem.severity === "critical"
+        ? "is-critical"
+        : telemetryItem.severity === "warn"
+          ? "is-warn"
+          : "is-pass";
+      pushWaterfallLine(
+        waterfallEvents,
+        `ap-wf-event-line ${severityClass}`,
+        telemetryItem.severity === "critical" ? "⛔" : telemetryItem.severity === "warn" ? "⚠️" : "✓",
+        `${telemetryItem.label}: ${telemetryItem.detail}`,
+        10
+      );
+      if (waterfallRationaleEl) {
+        waterfallRationaleEl.textContent = `${telemetryItem.label} · ${telemetryItem.detail}`;
+      }
     }
+
+    const traceItem = traces[i];
+    if (traceItem && waterfallEvents) {
+      pushWaterfallLine(
+        waterfallEvents,
+        "ap-wf-event-line is-trace",
+        "🧪",
+        traceItem.msg.replace(/^EVAL\s*/, ""),
+        10
+      );
+      const key = inferFactorKey(traceItem.msg);
+      waterfallModel[key] = Math.max(-42, Math.min(42, waterfallModel[key] + phaseImpact(entry) * 0.7));
+    }
+
+    const phaseKey = inferFactorKey(`${entry.phase} ${entry.msg}`);
+    const phaseMeta = WATERFALL_FACTORS.find((f) => f.key === phaseKey);
+    const pImpact = phaseImpact(entry) * (phaseMeta?.direction === "negative" ? -1 : 1);
+    waterfallModel[phaseKey] = Math.max(-42, Math.min(42, waterfallModel[phaseKey] + pImpact));
+    liveScoreTarget = Math.max(0, Math.min(140, liveScoreTarget + pImpact * 0.15));
+  }
+
+  if (localWaterfallAnimationId) {
+    cancelAnimationFrame(localWaterfallAnimationId);
+    localWaterfallAnimationId = null;
   }
 
   if (localApAnimationId) {
