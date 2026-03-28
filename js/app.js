@@ -104,6 +104,18 @@ let localAutoPlanTargets = {};
 let localApViewMode = "config";
 let localAutoPlanConfigRenderToken = 0;
 let localApAnimationId = null;
+let localWaterfallAnimationId = null;
+let localReplayAnimationId = null;
+
+const WATERFALL_FACTORS = [
+  { key: "coverage", label: "Coverage", color: "#F97316", hints: ["coverage", "lücke", "zwangsbelegung", "besetzt"], direction: "negative" },
+  { key: "fairness", label: "Fairness", color: "#A855F7", hints: ["ziel", "streu", "ausgleich", "swap", "deep"], direction: "negative" },
+  { key: "distance", label: "Abstand", color: "#EF4444", hints: ["abstand", "adjacent", "d-f-d-f", "dist"], direction: "negative" },
+  { key: "weekend", label: "Wochenende", color: "#F59E0B", hints: ["wochenend", "samstag", "sonntag", "we"], direction: "negative" },
+  { key: "constraints", label: "Regeltreue", color: "#38BDF8", hints: ["constraint", "kritisch", "regel"], direction: "positive" },
+  { key: "wishes", label: "Wünsche", color: "#22C55E", hints: ["wunsch"], direction: "positive" },
+  { key: "coupling", label: "Kopplung", color: "#14B8A6", hints: ["koppl", "bundle"], direction: "positive" },
+];
 
 export function isPeriodFlyoutOpen() {
   const el = document.getElementById("period-flyout");
@@ -1348,18 +1360,48 @@ export function renderProgressShell() {
       </div>
 
       <div class="ap-engine-main">
-        <div class="ap-flux-panel">
-          <div class="ap-flux-header">
-            <span>Constraint Flux Matrix</span>
-            <span class="ap-flux-header-pulse"></span>
+        <div class="ap-waterfall-panel" id="ap-waterfall-panel">
+          <div class="ap-waterfall-header">
+            <span>Constraint Waterfall</span>
+            <span class="ap-waterfall-header-pulse"></span>
           </div>
-          <div class="ap-flux-body">
-            <div class="ap-flux-focus">
-              <span class="ap-flux-focus-lbl" id="ap-flux-lbl">Computing</span>
-              <span class="ap-flux-focus-val" id="ap-flux-val">Warte auf Daten...</span>
-              <span class="ap-flux-focus-detail" id="ap-flux-detail">Strikte Dienst-Exklusivität aktiv</span>
+          <div class="ap-waterfall-body">
+            <div class="ap-waterfall-focus">
+              <div class="ap-waterfall-focus-top">
+                <span class="ap-waterfall-phase" id="ap-waterfall-phase">INIT</span>
+                <span class="ap-waterfall-step" id="ap-waterfall-step">Warte auf Simulationsdaten…</span>
+              </div>
+              <div class="ap-waterfall-rationale" id="ap-waterfall-rationale">Initialisiere Zielfunktionen und Constraints</div>
+              <div class="ap-waterfall-score">
+                <div class="ap-waterfall-score-box">
+                  <span class="ap-waterfall-score-lbl">Base</span>
+                  <strong class="ap-waterfall-score-val">100.0</strong>
+                </div>
+                <div class="ap-waterfall-score-arrow" aria-hidden="true">→</div>
+                <div class="ap-waterfall-score-box ap-waterfall-score-box-live">
+                  <span class="ap-waterfall-score-lbl">Live</span>
+                  <strong class="ap-waterfall-score-val" id="ap-waterfall-live-score">100.0</strong>
+                </div>
+              </div>
             </div>
-            <div class="ap-flux-stream" id="ap-flux-stream"></div>
+
+            <div class="ap-waterfall-lanes" id="ap-waterfall-lanes">
+              ${WATERFALL_FACTORS.map((factor) => `
+                <div class="ap-wf-lane" data-factor="${factor.key}" style="--wf-color:${factor.color}">
+                  <div class="ap-wf-head">
+                    <span class="ap-wf-label">${factor.label}</span>
+                    <span class="ap-wf-delta" id="ap-wf-delta-${factor.key}">±0.0</span>
+                  </div>
+                  <div class="ap-wf-bar-track">
+                    <div class="ap-wf-bar ap-wf-bar-neg" id="ap-wf-neg-${factor.key}"></div>
+                    <div class="ap-wf-bar ap-wf-bar-pos" id="ap-wf-pos-${factor.key}"></div>
+                    <span class="ap-wf-zero-line" aria-hidden="true"></span>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+
+            <div class="ap-waterfall-events" id="ap-waterfall-events"></div>
           </div>
         </div>
 
@@ -1435,17 +1477,18 @@ export function renderProgressShell() {
 
 export async function streamProgressLogs(result) {
   const logContainer = document.getElementById("ap-term-body");
-  const fluxStream = document.getElementById("ap-flux-stream");
+  const waterfallEvents = document.getElementById("ap-waterfall-events");
   const barEl = document.getElementById("ap-prog-bar");
   const pctEl = document.getElementById("ap-prog-pct");
   const phaseEl = document.getElementById("ap-phase-name");
+  const waterfallPhaseEl = document.getElementById("ap-waterfall-phase");
+  const waterfallStepEl = document.getElementById("ap-waterfall-step");
+  const waterfallRationaleEl = document.getElementById("ap-waterfall-rationale");
+  const waterfallLiveScoreEl = document.getElementById("ap-waterfall-live-score");
   
   const log = result.log;
   const telemetry = result.ruleTelemetry?.events || [];
-
-  const fluxLbl = document.getElementById("ap-flux-lbl");
-  const fluxVal = document.getElementById("ap-flux-val");
-  const fluxDetail = document.getElementById("ap-flux-detail");
+  const traces = result.fluxTraces || [];
 
   let bdCount = 0;
   let hgCount = 0;
@@ -1454,6 +1497,93 @@ export async function streamProgressLogs(result) {
 
   const totalTargetDurationMs = 22000;
   const delayPerEntry = Math.max(50, totalTargetDurationMs / log.length);
+
+  function inferFactorKey(text) {
+    const txt = String(text || "").toLowerCase();
+    for (const factor of WATERFALL_FACTORS) {
+      if (factor.hints.some((hint) => txt.includes(hint))) {
+        return factor.key;
+      }
+    }
+    return "fairness";
+  }
+
+  function pushWaterfallLine(container, className, icon, text, max = 10) {
+    if (!container) return;
+    const line = document.createElement("div");
+    line.className = className;
+    line.innerHTML = `<span class="ap-wf-evt-icon">${icon}</span><span class="ap-wf-evt-msg">${text}</span>`;
+    container.appendChild(line);
+    while (container.children.length > max) {
+      container.removeChild(container.firstChild);
+    }
+    container.scrollTop = container.scrollHeight;
+  }
+
+  const waterfallModel = {};
+  const waterfallDisplay = {};
+  WATERFALL_FACTORS.forEach((factor) => {
+    waterfallModel[factor.key] = 0;
+    waterfallDisplay[factor.key] = 0;
+  });
+
+  let liveScoreTarget = 100;
+  let liveScoreDisplay = 100;
+
+  function impactFromTelemetry(item) {
+    if (!item) return 0;
+    if (item.severity === "critical") return -14;
+    if (item.severity === "warn") return -7;
+    if (item.severity === "accent") return 5;
+    return 3;
+  }
+
+  function phaseImpact(entry) {
+    if (!entry) return 0;
+    const msg = String(entry.msg || "").toLowerCase();
+    if (msg.includes("konvergenz") || msg.includes("abgeschlossen")) return 6;
+    if (msg.includes("kritisch") || msg.includes("warn")) return -8;
+    if (msg.includes("coverage repair")) return -5;
+    if (entry.icon === "✓" || entry.icon === "✅") return 8;
+    if (entry.icon === "🚨") return -12;
+    if (entry.icon === "🧠" || entry.icon === "🧬") return 4;
+    return 1.5;
+  }
+
+  function renderWaterfallFrame() {
+    WATERFALL_FACTORS.forEach((factor) => {
+      const key = factor.key;
+      const target = waterfallModel[key];
+      waterfallDisplay[key] += (target - waterfallDisplay[key]) * 0.18;
+
+      const val = waterfallDisplay[key];
+      const magnitude = Math.min(1, Math.abs(val) / 40);
+      const posEl = document.getElementById(`ap-wf-pos-${key}`);
+      const negEl = document.getElementById(`ap-wf-neg-${key}`);
+      const deltaEl = document.getElementById(`ap-wf-delta-${key}`);
+
+      if (posEl) posEl.style.transform = `scaleX(${val > 0 ? magnitude : 0})`;
+      if (negEl) negEl.style.transform = `scaleX(${val < 0 ? magnitude : 0})`;
+      if (deltaEl) {
+        const signed = `${val >= 0 ? "+" : ""}${val.toFixed(1)}`;
+        deltaEl.textContent = signed;
+        deltaEl.classList.toggle("is-positive", val >= 0);
+        deltaEl.classList.toggle("is-negative", val < 0);
+      }
+    });
+
+    liveScoreDisplay += (liveScoreTarget - liveScoreDisplay) * 0.14;
+    if (waterfallLiveScoreEl) {
+      waterfallLiveScoreEl.textContent = liveScoreDisplay.toFixed(1);
+    }
+
+    localWaterfallAnimationId = requestAnimationFrame(renderWaterfallFrame);
+  }
+
+  if (localWaterfallAnimationId) {
+    cancelAnimationFrame(localWaterfallAnimationId);
+  }
+  localWaterfallAnimationId = requestAnimationFrame(renderWaterfallFrame);
 
   for (let i = 0; i < log.length; i++) {
     const entry = log[i];
@@ -1492,35 +1622,299 @@ export async function streamProgressLogs(result) {
       logContainer.scrollTop = logContainer.scrollHeight;
     }
 
-    if (fluxStream) {
-      const line = document.createElement("div");
-      line.className = "ap-flux-line";
-      line.innerHTML = `<span class="ap-flux-hex">0x${Math.random().toString(16).slice(2,8).toUpperCase()}</span><span class="ap-flux-msg">${entry.phase.toUpperCase()}: STATE_OK</span>`;
-      fluxStream.appendChild(line);
-      if (fluxStream.children.length > 12) {
-        fluxStream.removeChild(fluxStream.firstChild);
-      }
-    }
+    if (waterfallPhaseEl) waterfallPhaseEl.textContent = String(entry.phase || "phase").toUpperCase();
+    if (waterfallStepEl) waterfallStepEl.textContent = entry.msg || "Laufende Bewertung";
+    if (waterfallRationaleEl) waterfallRationaleEl.textContent = `Schritt ${i + 1}/${log.length} · Fortschritt ${entry.pct}%`;
 
     if (barEl) barEl.style.width = entry.pct + "%";
     if (pctEl) pctEl.textContent = entry.pct + "%";
     if (phaseEl) phaseEl.textContent = entry.msg;
 
-    if (i % 5 === 0 && telemetry.length > 0) {
-      const tItem = telemetry[Math.floor(Math.random() * telemetry.length)];
-      if (fluxLbl) fluxLbl.textContent = tItem.phase.toUpperCase();
-      if (fluxVal) fluxVal.textContent = tItem.label;
-      if (fluxDetail) fluxDetail.textContent = tItem.detail;
+    const telemetryItem = telemetry[i % Math.max(1, telemetry.length)];
+    if (telemetryItem) {
+      const key = inferFactorKey(`${telemetryItem.label} ${telemetryItem.detail}`);
+      const factorMeta = WATERFALL_FACTORS.find((f) => f.key === key);
+      const impact = impactFromTelemetry(telemetryItem) * (factorMeta?.direction === "negative" ? -1 : 1);
+      waterfallModel[key] = Math.max(-42, Math.min(42, waterfallModel[key] + impact));
+      liveScoreTarget = Math.max(0, Math.min(140, liveScoreTarget + impact * 0.24));
+
+      const severityClass = telemetryItem.severity === "critical"
+        ? "is-critical"
+        : telemetryItem.severity === "warn"
+          ? "is-warn"
+          : "is-pass";
+      pushWaterfallLine(
+        waterfallEvents,
+        `ap-wf-event-line ${severityClass}`,
+        telemetryItem.severity === "critical" ? "⛔" : telemetryItem.severity === "warn" ? "⚠️" : "✓",
+        `${telemetryItem.label}: ${telemetryItem.detail}`,
+        10
+      );
+      if (waterfallRationaleEl) {
+        waterfallRationaleEl.textContent = `${telemetryItem.label} · ${telemetryItem.detail}`;
+      }
     }
+
+    const traceItem = traces[i];
+    if (traceItem && waterfallEvents) {
+      pushWaterfallLine(
+        waterfallEvents,
+        "ap-wf-event-line is-trace",
+        "🧪",
+        traceItem.msg.replace(/^EVAL\s*/, ""),
+        10
+      );
+      const key = inferFactorKey(traceItem.msg);
+      waterfallModel[key] = Math.max(-42, Math.min(42, waterfallModel[key] + phaseImpact(entry) * 0.7));
+    }
+
+    const phaseKey = inferFactorKey(`${entry.phase} ${entry.msg}`);
+    const phaseMeta = WATERFALL_FACTORS.find((f) => f.key === phaseKey);
+    const pImpact = phaseImpact(entry) * (phaseMeta?.direction === "negative" ? -1 : 1);
+    waterfallModel[phaseKey] = Math.max(-42, Math.min(42, waterfallModel[phaseKey] + pImpact));
+    liveScoreTarget = Math.max(0, Math.min(140, liveScoreTarget + pImpact * 0.15));
+  }
+
+  if (localWaterfallAnimationId) {
+    cancelAnimationFrame(localWaterfallAnimationId);
+    localWaterfallAnimationId = null;
   }
 
   if (localApAnimationId) {
     cancelAnimationFrame(localApAnimationId);
   }
   
-  await sleep(1000);
+  await runQuantumReplay(result);
   localApViewMode = "result";
   renderResultView();
+}
+
+export function buildQuantumReplayHighlights(result) {
+  const highlights = [];
+  const report = result?.report || [];
+  const warnings = result?.summary?.warnings || [];
+  const quality = result?.summary?.quality || {};
+
+  report
+    .filter((item) => item?.emp && item?.duty)
+    .slice(0, 10)
+    .forEach((item) => {
+      highlights.push({
+        kind: item.duty === "D" ? "duty" : "support",
+        title: `${item.duty} · ${item.emp}`,
+        detail: `Tag ${item.day}: ${item.reason || "Algorithmische Zuweisung."}`,
+        tags: item.tags || [],
+      });
+    });
+
+  warnings.slice(0, 6).forEach((warn) => {
+    highlights.push({
+      kind: "warning",
+      title: "Warnsignal",
+      detail: warn,
+      tags: ["Monitoring"],
+    });
+  });
+
+  highlights.push({
+    kind: "quality",
+    title: "Neural Fitness",
+    detail: `NFI ${quality.score || "0.0"} · Deep ${quality.deepMoves || 0} · Swaps ${quality.swaps || 0}`,
+    tags: ["Finale Bewertung"],
+  });
+
+  if (!highlights.length) {
+    highlights.push({
+      kind: "quality",
+      title: "Replay",
+      detail: "Keine Highlights vorhanden.",
+      tags: [],
+    });
+  }
+
+  return highlights;
+}
+
+export async function runQuantumReplay(result) {
+  const body = document.getElementById("ap-body");
+  const applyBtn = document.getElementById("ap-apply");
+  const reportBtn = document.getElementById("ap-report-btn");
+  if (!body) return;
+
+  if (applyBtn) applyBtn.style.display = "none";
+  if (reportBtn) reportBtn.style.display = "none";
+
+  const highlights = buildQuantumReplayHighlights(result);
+  const quality = result?.summary?.quality || {};
+  const replayDurationMs = 9000;
+
+  body.style.height = "100%";
+  body.style.maxHeight = "100%";
+  body.style.overflow = "hidden";
+  body.style.padding = "10px";
+
+  body.innerHTML = `
+    <div class="ap-replay-shell">
+      <canvas class="ap-replay-canvas" id="ap-replay-canvas" aria-hidden="true"></canvas>
+      <div class="ap-replay-overlay">
+        <div class="ap-replay-head">
+          <span class="ap-replay-kicker">Quantum Replay</span>
+          <h3 class="ap-replay-title">Post-Run Highlight Reel</h3>
+          <p class="ap-replay-sub" id="ap-replay-sub">Rekonstruiere Entscheidungsraum und Metaheuristik…</p>
+        </div>
+        <div class="ap-replay-progress-track">
+          <div class="ap-replay-progress-fill" id="ap-replay-progress"></div>
+        </div>
+        <div class="ap-replay-card" id="ap-replay-card">
+          <div class="ap-replay-card-head">
+            <span class="ap-replay-kind" id="ap-replay-kind">INIT</span>
+            <span class="ap-replay-idx" id="ap-replay-idx">1/${highlights.length}</span>
+          </div>
+          <div class="ap-replay-card-title" id="ap-replay-title">${highlights[0].title}</div>
+          <div class="ap-replay-card-detail" id="ap-replay-detail">${highlights[0].detail}</div>
+          <div class="ap-replay-tags" id="ap-replay-tags">${(highlights[0].tags || []).map((tag) => `<span class="ap-replay-tag">${tag}</span>`).join("")}</div>
+        </div>
+        <div class="ap-replay-stats">
+          <div class="ap-replay-stat"><span>NFI</span><strong>${quality.score || "0.0"}</strong></div>
+          <div class="ap-replay-stat"><span>Deep</span><strong>${quality.deepMoves || 0}</strong></div>
+          <div class="ap-replay-stat"><span>Swaps</span><strong>${quality.swaps || 0}</strong></div>
+          <div class="ap-replay-stat"><span>HG-Moves</span><strong>${quality.hgMoves || 0}</strong></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const canvas = document.getElementById("ap-replay-canvas");
+  const subEl = document.getElementById("ap-replay-sub");
+  const progressEl = document.getElementById("ap-replay-progress");
+  const kindEl = document.getElementById("ap-replay-kind");
+  const idxEl = document.getElementById("ap-replay-idx");
+  const titleEl = document.getElementById("ap-replay-title");
+  const detailEl = document.getElementById("ap-replay-detail");
+  const tagsEl = document.getElementById("ap-replay-tags");
+  const cardEl = document.getElementById("ap-replay-card");
+
+  let ctx = null;
+  let cw = 0;
+  let ch = 0;
+  const stars = [];
+  let rafStarted = 0;
+  let currentHighlight = -1;
+
+  if (canvas) {
+    ctx = canvas.getContext("2d");
+    const seedStars = () => {
+      cw = canvas.width = canvas.offsetWidth;
+      ch = canvas.height = canvas.offsetHeight;
+      stars.length = 0;
+      const count = Math.max(45, Math.floor((cw * ch) / 9000));
+      for (let i = 0; i < count; i++) {
+        stars.push({
+          x: Math.random() * cw,
+          y: Math.random() * ch,
+          z: Math.random() * 1.2 + 0.2,
+          r: Math.random() * 1.8 + 0.4,
+          drift: (Math.random() - 0.5) * 0.5,
+        });
+      }
+    };
+    seedStars();
+    window.requestAnimationFrame(() => {
+      if (canvas) {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+      }
+    });
+  }
+
+  const kindLabel = (kind) => {
+    if (kind === "warning") return "ALERT";
+    if (kind === "support") return "HG";
+    if (kind === "quality") return "NFI";
+    return "DUTY";
+  };
+
+  const subTexts = [
+    "Synchronisiere Ereignisfluss …",
+    "Extrahiere kritische Entscheidungen …",
+    "Projiziere Metaheuristik-Pfade …",
+    "Verdichte Ergebnisraum …",
+  ];
+
+  await new Promise((resolve) => {
+    const draw = (now) => {
+      if (!rafStarted) rafStarted = now;
+      const elapsed = now - rafStarted;
+      const progress = Math.max(0, Math.min(1, elapsed / replayDurationMs));
+
+      if (ctx) {
+        ctx.clearRect(0, 0, cw, ch);
+        const t = elapsed * 0.001;
+        const grd = ctx.createRadialGradient(cw * 0.5, ch * 0.5, 10, cw * 0.5, ch * 0.5, Math.max(cw, ch) * 0.7);
+        grd.addColorStop(0, "rgba(14,165,233,0.24)");
+        grd.addColorStop(1, "rgba(2,6,23,0)");
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, cw, ch);
+
+        stars.forEach((s, i) => {
+          s.y += s.z * 0.28;
+          s.x += Math.sin(t + i * 0.07) * 0.06 + s.drift * 0.03;
+          if (s.y > ch + 8) {
+            s.y = -8;
+            s.x = Math.random() * cw;
+          }
+          if (s.x < -8) s.x = cw + 8;
+          if (s.x > cw + 8) s.x = -8;
+          const pulse = 0.55 + Math.sin(t * 3 + i * 0.5) * 0.35;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r * pulse, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(125,211,252,${0.22 + s.z * 0.22})`;
+          ctx.fill();
+        });
+      }
+
+      if (progressEl) {
+        progressEl.style.transform = `scaleX(${progress})`;
+      }
+
+      if (subEl) {
+        subEl.textContent = subTexts[Math.min(subTexts.length - 1, Math.floor(progress * subTexts.length))];
+      }
+
+      const idx = Math.min(highlights.length - 1, Math.floor(progress * highlights.length));
+      if (idx !== currentHighlight) {
+        currentHighlight = idx;
+        const item = highlights[idx];
+        if (kindEl) kindEl.textContent = kindLabel(item.kind);
+        if (idxEl) idxEl.textContent = `${idx + 1}/${highlights.length}`;
+        if (titleEl) titleEl.textContent = item.title;
+        if (detailEl) detailEl.textContent = item.detail;
+        if (tagsEl) {
+          tagsEl.innerHTML = (item.tags || []).slice(0, 4).map((tag) => `<span class="ap-replay-tag">${tag}</span>`).join("");
+        }
+        if (cardEl) {
+          cardEl.classList.remove("is-pop");
+          cardEl.offsetWidth;
+          cardEl.classList.add("is-pop");
+        }
+      }
+
+      if (progress >= 1) {
+        resolve();
+        return;
+      }
+
+      localReplayAnimationId = requestAnimationFrame(draw);
+    };
+
+    if (localReplayAnimationId) cancelAnimationFrame(localReplayAnimationId);
+    localReplayAnimationId = requestAnimationFrame(draw);
+  });
+
+  if (localReplayAnimationId) {
+    cancelAnimationFrame(localReplayAnimationId);
+    localReplayAnimationId = null;
+  }
 }
 
 export function renderResultView() {
