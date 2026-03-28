@@ -5,89 +5,184 @@ export class NeuralGraph {
     this.container = container;
     this.width = container.clientWidth;
     this.height = container.clientHeight;
+    
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x040914, 0.015);
-    this.camera = new THREE.PerspectiveCamera(55, this.width / this.height, 0.1, 1000);
-    this.camera.position.set(0, 10, 80);
+    this.scene.fog = new THREE.FogExp2(0x020610, 0.012);
+    
+    this.camera = new THREE.PerspectiveCamera(45, this.width / this.height, 0.1, 1000);
+    this.camera.position.set(0, -10, 100);
+    
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
     this.renderer.setSize(this.width, this.height);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x000000, 0);
     this.container.appendChild(this.renderer.domElement);
+    
     this.mainGroup = new THREE.Group();
     this.scene.add(this.mainGroup);
+    
     this.nodes = new Map();
-    this.activeEdges = new Map();
+    this.activeNodes = new Map(); 
+    this.dataStreams = [];
+    
     this.clock = new THREE.Clock();
     this.isActive = true;
+    
+    this.colors = {
+      grid: 0x0A2E36,
+      stream: 0x0DF0D0,
+      node: 0x00FF41,
+      swap: 0xB026FF,
+      error: 0xFF003C,
+      text: 0xE0F8FF
+    };
+
     this.createTextures();
+    this.setupBaseMaterials();
     this.setupResizeListener();
+    this.createScannerPlanes();
+    
     this.render = this.render.bind(this);
     requestAnimationFrame(this.render);
-    gsap.to(this.mainGroup.position, { y: 2, duration: 4, yoyo: true, repeat: -1, ease: "sine.inOut" });
+    
+    gsap.to(this.mainGroup.rotation, { y: Math.PI * 2, duration: 240, repeat: -1, ease: "none" });
   }
 
   createTextures() {
-    const pCanvas = document.createElement('canvas');
-    pCanvas.width = 32; pCanvas.height = 32;
-    const pCtx = pCanvas.getContext('2d');
-    const pGrad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
-    pGrad.addColorStop(0, 'rgba(255,255,255,1)');
-    pGrad.addColorStop(0.3, 'rgba(255,255,255,0.8)');
-    pGrad.addColorStop(1, 'rgba(0,0,0,0)');
-    pCtx.fillStyle = pGrad;
-    pCtx.fillRect(0, 0, 32, 32);
-    this.particleTexture = new THREE.CanvasTexture(pCanvas);
+    const c = document.createElement('canvas');
+    c.width = 64; c.height = 64;
+    const ctx = c.getContext('2d');
+    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.2, 'rgba(255,255,255,0.8)');
+    grad.addColorStop(0.6, 'rgba(13,240,208,0.2)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 64, 64);
+    this.glowTex = new THREE.CanvasTexture(c);
+    this.glowTex.magFilter = THREE.LinearFilter;
+    this.glowTex.minFilter = THREE.LinearFilter;
+    this.glowTex.generateMipmaps = false;
+
+    const hc = document.createElement('canvas');
+    hc.width = 256; hc.height = 256;
+    const hctx = hc.getContext('2d');
+    hctx.strokeStyle = 'rgba(13,240,208,0.4)';
+    hctx.lineWidth = 4;
+    hctx.beginPath();
+    hctx.arc(128, 128, 120, 0, Math.PI * 2);
+    hctx.stroke();
+    for(let i=0; i<12; i++) {
+      const a = (i/12) * Math.PI * 2;
+      hctx.moveTo(128 + Math.cos(a)*110, 128 + Math.sin(a)*110);
+      hctx.lineTo(128 + Math.cos(a)*130, 128 + Math.sin(a)*130);
+    }
+    hctx.stroke();
+    this.ringTex = new THREE.CanvasTexture(hc);
+    this.ringTex.magFilter = THREE.LinearFilter;
+    this.ringTex.minFilter = THREE.LinearFilter;
   }
 
-  createLabelSprite(text, isEmp) {
+  setupBaseMaterials() {
+    this.gridMat = new THREE.LineBasicMaterial({
+      color: this.colors.grid,
+      transparent: true,
+      opacity: 0.3,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    
+    this.nodeGeo = new THREE.OctahedronGeometry(1.2, 0);
+    this.nodeMatBase = new THREE.MeshBasicMaterial({
+      color: this.colors.node,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.8,
+      blending: THREE.AdditiveBlending
+    });
+  }
+
+  createScannerPlanes() {
+    this.scannerGroup = new THREE.Group();
+    const geo = new THREE.PlaneGeometry(150, 150);
+    const mat = new THREE.MeshBasicMaterial({
+      color: this.colors.stream,
+      transparent: true,
+      opacity: 0.05,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    
+    for(let i=0; i<3; i++) {
+      const plane = new THREE.Mesh(geo, mat);
+      plane.rotation.x = Math.PI / 2;
+      plane.position.y = -40 + (i * 30);
+      this.scannerGroup.add(plane);
+      
+      gsap.to(plane.position, {
+        y: "+=40",
+        duration: 3 + i,
+        repeat: -1,
+        ease: "none",
+        modifiers: {
+          y: gsap.utils.unitize(y => parseFloat(y) > 40 ? -40 : y)
+        }
+      });
+    }
+    this.scene.add(this.scannerGroup);
+  }
+
+  generateHexDecryptionSprite(finalText) {
     const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 128;
+    canvas.width = 256; canvas.height = 64;
     const ctx = canvas.getContext('2d');
     
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    ctx.fillStyle = isEmp ? 'rgba(251, 191, 36, 0.15)' : 'rgba(56, 189, 248, 0.15)';
-    ctx.beginPath();
-    ctx.roundRect(20, 20, 472, 88, 44);
-    ctx.fill();
-    
-    ctx.strokeStyle = isEmp ? 'rgba(251, 191, 36, 0.6)' : 'rgba(56, 189, 248, 0.6)';
-    ctx.lineWidth = 4;
-    ctx.stroke();
-
-    ctx.fillStyle = isEmp ? '#FDE68A' : '#E0F2FE';
-    ctx.font = isEmp ? "bold 44px 'IBM Plex Mono', monospace" : "bold 52px 'IBM Plex Mono', monospace";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    
-    const displayText = isEmp ? text.split(' ').pop() : `${text}.`;
-    ctx.fillText(displayText, 256, 64);
-
     const texture = new THREE.CanvasTexture(canvas);
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
-    texture.generateMipmaps = false; 
+    texture.generateMipmaps = false;
     
-    const material = new THREE.SpriteMaterial({ 
+    const mat = new THREE.SpriteMaterial({ 
       map: texture, 
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending
+      transparent: true, 
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
     });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(16, 4, 1);
     
-    const sprite = new THREE.Sprite(material);
-    sprite.scale.set(isEmp ? 14 : 11, isEmp ? 3.5 : 2.75, 1);
-    return sprite;
-  }
+    const chars = "0123456789ABCDEF!@#$%^&*";
+    let iterations = 0;
+    const maxIter = 15;
+    
+    const updateCanvas = (textStr, isFinal) => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = isFinal ? '#00FF41' : '#0DF0D0';
+      ctx.font = "bold 32px 'Courier New', monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = isFinal ? '#00FF41' : '#0DF0D0';
+      ctx.shadowBlur = 10;
+      ctx.fillText(textStr, 128, 32);
+      texture.needsUpdate = true;
+    };
 
-  getCurve(p1, p2) {
-    const mid = p1.clone().lerp(p2, 0.5);
-    const distance = p1.distanceTo(p2);
-    mid.y += distance * 0.25;
-    mid.z -= distance * 0.15;
-    return new THREE.QuadraticBezierCurve3(p1, mid, p2);
+    const interval = setInterval(() => {
+      if (!this.isActive) { clearInterval(interval); return; }
+      if (iterations >= maxIter) {
+        clearInterval(interval);
+        updateCanvas(finalText, true);
+      } else {
+        let randStr = "";
+        for(let i=0; i<finalText.length; i++) randStr += chars[Math.floor(Math.random() * chars.length)];
+        updateCanvas(randStr, false);
+      }
+      iterations++;
+    }, 40);
+    
+    sprite.userData = { canvas, texture, material: mat, interval };
+    return sprite;
   }
 
   setupResizeListener() {
@@ -105,279 +200,285 @@ export class NeuralGraph {
   }
 
   initData(daysCount, employees) {
-    while(this.mainGroup.children.length > 0) {
-      const child = this.mainGroup.children[0];
+    this.clearScene();
+    
+    const radius = 40;
+    const heightSpan = 50;
+    
+    const gridGeo = new THREE.BufferGeometry();
+    const gridPts = [];
+    
+    for (let d = 0; d < daysCount; d++) {
+      const theta = (d / daysCount) * Math.PI * 1.5 - (Math.PI * 0.75); 
+      for (let e = 0; e < employees.length; e++) {
+        const y = (e / Math.max(1, employees.length - 1)) * heightSpan - (heightSpan / 2);
+        const x = Math.sin(theta) * radius;
+        const z = Math.cos(theta) * radius;
+        
+        const pos = new THREE.Vector3(x, y, z);
+        this.nodes.set(`${d+1}_${employees[e]}`, pos);
+        
+        if (e > 0) {
+          const prevY = ((e - 1) / Math.max(1, employees.length - 1)) * heightSpan - (heightSpan / 2);
+          gridPts.push(x, prevY, z, x, y, z);
+        }
+        if (d > 0) {
+          const prevTheta = ((d - 1) / daysCount) * Math.PI * 1.5 - (Math.PI * 0.75);
+          gridPts.push(Math.sin(prevTheta) * radius, y, Math.cos(prevTheta) * radius, x, y, z);
+        }
+      }
+    }
+    
+    gridGeo.setAttribute('position', new THREE.Float32BufferAttribute(gridPts, 3));
+    const gridMesh = new THREE.LineSegments(gridGeo, this.gridMat);
+    this.mainGroup.add(gridMesh);
+
+    this.createDataStreams(daysCount, employees.length, radius, heightSpan);
+
+    gsap.from(this.camera.position, { y: 60, z: -50, duration: 3.5, ease: "expo.out" });
+    gsap.from(this.mainGroup.rotation, { y: -Math.PI/2, duration: 3, ease: "power3.out" });
+  }
+
+  createDataStreams(daysCount, empCount, radius, heightSpan) {
+    const streamGeo = new THREE.BufferGeometry();
+    const streamPts = new Float32Array(200 * 3);
+    for(let i=0; i<600; i++) streamPts[i] = 0;
+    streamGeo.setAttribute('position', new THREE.BufferAttribute(streamPts, 3));
+    
+    const streamMat = new THREE.PointsMaterial({
+      size: 1.5,
+      color: this.colors.stream,
+      map: this.glowTex,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    
+    const streamMesh = new THREE.Points(streamGeo, streamMat);
+    this.mainGroup.add(streamMesh);
+    
+    for(let i=0; i<200; i++) {
+      const d = Math.floor(Math.random() * daysCount);
+      const theta = (d / daysCount) * Math.PI * 1.5 - (Math.PI * 0.75);
+      this.dataStreams.push({
+        idx: i,
+        x: Math.sin(theta) * radius,
+        z: Math.cos(theta) * radius,
+        y: Math.random() * heightSpan - (heightSpan/2),
+        speed: Math.random() * 15 + 10,
+        height: heightSpan
+      });
+    }
+    this.streamMesh = streamMesh;
+  }
+
+  clearScene() {
+    const toRemove = [];
+    this.mainGroup.children.forEach(child => toRemove.push(child));
+    toRemove.forEach(child => {
       this.mainGroup.remove(child);
       if (child.geometry) child.geometry.dispose();
       if (child.material) {
         if (child.material.map) child.material.map.dispose();
         child.material.dispose();
       }
-    }
+      if (child.userData && child.userData.interval) clearInterval(child.userData.interval);
+    });
     this.nodes.clear();
-    this.activeEdges.forEach(edge => {
-      if (edge.line.geometry) edge.line.geometry.dispose();
-      if (edge.material) edge.material.dispose();
-    });
-    this.activeEdges.clear();
-
-    const dayRadius = 35;
-    for (let i = 0; i < daysCount; i++) {
-      const angle = (i / (daysCount - 1)) * Math.PI - Math.PI / 2;
-      const x = Math.sin(angle) * dayRadius;
-      const z = Math.cos(angle) * dayRadius * 0.4;
-      const y = -12;
-      
-      const sprite = this.createLabelSprite((i + 1).toString(), false);
-      sprite.position.set(x, y, z - 10);
-      this.mainGroup.add(sprite);
-      this.nodes.set(`d_${i + 1}`, sprite.position.clone());
-      
-      gsap.from(sprite.position, { y: y - 20, opacity: 0, duration: 1.5, delay: i * 0.02, ease: "back.out" });
-    }
-
-    const empCount = employees.length;
-    const empRadius = 45;
-    for (let i = 0; i < empCount; i++) {
-      const angle = (i / (empCount - 1)) * Math.PI - Math.PI / 2;
-      const x = Math.sin(angle) * empRadius;
-      const z = Math.cos(angle) * empRadius * 0.5;
-      const y = 18;
-      
-      const sprite = this.createLabelSprite(employees[i], true);
-      sprite.position.set(x, y, z - 25);
-      this.mainGroup.add(sprite);
-      this.nodes.set(`e_${employees[i]}`, sprite.position.clone());
-      
-      gsap.from(sprite.position, { y: y + 20, opacity: 0, duration: 1.5, delay: i * 0.05, ease: "back.out" });
-    }
-
-    gsap.from(this.camera.position, { y: 40, z: 120, duration: 3, ease: "power3.out" });
+    this.activeNodes.clear();
+    this.dataStreams = [];
   }
 
-  createEdge(dayIdx, empId) {
-    const dPos = this.nodes.get(`d_${dayIdx}`);
-    const ePos = this.nodes.get(`e_${empId}`);
-    if (!dPos || !ePos) return;
-
+  triggerAssignment(dayIdx, empId) {
     const key = `${dayIdx}_${empId}`;
-    if (this.activeEdges.has(key)) return;
+    const pos = this.nodes.get(key);
+    if (!pos) return;
 
-    const curve = this.getCurve(ePos, dPos);
-    const points = curve.getPoints(24);
-    const geo = new THREE.BufferGeometry().setFromPoints(points);
+    if (this.activeNodes.has(key)) {
+      this.removeAssignment(key);
+    }
+
+    const group = new THREE.Group();
+    group.position.copy(pos);
     
-    const mat = new THREE.LineBasicMaterial({
-      color: 0x0EA5E9,
-      transparent: true,
-      opacity: 0,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      linewidth: 1
+    const mesh = new THREE.Mesh(this.nodeGeo, this.nodeMatBase.clone());
+    group.add(mesh);
+    
+    const ringMat = new THREE.MeshBasicMaterial({
+      map: this.ringTex, color: this.colors.stream, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
     });
-    
-    const line = new THREE.Line(geo, mat);
-    this.mainGroup.add(line);
-    this.activeEdges.set(key, { line, material: mat, curve });
+    const ring = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), ringMat);
+    ring.rotation.x = Math.PI / 2;
+    group.add(ring);
 
-    gsap.to(mat, { opacity: 0.25, duration: 0.5, ease: "power2.out" });
+    const sprite = this.generateHexDecryptionSprite(empId.split(' ').pop());
+    sprite.position.y = 2.5;
+    group.add(sprite);
+
+    this.mainGroup.add(group);
+    this.activeNodes.set(key, { group, mesh, ring, sprite });
+
+    gsap.from(group.scale, { x: 0.01, y: 0.01, z: 0.01, duration: 0.6, ease: "back.out(1.5)" });
+    gsap.to(ring.rotation, { z: Math.PI * 2, duration: 4, repeat: -1, ease: "none" });
+    gsap.to(mesh.rotation, { x: Math.PI, y: Math.PI, duration: 6, repeat: -1, ease: "none" });
+    
+    this.spawnPulse(pos, this.colors.node);
   }
 
-  removeEdge(dayIdx, empId) {
-    const key = `${dayIdx}_${empId}`;
-    const edge = this.activeEdges.get(key);
-    if (!edge) return;
-
-    this.activeEdges.delete(key);
-    gsap.to(edge.material.color, { r: 0.937, g: 0.266, b: 0.266, duration: 0.2 });
-    gsap.to(edge.material, {
-      opacity: 0,
-      duration: 0.4,
-      ease: "power2.in",
+  removeAssignment(key) {
+    const nodeObj = this.activeNodes.get(key);
+    if (!nodeObj) return;
+    this.activeNodes.delete(key);
+    
+    if(nodeObj.sprite.userData.interval) clearInterval(nodeObj.sprite.userData.interval);
+    
+    gsap.to(nodeObj.group.scale, {
+      x: 0.01, y: 0.01, z: 0.01, duration: 0.3, ease: "power2.in",
       onComplete: () => {
-        this.mainGroup.remove(edge.line);
-        edge.line.geometry.dispose();
-        edge.material.dispose();
+        this.mainGroup.remove(nodeObj.group);
+        nodeObj.mesh.geometry.dispose();
+        nodeObj.mesh.material.dispose();
+        nodeObj.ring.geometry.dispose();
+        nodeObj.ring.material.dispose();
+        nodeObj.sprite.material.map.dispose();
+        nodeObj.sprite.material.dispose();
       }
     });
   }
 
-  triggerAssignment(dayIdx, empId) {
-    this.createEdge(dayIdx, empId);
-    this.spawnTracer(dayIdx, empId, 0x38BDF8);
-  }
-
   triggerSwap(dayIdx, oldEmpId, newEmpId) {
-    if (oldEmpId) {
-      this.removeEdge(dayIdx, oldEmpId);
-      const dPos = this.nodes.get(`d_${dayIdx}`);
-      if (dPos) this.spawnExplosion(dPos, 0xEF4444, 5);
+    const oldKey = `${dayIdx}_${oldEmpId}`;
+    const newKey = `${dayIdx}_${newEmpId}`;
+    const p1 = this.nodes.get(oldKey);
+    const p2 = this.nodes.get(newKey);
+
+    if (oldEmpId && p1) {
+      const oldNode = this.activeNodes.get(oldKey);
+      if (oldNode) {
+        gsap.to(oldNode.mesh.material.color, { setHex: this.colors.error, duration: 0.1 });
+        this.glitchEffect(oldNode.group);
+      }
+      this.spawnPulse(p1, this.colors.error);
+      setTimeout(() => this.removeAssignment(oldKey), 200);
     }
-    if (newEmpId) {
-      this.createEdge(dayIdx, newEmpId);
-      this.spawnTracer(dayIdx, newEmpId, 0xA855F7);
+
+    if (p1 && p2) {
+      this.fireDataBeam(p1, p2, this.colors.swap);
+    }
+
+    if (newEmpId && p2) {
+      setTimeout(() => this.triggerAssignment(dayIdx, newEmpId), 250);
     }
   }
 
   triggerError(dayIdx, empId) {
-    const dPos = this.nodes.get(`d_${dayIdx}`);
-    if (dPos) {
-      this.spawnExplosion(dPos, 0xF59E0B, 10);
-      const flash = new THREE.PointLight(0xF59E0B, 0, 35);
-      flash.position.copy(dPos);
-      this.mainGroup.add(flash);
-      gsap.to(flash, {
-        intensity: 2.5,
-        duration: 0.2,
-        yoyo: true,
-        repeat: 1,
-        onComplete: () => this.mainGroup.remove(flash)
-      });
-    }
+    const key = `${dayIdx}_${empId}`;
+    const p = this.nodes.get(key);
+    if (!p) return;
 
-    if (empId) {
-      const key = `${dayIdx}_${empId}`;
-      const edge = this.activeEdges.get(key);
-      if (edge) {
-        const origColor = edge.material.color.clone();
-        const origOpacity = edge.material.opacity;
-        gsap.to(edge.material.color, { r: 0.96, g: 0.62, b: 0.04, duration: 0.1, yoyo: true, repeat: 3 });
-        gsap.to(edge.material, { opacity: 0.8, duration: 0.1, yoyo: true, repeat: 3, onComplete: () => {
-          edge.material.color.copy(origColor);
-          edge.material.opacity = origOpacity;
-        }});
-      }
+    this.spawnPulse(p, this.colors.error, 3);
+    
+    const nodeObj = this.activeNodes.get(key);
+    if (nodeObj) {
+      const origColor = nodeObj.mesh.material.color.getHex();
+      nodeObj.mesh.material.color.setHex(this.colors.error);
+      this.glitchEffect(nodeObj.group, 5);
+      setTimeout(() => nodeObj.mesh.material.color.setHex(origColor), 600);
     }
   }
 
-  spawnTracer(dayIdx, empId, colorHex) {
-    const dPos = this.nodes.get(`d_${dayIdx}`);
-    const ePos = this.nodes.get(`e_${empId}`);
-    if (!dPos || !ePos) return;
+  glitchEffect(target, intensity = 2) {
+    const origX = target.position.x;
+    const origZ = target.position.z;
+    const tl = gsap.timeline();
+    for(let i=0; i<6; i++) {
+      tl.to(target.position, {
+        x: origX + (Math.random()-0.5)*intensity,
+        z: origZ + (Math.random()-0.5)*intensity,
+        duration: 0.04,
+        ease: "none"
+      });
+    }
+    tl.to(target.position, { x: origX, z: origZ, duration: 0.04 });
+  }
 
-    const curve = this.getCurve(ePos, dPos);
-    
-    const pMat = new THREE.PointsMaterial({
-      size: 6,
-      map: this.particleTexture,
-      color: new THREE.Color(colorHex),
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
+  fireDataBeam(p1, p2, colorHex) {
+    const geo = new THREE.BufferGeometry().setFromPoints([p1, p1]);
+    const mat = new THREE.LineBasicMaterial({
+      color: colorHex, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, linewidth: 3
     });
+    const line = new THREE.Line(geo, mat);
+    this.mainGroup.add(line);
     
-    const pGeo = new THREE.BufferGeometry().setFromPoints([curve.getPoint(0)]);
-    const tracer = new THREE.Points(pGeo, pMat);
-    this.mainGroup.add(tracer);
-    
-    const animObj = { progress: 0 };
-    gsap.to(animObj, {
-      progress: 1,
-      duration: 0.45,
-      ease: "power1.inOut",
+    const anim = { p: 0 };
+    gsap.to(anim, {
+      p: 1, duration: 0.25, ease: "power4.inOut",
       onUpdate: () => {
-        const pt = curve.getPoint(animObj.progress);
-        const positions = tracer.geometry.attributes.position.array;
-        positions[0] = pt.x;
-        positions[1] = pt.y;
-        positions[2] = pt.z;
-        tracer.geometry.attributes.position.needsUpdate = true;
+        const head = p1.clone().lerp(p2, anim.p);
+        const tail = p1.clone().lerp(p2, Math.max(0, anim.p - 0.5));
+        line.geometry.setFromPoints([tail, head]);
       },
       onComplete: () => {
-        this.mainGroup.remove(tracer);
-        pGeo.dispose();
-        pMat.dispose();
-        this.spawnExplosion(dPos, colorHex, 4);
+        this.mainGroup.remove(line);
+        geo.dispose(); mat.dispose();
       }
     });
+  }
+
+  spawnPulse(pos, colorHex, scale = 1) {
+    const geo = new THREE.PlaneGeometry(4*scale, 4*scale);
+    const mat = new THREE.MeshBasicMaterial({
+      map: this.glowTex, color: colorHex, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+    });
+    const pulse = new THREE.Mesh(geo, mat);
+    pulse.position.copy(pos);
+    pulse.lookAt(this.camera.position);
+    this.mainGroup.add(pulse);
+
+    gsap.to(pulse.scale, { x: 4, y: 4, duration: 0.5, ease: "power2.out" });
+    gsap.to(mat, { opacity: 0, duration: 0.5, ease: "power2.out", onComplete: () => {
+      this.mainGroup.remove(pulse);
+      geo.dispose(); mat.dispose();
+    }});
   }
 
   triggerSuccess() {
-    this.activeEdges.forEach(edge => {
-      gsap.to(edge.material.color, { r: 0.13, g: 0.77, b: 0.36, duration: 1.5 });
-      gsap.to(edge.material, { opacity: 0.4, duration: 1.5 });
+    this.activeNodes.forEach(nodeObj => {
+      gsap.to(nodeObj.mesh.material.color, { setHex: 0x22C55E, duration: 1 });
+      gsap.to(nodeObj.ring.material.color, { setHex: 0x22C55E, duration: 1 });
     });
-    
-    for(let [id, pos] of this.nodes) {
-      if(Math.random() > 0.3) this.spawnExplosion(pos, 0x22C55E, 5);
-    }
-    gsap.to(this.camera.position, { y: 15, z: 65, duration: 4, ease: "power2.inOut" });
-    gsap.to(this.mainGroup.rotation, { y: 0, duration: 4, ease: "power2.inOut" });
-  }
-
-  spawnExplosion(pos, colorHex, count) {
-    const color = new THREE.Color(colorHex);
-    for (let i = 0; i < count; i++) {
-      const pGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0)]);
-      const pMat = new THREE.PointsMaterial({
-        size: Math.random() * 3 + 2,
-        map: this.particleTexture,
-        color: color,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      });
-      const particle = new THREE.Points(pGeo, pMat);
-      particle.position.copy(pos);
-      this.mainGroup.add(particle);
-
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos((Math.random() * 2) - 1);
-      const speed = Math.random() * 8 + 2;
-      const target = new THREE.Vector3(
-        pos.x + Math.sin(phi) * Math.cos(theta) * speed,
-        pos.y + Math.sin(phi) * Math.sin(theta) * speed,
-        pos.z + Math.cos(phi) * speed
-      );
-
-      gsap.to(particle.position, {
-        x: target.x, y: target.y, z: target.z,
-        duration: Math.random() * 0.5 + 0.3,
-        ease: "power2.out"
-      });
-      gsap.to(pMat, {
-        opacity: 0,
-        duration: Math.random() * 0.5 + 0.3,
-        ease: "power2.in",
-        onComplete: () => {
-          this.mainGroup.remove(particle);
-          pGeo.dispose();
-          pMat.dispose();
-        }
-      });
-    }
+    gsap.to(this.gridMat.color, { setHex: 0x064E3B, duration: 2 });
+    gsap.to(this.camera.position, { y: 20, z: 90, duration: 4, ease: "power3.inOut" });
+    gsap.to(this.mainGroup.rotation, { y: 0, duration: 4, ease: "power3.inOut" });
   }
 
   setPhase(phase) {
     if (phase === 'init') {
-      gsap.to(this.camera.position, { y: 10, z: 80, duration: 2, ease: "power2.inOut" });
+      gsap.to(this.camera.position, { y: 0, z: 110, duration: 2.5, ease: "power2.inOut" });
     } else if (phase === 'deep') {
-      gsap.to(this.camera.position, { y: 25, z: 70, duration: 3, ease: "power2.inOut" });
+      gsap.to(this.camera.position, { y: 35, z: 60, duration: 3, ease: "power2.inOut" });
     }
   }
 
   render() {
     if (!this.isActive) return;
-    if (this.daysMesh) {
-      const positions = this.daysMesh.geometry.attributes.position.array;
-      for(let i=0; i<positions.length; i+=3) {
-        positions[i+1] += Math.sin(Date.now() * 0.002 + i) * 0.015;
-      }
-      this.daysMesh.geometry.attributes.position.needsUpdate = true;
-    }
-    if (this.empsMesh) {
-      const ePositions = this.empsMesh.geometry.attributes.position.array;
-      for(let i=0; i<ePositions.length; i+=3) {
-        ePositions[i+1] += Math.cos(Date.now() * 0.0015 + i) * 0.01;
-      }
-      this.empsMesh.geometry.attributes.position.needsUpdate = true;
-    }
+    const dt = this.clock.getDelta();
     
-    this.activeEdges.forEach(edge => {
-      const pts = edge.line.geometry.attributes.position.array;
-      edge.line.geometry.attributes.position.needsUpdate = true;
-    });
+    if (this.streamMesh) {
+      const positions = this.streamMesh.geometry.attributes.position.array;
+      for(let i=0; i<this.dataStreams.length; i++) {
+        const stream = this.dataStreams[i];
+        stream.y += stream.speed * dt;
+        if (stream.y > stream.height / 2) stream.y = -stream.height / 2;
+        positions[i*3] = stream.x;
+        positions[i*3+1] = stream.y;
+        positions[i*3+2] = stream.z;
+      }
+      this.streamMesh.geometry.attributes.position.needsUpdate = true;
+    }
 
+    this.activeNodes.forEach(n => n.group.lookAt(this.camera.position));
+    
     this.renderer.render(this.scene, this.camera);
     requestAnimationFrame(this.render);
   }
@@ -385,29 +486,17 @@ export class NeuralGraph {
   dispose() {
     this.isActive = false;
     this.resizeObserver.disconnect();
-    this.activeEdges.forEach(edge => {
-      if (edge.line.geometry) edge.line.geometry.dispose();
-      if (edge.material) edge.material.dispose();
-    });
-    this.activeEdges.clear();
-    this.scene.traverse(object => {
-      if (object.geometry) object.geometry.dispose();
-      if (object.material) {
-        if (Array.isArray(object.material)) {
-          object.material.forEach(m => {
-            if (m.map) m.map.dispose();
-            m.dispose();
-          });
-        } else {
-          if (object.material.map) object.material.map.dispose();
-          object.material.dispose();
-        }
-      }
-    });
+    this.clearScene();
+    this.scene.remove(this.scannerGroup);
     this.renderer.dispose();
     if(this.container.contains(this.renderer.domElement)) {
       this.container.removeChild(this.renderer.domElement);
     }
+    this.glowTex.dispose();
+    this.ringTex.dispose();
     this.particleTexture.dispose();
+    this.gridMat.dispose();
+    this.nodeGeo.dispose();
+    this.nodeMatBase.dispose();
   }
 }
