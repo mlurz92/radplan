@@ -104,6 +104,94 @@ let localAutoPlanTargets = {};
 let localApViewMode = "config";
 let localAutoPlanConfigRenderToken = 0;
 let localApAnimationId = null;
+let localTwinRevealCursor = 0;
+let localTwinActiveDay = 0;
+
+function buildDigitalTwinShell() {
+  const { year: y, month: m } = state;
+  const dim = daysInMonth(y, m);
+  const hols = getSaxonyHolidaysCached(y);
+  const cells = [];
+  for (let d = 1; d <= dim; d++) {
+    const wd = weekday(y, m, d);
+    const isHol = isHoliday(y, m, d, hols);
+    const weekend = wd === 0 || wd === 6;
+    const cls = [
+      "ap-twin-day",
+      weekend ? "is-weekend" : "",
+      isHol ? "is-holiday" : ""
+    ].filter(Boolean).join(" ");
+    cells.push(`
+      <article class="${cls}" id="ap-twin-day-${d}" data-day="${d}" aria-label="Tag ${d}">
+        <div class="ap-twin-day-head">
+          <span class="ap-twin-day-num">${d}</span>
+          <span class="ap-twin-day-dow">${DOW_ABBR[wd]}</span>
+        </div>
+        <div class="ap-twin-duty-track">
+          <div class="ap-twin-duty-slot ap-twin-duty-d" id="ap-twin-d-${d}">
+            <span class="ap-twin-duty-code">D</span>
+            <span class="ap-twin-duty-val">—</span>
+          </div>
+          <div class="ap-twin-duty-slot ap-twin-duty-hg" id="ap-twin-hg-${d}">
+            <span class="ap-twin-duty-code">HG</span>
+            <span class="ap-twin-duty-val">—</span>
+          </div>
+        </div>
+      </article>
+    `);
+  }
+  return cells.join("");
+}
+
+function resetDigitalTwinState() {
+  localTwinRevealCursor = 0;
+  localTwinActiveDay = 0;
+}
+
+function setTwinActiveDay(day, phase = "") {
+  const prev = document.querySelector(".ap-twin-day.is-active");
+  if (prev) prev.classList.remove("is-active");
+  const active = document.getElementById(`ap-twin-day-${day}`);
+  if (active) active.classList.add("is-active");
+  if (day && Number.isFinite(Number(day))) localTwinActiveDay = Number(day);
+  const dayEl = document.getElementById("ap-twin-active-day");
+  if (dayEl) dayEl.textContent = day ? `Tag ${day}` : "—";
+  const phaseEl = document.getElementById("ap-twin-active-phase");
+  if (phaseEl) phaseEl.textContent = phase ? phase.toUpperCase() : "IDLE";
+}
+
+function applyTwinAssignment(assign, phase = "") {
+  if (!assign || !assign.day || !assign.duty || !assign.emp) return;
+  const day = Number(assign.day);
+  const dutyKey = String(assign.duty).toUpperCase() === "HG" ? "hg" : "d";
+  const slot = document.getElementById(`ap-twin-${dutyKey}-${day}`);
+  if (!slot) return;
+  const val = slot.querySelector(".ap-twin-duty-val");
+  if (val) val.textContent = empInitials(assign.emp);
+  slot.classList.add("is-filled");
+  slot.dataset.emp = assign.emp;
+  slot.dataset.fullname = assign.emp;
+  setTwinActiveDay(day, phase);
+}
+
+function updateTwinLegend(result) {
+  const report = Array.isArray(result?.report) ? result.report : [];
+  const revealEl = document.getElementById("ap-twin-reveal");
+  if (revealEl) {
+    revealEl.textContent = `${Math.min(localTwinRevealCursor, report.length)} / ${report.length}`;
+  }
+}
+
+function revealTwinAssignments(result, revealCount, phase = "") {
+  const report = Array.isArray(result?.report) ? result.report : [];
+  if (!report.length) return;
+  const target = Math.max(0, Math.min(revealCount, report.length));
+  while (localTwinRevealCursor < target) {
+    applyTwinAssignment(report[localTwinRevealCursor], phase);
+    localTwinRevealCursor++;
+  }
+  updateTwinLegend(result);
+}
 
 export function isPeriodFlyoutOpen() {
   const el = document.getElementById("period-flyout");
@@ -1312,6 +1400,7 @@ export function renderProgressShell() {
   body.style.overflow = "hidden";
   body.style.padding = "10px";
   
+  resetDigitalTwinState();
   body.innerHTML = `
     <div class="ap-engine ap-engine-immersive ap-engine-compact">
       <div class="ap-hero-shell ap-hero-shell-compact">
@@ -1348,18 +1437,23 @@ export function renderProgressShell() {
       </div>
 
       <div class="ap-engine-main">
-        <div class="ap-flux-panel">
-          <div class="ap-flux-header">
-            <span>Constraint Flux Matrix</span>
-            <span class="ap-flux-header-pulse"></span>
+        <div class="ap-twin-panel" aria-live="polite">
+          <div class="ap-twin-header">
+            <span>Month Digital Twin</span>
+            <span class="ap-twin-header-pulse"></span>
           </div>
-          <div class="ap-flux-body">
-            <div class="ap-flux-focus">
-              <span class="ap-flux-focus-lbl" id="ap-flux-lbl">Computing</span>
-              <span class="ap-flux-focus-val" id="ap-flux-val">Warte auf Daten...</span>
-              <span class="ap-flux-focus-detail" id="ap-flux-detail">Strikte Dienst-Exklusivität aktiv</span>
+          <div class="ap-twin-body">
+            <div class="ap-twin-focus">
+              <span class="ap-twin-focus-lbl">Aktiver Verarbeitungspunkt</span>
+              <div class="ap-twin-focus-main">
+                <span class="ap-twin-focus-val" id="ap-twin-active-day">—</span>
+                <span class="ap-twin-focus-phase" id="ap-twin-active-phase">IDLE</span>
+              </div>
+              <span class="ap-twin-focus-detail">Live-Reveal: <strong id="ap-twin-reveal">0 / 0</strong> Zuweisungen</span>
             </div>
-            <div class="ap-flux-stream" id="ap-flux-stream"></div>
+            <div class="ap-twin-grid" id="ap-twin-grid">
+              ${buildDigitalTwinShell()}
+            </div>
           </div>
         </div>
 
@@ -1435,17 +1529,12 @@ export function renderProgressShell() {
 
 export async function streamProgressLogs(result) {
   const logContainer = document.getElementById("ap-term-body");
-  const fluxStream = document.getElementById("ap-flux-stream");
   const barEl = document.getElementById("ap-prog-bar");
   const pctEl = document.getElementById("ap-prog-pct");
   const phaseEl = document.getElementById("ap-phase-name");
   
   const log = result.log;
   const telemetry = result.ruleTelemetry?.events || [];
-
-  const fluxLbl = document.getElementById("ap-flux-lbl");
-  const fluxVal = document.getElementById("ap-flux-val");
-  const fluxDetail = document.getElementById("ap-flux-detail");
 
   let bdCount = 0;
   let hgCount = 0;
@@ -1454,6 +1543,9 @@ export async function streamProgressLogs(result) {
 
   const totalTargetDurationMs = 22000;
   const delayPerEntry = Math.max(50, totalTargetDurationMs / log.length);
+
+  const reportLen = Array.isArray(result?.report) ? result.report.length : 0;
+  updateTwinLegend(result);
 
   for (let i = 0; i < log.length; i++) {
     const entry = log[i];
@@ -1492,13 +1584,14 @@ export async function streamProgressLogs(result) {
       logContainer.scrollTop = logContainer.scrollHeight;
     }
 
-    if (fluxStream) {
-      const line = document.createElement("div");
-      line.className = "ap-flux-line";
-      line.innerHTML = `<span class="ap-flux-hex">0x${Math.random().toString(16).slice(2,8).toUpperCase()}</span><span class="ap-flux-msg">${entry.phase.toUpperCase()}: STATE_OK</span>`;
-      fluxStream.appendChild(line);
-      if (fluxStream.children.length > 12) {
-        fluxStream.removeChild(fluxStream.firstChild);
+    const revealCount = reportLen > 0 ? Math.floor(((i + 1) / log.length) * reportLen) : 0;
+    revealTwinAssignments(result, revealCount, entry.phase);
+
+    const tagMatch = entry.msg.match(/Tag\s+(\d+)\./i);
+    if (tagMatch) {
+      const day = Number(tagMatch[1]);
+      if (Number.isFinite(day)) {
+        setTwinActiveDay(day, entry.phase);
       }
     }
 
@@ -1508,11 +1601,12 @@ export async function streamProgressLogs(result) {
 
     if (i % 5 === 0 && telemetry.length > 0) {
       const tItem = telemetry[Math.floor(Math.random() * telemetry.length)];
-      if (fluxLbl) fluxLbl.textContent = tItem.phase.toUpperCase();
-      if (fluxVal) fluxVal.textContent = tItem.label;
-      if (fluxDetail) fluxDetail.textContent = tItem.detail;
+      const phaseTag = tItem?.phase ? tItem.phase.toUpperCase() : entry.phase.toUpperCase();
+      setTwinActiveDay(Number(tagMatch?.[1]) || localTwinActiveDay, phaseTag);
     }
   }
+
+  revealTwinAssignments(result, reportLen, "done");
 
   if (localApAnimationId) {
     cancelAnimationFrame(localApAnimationId);
