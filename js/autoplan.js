@@ -385,6 +385,29 @@ export function wouldCreateConsecutiveWeekendDuty(y, m, emp, assignments, d) {
   return false;
 }
 
+export function hasDalitzMammographyConflict(y, m, emp, d, dutyType, assignments) {
+  const wd = weekday(y, m, d);
+  if (wd !== 0 && wd !== 1) return false;
+  
+  const empsList = Object.keys(assignments);
+  
+  if (dutyType === "HG" && emp === "Fr. Dalitz") {
+    const bdHolder = empsList.find(e => assignments[e]?.[d]?.duty === "D");
+    if (bdHolder === "Hr. Torki" || bdHolder === "Hr. Sebastian") {
+      return true;
+    }
+  }
+  
+  if (dutyType === "D" && (emp === "Hr. Torki" || emp === "Hr. Sebastian")) {
+    const hgHolder = empsList.find(e => assignments[e]?.[d]?.duty === "HG");
+    if (hgHolder === "Fr. Dalitz") {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 export function dutyKey(emp, day) { 
   return `${emp}@@${day}`; 
 }
@@ -435,7 +458,7 @@ export function cleanupAssignmentCell(assignments, emp, day) {
   }
 }
 
-export function computeAutoPlan(customTargets) {
+export async function computeAutoPlan(customTargets) {
   const { year: y, month: m } = state;
   if (!planMode || !planData) return null;
   
@@ -481,6 +504,7 @@ export function computeAutoPlan(customTargets) {
   });
 
   log.push({ phase: "init", icon: "📊", msg: "Lade historische Daten und initialisiere Constraints...", pct: 5 });
+  await sleep(10);
   
   const hist = collectHistoricalDutyStats(y, m);
   const dutyEmps = emps.filter((e) => !isDutyExempt(e));
@@ -741,6 +765,7 @@ export function computeAutoPlan(customTargets) {
     if (hasCTLeadershipConflict(y, m, emp, d, assignments)) return false;
     if (assignments[emp]?.[d]?.assignment === "F") return false;
     if (isNextDayVacation(y, m, emp, d, assignments)) return false;
+    if (hasDalitzMammographyConflict(y, m, emp, d, "D", assignments)) return false;
     
     const prev = prevCalendarDay(y, m, d);
     const next = nextCalendarDay(y, m, d);
@@ -1113,10 +1138,10 @@ export function computeAutoPlan(customTargets) {
   let hgMoves = 0;
   let deepMoves = 0;
 
-  const MAX_OPTIMIZATION_CYCLES = 15;
+  const MAX_OPTIMIZATION_CYCLES = 25;
   const BD_MAX_PASSES = 80;
-  const HG_MAX_PASSES = 100;
-  const DEEP_MAX_PASSES = 120;
+  const HG_MAX_PASSES = 120;
+  const DEEP_MAX_PASSES = 150;
 
   function assignBundledHG(emp, d, bindReason, options) {
     options = options || {};
@@ -1132,6 +1157,9 @@ export function computeAutoPlan(customTargets) {
       return false;
     }
     if (!options.allowAdjacentHG && hasAdjacentHG(emp, d, result)) {
+      return false;
+    }
+    if (hasDalitzMammographyConflict(y, m, emp, d, "HG", result)) {
       return false;
     }
     
@@ -1155,6 +1183,7 @@ export function computeAutoPlan(customTargets) {
     if (existingDuty && !(ignoreExistingDuty && existingDuty === "HG")) return false;
     
     if (wishes[emp]?.[d] === "NO_DUTY") return false;
+    if (hasDalitzMammographyConflict(y, m, emp, d, "HG", assignments)) return false;
     
     const wd = weekday(y, m, d);
     const isWE = wd === 6 || wd === 0;
@@ -1181,6 +1210,7 @@ export function computeAutoPlan(customTargets) {
       const projectedWe = projectedWeekendDutyCount(y, m, emp, assignments, "HG", d);
       if (projectedWe > RELAXED_WEEKEND_DUTY_LIMIT) return false;
       if (wouldCreateConsecutiveWeekendDuty(y, m, emp, assignments, d)) return false;
+      if (hasAdjacentHG(emp, d, assignments)) return false;
     }
     
     return true;
@@ -1225,14 +1255,16 @@ export function computeAutoPlan(customTargets) {
         score -= 2500;
         tags.push("WE-Puffer");
       }
-      if (getWeekendDutyKWs(y, m, emp, result).has(isoWeekNumber(y, m, d) - 1)) {
-        score -= 150;
-        tags.push("WE-Abstand");
-      }
+    }
+
+    const minDistHG = minDistanceForDuty(emp, d, "HG", result);
+    if (minDistHG < 3) {
+      score -= (3 - minDistHG) * 8000;
+      tags.push("HG-Abstand");
     }
 
     if (hasAdjacentHG(emp, d, result)) {
-      score -= 2500;
+      score -= 25000;
       tags.push("kein Direkt-HG");
     }
 
@@ -1255,24 +1287,12 @@ export function computeAutoPlan(customTargets) {
     const avgBDforFAs = averageFromArray(hgFAs.map((emp) => currentBD[emp]));
     const avgHGForAA = averageFromArray(hgFAs.map((emp) => currentHGForAA[emp]));
     const avgHGForFA = averageFromArray(hgFAs.map((emp) => currentHGForFA[emp]));
-    const avgHistHG = averageFromArray(hgFAs.map(e => hist[e]?.hg || 0));
-    const avgHistHGForAA = averageFromArray(hgFAs.map(e => hist[e]?.hgForAA || 0));
-    const avgHistHGForFA = averageFromArray(hgFAs.map(e => hist[e]?.hgForFA || 0));
     
     hgFAs.forEach((emp) => {
       const idealHG = avgHG + (avgBDforFAs - currentBD[emp]) * 1.0;
       score += Math.pow(currentHG[emp] - idealHG, 2) * 25000;
       score += Math.pow(currentHGForAA[emp] - avgHGForAA, 2) * 15000;
       score += Math.pow(currentHGForFA[emp] - avgHGForFA, 2) * 8000;
-      
-      const histHG = hist[emp]?.hg || 0;
-      const histHGDiff = histHG - avgHistHG;
-      score += histHGDiff * currentHG[emp] * 5;
-      
-      const histHGForAA = hist[emp]?.hgForAA || 0;
-      const histHGForFA = hist[emp]?.hgForFA || 0;
-      score += (histHGForAA - avgHistHGForAA) * currentHGForAA[emp] * 2;
-      score += (histHGForFA - avgHistHGForFA) * currentHGForFA[emp] * 2;
       
       const weCount = countWeekendDuties(y, m, emp, result);
       score += Math.pow(weCount - TARGET_WEEKEND_DUTY, 2) * 5000;
@@ -1283,10 +1303,34 @@ export function computeAutoPlan(customTargets) {
       
       for (let day = 1; day <= dim; day++) {
         if (result[emp]?.[day]?.duty !== "HG") continue;
-        if (hasAdjacentHG(emp, day, result)) {
-          score += 8000;
-        }
+        
         const wd = weekday(y, m, day);
+        if (emp === "Fr. Dalitz" && (wd === 0 || wd === 1)) {
+          const bdHolder = emps.find(e => result[e]?.[day]?.duty === "D");
+          if (bdHolder === "Hr. Torki" || bdHolder === "Hr. Sebastian") {
+            score += 100000;
+          }
+        }
+
+        const isBundled = bundledHGKeys.has(dutyKey(emp, day));
+        if (hasAdjacentHG(emp, day, result)) {
+          score += isBundled ? 5000 : 45000;
+        }
+
+        const minDistHG = minDistanceForDuty(emp, day, "HG", result);
+        if (minDistHG < 3 && !isBundled) {
+          score += (3 - minDistHG) * 18000;
+        }
+        if (minDistHG < 5 && !isBundled) {
+          score += (5 - minDistHG) * 2500;
+        }
+
+        let density = 0;
+        for (let j = Math.max(1, day - 3); j <= Math.min(dim, day + 3); j++) {
+          if (j !== day && result[emp]?.[j]?.duty === "HG") density++;
+        }
+        if (density > 1) score += density * 12000;
+
         const nxtObj = nextCalendarDay(y, m, day);
         if (getScheduledDuty(nxtObj.y, nxtObj.m, emp, nxtObj.d, result) === "D" && wd !== 5) {
           score += 60000;
@@ -1592,6 +1636,7 @@ export function computeAutoPlan(customTargets) {
             const nx = nextCalendarDay(y, m, d);
             if (getScheduledDuty(pv.y, pv.m, e, pv.d, result) === "D") return false;
             if (getScheduledDuty(nx.y, nx.m, e, nx.d, result) === "D") return false;
+            if (hasDalitzMammographyConflict(y, m, e, d, "D", result)) return false;
             return true;
           })
           .sort((a, b) => currentBD[a] - currentBD[b]);
@@ -1614,6 +1659,7 @@ export function computeAutoPlan(customTargets) {
             if (isAbsentOnDay(y, m, e, d, result)) return false;
             if (result[e]?.[d]?.duty) return false;
             if (wishes[e]?.[d] === "NO_DUTY") return false;
+            if (hasDalitzMammographyConflict(y, m, e, d, "HG", result)) return false;
             return true;
           })
           .sort((a, b) => currentHG[a] - currentHG[b]);
@@ -1769,6 +1815,9 @@ export function computeAutoPlan(customTargets) {
     if (!emps.some((e) => result[e]?.[d]?.duty === "HG")) {
       summary.warnings.push(`Tag ${d}: kein HG besetzt.`);
     }
+    if (hasDalitzMammographyConflict(y, m, "Fr. Dalitz", d, "HG", result)) {
+      summary.warnings.push(`KRITISCH Tag ${d}: Fr. Dalitz HG für Torki/Sebastian (Mammographie-Konflikt am Folgetag).`);
+    }
   }
 
   summary.infos.push(`Multi-Zyklus-Optimierung: ${MAX_OPTIMIZATION_CYCLES} Zyklen × (BD:${BD_MAX_PASSES} + HG:${HG_MAX_PASSES} + Deep:${DEEP_MAX_PASSES} Passes). BD-Swaps: ${swaps}, HG-Moves: ${hgMoves}, Deep-Moves: ${deepMoves}.`);
@@ -1799,15 +1848,16 @@ export function computeAutoPlan(customTargets) {
   }
   const wishFulfillmentRate = wishCount > 0 ? (report.filter(r => r.tags && r.tags.includes("Wunsch")).length / wishCount) : 1;
   
-  const clamp01 = (value) => Math.max(0, Math.min(1, value));
-  const qualityScore = Math.round(100 * clamp01(
-    0.36 * (1 - dutyCoverageMisses / Math.max(1, dim)) +
-    0.24 * (1 - hgCoverageMisses / Math.max(1, dim)) +
-    0.16 * clamp01(1 - bdSpread / 4) +
-    0.1 * clamp01(1 - hgSpread / 3) +
-    0.08 * clamp01(1 - weekendSpread / 1.5) +
-    0.1 * wishFulfillmentRate
-  ));
+  const rawScore = 100.0 
+    - (dutyCoverageMisses * 15.0) 
+    - (hgCoverageMisses * 10.0) 
+    - (bdSpread * 2.5) 
+    - (hgSpread * 1.5) 
+    - (weekendSpread * 2.0) 
+    + (wishFulfillmentRate * 5.0) 
+    - (deepMoves * 0.005);
+    
+  const qualityScore = Math.max(0, Math.min(100, rawScore)).toFixed(1);
   
   summary.quality = { score: qualityScore, dutyCoverageMisses, hgCoverageMisses, bdSpread, hgSpread, weekendSpread, wishFulfillmentRate, deepMoves, swaps, hgMoves };
 

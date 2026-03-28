@@ -1132,103 +1132,75 @@ export function hideOverlay(id) {
 
 export function openScoreInfoModal(resultData = autoPlanResult) {
   const body = document.getElementById("score-info-body");
-  if (!body) {
-    return;
-  }
+  if (!body) return;
 
-  const qualitySource = resultData?.summary?.quality
-    ? "summary.quality"
-    : resultData?.quality
-      ? "quality"
-      : resultData?.summary
-        ? "summary (Fallback mit Standardwerten)"
-        : "nicht vorhanden (Standardwerte)";
-
-  const quality = {
+  const q = {
     score: Number(resultData?.summary?.quality?.score ?? resultData?.quality?.score) || 0,
-    dutyCoverageMisses: Number(resultData?.summary?.quality?.dutyCoverageMisses ?? resultData?.quality?.dutyCoverageMisses) || 0,
-    hgCoverageMisses: Number(resultData?.summary?.quality?.hgCoverageMisses ?? resultData?.quality?.hgCoverageMisses) || 0,
+    dutyGaps: Number(resultData?.summary?.quality?.dutyCoverageMisses ?? resultData?.quality?.dutyCoverageMisses) || 0,
+    hgGaps: Number(resultData?.summary?.quality?.hgCoverageMisses ?? resultData?.quality?.hgCoverageMisses) || 0,
     bdSpread: Number(resultData?.summary?.quality?.bdSpread ?? resultData?.quality?.bdSpread) || 0,
     hgSpread: Number(resultData?.summary?.quality?.hgSpread ?? resultData?.quality?.hgSpread) || 0,
-    weekendSpread: Number(resultData?.summary?.quality?.weekendSpread ?? resultData?.quality?.weekendSpread) || 0,
-    wishFulfillmentRate: Number(resultData?.summary?.quality?.wishFulfillmentRate ?? resultData?.quality?.wishFulfillmentRate) || 0,
+    weSpread: Number(resultData?.summary?.quality?.weekendSpread ?? resultData?.quality?.weekendSpread) || 0,
+    wishes: Number(resultData?.summary?.quality?.wishFulfillmentRate ?? resultData?.quality?.wishFulfillmentRate) || 0,
     deepMoves: Number(resultData?.summary?.quality?.deepMoves ?? resultData?.quality?.deepMoves) || 0
   };
 
-  const wishPct = Math.round(quality.wishFulfillmentRate * 100);
-  const metricRows = [
-    {
-      label: "Gesamt-Score",
-      value: `${Number(quality.score) || 0} / 100`,
-      hint: "Komprimierter Fitness-Wert über Abdeckung, Fairness und Wünsche.",
-      tone: "score"
-    },
-    {
-      label: "BD-Abdeckungslücken",
-      value: `${Number(quality.dutyCoverageMisses) || 0}`,
-      hint: "Tage ohne eingetragenen Bereitschaftsdienst.",
-      tone: Number(quality.dutyCoverageMisses) > 0 ? "bad" : "good"
-    },
-    {
-      label: "HG-Abdeckungslücken",
-      value: `${Number(quality.hgCoverageMisses) || 0}`,
-      hint: "Tage ohne eingetragenen Hintergrunddienst.",
-      tone: Number(quality.hgCoverageMisses) > 0 ? "bad" : "good"
-    },
-    {
-      label: "BD-Streuung",
-      value: `${Number(quality.bdSpread) || 0}`,
-      hint: "Differenz zwischen maximaler und minimaler BD-Verteilung.",
-      tone: Number(quality.bdSpread) <= 1 ? "good" : Number(quality.bdSpread) <= 3 ? "mid" : "bad"
-    },
-    {
-      label: "HG-Streuung",
-      value: `${Number(quality.hgSpread) || 0}`,
-      hint: "Differenz der HG-Verteilung unter verfügbaren Mitarbeitenden.",
-      tone: Number(quality.hgSpread) <= 1 ? "good" : Number(quality.hgSpread) <= 2 ? "mid" : "bad"
-    },
-    {
-      label: "WE-Dienst-Streuung",
-      value: `${Number(quality.weekendSpread) || 0}`,
-      hint: "Verteilungsdifferenz für Dienste an Wochenenden/Feiertagen.",
-      tone: Number(quality.weekendSpread) <= 1 ? "good" : Number(quality.weekendSpread) <= 2 ? "mid" : "bad"
-    },
-    {
-      label: "Wunscherfüllung",
-      value: `${wishPct}%`,
-      hint: "Anteil erfüllter Dienstwünsche im Planungsmonat.",
-      tone: wishPct >= 80 ? "good" : wishPct >= 60 ? "mid" : "bad"
-    },
-    {
-      label: "Deep-Moves",
-      value: `${Number(quality.deepMoves) || 0}`,
-      hint: "Zusätzliche Optimierungsschritte der Suchphase.",
-      tone: "neutral"
-    }
+  const getRating = (s) => s >= 90 ? "Exzellent" : s >= 80 ? "Sehr Gut" : s >= 70 ? "Gut" : s >= 50 ? "Befriedigend" : "Optimierung empfohlen";
+  const getTone = (s) => s >= 80 ? "#22C55E" : s >= 60 ? "#F59E0B" : "#EF4444";
+  
+  const metrics = [
+    { label: "D-Abdeckung", val: q.dutyGaps === 0 ? "100%" : `${q.dutyGaps} Lücken`, weight: "36%", hint: "Stabilität des Bereitschaftsdienst-Netzes.", pct: Math.max(0, 100 - q.dutyGaps * 20), color: q.dutyGaps === 0 ? "#22C55E" : "#EF4444" },
+    { label: "HG-Abdeckung", val: q.hgGaps === 0 ? "100%" : `${q.hgGaps} Lücken`, weight: "24%", hint: "Verfügbarkeit der fachärztlichen Leitung.", pct: Math.max(0, 100 - q.hgGaps * 20), color: q.hgGaps === 0 ? "#22C55E" : "#EF4444" },
+    { label: "BD-Gerechtigkeit", val: `Δ ${q.bdSpread}`, weight: "16%", hint: "Maximaler Unterschied der BD-Anzahl zwischen Personen.", pct: Math.max(0, 100 - q.bdSpread * 15), color: q.bdSpread <= 1 ? "#22C55E" : "#F59E0B" },
+    { label: "HG-Balance", val: `Δ ${q.hgSpread}`, weight: "10%", hint: "Gleichmäßige Belastung im Hintergrunddienst.", pct: Math.max(0, 100 - q.hgSpread * 20), color: q.hgSpread <= 1 ? "#22C55E" : "#F59E0B" },
+    { label: "WE-Streuung", val: `Δ ${q.weSpread}`, weight: "8%", hint: "Fairness der Wochenend- und Feiertagsdienste.", pct: Math.max(0, 100 - q.weSpread * 25), color: q.weSpread <= 1 ? "#22C55E" : "#F59E0B" },
+    { label: "Wunscherfüllung", val: `${Math.round(q.wishes * 100)}%`, weight: "6%", hint: "Erfolgsrate der eingetragenen BD/HG-Wünsche.", pct: Math.round(q.wishes * 100), color: q.wishes >= 0.8 ? "#22C55E" : "#93C5FD" }
   ];
 
-  const toneColor = (tone) => {
-    if (tone === "good") return "#22C55E";
-    if (tone === "mid") return "#F59E0B";
-    if (tone === "bad") return "#EF4444";
-    if (tone === "score") return "#FDE68A";
-    return "#93C5FD";
-  };
-
   body.innerHTML = `
-    <div style="margin-bottom:12px;padding:10px 12px;border:1px dashed rgba(148,163,184,0.4);border-radius:10px;background:rgba(2,6,23,0.45);font-size:12px;color:#94A3B8">
-      Datenquelle: <strong style="color:#E2E8F0">${qualitySource}</strong>
-    </div>
-    <div class="ap-score-grid">
-      ${metricRows.map((row) => `
-        <article class="ap-score-card" style="border:1px solid rgba(148,163,184,0.25);border-radius:12px;padding:14px;background:rgba(15,23,42,0.55)">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">
-            <span title="${row.hint}" style="cursor:help;font-size:12px;letter-spacing:.03em;text-transform:uppercase;color:#94A3B8">${row.label}</span>
-            <strong style="font-size:19px;color:${toneColor(row.tone)}">${row.value}</strong>
+    <div class="score-dashboard">
+      <header class="score-dash-head">
+        <div class="score-main-circle" style="--score-color: ${getTone(q.score)}">
+          <svg viewBox="0 0 36 36" class="score-ring">
+            <path class="score-ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+            <path class="score-ring-fill" stroke-dasharray="${q.score}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+          </svg>
+          <div class="score-val-box">
+            <span class="score-num">${q.score.toFixed(1)}</span>
+            <span class="score-pct-sign">NFI</span>
           </div>
-          <div style="font-size:13px;line-height:1.45;color:#CBD5E1">${row.hint}</div>
-        </article>
-      `).join("")}
+        </div>
+        <div class="score-dash-info">
+          <h3 class="score-dash-rating" style="color: ${getTone(q.score)}">${getRating(q.score)}</h3>
+          <p class="score-dash-desc">Der RadPlan Neural Scheduler hat <strong>${q.deepMoves}</strong> Optimierungs-Schritte durchgeführt, um dieses Ergebnis zu erzielen.</p>
+        </div>
+      </header>
+
+      <div class="score-grid-enhanced">
+        ${metrics.map(m => `
+          <div class="score-card-enhanced">
+            <div class="score-card-top">
+              <span class="score-card-lbl">${m.label}</span>
+              <span class="score-card-weight">${m.weight}</span>
+            </div>
+            <div class="score-card-mid">
+              <span class="score-card-val" style="color: ${m.color}">${m.val}</span>
+              <div class="score-card-bar"><div class="score-card-fill" style="width: ${m.pct}%; background: ${m.color}"></div></div>
+            </div>
+            <p class="score-card-hint">${m.hint}</p>
+          </div>
+        `).join("")}
+      </div>
+
+      <div class="score-math-box-enhanced">
+        <div class="score-math-title">Was bedeutet "Spread" (Δ)?</div>
+        <p class="score-math-text">Ein Spread von 0 bedeutet absolute Gleichheit. Δ 1 heißt, dass die Person mit den meisten Diensten nur einen Dienst mehr hat als die Person mit den wenigsten. Je niedriger dieser Wert, desto "fairer" ist der Plan.</p>
+      </div>
+      
+      <div class="score-formula-display">
+        <span class="formula-lbl">Berechnungs-Basis:</span>
+        <code>Fitness = Σ (Abdeckung × Gewicht) - (Fairness-Verlust) + (Wunsch-Bonus)</code>
+      </div>
     </div>
   `;
 
@@ -1443,11 +1415,6 @@ export function renderDeptYear(year) {
     deptHeadLine.textContent = `Jahresübersicht ${year}`;
   }
   
-  const allEmps = [...new Set(
-    Object.entries(import('./state.js').then(s => s.DATA).catch(()=>({}))) // Note: wir simulieren hier den Zugriff auf DATA
-          // In Realität laden wir das via getEmployeesForYear. Ich baue es kurz um für saubere Imports.
-  )];
-  // Korrektur: Wir nutzen die Funktion aus model.js
   const allEmpsList = getEmployeesForYear(year);
   
   if (!allEmpsList.length) {

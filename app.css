@@ -1915,83 +1915,36 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   border: 1px solid rgba(14,165,233,0.3);
 }
 
-.score-info-intro {
-  font-size: 13px;
-  color: #94A3B8;
-  line-height: 1.5;
-  margin-bottom: 20px;
-}
-.score-detail-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.score-detail-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.score-detail-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.score-detail-lbl {
-  width: 140px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #E2E8F0;
-  flex-shrink: 0;
-}
-.score-detail-bar-wrap {
-  flex: 1;
-  height: 8px;
-  background: rgba(255,255,255,0.08);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.score-detail-bar-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 1s cubic-bezier(.34,1.2,.64,1);
-}
-.score-detail-val {
-  width: 44px;
-  text-align: right;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 700;
-  color: #F8FAFC;
-  flex-shrink: 0;
-}
-.score-detail-desc {
-  font-size: 11px;
-  color: #64748B;
-  padding-left: 152px;
-  line-height: 1.4;
-}
-.score-math-box {
-  margin-top: 24px;
-  padding: 16px;
-  background: rgba(15,23,42,0.6);
-  border: 1px solid rgba(56,189,248,0.2);
-  border-radius: 12px;
-}
-.score-math-title {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-  color: #7DD3FC;
-  margin-bottom: 8px;
-  font-weight: 700;
-}
-.score-math-formula {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: #BAE6FD;
-  line-height: 1.6;
-  word-break: break-all;
-}
+.score-dashboard { display: flex; flex-direction: column; gap: 24px; }
+.score-dash-head { display: flex; align-items: center; gap: 24px; padding-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.score-main-circle { position: relative; width: 110px; height: 110px; flex-shrink: 0; }
+.score-ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.score-ring-bg { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 3; }
+.score-ring-fill { fill: none; stroke: var(--score-color); stroke-width: 3; stroke-linecap: round; transition: stroke-dasharray 1s ease-out; }
+.score-val-box { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: row; gap: 1px; }
+.score-num { font-size: 32px; font-weight: 800; font-family: var(--font-mono); color: #fff; text-shadow: 0 0 15px var(--score-color); }
+.score-pct-sign { font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.5); margin-bottom: -10px; }
+.score-dash-info { flex: 1; }
+.score-dash-rating { font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+.score-dash-desc { font-size: 13.5px; line-height: 1.55; color: var(--gray-400); }
+.score-dash-desc strong { color: #fff; font-family: var(--font-mono); }
+.score-grid-enhanced { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.score-card-enhanced { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; transition: transform 0.2s; }
+.score-card-enhanced:hover { transform: translateY(-2px); background: rgba(255,255,255,0.05); }
+.score-card-top { display: flex; justify-content: space-between; align-items: center; }
+.score-card-lbl { font-size: 11px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: .05em; }
+.score-card-weight { font-size: 10px; font-family: var(--font-mono); color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; }
+.score-card-mid { display: flex; align-items: baseline; gap: 12px; }
+.score-card-val { font-size: 22px; font-weight: 800; font-family: var(--font-mono); }
+.score-card-bar { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; margin-top: -2px; }
+.score-card-fill { height: 100%; border-radius: 2px; transition: width 1s ease-out; }
+.score-card-hint { font-size: 11px; line-height: 1.45; color: var(--gray-400); }
+.score-math-box-enhanced { background: rgba(14,165,233,0.05); border: 1px dashed rgba(14,165,233,0.25); border-radius: 12px; padding: 16px; margin-top: 8px; }
+.score-math-title { font-size: 11px; font-weight: 700; color: var(--accent-lt); text-transform: uppercase; margin-bottom: 6px; }
+.score-math-text { font-size: 12.5px; line-height: 1.5; color: var(--gray-300); }
+.score-formula-display { background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.formula-lbl { font-size: 10px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; }
+.score-formula-display code { font-family: var(--font-mono); font-size: 11px; color: #FCD34D; word-break: break-all; }
 
 .mobile-nav {
   display: none;
@@ -2122,9 +2075,9 @@ body.plan-mode-active #stats-bar { border-top: 2px solid rgba(245,158,11,.25); }
   .ap-ls-val { font-size: 15px; }
   .ap-table { min-width: 100%; }
   .empdash-summary-grid, .empdash-card-grid { grid-template-columns: minmax(0, 1fr); }
-  .score-detail-main { flex-wrap: wrap; gap: 8px; }
-  .score-detail-lbl { width: 100%; }
-  .score-detail-desc { padding-left: 0; margin-top: 2px; }
+  .score-dash-head { flex-direction: column; text-align: center; gap: 16px; }
+  .score-grid-enhanced { grid-template-columns: 1fr; }
+  .score-math-text { font-size: 11.5px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2273,22 +2226,7 @@ body.is-mobile.plan-mode-active .mobile-day-list {
   background: rgba(255,255,255,.08);
 }
 .mobile-day-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(255,255,255,.96);
-  border-radius: 12px;
-  padding: 10px 12px 10px 10px;
-  margin-bottom: 5px;
-  cursor: pointer;
-  border: 1px solid rgba(226,232,240,.7);
-  box-shadow: 0 1px 4px rgba(0,0,0,.05);
-  transition: transform .15s cubic-bezier(.34,1.2,.64,1), box-shadow .15s;
-  position: relative;
-  overflow: hidden;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
+  display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.96); border-radius: 12px; padding: 10px 12px 10px 10px; margin-bottom: 5px; cursor: pointer; border: 1px solid rgba(226,232,240,.7); box-shadow: 0 1px 4px rgba(0,0,0,.05); transition: transform .15s cubic-bezier(.34,1.2,.64,1), box-shadow .15s; position: relative; overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
 }
 .mobile-day-card:active {
   transform: scale(.96);

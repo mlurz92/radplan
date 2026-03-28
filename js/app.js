@@ -102,6 +102,7 @@ let localAutoPlanResult = null;
 let localAutoPlanTargets = {};
 let localApViewMode = "config";
 let localAutoPlanConfigRenderToken = 0;
+let localApAnimationId = null;
 
 export function isPeriodFlyoutOpen() {
   const el = document.getElementById("period-flyout");
@@ -1276,14 +1277,22 @@ export async function renderAutoPlanModal(renderToken = null) {
     const computeBtn = document.getElementById("ap-compute");
     if (computeBtn) {
       computeBtn.addEventListener("click", () => {
-        const result = computeAutoPlan(localAutoPlanTargets);
-        if (!result) { 
-          showToast("Fehler bei der Berechnung"); 
-          return; 
-        }
-        localAutoPlanResult = result;
         localApViewMode = "progress";
-        renderProgressAndThenResult(result);
+        renderProgressShell();
+        
+        requestAnimationFrame(() => {
+          setTimeout(async () => {
+            const result = await computeAutoPlan(localAutoPlanTargets);
+            if (!result) { 
+              showToast("Fehler bei der Berechnung"); 
+              localApViewMode = "config";
+              renderAutoPlanModal();
+              return; 
+            }
+            localAutoPlanResult = result;
+            await streamProgressLogs(result);
+          }, 60);
+        });
       });
     }
   } else if (localApViewMode === "result") {
@@ -1291,12 +1300,12 @@ export async function renderAutoPlanModal(renderToken = null) {
   }
 }
 
-export async function renderProgressAndThenResult(result) {
+export function renderProgressShell() {
   const body = document.getElementById("ap-body");
   const applyBtn = document.getElementById("ap-apply");
-  if (!body || !applyBtn) return;
+  if (!body) return;
   
-  applyBtn.style.display = "none";
+  if (applyBtn) applyBtn.style.display = "none";
   body.style.height = "100%";
   body.style.maxHeight = "100%";
   body.style.overflow = "hidden";
@@ -1364,42 +1373,66 @@ export async function renderProgressAndThenResult(result) {
   `;
 
   const canvas = document.getElementById("ap-hud-canvas");
-  let animationId;
-  
   if (canvas) {
     const ctx = canvas.getContext("2d");
     const cw = canvas.width = canvas.offsetWidth;
     const ch = canvas.height = canvas.offsetHeight;
-    
-    const particles = Array.from({length: 30}, () => ({
-      x: Math.random() * cw, 
-      y: Math.random() * ch,
-      vx: (Math.random() - 0.5) * 1.5, 
-      vy: (Math.random() - 0.5) * 1.5,
-      r: Math.random() * 2 + 1
-    }));
+    const startTime = performance.now();
     
     const draw = () => {
-      ctx.fillStyle = "rgba(6, 13, 22, 0.2)"; 
-      ctx.fillRect(0, 0, cw, ch);
-      ctx.strokeStyle = "rgba(14, 165, 233, 0.3)"; 
-      ctx.lineWidth = 0.5;
+      const t = (performance.now() - startTime) * 0.001;
+      ctx.clearRect(0, 0, cw, ch);
       
-      particles.forEach(p => {
-        p.x += p.vx; 
-        p.y += p.vy;
-        if (p.x < 0 || p.x > cw) p.vx *= -1; 
-        if (p.y < 0 || p.y > ch) p.vy *= -1;
-        ctx.beginPath(); 
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); 
-        ctx.fillStyle = "#38BDF8"; 
-        ctx.fill();
-      });
-      animationId = requestAnimationFrame(draw);
+      const cx = cw / 2;
+      const cy = ch / 2;
+      
+      const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, 40);
+      gradient.addColorStop(0, "rgba(56, 189, 248, 0.8)");
+      gradient.addColorStop(1, "rgba(56, 189, 248, 0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, cw, ch);
+      
+      const drawRing = (radius, speed, dash, color, width) => {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(t * speed);
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        if (dash) ctx.setLineDash(dash);
+        ctx.stroke();
+        ctx.restore();
+      };
+      
+      drawRing(25, 1.5, [15, 10], "rgba(14, 165, 233, 0.6)", 2);
+      drawRing(35, -1.0, [5, 5], "rgba(125, 211, 252, 0.4)", 1);
+      drawRing(45, 0.5, [20, 20, 5, 20], "rgba(56, 189, 248, 0.3)", 1.5);
+      
+      ctx.fillStyle = "#fff";
+      for(let i=0; i<3; i++) {
+         const angle = t * 2 + (i * Math.PI * 2 / 3);
+         const nx = cx + Math.cos(angle) * 25;
+         const ny = cy + Math.sin(angle) * 25;
+         ctx.beginPath();
+         ctx.arc(nx, ny, 2, 0, Math.PI*2);
+         ctx.fill();
+         
+         ctx.beginPath();
+         ctx.moveTo(cx, cy);
+         ctx.lineTo(nx, ny);
+         ctx.strokeStyle = "rgba(255,255,255,0.2)";
+         ctx.lineWidth = 0.5;
+         ctx.stroke();
+      }
+
+      localApAnimationId = requestAnimationFrame(draw);
     };
     draw();
   }
+}
 
+export async function streamProgressLogs(result) {
   const logContainer = document.getElementById("ap-term-body");
   const fluxStream = document.getElementById("ap-flux-stream");
   const barEl = document.getElementById("ap-prog-bar");
@@ -1418,10 +1451,12 @@ export async function renderProgressAndThenResult(result) {
   let swapCount = 0;
   const logStarted = performance.now();
 
+  const totalTargetDurationMs = 22000;
+  const delayPerEntry = Math.max(50, totalTargetDurationMs / log.length);
+
   for (let i = 0; i < log.length; i++) {
     const entry = log[i];
-    const delay = Math.max(30, 2200 / log.length);
-    await sleep(delay);
+    await sleep(delayPerEntry);
 
     if (entry.icon === "→") {
       if (entry.msg.includes("HG")) {
@@ -1478,11 +1513,11 @@ export async function renderProgressAndThenResult(result) {
     }
   }
 
-  if (animationId) {
-    cancelAnimationFrame(animationId);
+  if (localApAnimationId) {
+    cancelAnimationFrame(localApAnimationId);
   }
   
-  await sleep(600);
+  await sleep(1000);
   localApViewMode = "result";
   renderResultView();
 }
@@ -1496,7 +1531,7 @@ export function renderResultView() {
   const { summary } = localAutoPlanResult;
   const qualityRaw = summary.quality || {};
   const quality = {
-    score: Number(qualityRaw.score) || 0,
+    score: String(qualityRaw.score || "0.0"),
     bdSpread: Number(qualityRaw.bdSpread) || 0,
     hgSpread: Number(qualityRaw.hgSpread) || 0,
     weekendSpread: Number(qualityRaw.weekendSpread) || 0,
@@ -1506,7 +1541,7 @@ export function renderResultView() {
     deepMoves: Number(qualityRaw.deepMoves) || 0
   };
   const qualityTooltips = {
-    score: "Gesamtnote der Planung (0–100), aus Abdeckung, Fairness und Wunscherfüllung berechnet.",
+    score: "Neural Fitness Index (NFI). Der komprimierte Wert für Abdeckung, Fairness und Regelkonformität.",
     bdSpread: "Differenz zwischen der höchsten und niedrigsten Anzahl an Bereitschaftsdiensten je Person.",
     hgSpread: "Differenz zwischen der höchsten und niedrigsten Anzahl an Hintergrunddiensten je Person.",
     weekendSpread: "Differenz der Dienstverteilung an Wochenenden/Feiertagen zwischen den Mitarbeitenden.",
@@ -1540,9 +1575,9 @@ export function renderResultView() {
   let html = `
     <div class="ap-result-hero">
       <div class="ap-result-score is-clickable" id="ap-score-trigger" title="${qualityTooltips.score}">
-        <span class="ap-result-score-kicker" title="${qualityTooltips.score}">Planungs-Qualität</span>
-        <strong>${quality.score ?? 0}</strong>
-        <span class="ap-result-score-sub">von 100 Fitness-Punkten</span>
+        <span class="ap-result-score-kicker" title="${qualityTooltips.score}">Neural Fitness Index (NFI)</span>
+        <strong>${quality.score}</strong>
+        <span class="ap-result-score-sub">Maximalwert: 100.0</span>
       </div>
       <div class="ap-result-metrics">
         <div class="ap-result-metric"><span title="${qualityTooltips.bdSpread}">BD-Streuung</span><strong>${quality.bdSpread}</strong></div>
@@ -2197,7 +2232,6 @@ export function init() {
 
 document.addEventListener("DOMContentLoaded", init);
 
-// Expose openScoreInfoModal globally for the inline onclick handler in renderResultView
 window.openScoreInfoModal = () => {
   if (localAutoPlanResult) {
     openScoreInfoModal(localAutoPlanResult);
