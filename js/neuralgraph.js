@@ -181,19 +181,19 @@ export class NeuralGraph {
     this.container.innerHTML = '';
     
     this.wrapper = document.createElement('div');
-    this.wrapper.className = 'ng-container';
+    this.wrapper.setAttribute('class', 'ng-container');
     
     this.gridWrapper = document.createElement('div');
-    this.gridWrapper.className = 'ng-grid-wrapper';
+    this.gridWrapper.setAttribute('class', 'ng-grid-wrapper');
     
     this.bgSvgOverlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    this.bgSvgOverlay.className = 'ng-bg-svg';
+    this.bgSvgOverlay.setAttribute('class', 'ng-bg-svg');
     
     this.fgSvgOverlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    this.fgSvgOverlay.className = 'ng-fg-svg';
+    this.fgSvgOverlay.setAttribute('class', 'ng-fg-svg');
     
     this.grid = document.createElement('div');
-    this.grid.className = 'ng-grid';
+    this.grid.setAttribute('class', 'ng-grid');
     
     this.gridWrapper.appendChild(this.bgSvgOverlay);
     this.gridWrapper.appendChild(this.grid);
@@ -217,7 +217,7 @@ export class NeuralGraph {
     for (let r = 0; r < employees.length; r++) {
       for (let c = 0; c < daysCount; c++) {
         const cell = document.createElement('div');
-        cell.className = 'ng-cell';
+        cell.setAttribute('class', 'ng-cell');
         const key = `${c + 1}_${employees[r]}`;
         this.cells.set(key, cell);
         this.grid.appendChild(cell);
