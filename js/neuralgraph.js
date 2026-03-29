@@ -5,34 +5,240 @@ function injectStyles() {
   const style = document.createElement('style');
   style.id = STYLE_ID;
   style.textContent = `
-    .ng-container { position: absolute; inset: 16px; display: flex; align-items: center; justify-content: center; }
-    .ng-grid { display: grid; gap: 3px; width: 100%; height: 100%; position: relative; z-index: 1; }
-    .ng-cell { background: rgba(56, 189, 248, 0.04); border-radius: 2px; transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease; position: relative; }
-    .ng-cell.active { background: rgba(14, 165, 233, 0.8); box-shadow: 0 0 10px rgba(14, 165, 233, 0.5); transform: scale(1.15); z-index: 2; }
-    .ng-cell.swap-old { background: rgba(239, 68, 68, 0.9); box-shadow: 0 0 12px rgba(239, 68, 68, 0.6); transform: scale(0.9); }
-    .ng-cell.swap-new { background: rgba(168, 85, 247, 0.9); box-shadow: 0 0 15px rgba(168, 85, 247, 0.6); transform: scale(1.25); z-index: 3; }
-    .ng-cell.error { background: rgba(239, 68, 68, 1); box-shadow: 0 0 20px rgba(239, 68, 68, 0.8); animation: ngGlitch 0.3s cubic-bezier(.34,1.2,.64,1); z-index: 4; }
-    .ng-cell.success { background: rgba(34, 197, 94, 0.9) !important; box-shadow: 0 0 12px rgba(34, 197, 94, 0.5) !important; transform: scale(1.05); }
+    .ng-container { 
+      --ng-phase-color: #0EA5E9; 
+      position: absolute; 
+      inset: 16px; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+    }
+    
+    .ng-med-bg { 
+      position: absolute; 
+      inset: 0; 
+      pointer-events: none; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      opacity: 0.15; 
+      color: var(--ng-phase-color); 
+      transition: color 0.5s; 
+    }
+    
+    .ng-scanner { 
+      position: absolute; 
+      top: 0; 
+      bottom: 0; 
+      width: 3px; 
+      background: linear-gradient(to bottom, transparent, var(--ng-phase-color), transparent); 
+      box-shadow: 0 0 15px var(--ng-phase-color); 
+      animation: ngScanMove 3.5s ease-in-out infinite alternate; 
+      z-index: 5; 
+      pointer-events: none; 
+      opacity: 0.6; 
+      transition: background 0.5s, box-shadow 0.5s; 
+    }
+    
+    @keyframes ngScanMove { 
+      0% { left: 0%; opacity: 0; } 
+      10% { opacity: 0.8; } 
+      90% { opacity: 0.8; } 
+      100% { left: 100%; opacity: 0; } 
+    }
+
+    .ng-grid { 
+      display: grid; 
+      gap: 4px; 
+      width: 100%; 
+      height: 100%; 
+      position: relative; 
+      z-index: 10; 
+      align-items: center; 
+      justify-items: center; 
+    }
+    
+    .ng-cell { 
+      position: relative; 
+      width: 60%; 
+      height: 60%; 
+      max-width: 14px; 
+      max-height: 14px; 
+      border-radius: 50%; 
+      border: 1px solid color-mix(in srgb, var(--ng-phase-color) 30%, transparent); 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      transition: all 0.3s ease; 
+    }
+    
+    .ng-cell::after { 
+      content: ''; 
+      position: absolute; 
+      width: 40%; 
+      height: 40%; 
+      border-radius: 50%; 
+      background: color-mix(in srgb, var(--ng-phase-color) 30%, transparent); 
+      transition: all 0.3s ease; 
+    }
+    
+    .ng-cell.active { 
+      border-color: var(--ng-phase-color); 
+      box-shadow: 0 0 10px color-mix(in srgb, var(--ng-phase-color) 60%, transparent); 
+      transform: scale(1.3); 
+      z-index: 2; 
+    }
+    
+    .ng-cell.active::after { 
+      background: var(--ng-phase-color); 
+      box-shadow: 0 0 8px var(--ng-phase-color); 
+      transform: scale(1.5); 
+    }
+    
+    .ng-cell.swap-old { 
+      border-color: #EF4444; 
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.6); 
+      transform: scale(0.9); 
+    }
+    
+    .ng-cell.swap-old::after { background: #EF4444; }
+    
+    .ng-cell.swap-new { 
+      border-color: #A855F7; 
+      box-shadow: 0 0 15px rgba(168, 85, 247, 0.6); 
+      transform: scale(1.3); 
+      z-index: 3; 
+    }
+    
+    .ng-cell.swap-new::after { background: #A855F7; }
+    
+    .ng-cell.error { 
+      border-color: #EF4444; 
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.8); 
+      animation: ngGlitch 0.3s cubic-bezier(.34,1.2,.64,1); 
+      z-index: 4; 
+    }
+    
+    .ng-cell.error::after { background: #EF4444; }
+    
+    .ng-cell.success { 
+      border-color: #22C55E !important; 
+      box-shadow: 0 0 12px rgba(34, 197, 94, 0.5) !important; 
+      transform: scale(1.1); 
+    }
+    
+    .ng-cell.success::after { background: #22C55E !important; }
+
     @keyframes ngGlitch {
       0% { transform: translate(0, 0) scale(1.2); }
-      20% { transform: translate(-3px, 2px) scale(1.2); }
-      40% { transform: translate(3px, -2px) scale(1.2); }
-      60% { transform: translate(-3px, -2px) scale(1.2); }
-      80% { transform: translate(3px, 2px) scale(1.2); }
+      20% { transform: translate(-2px, 2px) scale(1.2); }
+      40% { transform: translate(2px, -2px) scale(1.2); }
+      60% { transform: translate(-2px, -2px) scale(1.2); }
+      80% { transform: translate(2px, 2px) scale(1.2); }
       100% { transform: translate(0, 0) scale(1); }
     }
-    .ng-line { stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: ngLineAnim 0.35s cubic-bezier(.34,1.2,.64,1) forwards; }
+
+    .ng-line { 
+      stroke-dasharray: 1000; 
+      stroke-dashoffset: 1000; 
+      animation: ngLineAnim 0.35s cubic-bezier(.34,1.2,.64,1) forwards; 
+    }
+    
     @keyframes ngLineAnim { to { stroke-dashoffset: 0; } }
-    .ng-minimap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; }
-    .ng-ring { position: absolute; border-radius: 50%; border: 2px solid transparent; transition: border-color 0.5s ease; }
-    .ng-ring-1 { width: 90%; height: 90%; border-top-color: #0EA5E9; border-bottom-color: #0EA5E9; border-width: 1px; animation: ngSpin 3s linear infinite; }
-    .ng-ring-2 { width: 70%; height: 70%; border-left-color: #0EA5E9; border-right-color: rgba(14,165,233,0.3); border-width: 2px; animation: ngSpin 2s linear infinite reverse; }
-    .ng-ring-3 { width: 45%; height: 45%; border-color: rgba(14,165,233,0.6); border-style: dashed; border-width: 2px; animation: ngSpin 4s linear infinite; }
-    .ng-core { width: 12%; height: 12%; background: #0EA5E9; border-radius: 50%; box-shadow: 0 0 15px #0EA5E9; animation: ngPulse 1.5s ease-in-out infinite; transition: background 0.5s ease, box-shadow 0.5s ease; }
+
+    /* Tech Minimap Styles */
+    .ng-tech-spectacle { 
+      width: 100%; 
+      height: 100%; 
+      position: relative; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      background: radial-gradient(circle at center, color-mix(in srgb, var(--ng-phase-color) 15%, transparent) 0%, transparent 60%); 
+      color: var(--ng-phase-color); 
+      transition: color 0.5s; 
+    }
+    
+    .ng-tech-svg { 
+      width: 85%; 
+      height: 85%; 
+      transform-origin: center; 
+      overflow: visible; 
+    }
+    
+    .ng-ring-calib { 
+      fill: none; 
+      stroke: currentColor; 
+      stroke-width: 0.5; 
+      stroke-dasharray: 2 4; 
+      opacity: 0.6; 
+      animation: ngSpin 15s linear infinite; 
+      transform-origin: 50px 50px; 
+    }
+    
+    .ng-ring-track { 
+      fill: none; 
+      stroke: currentColor; 
+      stroke-width: 1.5; 
+      stroke-dasharray: 10 15 40 5; 
+      opacity: 0.8; 
+      animation: ngSpin 8s linear infinite reverse; 
+      transform-origin: 50px 50px; 
+    }
+    
+    .ng-ring-core { 
+      fill: none; 
+      stroke: currentColor; 
+      stroke-width: 3; 
+      stroke-dasharray: 2 6; 
+      opacity: 0.9; 
+      animation: ngSpin 4s linear infinite; 
+      transform-origin: 50px 50px; 
+    }
+    
+    .ng-ring-center { 
+      fill: currentColor; 
+      opacity: 0.4; 
+      animation: ngPulse 2s ease-in-out infinite; 
+      transform-origin: 50px 50px; 
+    }
+    
+    .ng-crosshair { 
+      stroke: currentColor; 
+      stroke-width: 0.5; 
+      opacity: 0.5; 
+    }
+    
+    .ng-tech-overlay { 
+      position: absolute; 
+      inset: 0; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      font-family: var(--font-mono); 
+      font-size: 8px; 
+      font-weight: 700; 
+      color: currentColor; 
+      pointer-events: none; 
+    }
+    
     @keyframes ngSpin { 100% { transform: rotate(360deg); } }
-    @keyframes ngPulse { 0%, 100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.4); opacity: 1; } }
-    .ng-minimap.success .ng-ring { animation-play-state: paused; }
-    .ng-minimap.success .ng-core { animation: none; transform: scale(1.2); }
+    @keyframes ngPulse { 
+      0%, 100% { transform: scale(1); opacity: 0.4; } 
+      50% { transform: scale(1.5); opacity: 0.8; } 
+    }
+    
+    .ng-tech-spectacle.success .ng-ring-calib, 
+    .ng-tech-spectacle.success .ng-ring-track, 
+    .ng-tech-spectacle.success .ng-ring-core { 
+      animation-play-state: paused; 
+    }
+    
+    .ng-tech-spectacle.success .ng-ring-center { 
+      animation: none; 
+      transform: scale(1.3); 
+      opacity: 1; 
+    }
   `;
   document.head.appendChild(style);
 }
@@ -62,6 +268,37 @@ export class NeuralGraph {
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'ng-container';
     
+    // Abstract Medical / Neural Background
+    const bg = document.createElement('div');
+    bg.className = 'ng-med-bg';
+    bg.innerHTML = `
+      <svg viewBox="0 0 200 200" style="width: 80%; height: 80%; max-height: 100%;">
+        <path d="M100 20 C 40 20, 20 60, 20 100 C 20 140, 45 170, 70 180 C 85 185, 95 175, 100 170 C 105 175, 115 185, 130 180 C 155 170, 180 140, 180 100 C 180 60, 160 20, 100 20 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4" />
+        <path d="M100 40 C 55 40, 40 70, 40 100 C 40 130, 60 150, 80 160 C 90 165, 95 155, 100 150 C 105 155, 110 165, 120 160 C 140 150, 160 130, 160 100 C 160 70, 145 40, 100 40 Z" fill="none" stroke="currentColor" stroke-width="1" />
+        <circle cx="60" cy="80" r="3" fill="currentColor" />
+        <circle cx="85" cy="65" r="4" fill="currentColor" />
+        <circle cx="115" cy="65" r="4" fill="currentColor" />
+        <circle cx="140" cy="80" r="3" fill="currentColor" />
+        <circle cx="75" cy="115" r="5" fill="currentColor" />
+        <circle cx="125" cy="115" r="5" fill="currentColor" />
+        <circle cx="100" cy="135" r="3" fill="currentColor" />
+        <line x1="60" y1="80" x2="85" y2="65" stroke="currentColor" stroke-width="1" />
+        <line x1="85" y1="65" x2="115" y2="65" stroke="currentColor" stroke-width="1" />
+        <line x1="115" y1="65" x2="140" y2="80" stroke="currentColor" stroke-width="1" />
+        <line x1="85" y1="65" x2="75" y2="115" stroke="currentColor" stroke-width="1" />
+        <line x1="115" y1="65" x2="125" y2="115" stroke="currentColor" stroke-width="1" />
+        <line x1="75" y1="115" x2="100" y2="135" stroke="currentColor" stroke-width="1" />
+        <line x1="125" y1="115" x2="100" y2="135" stroke="currentColor" stroke-width="1" />
+        <line x1="75" y1="115" x2="125" y2="115" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+      </svg>
+    `;
+    this.wrapper.appendChild(bg);
+    
+    // MRI Scan Line Overlay
+    const scanner = document.createElement('div');
+    scanner.className = 'ng-scanner';
+    this.wrapper.appendChild(scanner);
+    
     this.grid = document.createElement('div');
     this.grid.className = 'ng-grid';
     this.wrapper.appendChild(this.grid);
@@ -72,7 +309,7 @@ export class NeuralGraph {
     this.svgOverlay.style.width = "100%";
     this.svgOverlay.style.height = "100%";
     this.svgOverlay.style.pointerEvents = "none";
-    this.svgOverlay.style.zIndex = "10";
+    this.svgOverlay.style.zIndex = "20";
     this.wrapper.appendChild(this.svgOverlay);
     
     this.container.appendChild(this.wrapper);
@@ -101,11 +338,17 @@ export class NeuralGraph {
   attachMiniMap(container) {
     this.miniMapContainer = container;
     this.miniMapContainer.innerHTML = `
-      <div class="ng-minimap" id="ng-minimap-core">
-        <div class="ng-ring ng-ring-1"></div>
-        <div class="ng-ring ng-ring-2"></div>
-        <div class="ng-ring ng-ring-3"></div>
-        <div class="ng-core"></div>
+      <div class="ng-tech-spectacle" id="ng-minimap-core">
+        <svg viewBox="0 0 100 100" class="ng-tech-svg">
+          <circle cx="50" cy="50" r="48" class="ng-ring-calib" />
+          <circle cx="50" cy="50" r="38" class="ng-ring-track" />
+          <circle cx="50" cy="50" r="22" class="ng-ring-core" />
+          <circle cx="50" cy="50" r="10" class="ng-ring-center" />
+          <path d="M50,0 L50,15 M50,85 L50,100 M0,50 L15,50 M85,50 L100,50" class="ng-crosshair" />
+        </svg>
+        <div class="ng-tech-overlay">
+          <div>SEQ/DAT</div>
+        </div>
       </div>
     `;
   }
@@ -190,17 +433,10 @@ export class NeuralGraph {
   }
 
   setPhase(phase) {
-    if (!this.miniMapContainer) return;
     const color = this.phaseColors[phase] || this.phaseColors.init;
-    const r1 = this.miniMapContainer.querySelector('.ng-ring-1');
-    const r2 = this.miniMapContainer.querySelector('.ng-ring-2');
-    const r3 = this.miniMapContainer.querySelector('.ng-ring-3');
-    const core = this.miniMapContainer.querySelector('.ng-core');
-
-    if (r1) { r1.style.borderTopColor = color; r1.style.borderBottomColor = color; }
-    if (r2) { r2.style.borderLeftColor = color; r2.style.borderRightColor = `${color}4D`; }
-    if (r3) { r3.style.borderColor = `${color}99`; }
-    if (core) { core.style.background = color; core.style.boxShadow = `0 0 15px ${color}`; }
+    if (this.wrapper) {
+      this.wrapper.style.setProperty('--ng-phase-color', color);
+    }
   }
 
   triggerSuccess() {
