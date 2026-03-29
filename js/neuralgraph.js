@@ -193,7 +193,9 @@ export class NeuralGraph {
         this.height = entry.contentRect.height;
         this.camera.aspect = this.width / this.height;
         this.camera.updateProjectionMatrix();
-        this.renderer.setSize(this.width, this.height);
+        if (this.renderer) {
+          this.renderer.setSize(this.width, this.height);
+        }
       }
     });
     this.resizeObserver.observe(this.container);
@@ -273,19 +275,26 @@ export class NeuralGraph {
   }
 
   clearScene() {
-    const toRemove = [];
-    this.mainGroup.children.forEach(child => toRemove.push(child));
+    if (!this.mainGroup) return;
+    const toRemove = [...this.mainGroup.children];
     toRemove.forEach(child => {
       this.mainGroup.remove(child);
-      if (child.geometry) child.geometry.dispose();
-      if (child.material) {
-        if (child.material.map) child.material.map.dispose();
-        child.material.dispose();
+      if (child.geometry && typeof child.geometry.dispose === 'function') {
+        child.geometry.dispose();
       }
-      if (child.userData && child.userData.interval) clearInterval(child.userData.interval);
+      if (child.material) {
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach(m => {
+          if (m.map && typeof m.map.dispose === 'function') m.map.dispose();
+          if (typeof m.dispose === 'function') m.dispose();
+        });
+      }
+      if (child.userData && child.userData.interval) {
+        clearInterval(child.userData.interval);
+      }
     });
-    this.nodes.clear();
-    this.activeNodes.clear();
+    if (this.nodes) this.nodes.clear();
+    if (this.activeNodes) this.activeNodes.clear();
     this.dataStreams = [];
   }
 
@@ -330,18 +339,28 @@ export class NeuralGraph {
     if (!nodeObj) return;
     this.activeNodes.delete(key);
     
-    if(nodeObj.sprite.userData.interval) clearInterval(nodeObj.sprite.userData.interval);
+    if (nodeObj.sprite && nodeObj.sprite.userData && nodeObj.sprite.userData.interval) {
+      clearInterval(nodeObj.sprite.userData.interval);
+    }
     
     gsap.to(nodeObj.group.scale, {
       x: 0.01, y: 0.01, z: 0.01, duration: 0.3, ease: "power2.in",
       onComplete: () => {
-        this.mainGroup.remove(nodeObj.group);
-        nodeObj.mesh.geometry.dispose();
-        nodeObj.mesh.material.dispose();
-        nodeObj.ring.geometry.dispose();
-        nodeObj.ring.material.dispose();
-        nodeObj.sprite.material.map.dispose();
-        nodeObj.sprite.material.dispose();
+        if (this.mainGroup && nodeObj.group) {
+          this.mainGroup.remove(nodeObj.group);
+        }
+        if (nodeObj.mesh) {
+          if (nodeObj.mesh.geometry) nodeObj.mesh.geometry.dispose();
+          if (nodeObj.mesh.material) nodeObj.mesh.material.dispose();
+        }
+        if (nodeObj.ring) {
+          if (nodeObj.ring.geometry) nodeObj.ring.geometry.dispose();
+          if (nodeObj.ring.material) nodeObj.ring.material.dispose();
+        }
+        if (nodeObj.sprite && nodeObj.sprite.material) {
+          if (nodeObj.sprite.material.map) nodeObj.sprite.material.map.dispose();
+          nodeObj.sprite.material.dispose();
+        }
       }
     });
   }
@@ -354,7 +373,7 @@ export class NeuralGraph {
 
     if (oldEmpId && p1) {
       const oldNode = this.activeNodes.get(oldKey);
-      if (oldNode) {
+      if (oldNode && oldNode.mesh && oldNode.mesh.material) {
         gsap.to(oldNode.mesh.material.color, { setHex: this.colors.error, duration: 0.1 });
         this.glitchEffect(oldNode.group);
       }
@@ -379,15 +398,20 @@ export class NeuralGraph {
     this.spawnPulse(p, this.colors.error, 3);
     
     const nodeObj = this.activeNodes.get(key);
-    if (nodeObj) {
+    if (nodeObj && nodeObj.mesh && nodeObj.mesh.material && nodeObj.group) {
       const origColor = nodeObj.mesh.material.color.getHex();
       nodeObj.mesh.material.color.setHex(this.colors.error);
       this.glitchEffect(nodeObj.group, 5);
-      setTimeout(() => nodeObj.mesh.material.color.setHex(origColor), 600);
+      setTimeout(() => {
+        if (nodeObj.mesh && nodeObj.mesh.material) {
+          nodeObj.mesh.material.color.setHex(origColor);
+        }
+      }, 600);
     }
   }
 
   glitchEffect(target, intensity = 2) {
+    if (!target || !target.position) return;
     const origX = target.position.x;
     const origZ = target.position.z;
     const tl = gsap.timeline();
@@ -414,13 +438,16 @@ export class NeuralGraph {
     gsap.to(anim, {
       p: 1, duration: 0.25, ease: "power4.inOut",
       onUpdate: () => {
-        const head = p1.clone().lerp(p2, anim.p);
-        const tail = p1.clone().lerp(p2, Math.max(0, anim.p - 0.5));
-        line.geometry.setFromPoints([tail, head]);
+        if (line && line.geometry) {
+          const head = p1.clone().lerp(p2, anim.p);
+          const tail = p1.clone().lerp(p2, Math.max(0, anim.p - 0.5));
+          line.geometry.setFromPoints([tail, head]);
+        }
       },
       onComplete: () => {
-        this.mainGroup.remove(line);
-        geo.dispose(); mat.dispose();
+        if (this.mainGroup && line) this.mainGroup.remove(line);
+        if (geo) geo.dispose(); 
+        if (mat) mat.dispose();
       }
     });
   }
@@ -437,22 +464,34 @@ export class NeuralGraph {
 
     gsap.to(pulse.scale, { x: 4, y: 4, duration: 0.5, ease: "power2.out" });
     gsap.to(mat, { opacity: 0, duration: 0.5, ease: "power2.out", onComplete: () => {
-      this.mainGroup.remove(pulse);
-      geo.dispose(); mat.dispose();
+      if (this.mainGroup && pulse) this.mainGroup.remove(pulse);
+      if (geo) geo.dispose(); 
+      if (mat) mat.dispose();
     }});
   }
 
   triggerSuccess() {
     this.activeNodes.forEach(nodeObj => {
-      gsap.to(nodeObj.mesh.material.color, { setHex: 0x22C55E, duration: 1 });
-      gsap.to(nodeObj.ring.material.color, { setHex: 0x22C55E, duration: 1 });
+      if (nodeObj.mesh && nodeObj.mesh.material) {
+        gsap.to(nodeObj.mesh.material.color, { setHex: 0x22C55E, duration: 1 });
+      }
+      if (nodeObj.ring && nodeObj.ring.material) {
+        gsap.to(nodeObj.ring.material.color, { setHex: 0x22C55E, duration: 1 });
+      }
     });
-    gsap.to(this.gridMat.color, { setHex: 0x064E3B, duration: 2 });
-    gsap.to(this.camera.position, { y: 20, z: 90, duration: 4, ease: "power3.inOut" });
-    gsap.to(this.mainGroup.rotation, { y: 0, duration: 4, ease: "power3.inOut" });
+    if (this.gridMat) {
+      gsap.to(this.gridMat.color, { setHex: 0x064E3B, duration: 2 });
+    }
+    if (this.camera) {
+      gsap.to(this.camera.position, { y: 20, z: 90, duration: 4, ease: "power3.inOut" });
+    }
+    if (this.mainGroup) {
+      gsap.to(this.mainGroup.rotation, { y: 0, duration: 4, ease: "power3.inOut" });
+    }
   }
 
   setPhase(phase) {
+    if (!this.camera) return;
     if (phase === 'init') {
       gsap.to(this.camera.position, { y: 0, z: 110, duration: 2.5, ease: "power2.inOut" });
     } else if (phase === 'deep') {
@@ -464,7 +503,7 @@ export class NeuralGraph {
     if (!this.isActive) return;
     const dt = this.clock.getDelta();
     
-    if (this.streamMesh) {
+    if (this.streamMesh && this.streamMesh.geometry) {
       const positions = this.streamMesh.geometry.attributes.position.array;
       for(let i=0; i<this.dataStreams.length; i++) {
         const stream = this.dataStreams[i];
@@ -477,26 +516,41 @@ export class NeuralGraph {
       this.streamMesh.geometry.attributes.position.needsUpdate = true;
     }
 
-    this.activeNodes.forEach(n => n.group.lookAt(this.camera.position));
+    this.activeNodes.forEach(n => {
+      if (n.group) n.group.lookAt(this.camera.position);
+    });
     
-    this.renderer.render(this.scene, this.camera);
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
     requestAnimationFrame(this.render);
   }
 
   dispose() {
     this.isActive = false;
-    this.resizeObserver.disconnect();
-    this.clearScene();
-    this.scene.remove(this.scannerGroup);
-    this.renderer.dispose();
-    if(this.container.contains(this.renderer.domElement)) {
-      this.container.removeChild(this.renderer.domElement);
+    
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
     }
-    this.glowTex.dispose();
-    this.ringTex.dispose();
-    this.particleTexture.dispose();
-    this.gridMat.dispose();
-    this.nodeGeo.dispose();
-    this.nodeMatBase.dispose();
+    
+    this.clearScene();
+    
+    if (this.scene && this.scannerGroup) {
+      this.scene.remove(this.scannerGroup);
+    }
+    
+    if (this.renderer) {
+      this.renderer.dispose();
+      if (this.container && this.renderer.domElement && this.container.contains(this.renderer.domElement)) {
+        this.container.removeChild(this.renderer.domElement);
+      }
+    }
+    
+    if (this.glowTex) this.glowTex.dispose();
+    if (this.ringTex) this.ringTex.dispose();
+    if (this.particleTexture) this.particleTexture.dispose();
+    if (this.gridMat) this.gridMat.dispose();
+    if (this.nodeGeo) this.nodeGeo.dispose();
+    if (this.nodeMatBase) this.nodeMatBase.dispose();
   }
 }
