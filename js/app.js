@@ -1322,23 +1322,23 @@ export function renderProgressShell() {
   
   if (applyBtn) applyBtn.style.display = "none";
   
-  body.style.height = "100%";
-  body.style.maxHeight = "100%";
+  body.style.height = "72vh";
+  body.style.maxHeight = "72vh";
   body.style.overflow = "hidden";
   body.style.padding = "10px";
   body.style.display = "flex";
   body.style.flexDirection = "column";
   
   body.innerHTML = `
-    <div class="ap-engine ap-engine-immersive ap-engine-compact" style="flex:1; min-height:0;">
-      <div class="ap-hero-shell ap-hero-shell-compact">
+    <div class="ap-engine ap-engine-immersive ap-engine-compact" style="flex:1; min-height:0; display:flex; flex-direction:column;">
+      <div class="ap-hero-shell ap-hero-shell-compact" style="flex-shrink:0;">
         <div class="ap-hero-hud">
           <div class="ap-hud-block">
             <span class="ap-hud-kicker">RadPlan Neural Scheduler</span>
             <div class="ap-hud-title" id="ap-prog-title">Constraint Analyse</div>
           </div>
           <div class="ap-hud-spectacle" aria-hidden="true" id="ap-hud-spectacle-container">
-            </div>
+          </div>
         </div>
         
         <div class="ap-live-stats" aria-label="Live-Statistik">
@@ -1363,8 +1363,8 @@ export function renderProgressShell() {
         </div>
       </div>
 
-      <div class="ap-engine-main">
-        <div class="ap-neural-view" style="position:relative; width:100%; height:100%;">
+      <div class="ap-engine-main" style="flex:1; min-height:0; display:flex; gap:10px;">
+        <div class="ap-neural-view" style="flex:1; position:relative; min-width:0; min-height:0;">
           <div id="ap-neural-container" style="position:absolute; top:0; left:0; width:100%; height:100%;"></div>
           <div class="ap-neural-vignette" style="pointer-events:none;"></div>
           <div class="ap-neural-hud-layer" style="pointer-events:none;">
@@ -1377,11 +1377,11 @@ export function renderProgressShell() {
           </div>
         </div>
 
-        <div class="ap-terminal ap-terminal-deep">
-          <div class="ap-term-header">
+        <div class="ap-terminal ap-terminal-deep" style="flex:1; display:flex; flex-direction:column; min-width:0; min-height:0;">
+          <div class="ap-term-header" style="flex-shrink:0;">
             <span class="ap-term-title">Trace Console</span>
           </div>
-          <div class="ap-term-body" id="ap-term-body"></div>
+          <div class="ap-term-body" id="ap-term-body" style="flex:1; overflow-y:auto; min-height:0;"></div>
         </div>
       </div>
     </div>
