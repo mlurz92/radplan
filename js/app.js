@@ -592,7 +592,7 @@ export function refreshEditorChips() {
       kbdHint.style.cssText = "margin-top:6px;display:flex;align-items:center;gap:5px;font-size:9.5px;color:var(--gray-400);";
       kbdHint.innerHTML = `
         <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;opacity:.6">
-          <rect x="2" y="4" width="20" height="16" rx="2"/>
+          <rect x="2" y="4" width="20" height="16" transform="translate(2 4)"/>
           <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M6 16h12"/>
         </svg>
         <span>Ziffern 1–8 für Arbeitsplatz · D für Bereitschaft · H für Hintergrund · S oder ↵ zum Speichern</span>
@@ -1155,6 +1155,7 @@ export async function renderAutoPlanModal(renderToken = null) {
     body.style.height = "auto";
     body.style.maxHeight = "none";
     body.style.overflowY = "auto";
+    body.style.display = "block";
     applyBtn.style.display = "none";
     
     const hist = await collectHistoricalDutyStatsAsync(y, m);
@@ -1311,13 +1312,16 @@ export function renderProgressShell() {
   if (!body) return;
   
   if (applyBtn) applyBtn.style.display = "none";
+  
   body.style.height = "100%";
   body.style.maxHeight = "100%";
   body.style.overflow = "hidden";
   body.style.padding = "10px";
+  body.style.display = "flex";
+  body.style.flexDirection = "column";
   
   body.innerHTML = `
-    <div class="ap-engine ap-engine-immersive ap-engine-compact">
+    <div class="ap-engine ap-engine-immersive ap-engine-compact" style="flex:1; min-height:0;">
       <div class="ap-hero-shell ap-hero-shell-compact">
         <div class="ap-hero-hud">
           <div class="ap-hud-block">
@@ -1352,7 +1356,7 @@ export function renderProgressShell() {
       </div>
 
       <div class="ap-engine-main">
-        <div id="ap-neural-container" class="ap-neural-view">
+        <div id="ap-neural-container" class="ap-neural-view" style="position:relative; width:100%; height:100%;">
           <div class="ap-neural-vignette"></div>
           <div class="ap-neural-hud-layer">
              <div class="ap-neural-hud-item"><span class="ap-nhi-lbl">Topologie</span><span class="ap-nhi-val">Neural Constellation</span></div>
@@ -1591,6 +1595,7 @@ export function renderResultView() {
   body.style.maxHeight = "72vh";
   body.style.overflowY = "auto";
   body.style.padding = "24px";
+  body.style.display = "block";
   
   const applyBtn = document.getElementById("ap-apply");
   const reportBtn = document.getElementById("ap-report-btn");
