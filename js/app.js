@@ -1338,8 +1338,7 @@ export function renderProgressShell() {
             <div class="ap-hud-title" id="ap-prog-title">Initialisierung</div>
           </div>
           <div class="ap-hud-spectacle" aria-hidden="true" id="ap-hud-spectacle-container">
-            <!-- CSS-driven Animation is handled via NeuralGraph injection now -->
-          </div>
+            </div>
         </div>
         
         <div class="ap-live-stats" aria-label="Live-Statistik">
@@ -1365,13 +1364,14 @@ export function renderProgressShell() {
       </div>
 
       <div class="ap-engine-main">
-        <div id="ap-neural-container" class="ap-neural-view" style="position:relative; width:100%; height:100%;">
-          <div class="ap-neural-vignette"></div>
-          <div class="ap-neural-hud-layer">
+        <div class="ap-neural-view" style="position:relative; width:100%; height:100%;">
+          <div id="ap-neural-container" style="position:absolute; top:0; left:0; width:100%; height:100%;"></div>
+          <div class="ap-neural-vignette" style="pointer-events:none;"></div>
+          <div class="ap-neural-hud-layer" style="pointer-events:none;">
              <div class="ap-neural-hud-item"><span class="ap-nhi-lbl">Topologie</span><span class="ap-nhi-val">Neural Constellation</span></div>
              <div class="ap-neural-hud-item"><span class="ap-nhi-lbl">Status</span><span class="ap-nhi-val" id="ap-ng-status">COMPUTING</span></div>
           </div>
-          <div class="ap-neural-stats">
+          <div class="ap-neural-stats" style="pointer-events:none;">
              <span class="ap-neural-stat-pill">Visualizer Active</span>
              <span class="ap-neural-stat-pill" style="color:#FBBF24" id="ap-ng-phase-pill">INITIALIZING</span>
           </div>
