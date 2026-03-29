@@ -30,14 +30,20 @@ export class NeuralGraph {
     this.voxelMeta = [];
     this.voxelCount = 0;
     
+    this.employees = [];
+    this.daysCount = 0;
+    
     this.clock = new THREE.Clock();
     this.isActive = true;
+    this.isComputing = true;
     this.resizeTimeout = null;
     
     this.colors = {
       gridBase: { r: 0.04, g: 0.18, b: 0.21 },
       stream: 0x0DF0D0,
       node: 0x00FF41,
+      probe: 0xFF003C, 
+      eval: 0xF59E0B, 
       swap: { r: 0.69, g: 0.15, b: 1.00 },
       error: { r: 1.00, g: 0.00, b: 0.23 },
       success: { r: 0.13, g: 0.77, b: 0.36 }
@@ -92,10 +98,10 @@ export class NeuralGraph {
   setupBaseMaterials() {
     this.nodeGeo = new THREE.OctahedronGeometry(1.2, 0);
     this.nodeMatBase = new THREE.MeshBasicMaterial({
-      color: this.colors.node,
+      color: this.colors.eval,
       wireframe: true,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.9,
       blending: THREE.AdditiveBlending
     });
   }
@@ -150,18 +156,17 @@ export class NeuralGraph {
     const sprite = new THREE.Sprite(mat);
     sprite.scale.set(16, 4, 1);
     
-    const chars = "0123456789ABCDEF!@#$%^&*";
     let iterations = 0;
-    const maxIter = 15;
+    const maxIter = 15 + Math.floor(Math.random() * 10); 
     
-    const updateCanvas = (textStr, isFinal) => {
+    const updateCanvas = (textStr, isFinal, isError) => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = isFinal ? '#00FF41' : '#0DF0D0';
-      ctx.font = "bold 32px 'Courier New', monospace";
+      ctx.fillStyle = isFinal ? '#0DF0D0' : (isError ? '#FF003C' : '#F59E0B');
+      ctx.font = "bold 32px 'IBM Plex Mono', monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.shadowColor = isFinal ? '#00FF41' : '#0DF0D0';
-      ctx.shadowBlur = 10;
+      ctx.shadowColor = isFinal ? '#0DF0D0' : (isError ? '#FF003C' : '#F59E0B');
+      ctx.shadowBlur = 12;
       ctx.fillText(textStr, 128, 32);
       texture.needsUpdate = true;
     };
@@ -170,14 +175,16 @@ export class NeuralGraph {
       if (!this.isActive) { clearInterval(interval); return; }
       if (iterations >= maxIter) {
         clearInterval(interval);
-        updateCanvas(finalText, true);
+        updateCanvas(finalText, true, false);
       } else {
-        let randStr = "";
-        for(let i=0; i<finalText.length; i++) randStr += chars[Math.floor(Math.random() * chars.length)];
-        updateCanvas(randStr, false);
+        let fakeName = "SYS_ERR";
+        if (this.employees && this.employees.length > 0) {
+          fakeName = this.employees[Math.floor(Math.random() * this.employees.length)].split(' ').pop();
+        }
+        updateCanvas(fakeName, false, true); 
       }
       iterations++;
-    }, 40);
+    }, 45);
     
     sprite.userData = { canvas, texture, material: mat, interval };
     return sprite;
@@ -207,6 +214,10 @@ export class NeuralGraph {
 
   initData(daysCount, employees) {
     this.clearScene();
+    
+    this.employees = employees;
+    this.daysCount = daysCount;
+    this.isComputing = true;
     
     const radius = 40;
     const heightSpan = 50;
@@ -342,6 +353,37 @@ export class NeuralGraph {
     }
   }
 
+  fireProbeBeam(dayIdx, empId) {
+    const key = `${dayIdx}_${empId}`;
+    const ePos = this.nodes.get(key);
+    if (!ePos) return;
+
+    const angle = ((dayIdx - 1) / this.daysCount) * Math.PI * 1.5 - (Math.PI * 0.75);
+    const origin = new THREE.Vector3(Math.sin(angle) * 10, -25, Math.cos(angle) * 10);
+
+    const geo = new THREE.BufferGeometry().setFromPoints([origin, ePos]);
+    const mat = new THREE.LineBasicMaterial({
+      color: this.colors.probe,
+      transparent: true,
+      opacity: 0.5,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const line = new THREE.Line(geo, mat);
+    this.mainGroup.add(line);
+
+    gsap.to(mat, {
+      opacity: 0,
+      duration: 0.15 + Math.random() * 0.2,
+      ease: "power2.out",
+      onComplete: () => {
+        if (this.mainGroup && line) this.mainGroup.remove(line);
+        if (geo) geo.dispose();
+        if (mat) mat.dispose();
+      }
+    });
+  }
+
   triggerAssignment(dayIdx, empId) {
     const key = `${dayIdx}_${empId}`;
     const pos = this.nodes.get(key);
@@ -351,7 +393,7 @@ export class NeuralGraph {
       this.removeAssignment(key);
     }
 
-    this.pulseVoxel(key, { r: 0.22, g: 0.74, b: 0.97 });
+    this.pulseVoxel(key, { r: 0.05, g: 0.94, b: 0.81 });
 
     const group = new THREE.Group();
     group.position.copy(pos);
@@ -360,7 +402,7 @@ export class NeuralGraph {
     group.add(mesh);
     
     const ringMat = new THREE.MeshBasicMaterial({
-      map: this.ringTex, color: this.colors.stream, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+      map: this.ringTex, color: this.colors.eval, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
     });
     const ring = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), ringMat);
     ring.rotation.x = Math.PI / 2;
@@ -377,7 +419,10 @@ export class NeuralGraph {
     gsap.to(ring.rotation, { z: Math.PI * 2, duration: 4, repeat: -1, ease: "none" });
     gsap.to(mesh.rotation, { x: Math.PI, y: Math.PI, duration: 6, repeat: -1, ease: "none" });
     
-    this.spawnPulse(pos, this.colors.node);
+    gsap.to(ring.material.color, { setHex: this.colors.stream, duration: 0.5, delay: 0.8 });
+    gsap.to(mesh.material.color, { setHex: this.colors.stream, duration: 0.5, delay: 0.8 });
+
+    this.spawnPulse(pos, this.colors.eval);
   }
 
   removeAssignment(key) {
@@ -519,12 +564,16 @@ export class NeuralGraph {
   }
 
   triggerSuccess() {
+    this.isComputing = false;
     this.activeNodes.forEach(nodeObj => {
       if (nodeObj.mesh && nodeObj.mesh.material) {
         gsap.to(nodeObj.mesh.material.color, { setHex: 0x22C55E, duration: 1 });
       }
       if (nodeObj.ring && nodeObj.ring.material) {
         gsap.to(nodeObj.ring.material.color, { setHex: 0x22C55E, duration: 1 });
+      }
+      if (nodeObj.sprite && nodeObj.sprite.material) {
+        gsap.to(nodeObj.sprite.material.color, { setHex: 0x22C55E, duration: 1 });
       }
     });
     for(let i=0; i<this.voxelCount; i++) {
@@ -559,6 +608,12 @@ export class NeuralGraph {
     if (!this.isActive) return;
     const t = performance.now() * 0.001;
     const dt = this.clock.getDelta();
+    
+    if (this.isComputing && this.employees && this.employees.length > 0 && Math.random() > 0.4) {
+      const randD = Math.floor(Math.random() * this.daysCount) + 1;
+      const randE = this.employees[Math.floor(Math.random() * this.employees.length)];
+      this.fireProbeBeam(randD, randE);
+    }
     
     if (this.streamMesh && this.streamMesh.geometry) {
       const positions = this.streamMesh.geometry.attributes.position.array;
@@ -611,6 +666,7 @@ export class NeuralGraph {
 
   dispose() {
     this.isActive = false;
+    this.isComputing = false;
     
     if (this.resizeTimeout) {
       clearTimeout(this.resizeTimeout);
