@@ -1335,7 +1335,7 @@ export function renderProgressShell() {
         <div class="ap-hero-hud">
           <div class="ap-hud-block">
             <span class="ap-hud-kicker">RadPlan Neural Scheduler</span>
-            <div class="ap-hud-title" id="ap-prog-title">Initialisierung</div>
+            <div class="ap-hud-title" id="ap-prog-title">Constraint Analyse</div>
           </div>
           <div class="ap-hud-spectacle" aria-hidden="true" id="ap-hud-spectacle-container">
             </div>
@@ -1373,7 +1373,7 @@ export function renderProgressShell() {
           </div>
           <div class="ap-neural-stats" style="pointer-events:none;">
              <span class="ap-neural-stat-pill">Visualizer Active</span>
-             <span class="ap-neural-stat-pill" style="color:#FBBF24" id="ap-ng-phase-pill">INITIALIZING</span>
+             <span class="ap-neural-stat-pill" style="color:#0EA5E9" id="ap-ng-phase-pill">INITIALIZING</span>
           </div>
         </div>
 
@@ -1409,6 +1409,7 @@ export async function streamProgressLogs(result) {
   const barEl = document.getElementById("ap-prog-bar");
   const pctEl = document.getElementById("ap-prog-pct");
   const phaseEl = document.getElementById("ap-phase-name");
+  const progTitle = document.getElementById("ap-prog-title");
   
   const log = result.log;
   const telemetry = result.ruleTelemetry?.events || [];
@@ -1484,12 +1485,30 @@ export async function streamProgressLogs(result) {
           if (i % 10 === 0) neuralGraphInstance.setPhase("deep");
           phasePill.textContent = "DEEP OPTIMIZE";
           phasePill.style.color = "#A855F7";
+          if (progTitle && progTitle.textContent !== "Deep-Search Optimierung") {
+            progTitle.textContent = "Deep-Search Optimierung";
+          }
         } else if (entry.phase === "hg") {
+          if (i % 5 === 0) neuralGraphInstance.setPhase("hg");
           phasePill.textContent = "HG BUNDLING";
           phasePill.style.color = "#38BDF8";
+          if (progTitle && progTitle.textContent !== "Hintergrund-Allokation") {
+            progTitle.textContent = "Hintergrund-Allokation";
+          }
         } else if (entry.phase === "greedy" || entry.phase === "bd_weekend" || entry.phase === "bd_workday") {
+          if (i % 5 === 0) neuralGraphInstance.setPhase("greedy");
           phasePill.textContent = "GREEDY PASS";
           phasePill.style.color = "#FBBF24";
+          if (progTitle && progTitle.textContent !== "Greedy-Heuristik Pass") {
+            progTitle.textContent = "Greedy-Heuristik Pass";
+          }
+        } else if (entry.phase === "init" || !entry.phase) {
+          if (i % 5 === 0) neuralGraphInstance.setPhase("init");
+          phasePill.textContent = "INITIALIZING";
+          phasePill.style.color = "#0EA5E9";
+          if (progTitle && progTitle.textContent !== "Constraint Analyse") {
+            progTitle.textContent = "Constraint Analyse";
+          }
         }
       }
     }
@@ -1509,6 +1528,9 @@ export async function streamProgressLogs(result) {
      if (phasePill) {
        phasePill.textContent = "CONVERGED";
        phasePill.style.color = "#22C55E";
+     }
+     if (progTitle) {
+       progTitle.textContent = "Berechnung abgeschlossen";
      }
   }
   
