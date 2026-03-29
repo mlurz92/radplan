@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="RadPlan — Digitaler Dienstplan für die Klinik für Radiologie & Nuklearmedizin">
   <meta name="theme-color" content="#0B1929">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="RadPlan">
   <title>RadPlan — Klinik für Radiologie & Nuklearmedizin</title>
@@ -15,8 +15,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="app.css">
-  <link rel="stylesheet" href="css/scheduler.css">
+  <link rel="stylesheet" href="css/core.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/modals.css">
+  <link rel="stylesheet" href="css/views.css">
 </head>
 <body>
 
@@ -50,7 +53,7 @@
       <button type="button" class="hbtn hbtn-accent" id="btn-dept" title="Abteilungsübersicht für alle Mitarbeitenden">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <rect x="2" y="7" width="20" height="14" rx="2"/>
-          <path d="M16" y1="7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+          <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
           <line x1="12" y1="12" x2="12" y2="17"/>
           <line x1="9"  y1="14.5" x2="15" y2="14.5"/>
         </svg>
@@ -165,9 +168,7 @@
     </div>
 
     <div class="plan-bar-right">
-      <button type="button" class="plan-btn plan-btn-auto" id="btn-plan-auto"
-              title="Automatische Diensteinteilung nach fairen Kriterien berechnen"
-              aria-label="Auto-Planung starten">
+      <button type="button" class="plan-btn plan-btn-auto" id="btn-plan-auto" title="Automatische Diensteinteilung nach fairen Kriterien berechnen" aria-label="Auto-Planung starten">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 2L2 7l10 5 10-5-10-5z"/>
           <path d="M2 17l10 5 10-5"/>
@@ -176,9 +177,7 @@
         <span>Auto-Plan</span>
       </button>
 
-      <button type="button" class="plan-btn plan-btn-abort" id="btn-plan-abort"
-              title="Alle nicht gespeicherten Änderungen verwerfen"
-              aria-label="Änderungen abbrechen">
+      <button type="button" class="plan-btn plan-btn-abort" id="btn-plan-abort" title="Alle nicht gespeicherten Änderungen verwerfen" aria-label="Änderungen abbrechen">
         <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
           <polyline points="1 4 1 10 7 10"/>
           <path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
@@ -186,9 +185,7 @@
         <span>Abbrechen</span>
       </button>
 
-      <button type="button" class="plan-btn plan-btn-save" id="btn-plan-save"
-              title="Planung als Entwurf speichern"
-              aria-label="Planung speichern">
+      <button type="button" class="plan-btn plan-btn-save" id="btn-plan-save" title="Planung als Entwurf speichern" aria-label="Planung speichern">
         <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
           <polyline points="17 21 17 13 7 13 7 21"/>
@@ -197,9 +194,7 @@
         <span>Speichern</span>
       </button>
 
-      <button type="button" class="plan-btn plan-btn-close" id="btn-plan-close"
-              title="Planungsmodus verlassen"
-              aria-label="Planungsmodus schließen">
+      <button type="button" class="plan-btn plan-btn-close" id="btn-plan-close" title="Planungsmodus verlassen" aria-label="Planungsmodus schließen">
         <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <line x1="18" y1="6" x2="6" y2="18"/>
           <line x1="6"  y1="6" x2="18" y2="18"/>
@@ -207,9 +202,7 @@
         <span>Schließen</span>
       </button>
 
-      <button type="button" class="plan-btn plan-btn-apply" id="btn-plan-apply"
-              title="Planungsentwurf in den Hauptplan übernehmen"
-              aria-label="Planung in Hauptplan übernehmen">
+      <button type="button" class="plan-btn plan-btn-apply" id="btn-plan-apply" title="Planungsentwurf in den Hauptplan übernehmen" aria-label="Planung in Hauptplan übernehmen">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
           <polyline points="20 6 9 17 4 12"/>
         </svg>
@@ -583,9 +576,7 @@
 
   <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
-  <script src="js/model.js" defer></script>
-  <script src="js/scheduler-ui.js" defer></script>
-  <script src="js/render.js" defer></script>
-  <script src="js/app.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
