@@ -21,10 +21,10 @@ export let state = {
     year: 2026, 
     month: new Date().getMonth() 
   },
-  profileEmp: null,
+  profileEmp: null
 };
 
-export let deptTab = "month";
+export let teamTab = "month";
 export let planMode = false;
 export let planData = null;
 export let planBaseline = null;
@@ -103,8 +103,8 @@ export function saveToStorage() {
   }, 800);
 }
 
-export function setDeptTab(val) { 
-  deptTab = val; 
+export function setTeamTab(val) { 
+  teamTab = val; 
 }
 
 export function setPlanMode(val) { 

@@ -45,6 +45,7 @@ import {
   TOD_Y,
   TOD_M,
   TOD_D,
+  teamTab,
   loadFromStorage,
   saveToStorage,
   setPlanMode,
@@ -52,7 +53,7 @@ import {
   setPlanBaseline,
   setPlanHistory,
   setPlanHistoryIdx,
-  setDeptTab
+  setTeamTab
 } from './state.js';
 
 import {
@@ -78,8 +79,7 @@ import {
   showOverlay,
   hideOverlay,
   showToast,
-  renderDeptContent,
-  renderEmployeeDashboard,
+  renderTeamHub,
   openProfileModal,
   refreshOpenContextPanels,
   updateOpenModalLayouts,
@@ -517,6 +517,33 @@ export function openEditor(emp, day) {
   showOverlay("modal-editor");
 }
 
+export function openTeamProfileFor(empName) {
+  const { year: y } = state;
+  const employees = getEmployeesForYear(y);
+  
+  if (employees.includes(empName)) {
+    state.employeeDashboard.selectedEmp = empName;
+  }
+  
+  setTeamTab("profiles");
+  document.querySelectorAll(".dept-tab").forEach((t) => t.classList.remove("active"));
+  
+  const tab = document.getElementById("tab-team-profiles");
+  if (tab) {
+    tab.classList.add("active");
+  }
+  
+  renderTeamHub();
+  showOverlay("modal-team");
+  
+  setTimeout(() => {
+    const searchInput = document.getElementById("emp-search");
+    if (searchInput) {
+      searchInput.focus();
+    }
+  }, 100);
+}
+
 export function refreshEditorChips() {
   const { year: y, month: m } = state;
   const { wp, st, duty } = state.ed;
@@ -796,11 +823,10 @@ export function confirmRemoveEmployee(name, refreshList = false) {
   if (confirm(`„${name}" aus ${MONTHS[m]} ${y} entfernen?`)) {
     removeEmployee(y, m, name);
     render();
-    if (refreshList) {
-      renderEmployeeDashboard();
-    } else {
-      renderEmployeeDashboard();
+    if (state.employeeDashboard.selectedEmp === name) {
+      state.employeeDashboard.selectedEmp = null;
     }
+    renderTeamHub();
   }
 }
 
@@ -1883,19 +1909,24 @@ export function wireEvents() {
   document.getElementById("btn-next")?.addEventListener("click", () => changeMonth(1));
   document.getElementById("btn-today")?.addEventListener("click", handleTodayClick);
   
-  document.getElementById("btn-employees")?.addEventListener("click", () => {
-    const { year: y } = state;
-    const employees = getEmployeesForYear(y);
-    if (!state.employeeDashboard.selectedEmp || !employees.includes(state.employeeDashboard.selectedEmp)) {
-      state.employeeDashboard.selectedEmp = employees[0] || null;
-    }
-    const empSub = document.getElementById("emp-sub");
-    if (empSub) {
-      empSub.textContent = `Kalenderjahr ${y}`;
-    }
-    renderEmployeeDashboard();
-    showOverlay("modal-emps");
-    setTimeout(() => document.getElementById("emp-search")?.focus(), 80);
+  document.getElementById("btn-team")?.addEventListener("click", () => {
+    setTeamTab("month");
+    document.querySelectorAll(".dept-tab").forEach(t => t.classList.remove("active"));
+    document.getElementById("tab-team-month")?.classList.add("active");
+    import('./render.js').then(m => {
+      m.renderTeamHub();
+      m.showOverlay("modal-team");
+    });
+  });
+  
+  document.getElementById("mnav-team")?.addEventListener("click", () => {
+    setTeamTab("month");
+    document.querySelectorAll(".dept-tab").forEach(t => t.classList.remove("active"));
+    document.getElementById("tab-team-month")?.classList.add("active");
+    import('./render.js').then(m => {
+      m.renderTeamHub();
+      m.showOverlay("modal-team");
+    });
   });
   
   document.getElementById("month-label-btn")?.addEventListener("click", () => { 
@@ -1906,7 +1937,7 @@ export function wireEvents() {
     }
   });
   
-  document.getElementById("emp-open-period")?.addEventListener("click", openPeriodFlyout);
+  document.getElementById("team-open-period")?.addEventListener("click", openPeriodFlyout);
   document.getElementById("period-flyout-close")?.addEventListener("click", closePeriodFlyout);
   
   document.getElementById("period-month-select")?.addEventListener("change", (e) => { 
@@ -1953,20 +1984,13 @@ export function wireEvents() {
   
   document.getElementById("emp-search")?.addEventListener("input", (e) => { 
     state.employeeDashboard.filter = e.target.value; 
-    renderEmployeeDashboard(); 
-  });
-  
-  document.querySelectorAll(".empdash-view-btn").forEach((btn) => {
-    btn.addEventListener("click", () => { 
-      state.employeeDashboard.detailView = btn.dataset.view; 
-      renderEmployeeDashboard(); 
-    });
+    import('./render.js').then(m => m.renderTeamHub()); 
   });
   
   document.addEventListener("click", (e) => {
     const flyout = document.getElementById("period-flyout");
     const trigger = document.getElementById("month-label-btn");
-    const inlineBtn = document.getElementById("emp-open-period");
+    const inlineBtn = document.getElementById("team-open-period");
     
     if (!isPeriodFlyoutOpen()) return;
     if (flyout?.contains(e.target) || trigger?.contains(e.target) || inlineBtn?.contains(e.target)) {
@@ -1974,16 +1998,6 @@ export function wireEvents() {
     }
     
     closePeriodFlyout();
-  });
-  
-  document.getElementById("btn-dept")?.addEventListener("click", () => {
-    const modal = document.getElementById("modal-dept");
-    if (!modal) return;
-    setDeptTab("month");
-    document.querySelectorAll(".dept-tab").forEach((t) => t.classList.remove("active"));
-    document.getElementById("dept-tab-month")?.classList.add("active");
-    renderDeptContent();
-    showOverlay("modal-dept");
   });
   
   document.getElementById("btn-export")?.addEventListener("click", () => {
@@ -2002,16 +2016,6 @@ export function wireEvents() {
     }
   });
   
-  document.getElementById("mnav-dept")?.addEventListener("click", () => {
-    const modal = document.getElementById("modal-dept");
-    if (!modal) return;
-    setDeptTab("month");
-    document.querySelectorAll(".dept-tab").forEach((t) => t.classList.remove("active"));
-    document.getElementById("dept-tab-month")?.classList.add("active");
-    renderDeptContent();
-    showOverlay("modal-dept");
-  });
-  
   document.getElementById("mnav-plan")?.addEventListener("click", () => { 
     if (planMode) {
       closePlanMode(); 
@@ -2021,11 +2025,6 @@ export function wireEvents() {
   });
   
   document.getElementById("mnav-menu")?.addEventListener("click", () => showOverlay("modal-mobile-menu"));
-  
-  document.getElementById("mbtn-employees")?.addEventListener("click", () => { 
-    hideOverlay("modal-mobile-menu"); 
-    setTimeout(() => document.getElementById("btn-employees")?.click(), 180); 
-  });
   
   document.getElementById("mbtn-today")?.addEventListener("click", () => { 
     hideOverlay("modal-mobile-menu"); 
@@ -2079,18 +2078,26 @@ export function wireEvents() {
     doImport();
   });
   
-  document.getElementById("dept-tab-month")?.addEventListener("click", () => {
-    setDeptTab("month");
-    document.querySelectorAll(".dept-tab").forEach((t) => t.classList.remove("active"));
-    document.getElementById("dept-tab-month")?.classList.add("active");
-    renderDeptContent();
+  document.getElementById("tab-team-month")?.addEventListener("click", () => {
+    setTeamTab("month");
+    document.querySelectorAll(".dept-tab").forEach(t => t.classList.remove("active"));
+    document.getElementById("tab-team-month")?.classList.add("active");
+    import('./render.js').then(m => m.renderTeamHub());
   });
   
-  document.getElementById("dept-tab-year")?.addEventListener("click", () => {
-    setDeptTab("year");
-    document.querySelectorAll(".dept-tab").forEach((t) => t.classList.remove("active"));
-    document.getElementById("dept-tab-year")?.classList.add("active");
-    renderDeptContent();
+  document.getElementById("tab-team-year")?.addEventListener("click", () => {
+    setTeamTab("year");
+    document.querySelectorAll(".dept-tab").forEach(t => t.classList.remove("active"));
+    document.getElementById("tab-team-year")?.classList.add("active");
+    import('./render.js').then(m => m.renderTeamHub());
+  });
+
+  document.getElementById("tab-team-profiles")?.addEventListener("click", () => {
+    setTeamTab("profiles");
+    document.querySelectorAll(".dept-tab").forEach(t => t.classList.remove("active"));
+    document.getElementById("tab-team-profiles")?.classList.add("active");
+    import('./render.js').then(m => m.renderTeamHub());
+    setTimeout(() => document.getElementById("emp-search")?.focus(), 80);
   });
   
   document.querySelectorAll("[data-close]").forEach((btn) => {
@@ -2106,7 +2113,7 @@ export function wireEvents() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       [
-        "modal-editor", "modal-emps", "modal-import", "modal-profile", "modal-dept", 
+        "modal-editor", "modal-team", "modal-import", "modal-profile", 
         "modal-autoplan", "modal-ap-report", "modal-mobile-menu", "modal-mobile-day", 
         "modal-score-info"
       ].forEach((id) => {

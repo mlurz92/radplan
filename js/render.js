@@ -38,7 +38,7 @@ import {
   TOD_Y, 
   TOD_M, 
   TOD_D,
-  deptTab,
+  teamTab,
   setIsMobile
 } from './state.js';
 
@@ -61,7 +61,8 @@ import {
   openEditor, 
   getWish,
   isPeriodFlyoutOpen,
-  syncPeriodControls
+  syncPeriodControls,
+  openTeamProfileFor
 } from './app.js';
 
 import { autoPlanResult } from './autoplan.js';
@@ -85,6 +86,20 @@ window.fetch = async function(...args) {
   }
   return originalFetch.apply(this, args);
 };
+
+window._radplanCharts = window._radplanCharts || {};
+
+function initChart(id, config) {
+  if (window._radplanCharts[id]) {
+    window._radplanCharts[id].destroy();
+  }
+  if (window.Chart) {
+    const ctx = document.getElementById(id);
+    if (ctx) {
+      window._radplanCharts[id] = new window.Chart(ctx, config);
+    }
+  }
+}
 
 export function getViewportWidth() {
   const vv = window.visualViewport?.width;
@@ -205,14 +220,9 @@ export function scrollToToday() {
 }
 
 export function refreshOpenContextPanels() {
-  const deptModal = document.getElementById("modal-dept");
-  if (deptModal && !deptModal.hasAttribute("hidden")) {
-    renderDeptContent();
-  }
-  
-  const empModal = document.getElementById("modal-emps");
-  if (empModal && !empModal.hasAttribute("hidden")) {
-    renderEmployeeDashboard();
+  const teamModal = document.getElementById("modal-team");
+  if (teamModal && !teamModal.hasAttribute("hidden")) {
+    renderTeamHub();
   }
   
   const profileModal = document.getElementById("modal-profile");
@@ -867,22 +877,49 @@ export function openProfileModal(empName) {
     const wpEntries = Object.entries(s.wpCounts).sort((a, b) => b[1] - a[1]);
     if (wpEntries.length) {
       if (wpHdEl) wpHdEl.style.display = "";
-      const maxV = wpEntries[0][1];
-      const totalWP = s.totalActive;
-      wpChartEl.innerHTML = wpEntries.map(([code, cnt]) => {
-        const meta2 = CODE_MAP[code];
-        const pct = totalWP > 0 ? Math.round((cnt/totalWP)*100) : 0;
-        return `
-          <div class="dist-row">
-            <span class="dist-code" style="background:${meta2?.bg||"#f1f5f9"};color:${meta2?.fg||"#475569"}">${code}</span>
-            <div class="dist-bar-bg">
-              <div class="dist-bar-fill" style="width:${Math.round((cnt/maxV)*100)}%;background:${meta2?.fg||"#94a3b8"}"></div>
+      if (window.Chart) {
+        wpChartEl.innerHTML = '<div style="position:relative;height:180px;width:100%"><canvas id="pm-wp-canvas"></canvas></div>';
+        requestAnimationFrame(() => {
+          initChart('pm-wp-canvas', {
+            type: 'doughnut',
+            data: {
+              labels: wpEntries.map(e => e[0]),
+              datasets: [{
+                data: wpEntries.map(e => e[1]),
+                backgroundColor: wpEntries.map(e => CODE_MAP[e[0]]?.fg || '#475569'),
+                borderColor: '#ffffff',
+                borderWidth: 2
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              cutout: '65%',
+              plugins: {
+                legend: { position: 'right', labels: { color: '#64748B', font: { family: 'var(--font-sans)', size: 11 } } },
+                tooltip: { backgroundColor: '#1E293B', titleFont: { family: 'var(--font-sans)', size: 12 }, bodyFont: { family: 'var(--font-sans)', size: 13 }, padding: 10, cornerRadius: 4 }
+              }
+            }
+          });
+        });
+      } else {
+        const maxV = wpEntries[0][1];
+        const totalWP = s.totalActive;
+        wpChartEl.innerHTML = wpEntries.map(([code, cnt]) => {
+          const meta2 = CODE_MAP[code];
+          const pct = totalWP > 0 ? Math.round((cnt/totalWP)*100) : 0;
+          return `
+            <div class="dist-row">
+              <span class="dist-code" style="background:${meta2?.bg||"#f1f5f9"};color:${meta2?.fg||"#475569"}">${code}</span>
+              <div class="dist-bar-bg">
+                <div class="dist-bar-fill" style="width:${Math.round((cnt/maxV)*100)}%;background:${meta2?.fg||"#94a3b8"}"></div>
+              </div>
+              <span class="dist-count">${cnt}</span>
+              <span class="dist-pct">${pct}%</span>
             </div>
-            <span class="dist-count">${cnt}</span>
-            <span class="dist-pct">${pct}%</span>
-          </div>
-        `;
-      }).join("");
+          `;
+        }).join("");
+      }
     } else {
       if (wpHdEl) wpHdEl.style.display = "none";
       wpChartEl.innerHTML = "";
@@ -895,20 +932,47 @@ export function openProfileModal(empName) {
     const stEntries = Object.entries(s.stCounts).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     if (stEntries.length) {
       if (stHdEl) stHdEl.style.display = "";
-      const maxSt = stEntries[0][1];
-      stChartEl.innerHTML = stEntries.map(([code, cnt]) => {
-        const meta2 = CODE_MAP[code];
-        return `
-          <div class="dist-row">
-            <span class="dist-code" style="background:${meta2?.bg||"#f1f5f9"};color:${meta2?.fg||"#475569"}">${code}</span>
-            <div class="dist-bar-bg">
-              <div class="dist-bar-fill" style="width:${Math.round((cnt/maxSt)*100)}%;background:${meta2?.fg||"#94a3b8"}"></div>
+      if (window.Chart) {
+        stChartEl.innerHTML = '<div style="position:relative;height:180px;width:100%"><canvas id="pm-st-canvas"></canvas></div>';
+        requestAnimationFrame(() => {
+          initChart('pm-st-canvas', {
+            type: 'doughnut',
+            data: {
+              labels: stEntries.map(e => e[0]),
+              datasets: [{
+                data: stEntries.map(e => e[1]),
+                backgroundColor: stEntries.map(e => CODE_MAP[e[0]]?.fg || '#475569'),
+                borderColor: '#ffffff',
+                borderWidth: 2
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              cutout: '65%',
+              plugins: {
+                legend: { position: 'right', labels: { color: '#64748B', font: { family: 'var(--font-sans)', size: 11 } } },
+                tooltip: { backgroundColor: '#1E293B', titleFont: { family: 'var(--font-sans)', size: 12 }, bodyFont: { family: 'var(--font-sans)', size: 13 }, padding: 10, cornerRadius: 4 }
+              }
+            }
+          });
+        });
+      } else {
+        const maxSt = stEntries[0][1];
+        stChartEl.innerHTML = stEntries.map(([code, cnt]) => {
+          const meta2 = CODE_MAP[code];
+          return `
+            <div class="dist-row">
+              <span class="dist-code" style="background:${meta2?.bg||"#f1f5f9"};color:${meta2?.fg||"#475569"}">${code}</span>
+              <div class="dist-bar-bg">
+                <div class="dist-bar-fill" style="width:${Math.round((cnt/maxSt)*100)}%;background:${meta2?.fg||"#94a3b8"}"></div>
+              </div>
+              <span class="dist-count">${cnt}</span>
+              <span class="dist-pct"></span>
             </div>
-            <span class="dist-count">${cnt}</span>
-            <span class="dist-pct"></span>
-          </div>
-        `;
-      }).join("");
+          `;
+        }).join("");
+      }
     } else {
       if (stHdEl) stHdEl.style.display = "none";
       stChartEl.innerHTML = "";
@@ -1289,26 +1353,28 @@ export function showToast(msg) {
   }, 3400);
 }
 
-export function renderDeptContent() {
+export function renderTeamHub() {
   const { year: y, month: m } = state;
-  if (deptTab === "month") {
-    renderDeptMonth(y, m);
-  } else {
-    renderDeptYear(y);
+  if (teamTab === "month") {
+    renderTeamMonth(y, m);
+  } else if (teamTab === "year") {
+    renderTeamYear(y);
+  } else if (teamTab === "profiles") {
+    renderTeamProfiles(y, m);
   }
 }
 
-export function renderDeptMonth(y, m) {
-  const body = document.getElementById("dept-body");
+export function renderTeamMonth(y, m) {
+  const body = document.getElementById("team-body");
   if (!body) return;
   
   const hols = getSaxonyHolidaysCached(y);
   const md = getMonthData(y, m);
   const dim = daysInMonth(y, m);
   
-  const deptHeadLine = document.getElementById("dept-context-line");
-  if (deptHeadLine) {
-    deptHeadLine.textContent = `${MONTHS[m]} ${y}`;
+  const teamHeadLine = document.getElementById("team-context-line");
+  if (teamHeadLine) {
+    teamHeadLine.textContent = `Monats-Reporting · ${MONTHS[m]} ${y}`;
   }
   
   if (!md.employees.length) {
@@ -1408,7 +1474,7 @@ export function renderDeptMonth(y, m) {
   let rowsHtml = "";
   empStats.forEach(({ emp, s, meta, pc, vac, sick, fza, frei }) => {
     rowsHtml += `
-      <tr class="dept-tr">
+      <tr class="dept-tr is-clickable" data-emp="${emp}" style="cursor:pointer">
         <td class="dept-td-name" style="border-left:3px solid ${pc.border}">
           <span class="dept-emp-name">${emp}</span>
           ${meta.position !== "—" ? `<span class="dept-pos-badge" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span>` : ""}
@@ -1465,15 +1531,22 @@ export function renderDeptMonth(y, m) {
   `;
   
   body.innerHTML = stripHtml + tableHtml;
+  
+  body.querySelectorAll('.dept-tr.is-clickable').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const empName = tr.dataset.emp;
+      if (empName) openTeamProfileFor(empName);
+    });
+  });
 }
 
-export function renderDeptYear(year) {
-  const body = document.getElementById("dept-body");
+export function renderTeamYear(year) {
+  const body = document.getElementById("team-body");
   if (!body) return;
   
-  const deptHeadLine = document.getElementById("dept-context-line");
-  if (deptHeadLine) {
-    deptHeadLine.textContent = `Jahresübersicht ${year}`;
+  const teamHeadLine = document.getElementById("team-context-line");
+  if (teamHeadLine) {
+    teamHeadLine.textContent = `Jahres-Reporting · ${year}`;
   }
   
   const allEmpsList = getEmployeesForYear(year);
@@ -1554,7 +1627,7 @@ export function renderDeptYear(year) {
     const covCls = cov >= 80 ? "dept-cov-good" : cov >= 60 ? "dept-cov-mid" : cov > 0 ? "dept-cov-low" : "";
     
     rowsHtml += `
-      <tr class="dept-tr">
+      <tr class="dept-tr is-clickable" data-emp="${emp}" style="cursor:pointer">
         <td class="dept-td-name" style="border-left:3px solid ${pc.border}">
           <span class="dept-emp-name">${emp}</span>
           ${meta.position !== "—" ? `<span class="dept-pos-badge" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span>` : ""}
@@ -1606,41 +1679,105 @@ export function renderDeptYear(year) {
   `;
   
   body.innerHTML = stripHtml + tableHtml;
+  
+  body.querySelectorAll('.dept-tr.is-clickable').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const empName = tr.dataset.emp;
+      if (empName) openTeamProfileFor(empName);
+    });
+  });
 }
 
-export function renderEmployeeDashboard() {
-  const { year: y, month: m } = state;
+export function renderTeamProfiles(y, m) {
+  const body = document.getElementById("team-body");
+  if (!body) return;
+
+  let shell = document.getElementById("team-profiles-shell");
+  if (!shell) {
+    body.innerHTML = `
+      <div id="team-profiles-shell" style="display:flex; flex-direction:column; width:100%; height:100%; overflow-y:auto; padding: 20px;">
+        <section class="empdash-section">
+          <div class="empdash-summary-grid" id="emp-summary-grid"></div>
+        </section>
+        <section class="empdash-section">
+          <div class="empdash-toolbar">
+            <div class="empdash-toolbar-left">
+              <label class="empdash-search-wrap" for="emp-search">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="search" id="emp-search" class="text-input empdash-search" placeholder="Mitarbeitende filtern…" autocomplete="off" value="${state.employeeDashboard.filter}">
+              </label>
+              <div class="empdash-filter-pills" id="emp-role-filters" role="toolbar" aria-label="Rollenfilter"></div>
+            </div>
+            <div class="empdash-toolbar-right">
+              <div class="empdash-count" id="emp-visible-count" aria-live="polite"></div>
+            </div>
+          </div>
+          <div class="empdash-card-grid" id="emp-year-grid" role="list" aria-label="Jahresübersicht"></div>
+        </section>
+        <section class="empdash-section empdash-detail-section">
+          <div class="empdash-detail-head">
+            <div>
+              <div class="empdash-detail-title">Detailansicht Kalenderjahr</div>
+              <div class="empdash-detail-sub" id="emp-detail-sub">Bitte eine Person auswählen.</div>
+            </div>
+            <div class="empdash-view-switch" role="tablist">
+              <button type="button" class="empdash-view-btn ${state.employeeDashboard.detailView === 'months' ? 'active' : ''}" id="emp-view-months" data-view="months" role="tab" aria-selected="${state.employeeDashboard.detailView === 'months'}">Monatsverlauf</button>
+              <button type="button" class="empdash-view-btn ${state.employeeDashboard.detailView === 'calendar' ? 'active' : ''}" id="emp-view-calendar" data-view="calendar" role="tab" aria-selected="${state.employeeDashboard.detailView === 'calendar'}">Jahreskalender</button>
+              <button type="button" class="empdash-view-btn ${state.employeeDashboard.detailView === 'admin' ? 'active' : ''}" id="emp-view-admin" data-view="admin" role="tab" aria-selected="${state.employeeDashboard.detailView === 'admin'}">Verwaltung</button>
+            </div>
+          </div>
+          <div class="empdash-detail-panel" id="emp-detail-panel" role="tabpanel" aria-live="polite"></div>
+        </section>
+      </div>
+    `;
+
+    document.getElementById("emp-search").addEventListener("input", (e) => {
+      state.employeeDashboard.filter = e.target.value;
+      renderTeamProfiles(state.year, state.month);
+    });
+
+    document.querySelectorAll(".empdash-view-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.employeeDashboard.detailView = btn.dataset.view;
+        renderTeamProfiles(state.year, state.month);
+      });
+    });
+  }
+
+  document.querySelectorAll('.empdash-view-btn').forEach((btn) => {
+    const active = btn.dataset.view === state.employeeDashboard.detailView;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+
   const dash = state.employeeDashboard;
   const employees = getEmployeesForYear(y);
-  
+  const currentMonthData = getMonthData(y, m);
+
+  const contextEl = document.getElementById("team-context-line");
+  if (contextEl) {
+    contextEl.textContent = `Mitarbeitenden-Profile · ${employees.length} Profile im Jahr ${y}`;
+  }
+
   const summaryEl = document.getElementById("emp-summary-grid");
   const gridEl = document.getElementById("emp-year-grid");
   const detailEl = document.getElementById("emp-detail-panel");
   const detailSub = document.getElementById("emp-detail-sub");
   const countEl = document.getElementById("emp-visible-count");
-  const contextEl = document.getElementById("emp-context-line");
-  
-  if (!summaryEl || !gridEl || !detailEl) return;
-  
-  const currentMonthData = getMonthData(y, m);
-  
-  if (contextEl) {
-    contextEl.textContent = `${MONTHS[m]} ${y} · ${currentMonthData.employees.length} Mitarbeitende im aktuellen Monat · ${employees.length} eindeutige Mitarbeitende im Jahr`;
-  }
-  
+
   if (!employees.length) {
-    summaryEl.innerHTML = `<div class="empdash-empty">Keine Mitarbeitendendaten für ${y} vorhanden.</div>`;
-    gridEl.innerHTML = "";
-    detailEl.innerHTML = `<div class="empdash-empty">Bitte zuerst Mitarbeitende anlegen.</div>`;
+    if (summaryEl) summaryEl.innerHTML = `<div class="empdash-empty">Keine Mitarbeitendendaten für ${y} vorhanden.</div>`;
+    if (gridEl) gridEl.innerHTML = "";
+    if (detailEl) detailEl.innerHTML = `<div class="empdash-empty">Bitte zuerst Mitarbeitende anlegen.</div>`;
     if (countEl) countEl.textContent = "0 sichtbar";
     renderRoleFilters(employees);
     return;
   }
-  
+
   const metrics = employees.map((emp) => getEmployeeYearCardMetrics(emp, y));
   const activeCount = metrics.filter((item) => item.activeMonths > 0).length;
   const dutyCount = metrics.reduce((sum, item) => sum + item.ys.totals.dutyD + item.ys.totals.dutyHG, 0);
-  
+
   const roles = metrics.reduce((acc, item) => {
     const pos = item.meta.position;
     if (["CA", "LOA", "OA", "OÄ"].includes(pos)) acc.lead++;
@@ -1649,24 +1786,26 @@ export function renderEmployeeDashboard() {
     else acc.other++;
     return acc;
   }, { lead: 0, fa: 0, aa: 0, other: 0 });
-  
+
   const kpiItems = [
     { label: "Mitarbeitende im Jahr", value: employees.length, sub: `${activeCount} mit Aktivität`, tone: "#0EA5E9" },
     { label: "Aktueller Monatsbestand", value: currentMonthData.employees.length, sub: `${MONTHS[m]} ${y}`, tone: "#22C55E" },
     { label: "Dienste im Jahr", value: dutyCount, sub: "D + HG kumuliert", tone: "#F97316" },
     { label: "Rollenmix", value: `${roles.lead}/${roles.fa}/${roles.aa}`, sub: "Leitung · FA · AA", tone: "#A855F7" },
   ];
-  
-  summaryEl.innerHTML = kpiItems.map((item) => `
-    <article class="empdash-kpi">
-      <div class="empdash-kpi-label">${item.label}</div>
-      <div class="empdash-kpi-value" style="color:${item.tone}">${item.value}</div>
-      <div class="empdash-kpi-sub">${item.sub}</div>
-    </article>
-  `).join("");
-  
+
+  if (summaryEl) {
+    summaryEl.innerHTML = kpiItems.map((item) => `
+      <article class="empdash-kpi">
+        <div class="empdash-kpi-label">${item.label}</div>
+        <div class="empdash-kpi-value" style="color:${item.tone}">${item.value}</div>
+        <div class="empdash-kpi-sub">${item.sub}</div>
+      </article>
+    `).join("");
+  }
+
   renderRoleFilters(employees);
-  
+
   const query = dash.filter.trim().toLowerCase();
   const filtered = metrics.filter((item) => {
     if (!matchRoleFilter(item.emp, dash.role)) return false;
@@ -1674,66 +1813,68 @@ export function renderEmployeeDashboard() {
     const hay = [item.emp, item.meta.fullName, item.meta.posLabel, item.meta.position, item.meta.area].join(" ").toLowerCase();
     return hay.includes(query);
   });
-  
+
   if (!dash.selectedEmp || !employees.includes(dash.selectedEmp)) {
     dash.selectedEmp = filtered[0]?.emp || null;
   }
-  
+
   if (countEl) {
     countEl.textContent = `${filtered.length} von ${employees.length} sichtbar`;
   }
-  
+
   if (filtered.length === 0) {
-    gridEl.innerHTML = `<div class="empdash-empty">Keine Mitarbeitenden entsprechen dem Filter.</div>`;
+    if (gridEl) gridEl.innerHTML = `<div class="empdash-empty">Keine Mitarbeitenden entsprechen dem Filter.</div>`;
   } else {
-    gridEl.innerHTML = filtered.map((item) => {
-      const pc = posColor(item.meta.position);
-      const vac = item.ys.totals.vacationDays || 0;
-      const sick = item.ys.totals.sickDays || 0;
-      const selectedCls = dash.selectedEmp === item.emp ? " active" : "";
-      
-      return `
-        <button type="button" class="empdash-card${selectedCls}" data-emp="${item.emp}" role="listitem">
-          <div class="empdash-card-top">
-            <span class="empdash-avatar" style="background:linear-gradient(135deg,${pc.border},${pc.fg})">${empInitials(item.emp)}</span>
-            <div class="empdash-card-meta">
-              <span class="empdash-card-name">${item.emp}</span>
-              <span class="empdash-card-sub">${item.meta.posLabel !== "—" ? item.meta.posLabel : "ohne Stammdaten"}</span>
+    if (gridEl) {
+      gridEl.innerHTML = filtered.map((item) => {
+        const pc = posColor(item.meta.position);
+        const vac = item.ys.totals.vacationDays || 0;
+        const sick = item.ys.totals.sickDays || 0;
+        const selectedCls = dash.selectedEmp === item.emp ? " active" : "";
+        
+        return `
+          <button type="button" class="empdash-card${selectedCls}" data-emp="${item.emp}" role="listitem">
+            <div class="empdash-card-top">
+              <span class="empdash-avatar" style="background:linear-gradient(135deg,${pc.border},${pc.fg})">${empInitials(item.emp)}</span>
+              <div class="empdash-card-meta">
+                <span class="empdash-card-name">${item.emp}</span>
+                <span class="empdash-card-sub">${item.meta.posLabel !== "—" ? item.meta.posLabel : "ohne Stammdaten"}</span>
+              </div>
+              <span class="empdash-pos" style="background:${pc.bg};color:${pc.fg}">${item.meta.position}</span>
             </div>
-            <span class="empdash-pos" style="background:${pc.bg};color:${pc.fg}">${item.meta.position}</span>
-          </div>
-          <div class="empdash-card-stats">
-            <span><strong>${item.ys.totals.totalActive || 0}</strong><small>Aktiv</small></span>
-            <span><strong>${item.ys.totals.dutyD || 0}</strong><small>D</small></span>
-            <span><strong>${item.ys.totals.dutyHG || 0}</strong><small>HG</small></span>
-            <span><strong>${item.coverage}%</strong><small>Abdeckung</small></span>
-          </div>
-          <div class="empdash-card-foot">
-            <span>${item.activeMonths}/12 Monate</span>
-            <span>U ${vac} · K ${sick}</span>
-          </div>
-        </button>
-      `;
-    }).join("");
-    
-    gridEl.querySelectorAll("[data-emp]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        dash.selectedEmp = btn.dataset.emp;
-        renderEmployeeDashboard();
+            <div class="empdash-card-stats">
+              <span><strong>${item.ys.totals.totalActive || 0}</strong><small>Aktiv</small></span>
+              <span><strong>${item.ys.totals.dutyD || 0}</strong><small>D</small></span>
+              <span><strong>${item.ys.totals.dutyHG || 0}</strong><small>HG</small></span>
+              <span><strong>${item.coverage}%</strong><small>Abdeckung</small></span>
+            </div>
+            <div class="empdash-card-foot">
+              <span>${item.activeMonths}/12 Monate</span>
+              <span>U ${vac} · K ${sick}</span>
+            </div>
+          </button>
+        `;
+      }).join("");
+
+      gridEl.querySelectorAll("[data-emp]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          dash.selectedEmp = btn.dataset.emp;
+          renderTeamProfiles(state.year, state.month);
+        });
       });
-    });
+    }
   }
-  
+
   if (!dash.selectedEmp) {
-    detailEl.innerHTML = `<div class="empdash-empty">Bitte eine Person auswählen.</div>`;
+    if (detailEl) detailEl.innerHTML = `<div class="empdash-empty">Bitte eine Person auswählen.</div>`;
     if (detailSub) {
       detailSub.textContent = "Bitte eine Person auswählen.";
     }
     return;
   }
-  
-  renderEmployeeDetailDashboard(dash.selectedEmp, y);
-  
+
+  renderTeamEmployeeDetail(dash.selectedEmp, y);
+
   if (detailSub) {
     const viewName = dash.detailView === "months" ? "Monatsverlauf" : dash.detailView === "calendar" ? "Jahreskalender" : "Verwaltung";
     detailSub.textContent = `${dash.selectedEmp} · Kalenderjahr ${y} · Detailansicht ${viewName}`;
@@ -1766,12 +1907,12 @@ export function renderRoleFilters(employees) {
   el.querySelectorAll("[data-role]").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.employeeDashboard.role = btn.dataset.role;
-      renderEmployeeDashboard();
+      renderTeamProfiles(state.year, state.month);
     });
   });
 }
 
-export function renderEmployeeDetailDashboard(emp, year) {
+export function renderTeamEmployeeDetail(emp, year) {
   const detailEl = document.getElementById("emp-detail-panel");
   if (!detailEl) return;
   
@@ -1779,12 +1920,6 @@ export function renderEmployeeDetailDashboard(emp, year) {
   const pc = posColor(meta.position);
   const ys = buildYearlyStats(emp, year);
   const currentMonthData = getMonthData(state.year, state.month);
-  
-  document.querySelectorAll('.empdash-view-btn').forEach((btn) => {
-    const active = btn.dataset.view === state.employeeDashboard.detailView;
-    btn.classList.toggle('active', active);
-    btn.setAttribute('aria-selected', active ? 'true' : 'false');
-  });
   
   if (state.employeeDashboard.detailView === 'months') {
     let html = `
@@ -1797,6 +1932,13 @@ export function renderEmployeeDetailDashboard(emp, year) {
           </div>
         </div>
       </div>
+    `;
+    
+    if (window.Chart) {
+      html += `<div class="empdash-chart-container" style="position:relative; height:220px; width:100%; margin:24px 0;"><canvas id="empdash-months-chart"></canvas></div>`;
+    }
+    
+    html += `
       <div class="empdash-month-table-wrap">
         <table class="empdash-month-table">
           <thead>
@@ -1861,7 +2003,94 @@ export function renderEmployeeDetailDashboard(emp, year) {
         </table>
       </div>
     `;
+    
     detailEl.innerHTML = html;
+    
+    if (window.Chart) {
+      requestAnimationFrame(() => {
+        const labels = ys.months.map(m => MONTHS_SHORT[m.m]);
+        const dataActive = ys.months.map(m => m.totalActive);
+        const dataD = ys.months.map(m => m.dutyD);
+        const dataHG = ys.months.map(m => m.dutyHG);
+        
+        initChart('empdash-months-chart', {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                type: 'line',
+                label: 'Aktiv (Tage)',
+                data: dataActive,
+                borderColor: '#1D4ED8',
+                backgroundColor: 'rgba(29, 78, 216, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                yAxisID: 'y'
+              },
+              {
+                type: 'bar',
+                label: 'Bereitschaft (D)',
+                data: dataD,
+                backgroundColor: '#EF4444',
+                borderRadius: 4,
+                yAxisID: 'y1'
+              },
+              {
+                type: 'bar',
+                label: 'Hintergrund (HG)',
+                data: dataHG,
+                backgroundColor: '#0EA5E9',
+                borderRadius: 4,
+                yAxisID: 'y1'
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: 'index',
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                position: 'top',
+                labels: { color: '#475569', font: { family: 'var(--font-sans)', size: 12 } }
+              },
+              tooltip: {
+                backgroundColor: '#1E293B',
+                titleFont: { family: 'var(--font-sans)', size: 13 },
+                bodyFont: { family: 'var(--font-sans)', size: 12 },
+                padding: 10,
+                cornerRadius: 6
+              }
+            },
+            scales: {
+              x: {
+                grid: { display: false }
+              },
+              y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                beginAtZero: true,
+                title: { display: true, text: 'Aktiv-Tage', color: '#64748B', font: { size: 11 } }
+              },
+              y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                beginAtZero: true,
+                grid: { drawOnChartArea: false },
+                title: { display: true, text: 'Dienste', color: '#64748B', font: { size: 11 } }
+              }
+            }
+          }
+        });
+      });
+    }
     return;
   }
   
@@ -1970,7 +2199,7 @@ export function renderEmployeeDetailDashboard(emp, year) {
       addEmployee(state.year, state.month, emp);
     }
     render();
-    renderEmployeeDashboard();
+    renderTeamProfiles(state.year, state.month);
   });
   
   document.getElementById('emp-add-btn')?.addEventListener('click', () => {
@@ -1981,7 +2210,7 @@ export function renderEmployeeDetailDashboard(emp, year) {
     input.value = '';
     state.employeeDashboard.selectedEmp = name;
     render();
-    renderEmployeeDashboard();
+    renderTeamProfiles(state.year, state.month);
     input.focus();
   });
   

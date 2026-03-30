@@ -1,582 +1,186 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="RadPlan — Digitaler Dienstplan für die Klinik für Radiologie & Nuklearmedizin">
-  <meta name="theme-color" content="#0B1929">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="RadPlan">
-  <title>RadPlan — Klinik für Radiologie & Nuklearmedizin</title>
-  <link rel="icon" type="image/svg+xml" href="img/icon.svg">
-  <link rel="apple-touch-icon" href="img/icon.svg">
-  <link rel="manifest" href="manifest.json">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/core.css">
-  <link rel="stylesheet" href="css/layout.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/modals.css">
-  <link rel="stylesheet" href="css/views.css">
-</head>
-<body>
+# RadPlan – Neural Scheduler & Duty Management System
 
-  <header id="app-header">
-    <div class="brand">
-      <img class="brand-icon" src="img/icon_animated.svg" alt="RadPlan" aria-hidden="true" width="30" height="30">
-      <div class="brand-text">
-        <div class="brand-name">RadPlan</div>
-      </div>
-    </div>
+**RadPlan** ist eine hochspezialisierte, reaktive und vollständig clientseitig operierende Web-Applikation zur Dienst- und Arbeitsplatzplanung in radiologischen Kliniken. Die Anwendung kombiniert eine hochperformante, datengesteuerte Benutzeroberfläche mit einem iterativen, heuristischen Optimierungsalgorithmus (**Neural Scheduler**), um komplexe Dienstpläne (Bereitschafts- und Hintergrunddienste) unter Berücksichtigung strenger arbeitsrechtlicher, ergonomischer und individueller Constraints automatisiert zu generieren, visuell in Echtzeit auszuwerten und mathematisch zu evaluieren.
 
-    <nav class="month-nav" aria-label="Monatsnavigation">
-      <button type="button" class="nav-btn" id="btn-prev" title="Vorheriger Monat (Alt+←)" aria-label="Vorheriger Monat">‹</button>
-      <button type="button" class="month-label-btn" id="month-label-btn" aria-haspopup="dialog" aria-controls="period-flyout" aria-expanded="false" title="Zeitraum auswählen"><span id="month-label" aria-live="polite" aria-atomic="true">Januar 2026</span><span class="month-label-caret" aria-hidden="true">▾</span></button>
-      <button type="button" class="nav-btn" id="btn-next" title="Nächster Monat (Alt+→)" aria-label="Nächster Monat">›</button>
-    </nav>
+---
 
-    <div class="header-actions" role="toolbar" aria-label="Aktionen">
-      <button type="button" id="btn-today" title="Zum heutigen Tag" aria-label="Zum heutigen Monat springen">
-        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="3" y="4" width="18" height="18" rx="2"/>
-          <line x1="16" y1="2" x2="16" y2="6"/>
-          <line x1="8"  y1="2" x2="8"  y2="6"/>
-          <line x1="3"  y1="10" x2="21" y2="10"/>
-          <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/>
-        </svg>
-      </button>
+## 1. Systemarchitektur & Technologie-Stack
 
-      <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
+Die Applikation ist nach dem Prinzip einer **Progressive Web App (PWA)** konzipiert und verzichtet vollständig auf externe Frameworks (wie React, Angular oder Vue) sowie Backend-Abhängigkeiten (keine Datenbank, kein Node.js). 
 
-      <button type="button" class="hbtn hbtn-accent" id="btn-dept" title="Abteilungsübersicht für alle Mitarbeitenden">
-        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="2" y="7" width="20" height="14" rx="2"/>
-          <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
-          <line x1="12" y1="12" x2="12" y2="17"/>
-          <line x1="9"  y1="14.5" x2="15" y2="14.5"/>
-        </svg>
-        <span class="hbtn-lbl">Abteilung</span>
-      </button>
+* **Kern-Technologien:** Vanilla JavaScript (ES6+ Module), HTML5, CSS3 (CSS Variables, Flexbox, CSS Grid, 3D Transforms, Viewport-Units).
+* **Persistenz-Schicht:** Vollständige Datenspeicherung im lokalen `localStorage` des Browsers. Das gesamte relationale Datenmodell wird in Echtzeit serialisiert und deserialisiert.
+* **Offline-Fähigkeit & Mock-Backend:** Ein integrierter Fetch-Interceptor (`window.fetch` Override in `js/render.js`) fängt ausgehende Netzwerk-Requests (z. B. `/api?action=save`) ab und simuliert synthetische HTTP-Responses. Dies verhindert 404-Fehler und garantiert eine lückenlose Offline-Nutzung inklusive persistenter lokaler Speicherung.
+* **Rendering-Engine:** Ein feingranulares, zustandsbasiertes Rendering-Modul. DOM-Updates erfolgen selektiv, responsiv und Event-getrieben.
+* **Visualisierung:** Native HTML5-Canvas-API und hardwarebeschleunigte isometrische CSS-3D-Matrizen (`js/neuralgraph.js`) für die asynchrone, DOM-entkoppelte Darstellung des algorithmischen Fortschritts.
 
-      <button type="button" class="hbtn hbtn-ghost" id="btn-plan" title="Planungsmodus starten — unabhängige Planung ohne Hauptdaten zu verändern">
-        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-        </svg>
-        <span class="hbtn-lbl">Planung</span>
-      </button>
+---
 
-      <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
+## 2. Das Datenmodell (State & Storage)
 
-      <button type="button" class="hbtn hbtn-ghost" id="btn-employees" title="Mitarbeitende verwalten">
-        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
-        </svg>
-        <span class="hbtn-lbl">Mitarbeitende</span>
-      </button>
+Der Zustand der Applikation (`js/state.js`) trennt strikt zwischen **Persistent Data** (Dienstpläne, Mitarbeiterstamm, Wünsche) und **Volatile Data** (UI-Status, geöffnete Modals, Planungs-Drafts, Viewport-Metriken).
 
-      <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
+### 2.1 Persistente Struktur (`DATA`)
+Die Kern-Datenstruktur ist chronologisch in Monats-Schlüsseln (Format: `YYYY-MM`, z. B. `2026-03`) im Root-Objekt organisiert. Jeder Monats-Knoten enthält:
+* `employees`: Array von Strings. Definiert die exakten Namen der aktiven Mitarbeiter in diesem spezifischen Monat (ermöglicht historische Konsistenz bei Personalwechseln, Ein-/Austritten).
+* `assignments`: Verschachteltes Dictionary-Objekt (Hash-Map), das jedem Mitarbeiter ein Tages-Mapping zuordnet.
+  * *Struktur:* `assignments["Dr. Muster"]["15"] = { assignment: "MR/CT", duty: "D" }`
+  * `assignment`: Arbeitsplatz (z.B. "MR", "CT") oder Status (z.B. "U", "K", "F"). Mehrfachauswahl wird via Slash getrennt als String gespeichert ("MR/US").
+  * `duty`: Spezifischer Dienst ("D" für Bereitschaft, "HG" für Hintergrund) oder `null`.
+* `rbn`: Separates Key-Value-Mapping (`Tageszahl -> String`) für die stationsübergreifende Rolle der Neuroradiologie (abstrahiert vom regulären Personalstamm).
+* `wishes`: Dictionary zur Speicherung von Dienstwünschen (`BD_WISH`, `HG_WISH`, `NO_DUTY`).
 
-      <button type="button" class="hbtn hbtn-ghost" id="btn-export" title="Alle Daten als JSON exportieren (Strg+S)">
-        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
-        </svg>
-        <span class="hbtn-lbl">Export</span>
-      </button>
+### 2.2 Planungsmodus (Draft & Branching System)
+Beim Betreten des Planungsmodus (`enterPlanMode`) wird die Live-Datenbank vor unautorisierten Mutationen geschützt. Ein **Isolierter Speicher-Branch** (Snapshot `planBaseline` und `planData`) wird im RAM erstellt.
+* **History-Stack:** Jede destruktive oder konstruktive Aktion (Zuweisung, Löschung, Auto-Plan) klont den aktuellen Monatsstatus (Deep Clone) und pusht ihn in das `planHistory`-Array.
+* **Undo/Redo:** Die Manipulation des Pointers (`planHistoryIdx`) ermöglicht verlustfreies, bidirektionales Navigieren in der Historie (Strg+Z / Strg+Y).
+* **Commit/Abort:** Erst bei Auslösen von "Planung übernehmen" (`applyPlanToMain`) wird der Draft-Branch destruktiv in das Haupt-`DATA`-Objekt gemerged und persistent im `localStorage` verankert.
+* **Auto-F-Regel:** Das manuelle oder automatische Setzen eines "D"-Dienstes injiziert zwingend ein "F" (Frei) am chronologischen Folgetag, sofern dieser nicht bereits mit einem Urlaubs/Krank-Status belegt ist (Einhaltung der gesetzlichen Ruhezeit).
 
-      <button type="button" class="hbtn hbtn-ghost" id="btn-import" title="Daten aus JSON-Datei importieren">
-        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="17 8 12 3 7 8"/>
-          <line x1="12" y1="3" x2="12" y2="15"/>
-        </svg>
-        <span class="hbtn-lbl">Import</span>
-      </button>
-    </div>
-  </header>
+---
 
-  <div class="period-flyout" id="period-flyout" hidden aria-hidden="true">
-    <div class="period-flyout-head">
-      <div>
-        <div class="period-flyout-title">Zeitraumsteuerung</div>
-        <div class="period-flyout-sub">Monat und Jahr unabhängig umschalten – jederzeit, auch mit offenem Modal oder im Planungsmodus.</div>
-      </div>
-      <button type="button" class="period-flyout-close" id="period-flyout-close" aria-label="Zeitraumsteuerung schließen">✕</button>
-    </div>
-    <div class="period-flyout-body">
-      <div class="period-grid">
-        <label class="period-field">
-          <span class="period-label">Monat</span>
-          <select id="period-month-select" class="period-select" aria-label="Monat auswählen"></select>
-        </label>
-        <label class="period-field">
-          <span class="period-label">Jahr</span>
-          <div class="period-year-row">
-            <button type="button" class="period-step-btn" id="period-prev-year" aria-label="Vorheriges Jahr">−</button>
-            <input id="period-year-input" class="period-year-input" type="number" inputmode="numeric" min="2000" max="2100" step="1" aria-label="Jahr eingeben">
-            <button type="button" class="period-step-btn" id="period-next-year" aria-label="Nächstes Jahr">+</button>
-          </div>
-        </label>
-      </div>
-      <div class="period-jump-row">
-        <button type="button" class="period-pill" id="period-prev-month">← Monat</button>
-        <button type="button" class="period-pill" id="period-next-month">Monat →</button>
-      </div>
-      <div class="period-actions">
-        <button type="button" class="period-primary" id="period-apply">Zeitraum anwenden</button>
-        <button type="button" class="period-secondary" id="period-today">Heute</button>
-      </div>
-      <div class="period-context" id="period-context" aria-live="polite"></div>
-    </div>
-  </div>
+## 3. Benutzeroberfläche (UI) & Module
 
-  <div id="plan-bar" role="alert" aria-live="polite" aria-label="Planungsmodus aktiv" hidden style="display:none">
-    <div class="plan-bar-left">
-      <div class="plan-badge" aria-hidden="true">
-        <span class="plan-badge-pulse"></span>
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-        </svg>
-        Planungsmodus aktiv
-      </div>
-      <span class="plan-bar-month" id="plan-bar-month"></span>
-      <span class="plan-bar-hint">— Änderungen sind unabhängig vom Hauptplan</span>
-    </div>
+Die Designsprache folgt einem extrem verdichteten, datengetriebenen Ansatz ("High-Density UI") mit klarem Fokus auf **visuelle Informationshierarchie**, **telegrafischem Nominalstil** und strikter **Farb-Konditionierung** (D = Rot, HG = Blau).
 
-    <div class="plan-bar-center">
-      <button type="button" class="plan-hist-btn" id="btn-plan-undo" disabled title="Rückgängig (Strg+Z)" aria-label="Rückgängig">
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-          <polyline points="9 14 4 9 9 4"/>
-          <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
-        </svg>
-        <span>Rückgängig</span>
-      </button>
-      <button type="button" class="plan-hist-btn" id="btn-plan-redo" disabled title="Vorwärts (Strg+Y)" aria-label="Vorwärts">
-        <span>Vorwärts</span>
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-          <polyline points="15 14 20 9 15 4"/>
-          <path d="M4 20v-7a4 4 0 0 1 4-4h12"/>
-        </svg>
-      </button>
-    </div>
+### 3.1 Hauptkalender (Main Grid)
+* **Desktop-Ansicht:** Zweidimensionale Matrix (Mitarbeiter auf Y-Achse, Tage auf X-Achse). 
+* **Dynamische Zeit-Referenzen:** Wochenenden und Feiertage werden algorithmisch on-the-fly berechnet (inklusive sächsischer Spezifika wie Buß- und Bettag via Gauss-Osterformel) und visuell abgedunkelt. Das aktuelle Tagesdatum wird hervorgehoben (`.today-col`).
+* **Zell-Interaktion:** Klick (oder Space/Enter via Keyboard-Navigation) auf eine Zelle öffnet den Modal-Editor. 
+* **Statistik-Fußzeile (Tfoot):** Aggregiert vertikal die tägliche Belegung aller Kern-Arbeitsplätze (MR, CT) sowie Dienste. Identifiziert Über- und Unterbesetzungen farblich (Kritische Warnung in Rot bei >1 Dienst pro Typ/Tag).
 
-    <div class="plan-bar-right">
-      <button type="button" class="plan-btn plan-btn-auto" id="btn-plan-auto" title="Automatische Diensteinteilung nach fairen Kriterien berechnen" aria-label="Auto-Planung starten">
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-          <path d="M2 17l10 5 10-5"/>
-          <path d="M2 12l10 5 10-5"/>
-        </svg>
-        <span>Auto-Plan</span>
-      </button>
+### 3.2 Tastatur-Steuerung & Editor (`modal-editor`)
+Der Editor ist für maximale Input-Geschwindigkeit ohne Mausbenutzung (Power-User-Fokus) konzipiert.
+* **Ziffern 1–8:** Mappen direkt auf die Arbeitsplätze (1=MR, 2=CT, etc.). Toggle-Verhalten für Mehrfachauswahl.
+* **D / H:** Toggelt Bereitschaftsdienst (D) bzw. Hintergrunddienst (HG) für den gewählten Tag.
+* **S / Enter:** Speichert die Zuweisung und schließt das Modal.
+* **Kollisionsprüfung:** Das Modal warnt in Echtzeit im UI, wenn der gewählte Dienst bereits an einen anderen Arzt vergeben ist, oder der Folgetag ein Urlaubstag ist (was den Dienst am Vortag illegal machen würde).
 
-      <button type="button" class="plan-btn plan-btn-abort" id="btn-plan-abort" title="Alle nicht gespeicherten Änderungen verwerfen" aria-label="Änderungen abbrechen">
-        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-          <polyline points="1 4 1 10 7 10"/>
-          <path d="M3.51 15a9 9 0 1 0 .49-3.51"/>
-        </svg>
-        <span>Abbrechen</span>
-      </button>
+### 3.3 Dashboard & Profil-Analytics (`modal-emps` & `modal-profile`)
+* **KPI-Metriken:** Extrahierung von aktiven Monaten im System, relativer Abdeckungsquote (Coverage), kumulierten Diensten (D/HG) und Fehlzeiten pro Kalenderjahr.
+* **Rollen-Filter:** Facettierung des Dashboards nach Qualifikationsebene (CA, OA, FA, AA) via Meta-Daten-Mapping (`constants.js`).
+* **Profil-Radar & Verteilung:** Berechnet die tatsächliche Auslastung (FTE-Äquivalent), Urlaubstage, Krankheitstage und Freizeitausgleich (FZA). Die Coverage berechnet sich exakt aus: `Aktiv-Tage / (Gesamt-Werktage - Abwesenheiten)`.
+* **Mini-Jahreskalender:** 12-Monats-Übersicht mit Heatmap-Charakter zur schnellen Identifikation von Urlaubs-Clustern oder Dienst-Häufungen.
 
-      <button type="button" class="plan-btn plan-btn-save" id="btn-plan-save" title="Planung als Entwurf speichern" aria-label="Planung speichern">
-        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-          <polyline points="17 21 17 13 7 13 7 21"/>
-          <polyline points="7 3 7 8 15 8"/>
-        </svg>
-        <span>Speichern</span>
-      </button>
+### 3.4 Abteilungs-Ansicht (`modal-dept`)
+Aggregiert die Daten *aller* Mitarbeiter gegen die zur Verfügung stehenden *Werktage* des Monats oder Jahres.
+* **Coverage-Bars:** Zeigt in einer Fortschrittsleiste prozentual an, an wie vielen Werktagen die Kernarbeitsplätze (MR, CT) und Leitungsdienste (D, HG) effektiv besetzt waren.
+* **Team-Bilanz:** Tabellarische Aufschlüsselung der aggregierten Fehlzeiten (U, K, FZA) und offenen, unbesetzten Tage (Lücken) pro Mitarbeiter.
 
-      <button type="button" class="plan-btn plan-btn-close" id="btn-plan-close" title="Planungsmodus verlassen" aria-label="Planungsmodus schließen">
-        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <line x1="18" y1="6" x2="6" y2="18"/>
-          <line x1="6"  y1="6" x2="18" y2="18"/>
-        </svg>
-        <span>Schließen</span>
-      </button>
+### 3.5 Responsive Mobile View
+Wechselt bei einer Viewport-Breite `< 1200px` (oder dedizierten Touch-Devices) in eine vertikale, hierarchische Kartenansicht (`renderMobileDayList`). Das horizontale Scrollen der Matrix entfällt. Tage werden als aufklappbare Cards gerendert, in denen die Mitarbeiter nach Funktion (Facharzt / Assistenzarzt) gruppiert sind, wobei Diensthabende (D/HG) als Badges im Header der Tageskarte priorisiert sichtbar sind.
 
-      <button type="button" class="plan-btn plan-btn-apply" id="btn-plan-apply" title="Planungsentwurf in den Hauptplan übernehmen" aria-label="Planung in Hauptplan übernehmen">
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-          <polyline points="20 6 9 17 4 12"/>
-        </svg>
-        <span>Übernehmen</span>
-      </button>
-    </div>
-  </div>
+---
 
-  <div id="stats-bar" role="status" aria-label="Monatsstatistik" aria-live="polite"></div>
+## 4. Der "Neural Scheduler" (Auto-Plan Algorithmus)
 
-  <main>
-    <div id="grid-wrapper" role="region" aria-label="Dienstplan-Tabelle">
-      <table id="plan-table" role="grid" aria-label="Monatlicher Dienstplan">
-        <thead id="plan-thead"></thead>
-        <tbody id="plan-tbody"></tbody>
-        <tfoot id="plan-tfoot"></tfoot>
-      </table>
-    </div>
-  </main>
+Das mathematische Herzstück von RadPlan (`js/autoplan.js`). Der Algorithmus löst das NP-schwere Problem der fairen Dienstplanung durch eine kombinierte Architektur aus deterministischer Meta-Heuristik und einer mutationsbasierten Tiefensuche (Simulated Annealing / Hill Climbing Derivat).
 
-  <div id="mobile-view" class="mobile-view">
-    <div id="mobile-month-summary" class="mobile-month-summary" role="status" aria-label="Monatsstatistik" aria-live="polite"></div>
-    <div id="mobile-day-list" class="mobile-day-list" role="list" aria-label="Tagesübersicht"></div>
-  </div>
+### 4.1 Die 8 Berechnungsphasen
 
-  <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile Navigation">
-    <button type="button" class="mnav-btn" id="mnav-dept" aria-label="Abteilung">
-      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="17"/><line x1="9" y1="14.5" x2="15" y2="14.5"/></svg>
-      <span>Abteilung</span>
-    </button>
-    <button type="button" class="mnav-btn mnav-plan" id="mnav-plan" aria-label="Planung">
-      <div class="mnav-plan-icon">
-        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      </div>
-      <span>Planung</span>
-    </button>
-    <button type="button" class="mnav-btn" id="mnav-menu" aria-label="Menü">
-      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      <span>Menü</span>
-    </button>
-  </nav>
+#### Phase 1: Initialisierung & Constraint-Analyse (`init`)
+* Extrahieren der Monatsmatrix, Instanziierung von Feiertags- und Wochenend-Arrays.
+* Filtern der befreiten Mitarbeiter (`DUTY_EXEMPT`: Prof. Schäfer).
+* Analyse der historischen Dienstlast aus Vormonaten.
+* **Ziel-Definition (BD Target):** Zuweisung der individuellen D-Soll-Ziele. Dr. Polednia, Dr. Becker, Hr. Sebastian erhalten standardmäßig das Ziel `3`. Alle anderen aktiven Ärzte das Ziel `4`. Dies kann im Konfigurations-Modal vom User vorab überschrieben werden.
 
-  <div class="overlay" id="modal-mobile-menu" role="dialog" aria-modal="true" aria-labelledby="mm-title" hidden style="display:none">
-    <div class="modal mobile-sheet" style="max-width:100%; margin-top:auto; border-bottom-left-radius:0; border-bottom-right-radius:0;">
-      <div class="modal-hd">
-        <div class="modal-hd-title" id="mm-title">Aktionen</div>
-        <button type="button" class="modal-x" data-close="modal-mobile-menu" aria-label="Menü schließen">✕</button>
-      </div>
-      <div class="modal-bd" style="display:flex; flex-direction:column; gap:10px;">
-        <button type="button" class="mbtn mbtn-ghost" id="mbtn-today" style="justify-content:flex-start; padding:14px; font-size: 14px;">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px; flex-shrink:0;">
-            <rect x="3" y="4" width="18" height="18" rx="2"/>
-            <line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="8"  y1="2" x2="8"  y2="6"/>
-            <line x1="3"  y1="10" x2="21" y2="10"/>
-            <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/>
-          </svg>
-          Zum heutigen Tag
-        </button>
-        <button type="button" class="mbtn mbtn-ghost" id="mbtn-employees" style="justify-content:flex-start; padding:14px; font-size: 14px;">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Mitarbeitende verwalten
-        </button>
-        <button type="button" class="mbtn mbtn-ghost" id="mbtn-export" style="justify-content:flex-start; padding:14px; font-size: 14px;">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Daten exportieren
-        </button>
-        <button type="button" class="mbtn mbtn-ghost" id="mbtn-import" style="justify-content:flex-start; padding:14px; font-size: 14px;">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Daten importieren
-        </button>
-      </div>
-    </div>
-  </div>
+#### Phase 2 & 3: Greedy-Heuristik (`bd_weekend` & `bd_workday`)
+Ein deterministischer Pass für die Erstbefüllung der Bereitschaftsdienste.
+* **Wochenend-Pass:** Priorisierte Zuweisung von D-Diensten an Sams-, Sonn- und Feiertagen. Der Algorithmus sortiert die Ärzte nach verbleibendem Soll-Kontingent und historischer Wochenend-Belastung (Ziel: `TARGET_WEEKEND_DUTY = 1`). Er sucht den "günstigsten" Slot unter strikter Beachtung harter Constraints. Findet er keinen, lockert er die Kriterien (z. B. Erlaubnis von 2 WE-Diensten) und loggt eine Warnung.
+* **Becker-Sonderregel:** Bekommt Dr. Becker mangels Alternativen einen Samstags-Dienst (der laut Regelwerk nur im Notfall an ihn geht), injiziert der Algorithmus automatisch ein "FZA" (Freizeitausgleich) am nächstmöglichen, unbesetzten Werktag in die Matrix und loggt diesen Vorgang.
+* **Werktag-Pass:** Auffüllen der verbleibenden D-Dienste (Mo-Fr). Strenger Fokus auf equidistante Verteilung zur Vermeidung von Dienst-Clustern.
 
-  <div class="overlay" id="modal-mobile-day" role="dialog" aria-modal="true" aria-labelledby="mday-title" hidden style="display:none">
-    <div class="modal mobile-sheet mobile-day-sheet" style="max-width:100%;margin-top:auto;border-bottom-left-radius:0;border-bottom-right-radius:0;max-height:90vh;display:flex;flex-direction:column;">
-      <div class="mday-handle" aria-hidden="true"></div>
-      <div class="modal-hd mday-hd">
-        <div style="flex:1;min-width:0">
-          <div class="modal-hd-title" id="mday-title"></div>
-          <div class="mday-duty-badges" id="mday-duty-badges"></div>
-        </div>
-        <button type="button" class="modal-x" data-close="modal-mobile-day" aria-label="Tag schließen">✕</button>
-      </div>
-      <div class="modal-bd mday-body" id="mday-body" style="padding:0;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;min-height:0;"></div>
-      <div class="modal-ft mday-footer" id="mday-footer">
-        <button type="button" class="mbtn mbtn-ghost" data-close="modal-mobile-day">Schließen</button>
-      </div>
-    </div>
-  </div>
+#### Phase 4 & 5: Hintergrund-Allokation (`hg_bundle` & `hg_assign`)
+* **Qualifikations-Filter:** Nur Fachärzte/Oberärzte sind HG-qualifiziert (`isFacharzt()`).
+* **Bundling:** Der HG wird an kritischen Tagen (Freitag, Samstag, Tag vor Feiertag) hart an den Wochenend-Diensthabenden FA gekoppelt, sofern am Freitag/Feiertag ein Assistenzarzt den D-Dienst hat.
+* **Greedy Assign:** Verbleibende HG-Tage werden nach einem "Ideal-Verteilungs-Schlüssel" aufgefüllt. Dieser Schlüssel berechnet sich aus dem durchschnittlichen Monats-HG plus einer Kompensation für Ärzte, die weniger D-Dienste leisten als der Durchschnitt.
 
-  <div class="overlay" id="modal-profile" role="dialog" aria-modal="true" aria-labelledby="pm-name" hidden style="display:none">
-    <div class="modal modal-profile">
-      <div class="modal-hd">
-        <div class="profile-hd-inner">
-          <div class="profile-avatar-lg" id="pm-avatar" aria-hidden="true">MA</div>
-          <div>
-            <div class="modal-hd-title" id="pm-name">Mitarbeiter</div>
-            <div class="modal-hd-sub"   id="pm-sub">Monat · Werktage</div>
-            <div class="pm-meta-row"    id="pm-meta-row" role="list" aria-label="Positionsinformationen"></div>
-          </div>
-        </div>
-        <button type="button" class="modal-x" data-close="modal-profile" aria-label="Profil schließen">✕</button>
-      </div>
-      <div class="pm-body" id="pm-body">
-        <div class="pm-sect-hd">Monatsübersicht</div>
-        <div class="kpi-grid" id="pm-kpi" role="list" aria-label="Kennzahlen aktueller Monat"></div>
-        <div class="pm-sect-hd" id="pm-wp-hd">Arbeitsplatz-Verteilung</div>
-        <div id="pm-wp-chart" class="dist-chart" aria-label="Arbeitsplatz-Statistik aktueller Monat"></div>
-        <div class="pm-sect-hd" id="pm-st-hd">Status-Übersicht</div>
-        <div id="pm-st-chart" class="dist-chart" aria-label="Status-Statistik aktueller Monat"></div>
-        <div class="pm-sect-hd" id="pm-duty-hd">Dienste &amp; Hintergrund</div>
-        <div id="pm-duty-detail" class="duty-detail-area" aria-label="Dienstdetails aktueller Monat"></div>
-        <div class="pm-sect-hd">
-          Monatskalender
-          <span class="pm-sect-hint">— Klick auf einen Tag öffnet den Editor</span>
-        </div>
-        <div id="pm-cal" aria-label="Monatskalender"></div>
-        <div class="pm-sect-hd">Jahresauswertung</div>
-        <div id="pm-yearly" aria-label="Jahresauswertung"></div>
-      </div>
-      <div class="modal-ft">
-        <button type="button" class="mbtn mbtn-ghost" data-close="modal-profile">Schließen</button>
-      </div>
-    </div>
-  </div>
+#### Phase 6, 7 & 8: Deep-Search / Optimierung & Repair (`optimize`, `repair`, `validate`)
+Ein stochastischer Optimierer (Simulated Annealing) iteriert über den generierten Plan, um die Fairness (Spread) zu maximieren und weiche Constraints aufzulösen.
+* **Generierung:** Pro Zyklus (Standard: 25 Zyklen) werden tausende Tauschoperationen simuliert (Vertausche Diensthabenden an Tag X mit Kandidat Y). 
+* **Scoring-Evaluation:** Jeder mutierte Zustand wird durch eine massive globale Penalty-Funktion gejagt (siehe 4.3).
+* **Hill-Climbing:** Reduziert der Swap den globalen Penalty-Score, wird der neue State sofort akzeptiert. Verschlechtert er ihn, wird er verworfen.
+* **Coverage Repair:** Nach der Optimierung werden verbleibende Lücken (z.B. durch zu viele Urlaube entstanden) zwanghaft aufgefüllt, notfalls unter Bruch weicher Ergonomie-Regeln, da die klinische Besetzung absolute Priorität vor Fairness hat.
 
-  <div class="overlay" id="modal-editor" role="dialog" aria-modal="true" aria-labelledby="ed-title" hidden style="display:none">
-    <div class="modal modal-editor">
-      <div class="modal-hd" id="ed-modal-hd">
-        <div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <div class="modal-hd-title" id="ed-title">Zuweisung bearbeiten</div>
-            <span id="ed-plan-badge" class="ed-plan-badge" style="display:none" aria-hidden="true">
-              <span class="plan-badge-pulse" style="width:5px;height:5px"></span>
-              PLANUNG
-            </span>
-          </div>
-          <div class="modal-hd-sub" id="ed-sub"></div>
-        </div>
-        <button type="button" class="modal-x" data-close="modal-editor" aria-label="Editor schließen">✕</button>
-      </div>
-      <div class="modal-bd">
-        <div id="ed-day-label"></div>
-        <div class="preview-box" aria-label="Vorschau der aktuellen Auswahl">
-          <div>
-            <div class="preview-box-lbl">Vorschau</div>
-            <div class="preview-box-val" id="ed-preview-val" aria-live="polite">—</div>
-          </div>
-          <div class="preview-box-duties" id="ed-preview-duties" aria-live="polite"></div>
-        </div>
-        <div class="sect-hd">
-          <span id="ed-wp-label">Arbeitsplatz</span>
-          <span class="sect-hint" id="ed-wp-hint">— Mehrfachauswahl möglich, z.&thinsp;B. MR/CT</span>
-        </div>
-        <div class="chip-row" id="ed-wp" role="group" aria-label="Arbeitsplatz auswählen"></div>
-        <div id="ed-st-section">
-          <div class="sect-hd">
-            Status
-            <span class="sect-hint">— exklusiv, deaktiviert Arbeitsplatz-Auswahl</span>
-          </div>
-          <div class="chip-row" id="ed-st" role="group" aria-label="Status auswählen"></div>
-        </div>
-        <div id="ed-duty-section">
-          <div class="sect-hd">Dienst &amp; Hintergrund</div>
-          <div class="chip-row" id="ed-duty" role="group" aria-label="Dienst auswählen"></div>
-          <div class="duty-warn" id="ed-duty-warn" role="alert" aria-live="assertive" style="display:none"></div>
-        </div>
-        <div class="sect-hd" id="ed-wish-hd" style="display:none">
-          Dienstwunsch
-          <span class="sect-hint">— nur im Planungsmodus, für Auto-Planung</span>
-        </div>
-        <div class="chip-row" id="ed-wish" role="group" aria-label="Dienstwunsch auswählen" style="display:none"></div>
-      </div>
-      <div class="modal-ft">
-        <button type="button" class="mbtn mbtn-danger"  id="ed-clear"  title="Eintrag vollständig löschen">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <polyline points="3 6 5 6 21 6"/>
-            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-            <path d="M10 11v6M14 11v6"/>
-            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-          </svg>
-          Löschen
-        </button>
-        <button type="button" class="mbtn mbtn-ghost"   id="ed-cancel">Abbrechen</button>
-        <button type="button" class="mbtn mbtn-primary" id="ed-save">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-          Speichern
-        </button>
-      </div>
-    </div>
-  </div>
+### 4.2 Harte Constraints (K.O.-Kriterien / Illegale Zustände)
+Eine Zuweisung wird systemseitig blockiert (Funktionen returnieren `false` oder Penalty = `Infinity`), wenn:
+1. **Status-Sperre:** Der Mitarbeiter hat "U" (Urlaub), "K" (Krank), "FZA", "WB" oder einen anderen protektiven Status am Zieltag.
+2. **Double-Duty:** Der Tag ist für diesen Mitarbeiter bereits mit einem anderen Dienst (D oder HG) belegt.
+3. **Rest-Violation (Post-Duty):** Der Tag *nach* dem Dienst ist zwingend ein Ruhetag (F). Ist der Folgetag bereits mit einem festen Arbeitsplatz (MR/CT) belegt, der laut Planung nicht überschrieben werden darf, ist der Dienstvortag illegal.
+4. **Pre-Duty Collision:** Der Mitarbeiter hat am *Vortag* bereits einen D-Dienst (keine Doppeldienste).
+5. **Urlaubs-Blocker:** Ist der *Folgetag* ein Urlaubstag (U), darf am Vortag kein Dienst geplant werden, um den Urlaubsbeginn nicht zu kompromittieren.
+6. **Veto-Constraint:** Der Mitarbeiter hat explizit `NO_DUTY` im Wunschplan deklariert.
+7. **Dalitz-Mammographie-Konflikt:** Fr. Dalitz darf keinen HG am Sonntag oder Feiertag (Mo) übernehmen, wenn am selben Tag Hr. Torki oder Hr. Sebastian den BD (D) haben, da dies zu Personalengpässen in der Mammographie am Folgetag führt.
+8. **Becker-CT-Konflikt:** Dr. Becker und Dr. Martin dürfen keine Dienstkombination erhalten, die dazu führt, dass beide am Folgetag fehlen (Post-BD-Frei), sofern nicht mindestens ein anderer Arzt das CT besetzen kann.
 
-  <div class="overlay" id="modal-emps" role="dialog" aria-modal="true" aria-labelledby="emp-title" hidden style="display:none">
-    <div class="modal employee-dashboard-modal modal-emps">
-      <div class="modal-hd empdash-hd">
-        <div class="empdash-hd-copy">
-          <div class="modal-hd-title" id="emp-title">Jahres-Dashboard Mitarbeitende</div>
-          <div class="modal-hd-sub" id="emp-sub"></div>
-          <div class="empdash-context" id="emp-context-line" aria-live="polite"></div>
-        </div>
-        <div class="empdash-hd-actions">
-          <button type="button" class="period-inline-btn" id="emp-open-period" aria-label="Zeitraumsteuerung öffnen">Zeitraum</button>
-          <button type="button" class="modal-x" data-close="modal-emps" aria-label="Mitarbeitenden-Dashboard schließen">✕</button>
-        </div>
-      </div>
-      <div class="modal-bd empdash-body">
-        <section class="empdash-section">
-          <div class="empdash-summary-grid" id="emp-summary-grid"></div>
-        </section>
-        <section class="empdash-section">
-          <div class="empdash-toolbar">
-            <div class="empdash-toolbar-left">
-              <label class="empdash-search-wrap" for="emp-search">
-                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="search" id="emp-search" class="text-input empdash-search" placeholder="Mitarbeitende filtern…" autocomplete="off">
-              </label>
-              <div class="empdash-filter-pills" id="emp-role-filters" role="toolbar" aria-label="Rollenfilter"></div>
-            </div>
-            <div class="empdash-toolbar-right">
-              <div class="empdash-count" id="emp-visible-count" aria-live="polite"></div>
-            </div>
-          </div>
-          <div class="empdash-card-grid" id="emp-year-grid" role="list" aria-label="Jahresübersicht aller Mitarbeitenden"></div>
-        </section>
-        <section class="empdash-section empdash-detail-section">
-          <div class="empdash-detail-head">
-            <div>
-              <div class="empdash-detail-title">Detailansicht Kalenderjahr</div>
-              <div class="empdash-detail-sub" id="emp-detail-sub">Bitte eine Person auswählen.</div>
-            </div>
-            <div class="empdash-view-switch" role="tablist" aria-label="Detailansicht umschalten">
-              <button type="button" class="empdash-view-btn active" id="emp-view-months" data-view="months" role="tab" aria-selected="true">Monatsverlauf</button>
-              <button type="button" class="empdash-view-btn" id="emp-view-calendar" data-view="calendar" role="tab" aria-selected="false">Jahreskalender</button>
-              <button type="button" class="empdash-view-btn" id="emp-view-admin" data-view="admin" role="tab" aria-selected="false">Verwaltung</button>
-            </div>
-          </div>
-          <div class="empdash-detail-panel" id="emp-detail-panel" role="tabpanel" aria-live="polite"></div>
-        </section>
-      </div>
-      <div class="modal-ft">
-        <button type="button" class="mbtn mbtn-ghost" data-close="modal-emps">Schließen</button>
-      </div>
-    </div>
-  </div>
+### 4.3 Weiche Constraints & das Penalty-Scoring-System
+Der Algorithmus berechnet einen globalen numerischen Strafwert (Penalty Score). Ziel ist das absolute mathematische Minimum. Die exakten Gewichtungen determinieren das "Verhalten" und die "Entscheidungen" der KI:
 
-  <div class="overlay" id="modal-import" role="dialog" aria-modal="true" aria-labelledby="import-title" hidden style="display:none">
-    <div class="modal modal-import">
-      <div class="modal-hd">
-        <div>
-          <div class="modal-hd-title" id="import-title">Daten importieren</div>
-          <div class="modal-hd-sub">JSON-Datei ablegen oder Text einfügen</div>
-        </div>
-        <button type="button" class="modal-x" data-close="modal-import" aria-label="Import schließen">✕</button>
-      </div>
-      <div class="modal-bd">
-        <div id="import-dropzone" class="dropzone" role="button" tabindex="0" aria-label="JSON-Datei ablegen">
-          <input type="file" id="import-file-input" accept=".json,application/json" style="display:none">
-          <div class="dz-icon" aria-hidden="true">
-            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
-            </svg>
-          </div>
-          <p class="dz-main">JSON-Datei hier ablegen</p>
-          <p class="dz-hint" id="dz-hint-text">.json &middot; Klicken zum Durchsuchen</p>
-          <span class="dz-filename" id="dz-filename" aria-live="polite"></span>
-        </div>
-        <div class="or-divider" role="separator"><span>oder JSON-Text direkt einfügen</span></div>
-        <textarea class="json-ta" id="import-ta" spellcheck="false" placeholder='{ "main": { ... } }'></textarea>
-        <div class="import-err" id="import-err" role="alert" style="display:none"></div>
-      </div>
-      <div class="modal-ft">
-        <button type="button" class="mbtn mbtn-ghost" data-close="modal-import">Abbrechen</button>
-        <button type="button" class="mbtn mbtn-primary" id="import-confirm">Importieren</button>
-      </div>
-    </div>
-  </div>
+* **Gap Penalty (Kritischste Strafe für Lücken):** * Jeder Tag ohne besetzten D-Dienst: `+25000` Punkte. `> 1` Dienst: `+50000`.
+  * Jeder Tag ohne besetzten HG-Dienst: `+15000` Punkte. `> 1` Dienst: `+40000`.
+* **Target Deviation Penalty (Soll-Abweichung BD):**
+  * Strafe: `(Ist - Soll)^2 * 25000 + abs(Ist - Soll) * 10000`. Die quadratische Funktion erzwingt eine extreme Bestrafung großer Abweichungen, toleriert aber minimale Varianzen (±1) marginal.
+* **HG Balance Penalty (Gerechtigkeit HG):**
+  * Strafe für Abweichung vom Ideal-HG (inkl. Ausgleich für wenige BD): `(Ist - Ideal)^2 * 25000`.
+* **Weekend Overload Penalty:**
+  * Strafe für Abweichung vom Ziel (1 WE): `(Ist - 1)^2 * 10000`.
+  * Überschreitet ein Arzt das absolute Limit (`RELAXED_WEEKEND_DUTY_LIMIT = 1.5`): `+30000` Punkte pro überzähligem Dienst.
+* **Weekend Clustering (Sa+So Puffer):**
+  * Hat ein Arzt am Samstag *und* am angrenzenden Wochenende/Feiertag Dienst (ohne Pause): `+15000` Punkte (Verhindert komplett zerstörte Wochenenden).
+* **Spacing Penalty (Ergonomie/Ruhephasen):**
+  * Abstand zwischen zwei BD < 3 Tage: `+15000` pro fehlendem Tag. < 5 Tage: `+800`.
+  * Abstand zwischen zwei HG < 3 Tage (falls nicht gekoppelt): `+18000`.
+  * Zwei HG direkt hintereinander: `+45000`.
+* **Pattern-Vermeidung:**
+  * D-F-D-F Rhythmus (Dienst, Frei, Dienst, Frei): `+1200` Punkte.
+* **Wish Fulfillment Bonus:**
+  * Ein erfüllter `BD_WISH` generiert eine massive Attraktivität (`+220` interner Base-Score). Ein `HG_WISH` bringt `+500` Base-Score.
 
-  <div class="overlay" id="modal-dept" role="dialog" aria-modal="true" aria-labelledby="dept-modal-title" hidden style="display:none">
-    <div class="modal modal-dept">
-      <div class="modal-hd dept-modal-hd">
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-            <div>
-              <div class="modal-hd-title" id="dept-modal-title">Abteilungsübersicht</div>
-              <div class="modal-hd-sub" id="dept-modal-sub">Klinik für Radiologie &amp; Nuklearmedizin</div>
-            </div>
-            <button type="button" class="modal-x" data-close="modal-dept" aria-label="Abteilungsübersicht schließen">✕</button>
-          </div>
-          <div class="dept-context-line" id="dept-context-line" aria-live="polite"></div>
-          <div class="dept-tabs" role="tablist">
-            <button type="button" class="dept-tab active" id="dept-tab-month" role="tab" aria-selected="true">Aktueller Monat</button>
-            <button type="button" class="dept-tab" id="dept-tab-year" role="tab" aria-selected="false">Jahresübersicht</button>
-          </div>
-        </div>
-      </div>
-      <div class="dept-body" id="dept-body" role="tabpanel"></div>
-      <div class="modal-ft">
-        <button type="button" class="mbtn mbtn-ghost" data-close="modal-dept">Schließen</button>
-      </div>
-    </div>
-  </div>
+### 4.4 Neural Fitness Index (NFI) & Explainability
+Das rohe Penalty-Ergebnis wird für den Endnutzer im Result-Modal in einen verständlichen, normierten NFI überführt (Skala: 0.0 bis 100.0). 
+* **Formel:** `Fitness = 100 - (Lücken * 15/10) - (Spread_D * 2.5) - (Spread_HG * 1.5) - (Spread_WE * 2.0) + (Wunsch_Erfüllung_Pct * 5.0) - (DeepMoves * 0.005)`.
+* Das `score-info-modal` schlüsselt exakt und via Tooltips (`data-tooltip`) transparent auf, wie sich dieser Score zusammensetzt und listet die Strafen (z.B. für Spreads > 1) detailliert auf. Ein NFI von `>= 80` gilt als "Sehr Gut".
 
-  <div class="overlay" id="modal-autoplan" role="dialog" aria-modal="true" aria-labelledby="ap-title" hidden style="display:none">
-    <div class="modal modal-autoplan">
-      <div class="modal-hd" style="background:linear-gradient(180deg,#3B0A00 0%,#78350F 100%)">
-        <div>
-          <div class="modal-hd-title" id="ap-title">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:-2px;margin-right:6px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-            RadPlan Neural Scheduler
-          </div>
-          <div class="modal-hd-sub" id="ap-sub"></div>
-        </div>
-        <button type="button" class="modal-x" data-close="modal-autoplan" aria-label="Auto-Plan schließen">✕</button>
-      </div>
-      <div class="modal-bd" id="ap-body"></div>
-      <div class="modal-ft">
-        <button type="button" class="mbtn mbtn-ghost" data-close="modal-autoplan">Abbrechen</button>
-        <button type="button" class="mbtn mbtn-ghost" id="ap-report-btn" style="display:none; color:#0EA5E9; border-color:rgba(14,165,233,0.4);">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-          Abschlussbericht
-        </button>
-        <button type="button" class="mbtn" id="ap-apply" style="display:none; background:linear-gradient(135deg,#F59E0B,#D97706);color:#451a03;font-weight:700">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-          In Planung übernehmen
-        </button>
-      </div>
-    </div>
-  </div>
+---
 
-  <div class="overlay" id="modal-ap-report" role="dialog" aria-modal="true" aria-labelledby="ap-report-title" hidden style="display:none">
-    <div class="modal modal-report">
-      <div class="modal-hd" style="background:linear-gradient(180deg,#0F172A 0%,#1E293B 100%); border-bottom: 1px solid rgba(14,165,233,0.3);">
-        <div>
-          <div class="modal-hd-title" id="ap-report-title" style="color:#E0F2FE;">
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:-3px;margin-right:6px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-            Algorithmischer Abschlussbericht
-          </div>
-        </div>
-        <button type="button" class="modal-x" data-close="modal-ap-report" aria-label="Bericht schließen">✕</button>
-      </div>
-      <div class="modal-bd" id="ap-report-body"></div>
-      <div class="modal-ft" style="background:#0F172A; border-top: 1px solid rgba(255,255,255,0.1);">
-        <button type="button" class="mbtn mbtn-ghost" data-close="modal-ap-report" style="color:#E2E8F0; border-color:rgba(255,255,255,0.2);">Zurück</button>
-      </div>
-    </div>
-  </div>
+## 5. Visualisierungs-Engine (`neuralgraph.js`)
 
-  <div class="overlay" id="modal-score-info" role="dialog" aria-modal="true" aria-labelledby="score-info-title" hidden style="display:none">
-    <div class="modal modal-score">
-      <div class="modal-hd" style="background:linear-gradient(180deg,#0F172A 0%,#1E293B 100%); border-bottom: 1px solid rgba(251,191,36,0.3);">
-        <div>
-          <div class="modal-hd-title" id="score-info-title" style="color:#FDE68A;">
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:-3px;margin-right:6px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-            Planungs-Qualität im Detail
-          </div>
-        </div>
-        <button type="button" class="modal-x" data-close="modal-score-info" aria-label="Schließen">✕</button>
-      </div>
-      <div class="modal-bd" id="score-info-body" style="background:#0F172A; color:#E2E8F0; padding:20px;"></div>
-      <div class="modal-ft" style="background:#0F172A; border-top: 1px solid rgba(255,255,255,0.1);">
-        <button type="button" class="mbtn mbtn-ghost" data-close="modal-score-info" style="color:#E2E8F0; border-color:rgba(255,255,255,0.2);">Schließen</button>
-      </div>
-    </div>
-  </div>
+Das Rendering des Auto-Plan-Prozesses wurde vom DOM-Mainthread entkoppelt und als hybride CSS3D/Canvas-Applikation realisiert.
 
-  <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+### 5.1 Isometrisches 3D-Kalender-Grid (Bottom Left)
+* **Architektur:** Ein dynamisches Kalender-Raster (7 Spalten, Repräsentation von Mo-So). Die Matrix ist via `transform-style: preserve-3d`, `rotateX(60deg)` und `rotateZ(-45deg)` isometrisch in den Raum gekippt.
+* **Dynamische Skalierung (Trigonometrie):** Ein `ResizeObserver` berechnet anhand der Viewport-Bounds die exakte CSS Bounding Box (`cos(45) * cos(60)`), um das Grid in *jeder* Fenstergröße auf exakt 90% Breite/Höhe maximal groß und verzerrungsfrei darzustellen.
+* **Kinetik:** Eine Endlos-CSS-Keyframe-Animation (`ngFloating`) verändert kontinuierlich die Z-Translation und Z-Rotation des Grids, was eine organische Schwerelosigkeit erzeugt.
+* **Dual-Labeling (D & HG):** Jede Zelle besitzt einen Flex-Wrapper, der zwei getrennte Text-Knoten für Bereitschaftsdienst (D, Rot) und Hintergrunddienst (HG, Blau) vorhält, sodass beide Dienste parallel an einem Tag angezeigt werden können, ohne sich zu überschreiben.
+* **Puls-Animation:** Bei Zuweisung oder Swap (getriggert via Telemetrie-Events der `app.js`) schnellt die Zelle auf der Z-Achse nach oben (`translateZ(25px)`). Nach Abschluss der Iterationen rastet das Raster mit dem finalen Plan ein (`triggerSuccess`).
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-  <script type="module" src="js/app.js"></script>
-</body>
-</html>
+### 5.2 Topologie-HUD (Top Right / MiniMap)
+* **Canvas-Rendering:** Eine hochperformante, hardwarebeschleunigte 2D-Canvas-Ebene.
+* **Minimalistischer Datenbus:** Ein eindimensionaler Vektor-Bus (Linie von links nach rechts), auf dem Lichtimpulse (Partikel) mit zufälliger Geschwindigkeit und Richtung wandern, getriggert durch Swap- und Zuweisungs-Operationen des Schedulers.
+* **Phasen-Synchronisation:** Das HUD synchronisiert seine Farbgebung strikt mit der Berechnungsphase des Schedulers (`getPhaseColor()`): Cyan (Init), Gelb (Greedy), Blau (HG Bundling), Violett (Deep Optimize), Grün (Converged/Success), Rot (Kritische Constraint Verletzung).
+* **Interaktions-Bremse:** Nach Abschluss der Berechnung pausiert die UI und präsentiert einen "Ergebnis anzeigen" Button, um dem Nutzer die visuelle Erfassung der finalen Matrix zu ermöglichen, bevor das detaillierte Report-Modal eingeblendet wird.
+
+---
+
+## 6. Datenstruktur Referenz & Nomenklatur (Legende)
+
+| System-Code | Semantik (UI Label) | Kategorisierung | Hex-Code | Priorität / Verhalten im Algorithmus |
+| :--- | :--- | :--- | :--- | :--- |
+| **D** | Bereitschaftsdienst | Dienst (Duty) | `#EF4444` | Höchste Prio. Erzwingt Folge-F. |
+| **HG** | Hintergrunddienst | Dienst (Duty) | `#0EA5E9` | Nur für Fachärzte. Gekoppelt an D. |
+| **MR** | MRT | Arbeitsplatz | `#6366F1` | Überschreibbar durch Dienste. |
+| **CT** | Computertomographie | Arbeitsplatz | `#F97316` | Überschreibbar durch Dienste. |
+| **US** | Ultraschall | Arbeitsplatz | `#14B8A6` | Überschreibbar. |
+| **U** | Urlaub | Absenz / Status | `#8B5CF6` | Hartes Constraint. Blockiert D/HG. |
+| **K** / **KK** | Krank / Kind Krank | Absenz / Status | `#B91C1C` | Hartes Constraint. Blockiert D/HG. |
+| **F** | Frei (Post-BD / Regulär) | Absenz / Status | `#64748B` | Hartes Constraint. Blockiert D/HG. |
+| **FZA** | Freizeitausgleich | Absenz / Status | `#4338CA` | Hartes Constraint. Blockiert D/HG. |
+| **WB** | Weiterbildung | Absenz / Status | `#059669` | Hartes Constraint. Blockiert D/HG. |
+| **§15c** | Mutterschutz / BV | Absenz / Status | `#EC4899` | Hartes Constraint. Dauerhaft befreit. |
+
+## 7. Import / Export Architektur & Data-Sanitization
+
+RadPlan benötigt keine Cloud-Synchronisation, um Daten über Gerätegrenzen hinweg zu transportieren. Die integrierte I/O-Schnittstelle verpackt die vollständigen App-Zustände.
+* **Export-Prozess (`doExport`):** Iteriert über alle Keys im `localStorage`. Kompiliert das Root-`DATA`-Objekt sowie alle existierenden Planungs-Drafts (`radplan_v3_plan_YYYY_MM`) in einen einzigen monolithischen JSON-Blob. Der Blob wird on-the-fly als `.json`-Datei im Client erzeugt und via generiertem Objekt-URL als Download angestoßen.
+* **Import-Prozess (`doImport`):** Akzeptiert Text-Paste oder Drag&Drop von JSON-Dateien. Ein rigoroses Type-Checking validiert die JSON-Struktur. Die importierten Daten mergen tief in den `localStorage`.
+* **Integritätsprüfung (Sanitization):** Post-Import feuert zwingend die Funktion `ensurePostBDFreiDays()`. Diese Funktion durchkämmt die gesamte importierte Historie und Zukunft. Findet sie einen D-Dienst, dem kein F-Dienst am Folgetag folgt (und auch kein U/K/etc.), injiziert sie dieses zwingende "F" nachträglich (Mutation), um den illegalen State zu reparieren und arbeitsrechtliche Vorgaben zu sichern, bevor die UI den neuen Plan rendert.
