@@ -6,152 +6,52 @@ function injectStyles() {
   style.id = STYLE_ID;
   style.textContent = `
     .ng-container {
-      --ng-phase-color: #0EA5E9;
       position: absolute;
       inset: 0;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      perspective: 1500px;
+      background: transparent;
     }
-    .ng-grid-wrapper {
-      position: relative;
-      width: 100%;
-      height: 100%;
-    }
-    .ng-grid {
+    .ng-grid-base {
       display: grid;
-      width: 100%;
-      height: 100%;
+      transform-style: preserve-3d;
+      transition: transform 0.6s cubic-bezier(0.34, 1.2, 0.64, 1);
+      transform-origin: center center;
+      will-change: transform;
+    }
+    .ng-iso-cell {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      transform-style: preserve-3d;
+      transition: all 0.4s cubic-bezier(0.34, 1.5, 0.64, 1);
       position: relative;
-      z-index: 10;
-    }
-    .ng-bg-svg, .ng-fg-svg {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-    }
-    .ng-bg-svg {
-      z-index: 5;
-    }
-    .ng-fg-svg {
-      z-index: 15;
-    }
-    .ng-net-line {
-      stroke: rgba(14, 165, 233, 0.12);
-      stroke-width: 1;
-      transition: stroke 0.4s;
-    }
-    .ng-cell {
-      width: 5px;
-      height: 5px;
-      background: rgba(14, 165, 233, 0.2);
-      border-radius: 50%;
-      justify-self: center;
-      align-self: center;
-      transition: all 0.25s cubic-bezier(0.34, 1.2, 0.64, 1);
-      position: relative;
-    }
-    .ng-cell.active {
-      background: var(--ng-phase-color);
-      box-shadow: 0 0 12px var(--ng-phase-color);
-      transform: scale(1.8);
-      z-index: 11;
-    }
-    .ng-cell.swap-old {
-      background: #EF4444;
-      box-shadow: 0 0 10px #EF4444;
-      transform: scale(0.8);
-    }
-    .ng-cell.swap-new {
-      background: #A855F7;
-      box-shadow: 0 0 15px #A855F7;
-      transform: scale(2);
-      z-index: 12;
-    }
-    .ng-cell.error {
-      background: #EF4444;
-      box-shadow: 0 0 20px #EF4444;
-      animation: ngGlitch 0.2s infinite;
-      z-index: 20;
-    }
-    .ng-cell.error-neighbor {
-      background: rgba(239, 68, 68, 0.6);
-      box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
-      animation: ngGlitch 0.2s infinite reverse;
-      z-index: 19;
-    }
-    .ng-impulse {
-      fill: var(--ng-phase-color);
-      filter: drop-shadow(0 0 6px var(--ng-phase-color));
-      transition: all 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
-    }
-    @keyframes ngGlitch {
-      0% { transform: translate(0, 0) scale(1.5); filter: blur(0px); }
-      25% { transform: translate(-3px, 2px) scale(1.2); filter: blur(1px); }
-      50% { transform: translate(2px, -3px) scale(1.6); filter: blur(0px); }
-      75% { transform: translate(-2px, -2px) scale(1.3); filter: blur(2px); }
-      100% { transform: translate(0, 0) scale(1.5); filter: blur(0px); }
-    }
-    .ng-cell.success {
-      background: #22C55E !important;
-      box-shadow: 0 0 10px #22C55E !important;
-      transform: scale(1.4);
-    }
-    .ng-brain-spectacle {
-      width: 100%;
-      height: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
+      will-change: transform, background-color;
     }
-    .ng-brain-svg {
-      width: 85%;
-      height: 85%;
-      filter: drop-shadow(0 0 10px rgba(14, 165, 233, 0.15));
-      transform-origin: center;
+    .ng-iso-shadow {
+      position: absolute;
+      inset: -1px;
+      background: transparent;
+      transition: box-shadow 0.4s, background 0.4s;
+      transform: translateZ(-1px);
+      border-radius: 3px;
+      pointer-events: none;
     }
-    .ng-lobe {
-      fill: transparent;
-      stroke: rgba(14, 165, 233, 0.25);
-      stroke-width: 1.5;
-      stroke-linejoin: round;
-      stroke-linecap: round;
-      transition: all 0.4s ease;
-      transform-origin: center;
-    }
-    .ng-brain-core {
-      fill: rgba(14, 165, 233, 0.25);
-      transition: all 0.4s ease;
-      transform-origin: center;
-    }
-    .ng-lobe.active {
-      fill: color-mix(in srgb, var(--ng-phase-color) 35%, transparent);
-      stroke: var(--ng-phase-color);
-      filter: drop-shadow(0 0 8px var(--ng-phase-color));
-      animation: ngBrainPulse 1.2s infinite alternate;
-    }
-    .ng-brain-core.active {
-      fill: var(--ng-phase-color);
-      filter: drop-shadow(0 0 12px var(--ng-phase-color));
-      animation: ngBrainPulse 0.8s infinite alternate;
-    }
-    .ng-brain-spectacle.success .ng-lobe {
-      fill: rgba(34, 197, 94, 0.35);
-      stroke: #22C55E;
-      filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.6));
-      animation: none;
-    }
-    .ng-brain-spectacle.success .ng-brain-core {
-      fill: #22C55E;
-      filter: drop-shadow(0 0 15px #22C55E);
-      animation: none;
-    }
-    @keyframes ngBrainPulse {
-      0% { opacity: 0.6; transform: scale(0.98); }
-      100% { opacity: 1; transform: scale(1.03); }
+    .ng-iso-label {
+      font-family: var(--font-mono, monospace);
+      font-size: 10px;
+      font-weight: 800;
+      color: rgba(255, 255, 255, 0.15);
+      transition: color 0.4s;
+      transform: translateZ(1px);
+      pointer-events: none;
+      user-select: none;
     }
   `;
   document.head.appendChild(style);
@@ -161,255 +61,342 @@ export class NeuralGraph {
   constructor(container) {
     this.container = container;
     this.cells = new Map();
-    this.activeCells = new Set();
-    this.timeouts = new Set();
     this.employees = [];
     this.daysCount = 0;
-    this.miniMapContainer = null;
-    this.phaseColors = {
-      init: '#0EA5E9',
-      greedy: '#FBBF24',
-      hg: '#38BDF8',
-      deep: '#A855F7',
-      success: '#22C55E'
-    };
+    this.phase = 'init';
+    this.miniMapCanvas = null;
+    this.miniMapCtx = null;
+    this.nodes = [];
+    this.links = [];
+    this.pulses = [];
+    this.animId = null;
+    this.resizeObserver = null;
+    this.gridBase = null;
+    this.cellSize = 26;
+    this.cellGap = 6;
+    
     injectStyles();
     this.buildDOM();
+    this.setupResizeObserver();
   }
 
   buildDOM() {
     this.container.innerHTML = '';
-    
     this.wrapper = document.createElement('div');
-    this.wrapper.setAttribute('class', 'ng-container');
-    
-    this.gridWrapper = document.createElement('div');
-    this.gridWrapper.setAttribute('class', 'ng-grid-wrapper');
-    
-    this.bgSvgOverlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    this.bgSvgOverlay.setAttribute('class', 'ng-bg-svg');
-    
-    this.fgSvgOverlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    this.fgSvgOverlay.setAttribute('class', 'ng-fg-svg');
-    
-    this.grid = document.createElement('div');
-    this.grid.setAttribute('class', 'ng-grid');
-    
-    this.gridWrapper.appendChild(this.bgSvgOverlay);
-    this.gridWrapper.appendChild(this.grid);
-    this.gridWrapper.appendChild(this.fgSvgOverlay);
-    
-    this.wrapper.appendChild(this.gridWrapper);
+    this.wrapper.className = 'ng-container';
+    this.gridBase = document.createElement('div');
+    this.gridBase.className = 'ng-grid-base';
+    this.wrapper.appendChild(this.gridBase);
     this.container.appendChild(this.wrapper);
+  }
+
+  setupResizeObserver() {
+    this.resizeObserver = new ResizeObserver(() => {
+      this.updateGridScale();
+      this.resizeMiniMap();
+    });
+    this.resizeObserver.observe(this.container);
+  }
+
+  updateGridScale() {
+    if (!this.daysCount || !this.employees.length || !this.gridBase) return;
+    const w = this.container.clientWidth;
+    const h = this.container.clientHeight;
+    if (w === 0 || h === 0) return;
+    
+    const gridW = this.daysCount * (this.cellSize + this.cellGap) - this.cellGap;
+    const gridH = this.employees.length * (this.cellSize + this.cellGap) - this.cellGap;
+    
+    const boundingW = gridW * 0.866 + gridH * 0.866;
+    const boundingH = gridW * 0.5 + gridH * 0.5;
+    
+    const scaleX = (w * 0.9) / boundingW;
+    const scaleY = (h * 0.9) / boundingH;
+    const scale = Math.min(scaleX, scaleY, 1.5);
+    
+    this.gridBase.style.transform = `scale(${scale}) rotateX(60deg) rotateZ(-45deg)`;
   }
 
   initData(daysCount, employees) {
     this.daysCount = daysCount;
     this.employees = employees;
-    this.grid.style.gridTemplateColumns = `repeat(${daysCount}, 1fr)`;
-    this.grid.style.gridTemplateRows = `repeat(${employees.length}, 1fr)`;
-    this.grid.innerHTML = '';
-    this.bgSvgOverlay.innerHTML = '';
-    this.fgSvgOverlay.innerHTML = '';
+    this.gridBase.innerHTML = '';
     this.cells.clear();
-    this.activeCells.clear();
+
+    this.gridBase.style.gridTemplateColumns = `repeat(${daysCount}, ${this.cellSize}px)`;
+    this.gridBase.style.gridTemplateRows = `repeat(${employees.length}, ${this.cellSize}px)`;
+    this.gridBase.style.gap = `${this.cellGap}px`;
 
     for (let r = 0; r < employees.length; r++) {
       for (let c = 0; c < daysCount; c++) {
         const cell = document.createElement('div');
-        cell.setAttribute('class', 'ng-cell');
+        cell.className = 'ng-iso-cell';
+        
+        const shadow = document.createElement('div');
+        shadow.className = 'ng-iso-shadow';
+        
+        const label = document.createElement('div');
+        label.className = 'ng-iso-label';
+        
+        const nameParts = employees[r].split(' ');
+        const shortName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : employees[r];
+        label.textContent = shortName.substring(0, 2).toUpperCase();
+        
+        cell.appendChild(shadow);
+        cell.appendChild(label);
+        this.gridBase.appendChild(cell);
+        
         const key = `${c + 1}_${employees[r]}`;
-        this.cells.set(key, cell);
-        this.grid.appendChild(cell);
-
-        const x1 = ((c + 0.5) / daysCount) * 100;
-        const y1 = ((r + 0.5) / employees.length) * 100;
-
-        if (c < daysCount - 1) {
-          const x2 = ((c + 1.5) / daysCount) * 100;
-          const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-          line.setAttribute("x1", `${x1}%`);
-          line.setAttribute("y1", `${y1}%`);
-          line.setAttribute("x2", `${x2}%`);
-          line.setAttribute("y2", `${y1}%`);
-          line.classList.add("ng-net-line");
-          this.bgSvgOverlay.appendChild(line);
-        }
-
-        if (r < employees.length - 1) {
-          const y2 = ((r + 1.5) / employees.length) * 100;
-          const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-          line.setAttribute("x1", `${x1}%`);
-          line.setAttribute("y1", `${y1}%`);
-          line.setAttribute("x2", `${x1}%`);
-          line.setAttribute("y2", `${y2}%`);
-          line.classList.add("ng-net-line");
-          this.bgSvgOverlay.appendChild(line);
-        }
+        this.cells.set(key, { el: cell, shadow, label });
       }
     }
+    this.updateGridScale();
   }
 
   attachMiniMap(container) {
-    this.miniMapContainer = container;
-    this.miniMapContainer.innerHTML = `
-      <div class="ng-brain-spectacle" id="ng-minimap-core">
-        <svg viewBox="0 0 100 100" class="ng-brain-svg">
-          <path class="ng-lobe ng-frontal-l" d="M 48 10 C 20 10 10 25 10 45 L 48 45 Z" />
-          <path class="ng-lobe ng-frontal-r" d="M 52 10 C 80 10 90 25 90 45 L 52 45 Z" />
-          <path class="ng-lobe ng-parietal-l" d="M 10 48 L 48 48 L 48 70 C 30 70 15 65 10 48 Z" />
-          <path class="ng-lobe ng-parietal-r" d="M 90 48 L 52 48 L 52 70 C 70 70 85 65 90 48 Z" />
-          <path class="ng-lobe ng-occipital-l" d="M 48 73 C 35 73 25 78 20 85 C 30 95 45 95 48 90 Z" />
-          <path class="ng-lobe ng-occipital-r" d="M 52 73 C 65 73 75 78 80 85 C 70 95 55 95 52 90 Z" />
-          <ellipse cx="50" cy="48" rx="2" ry="10" class="ng-brain-core" />
-        </svg>
-      </div>
-    `;
-  }
-
-  triggerAssignment(dayIdx, empId) {
-    const key = `${dayIdx}_${empId}`;
-    const cell = this.cells.get(key);
-    if (!cell) return;
-
-    cell.classList.add('active');
-    this.activeCells.add(key);
-  }
-
-  triggerSwap(dayIdx, oldEmpId, newEmpId) {
-    const oldKey = `${dayIdx}_${oldEmpId}`;
-    const newKey = `${dayIdx}_${newEmpId}`;
-    const oldCell = this.cells.get(oldKey);
-    const newCell = this.cells.get(newKey);
-
-    const c = dayIdx - 1;
-    const oldR = this.employees.indexOf(oldEmpId);
-    const newR = this.employees.indexOf(newEmpId);
-
-    if (oldCell) {
-      oldCell.classList.remove('active');
-      oldCell.classList.add('swap-old');
-      this.activeCells.delete(oldKey);
-      const t1 = setTimeout(() => {
-        if (this.cells.has(oldKey)) oldCell.classList.remove('swap-old');
-      }, 300);
-      this.timeouts.add(t1);
+    container.innerHTML = '';
+    this.miniMapCanvas = document.createElement('canvas');
+    this.miniMapCanvas.style.width = '100%';
+    this.miniMapCanvas.style.height = '100%';
+    this.miniMapCanvas.style.display = 'block';
+    container.appendChild(this.miniMapCanvas);
+    this.miniMapCtx = this.miniMapCanvas.getContext('2d', { alpha: false });
+    
+    if (this.resizeObserver) {
+      this.resizeObserver.observe(container);
     }
+    
+    this.resizeMiniMap();
+    this.initNeuralNetwork();
+    this.startLoop();
+  }
 
-    if (c >= 0 && oldR >= 0 && newR >= 0) {
-      const x = ((c + 0.5) / this.daysCount) * 100;
-      const yOld = ((oldR + 0.5) / this.employees.length) * 100;
-      const yNew = ((newR + 0.5) / this.employees.length) * 100;
+  resizeMiniMap() {
+    if (!this.miniMapCanvas || !this.miniMapCanvas.parentElement) return;
+    const parent = this.miniMapCanvas.parentElement;
+    const w = parent.clientWidth;
+    const h = parent.clientHeight;
+    if (w === 0 || h === 0) return;
+    
+    const dpr = window.devicePixelRatio || 1;
+    this.miniMapCanvas.width = w * dpr;
+    this.miniMapCanvas.height = h * dpr;
+    this.miniMapCtx.scale(dpr, dpr);
+    this.initNeuralNetwork(w, h);
+  }
 
-      const impulse = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      impulse.setAttribute("r", "4");
-      impulse.setAttribute("cx", `${x}%`);
-      impulse.setAttribute("cy", `${yOld}%`);
-      impulse.classList.add("ng-impulse");
-      this.fgSvgOverlay.appendChild(impulse);
+  initNeuralNetwork(w = 180, h = 85) {
+    this.nodes = [];
+    this.links = [];
+    this.pulses = [];
+    
+    const layers = [3, 4, 2];
+    const padX = 25;
+    const padY = 15;
+    const usableW = w - padX * 2;
+    const usableH = h - padY * 2;
 
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          impulse.setAttribute("cy", `${yNew}%`);
+    layers.forEach((nodeCount, layerIdx) => {
+      const x = padX + (layerIdx / (layers.length - 1)) * usableW;
+      const spacingY = nodeCount > 1 ? usableH / (nodeCount - 1) : 0;
+      
+      for (let i = 0; i < nodeCount; i++) {
+        const y = nodeCount === 1 ? h / 2 : padY + i * spacingY;
+        this.nodes.push({
+          id: `${layerIdx}-${i}`,
+          layer: layerIdx,
+          x: x,
+          y: y
         });
-      });
-
-      const t2 = setTimeout(() => {
-        if (this.fgSvgOverlay.contains(impulse)) {
-          this.fgSvgOverlay.removeChild(impulse);
-        }
-      }, 300);
-      this.timeouts.add(t2);
-    }
-
-    if (newCell) {
-      newCell.classList.add('swap-new');
-      this.activeCells.add(newKey);
-      const t3 = setTimeout(() => {
-        if (this.cells.has(newKey)) {
-          newCell.classList.remove('swap-new');
-          newCell.classList.add('active');
-        }
-      }, 300);
-      this.timeouts.add(t3);
-    }
-  }
-
-  triggerError(dayIdx, empId) {
-    const key = `${dayIdx}_${empId}`;
-    const cell = this.cells.get(key);
-    if (!cell) return;
-
-    cell.classList.add('error');
-
-    const c = dayIdx - 1;
-    const r = this.employees.indexOf(empId);
-    
-    const neighbors = [
-      [c - 1, r], [c + 1, r], [c, r - 1], [c, r + 1]
-    ];
-    
-    const neighborCells = [];
-    
-    neighbors.forEach(([nc, nr]) => {
-      if (nc >= 0 && nc < this.daysCount && nr >= 0 && nr < this.employees.length) {
-        const nKey = `${nc + 1}_${this.employees[nr]}`;
-        const nCell = this.cells.get(nKey);
-        if (nCell) {
-          nCell.classList.add('error-neighbor');
-          neighborCells.push(nCell);
-        }
       }
     });
 
-    const t = setTimeout(() => {
-      if (this.cells.has(key)) cell.classList.remove('error');
-      neighborCells.forEach(n => n.classList.remove('error-neighbor'));
-    }, 250);
-    this.timeouts.add(t);
+    for (let l = 0; l < layers.length - 1; l++) {
+      const currentLayer = this.nodes.filter(n => n.layer === l);
+      const nextLayer = this.nodes.filter(n => n.layer === l + 1);
+      
+      currentLayer.forEach(n1 => {
+        nextLayer.forEach(n2 => {
+          this.links.push({ source: n1, target: n2 });
+        });
+      });
+    }
+  }
+
+  getPhaseColor(alpha = 1) {
+    const colors = {
+      init: `rgba(14, 165, 233, ${alpha})`,
+      greedy: `rgba(245, 158, 11, ${alpha})`,
+      hg: `rgba(56, 189, 248, ${alpha})`,
+      deep: `rgba(168, 85, 247, ${alpha})`,
+      success: `rgba(34, 197, 94, ${alpha})`,
+      error: `rgba(239, 68, 68, ${alpha})`
+    };
+    return colors[this.phase] || colors.init;
+  }
+
+  pulseCell(dayIdx, empId, isActive, isError = false) {
+    const key = `${dayIdx}_${empId}`;
+    const cellData = this.cells.get(key);
+    if (!cellData) return;
+    
+    const { el, shadow, label } = cellData;
+
+    if (isActive) {
+      const color = isError ? this.getPhaseColor(1) : this.getPhaseColor(0.8);
+      const shadowColor = isError ? this.getPhaseColor(0.5) : this.getPhaseColor(0.3);
+      
+      el.style.transform = isError ? 'translateZ(30px) scale(1.05)' : 'translateZ(20px)';
+      el.style.background = color;
+      el.style.borderColor = color;
+      shadow.style.boxShadow = `0 10px 20px ${shadowColor}`;
+      label.style.color = '#ffffff';
+    } else {
+      el.style.transform = 'translateZ(0px)';
+      el.style.background = 'rgba(255, 255, 255, 0.04)';
+      el.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+      shadow.style.boxShadow = 'none';
+      label.style.color = 'rgba(255, 255, 255, 0.15)';
+    }
+  }
+
+  fireMiniMapPulse(isError = false) {
+    if (this.links.length === 0) return;
+    const link = this.links[Math.floor(Math.random() * this.links.length)];
+    this.pulses.push({
+      link: link,
+      progress: 0,
+      color: isError ? 'rgba(239, 68, 68, 1)' : this.getPhaseColor(1),
+      speed: 0.06 + Math.random() * 0.04
+    });
+  }
+
+  triggerSwap(dayIdx, oldEmpId, newEmpId) {
+    this.pulseCell(dayIdx, oldEmpId, false);
+    this.pulseCell(dayIdx, newEmpId, true);
+    this.fireMiniMapPulse();
+    this.fireMiniMapPulse();
+  }
+
+  triggerAssignment(dayIdx, empId) {
+    this.pulseCell(dayIdx, empId, true);
+    this.fireMiniMapPulse();
+  }
+
+  triggerError(dayIdx, empId) {
+    const oldPhase = this.phase;
+    this.phase = 'error';
+    this.pulseCell(dayIdx, empId, true, true);
+    this.fireMiniMapPulse(true);
+    
+    setTimeout(() => {
+      this.phase = oldPhase;
+      this.pulseCell(dayIdx, empId, false);
+    }, 200);
   }
 
   setPhase(phase) {
-    const color = this.phaseColors[phase] || this.phaseColors.init;
-    if (this.wrapper) {
-      this.wrapper.style.setProperty('--ng-phase-color', color);
-    }
-    
-    if (!this.miniMapContainer) return;
-    
-    const allComponents = this.miniMapContainer.querySelectorAll('.ng-lobe, .ng-brain-core');
-    allComponents.forEach(el => el.classList.remove('active'));
-
-    if (phase === 'init') {
-      this.miniMapContainer.querySelectorAll('.ng-brain-core').forEach(el => el.classList.add('active'));
-    } else if (phase === 'greedy') {
-      this.miniMapContainer.querySelectorAll('.ng-frontal-l, .ng-frontal-r').forEach(el => el.classList.add('active'));
-    } else if (phase === 'hg') {
-      this.miniMapContainer.querySelectorAll('.ng-parietal-l, .ng-parietal-r').forEach(el => el.classList.add('active'));
-    } else if (phase === 'deep') {
-      this.miniMapContainer.querySelectorAll('.ng-occipital-l, .ng-occipital-r').forEach(el => el.classList.add('active'));
-    }
+    this.phase = phase;
   }
 
   triggerSuccess() {
-    this.setPhase('success');
-    const mm = document.getElementById('ng-minimap-core');
-    if (mm) mm.classList.add('success');
-
-    this.activeCells.forEach(key => {
-      const cell = this.cells.get(key);
-      if (cell) {
-        cell.classList.add('success');
+    this.phase = 'success';
+    let i = 0;
+    for (const [key, cellData] of this.cells.entries()) {
+      if (cellData.el.style.transform.includes('translateZ')) {
+        setTimeout(() => {
+          cellData.el.style.background = this.getPhaseColor(0.9);
+          cellData.el.style.borderColor = this.getPhaseColor(1);
+          cellData.shadow.style.boxShadow = `0 10px 20px ${this.getPhaseColor(0.4)}`;
+        }, (i % 30) * 15);
       }
+      i++;
+    }
+    
+    for (let p = 0; p < 20; p++) {
+      setTimeout(() => this.fireMiniMapPulse(), p * 80);
+    }
+  }
+
+  startLoop() {
+    if (this.animId) cancelAnimationFrame(this.animId);
+    const loop = () => {
+      this.renderMiniMap();
+      this.animId = requestAnimationFrame(loop);
+    };
+    this.animId = requestAnimationFrame(loop);
+  }
+
+  renderMiniMap() {
+    if (!this.miniMapCtx || !this.miniMapCanvas.parentElement) return;
+    
+    const ctx = this.miniMapCtx;
+    const w = this.miniMapCanvas.parentElement.clientWidth;
+    const h = this.miniMapCanvas.parentElement.clientHeight;
+
+    ctx.fillStyle = '#040A15';
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.lineWidth = 1;
+    this.links.forEach(link => {
+      ctx.beginPath();
+      ctx.moveTo(link.source.x, link.source.y);
+      ctx.lineTo(link.target.x, link.target.y);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.stroke();
+    });
+
+    for (let i = this.pulses.length - 1; i >= 0; i--) {
+      const p = this.pulses[i];
+      p.progress += p.speed;
+
+      if (p.progress >= 1) {
+        this.pulses.splice(i, 1);
+        continue;
+      }
+
+      const curX = p.link.source.x + (p.link.target.x - p.link.source.x) * p.progress;
+      const curY = p.link.source.y + (p.link.target.y - p.link.source.y) * p.progress;
+
+      ctx.beginPath();
+      ctx.arc(curX, curY, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 8;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    this.nodes.forEach(n => {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#0F172A';
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = this.getPhaseColor(0.6);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = this.getPhaseColor(1);
+      ctx.fill();
     });
   }
 
   dispose() {
-    this.timeouts.forEach(t => clearTimeout(t));
-    this.timeouts.clear();
+    if (this.animId) {
+      cancelAnimationFrame(this.animId);
+      this.animId = null;
+    }
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
     if (this.container) this.container.innerHTML = '';
     if (this.miniMapContainer) this.miniMapContainer.innerHTML = '';
     this.cells.clear();
-    this.activeCells.clear();
+    this.nodes = [];
+    this.links = [];
+    this.pulses = [];
   }
 }

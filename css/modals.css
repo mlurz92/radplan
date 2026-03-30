@@ -134,6 +134,15 @@
   flex-direction: column;
 }
 
+.modal-bd.ap-progress-bd {
+  overflow: hidden;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .modal-bd > * {
   max-width: 100%;
 }
@@ -565,10 +574,14 @@
   flex-shrink: 0;
 }
 
+/* WICHTIG: Strenge Flex-Constraints für die Engine um unendliches Wachstum zu verhindern */
 .ap-engine {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
 }
 
 .ap-engine-immersive {
@@ -580,18 +593,33 @@
 }
 
 .ap-engine-compact {
-  display: grid;
-  grid-template-rows: auto auto 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   height: 100%;
+  min-height: 0;
 }
 
 .ap-engine-main {
-  display: grid;
-  grid-template-columns: 1.5fr 1fr;
+  display: flex;
+  flex-direction: row;
   gap: 12px;
   min-height: 0;
   flex: 1;
+}
+
+.ap-neural-view {
+  flex: 1.5;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: calc(var(--radius) + 4px);
+  overflow: hidden;
+  background: radial-gradient(circle at center, #0B192C 0%, #040A15 100%);
+  border: 1px solid rgba(14,165,233,.15);
+  box-shadow: inset 0 0 50px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.3);
 }
 
 .ap-hero-shell {
@@ -611,6 +639,7 @@
   backface-visibility: hidden;
   will-change: transform, opacity;
   flex-shrink: 0;
+  height: auto;
 }
 
 .ap-hero-shell-compact {
@@ -637,12 +666,12 @@
 
 .ap-hud-spectacle {
   position: relative;
-  width: 140px;
-  height: 100px;
-  flex-shrink: 0;
+  width: 180px; 
+  height: 85px; 
+  flex-shrink: 0; 
   border-radius: 12px;
   overflow: hidden;
-  background: radial-gradient(circle at center, rgba(14,165,233,.15) 0%, transparent 70%);
+  background: #040A15;
   border: 1px solid rgba(56,189,248,.2);
   box-shadow: inset 0 0 20px rgba(14,165,233,.1), 0 0 30px rgba(14,165,233,.1);
 }
@@ -756,11 +785,6 @@
   will-change: width, transform;
 }
 
-@keyframes apBarShimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
 .ap-bar-glow {
   position: absolute;
   top: -3px;
@@ -799,7 +823,7 @@
 
 .ap-terminal {
   position: relative;
-  border-radius: var(--radius);
+  border-radius: calc(var(--radius) + 4px);
   overflow: hidden;
   border: 1px solid rgba(56,189,248,.12);
   box-shadow: 0 10px 30px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.03);
@@ -808,6 +832,7 @@
   will-change: transform;
   display: flex;
   flex-direction: column;
+  flex: 1;
   min-height: 0;
 }
 
@@ -1355,12 +1380,68 @@
   word-break: break-all;
 }
 
+/* Neural Graph Overlay Details */
+.ap-neural-vignette {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 60px rgba(0,0,0,0.9);
+  pointer-events: none;
+}
+
+.ap-neural-hud-layer {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ap-neural-hud-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.ap-nhi-lbl {
+  font-size: 8px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.ap-nhi-val {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #38BDF8;
+  font-weight: 600;
+}
+
+.ap-neural-stats {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.ap-neural-stat-pill {
+  background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: rgba(255,255,255,0.6);
+}
+
 @media (max-width: 1200px) {
   .ap-result-hero { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 900px) {
-  .ap-engine-main { grid-template-columns: 1fr; }
+  .ap-engine-main { flex-direction: column; }
+  .ap-neural-view { min-height: 200px; }
 }
 
 @media (max-width: 768px) {
@@ -1370,9 +1451,11 @@
   }
   .modal-hd { padding: 12px 14px; }
   .modal-bd { padding: 14px; }
+  .modal-bd.ap-progress-bd { padding: 10px; }
   .modal-ft { padding: 10px 14px; }
   .modal-ft .mbtn { flex: 1 1 160px; justify-content: center; }
   .ap-hero-hud { flex-direction: column; align-items: stretch; }
+  .ap-hud-spectacle { width: 100%; height: 60px; }
 }
 
 @media (max-width: 480px) {
@@ -1429,6 +1512,11 @@ body.is-mobile #modal-score-info #score-info-body {
 
 body.is-mobile #modal-autoplan .modal-bd {
   padding: 18px !important;
+}
+
+body.is-mobile #modal-autoplan .modal-bd.ap-progress-bd {
+  padding: 10px !important;
+  overflow: hidden !important;
 }
 
 body.is-mobile .modal-x {

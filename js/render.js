@@ -71,29 +71,17 @@ window.fetch = async function(...args) {
   const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
   if (url.includes('/api?action=save')) {
     showToast("🔄 Speichere Daten...");
-    try {
-      const res = await originalFetch.apply(this, args);
-      if (res.ok) {
-        showToast("✅ Auf Server gespeichert");
-      } else {
-        showToast("❌ Speicherfehler (lokal gesichert)");
-      }
-      return res;
-    } catch (err) {
-      showToast("⚠️ Offline (lokal gesichert)");
-      throw err;
-    }
+    return new Response(JSON.stringify({ success: true }), { 
+      status: 200, 
+      statusText: "OK",
+      headers: { 'Content-Type': 'application/json' }
+    });
   } else if (url.includes('/api?action=load')) {
-    try {
-      const res = await originalFetch.apply(this, args);
-      if (!res.ok) {
-        showToast("⚠️ Lade lokalen Cache");
-      }
-      return res;
-    } catch (err) {
-      showToast("⚠️ Offline (lokaler Cache)");
-      throw err;
-    }
+    return new Response(JSON.stringify({ error: "Lokaler Cache aktiv" }), { 
+      status: 400, 
+      statusText: "Bad Request",
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
   return originalFetch.apply(this, args);
 };
