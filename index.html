@@ -20,7 +20,6 @@
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/modals.css">
   <link rel="stylesheet" href="css/views.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -51,13 +50,14 @@
 
       <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
 
-      <button type="button" class="hbtn hbtn-accent" id="btn-team" title="Abteilung & Team Übersicht verwalten">
+      <button type="button" class="hbtn hbtn-accent" id="btn-dept" title="Abteilungsübersicht für alle Mitarbeitenden">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+          <rect x="2" y="7" width="20" height="14" rx="2"/>
+          <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+          <line x1="12" y1="12" x2="12" y2="17"/>
+          <line x1="9"  y1="14.5" x2="15" y2="14.5"/>
         </svg>
-        <span class="hbtn-lbl">Abteilung &amp; Team</span>
+        <span class="hbtn-lbl">Abteilung</span>
       </button>
 
       <button type="button" class="hbtn hbtn-ghost" id="btn-plan" title="Planungsmodus starten — unabhängige Planung ohne Hauptdaten zu verändern">
@@ -66,6 +66,17 @@
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
         </svg>
         <span class="hbtn-lbl">Planung</span>
+      </button>
+
+      <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
+
+      <button type="button" class="hbtn hbtn-ghost" id="btn-employees" title="Mitarbeitende verwalten">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <span class="hbtn-lbl">Mitarbeitende</span>
       </button>
 
       <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
@@ -218,9 +229,9 @@
   </div>
 
   <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile Navigation">
-    <button type="button" class="mnav-btn" id="mnav-team" aria-label="Team">
-      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      <span>Team</span>
+    <button type="button" class="mnav-btn" id="mnav-dept" aria-label="Abteilung">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="17"/><line x1="9" y1="14.5" x2="15" y2="14.5"/></svg>
+      <span>Abteilung</span>
     </button>
     <button type="button" class="mnav-btn mnav-plan" id="mnav-plan" aria-label="Planung">
       <div class="mnav-plan-icon">
@@ -250,6 +261,10 @@
             <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/>
           </svg>
           Zum heutigen Tag
+        </button>
+        <button type="button" class="mbtn mbtn-ghost" id="mbtn-employees" style="justify-content:flex-start; padding:14px; font-size: 14px;">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Mitarbeitende verwalten
         </button>
         <button type="button" class="mbtn mbtn-ghost" id="mbtn-export" style="justify-content:flex-start; padding:14px; font-size: 14px;">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -384,6 +399,59 @@
     </div>
   </div>
 
+  <div class="overlay" id="modal-emps" role="dialog" aria-modal="true" aria-labelledby="emp-title" hidden style="display:none">
+    <div class="modal employee-dashboard-modal modal-emps">
+      <div class="modal-hd empdash-hd">
+        <div class="empdash-hd-copy">
+          <div class="modal-hd-title" id="emp-title">Jahres-Dashboard Mitarbeitende</div>
+          <div class="modal-hd-sub" id="emp-sub"></div>
+          <div class="empdash-context" id="emp-context-line" aria-live="polite"></div>
+        </div>
+        <div class="empdash-hd-actions">
+          <button type="button" class="period-inline-btn" id="emp-open-period" aria-label="Zeitraumsteuerung öffnen">Zeitraum</button>
+          <button type="button" class="modal-x" data-close="modal-emps" aria-label="Mitarbeitenden-Dashboard schließen">✕</button>
+        </div>
+      </div>
+      <div class="modal-bd empdash-body">
+        <section class="empdash-section">
+          <div class="empdash-summary-grid" id="emp-summary-grid"></div>
+        </section>
+        <section class="empdash-section">
+          <div class="empdash-toolbar">
+            <div class="empdash-toolbar-left">
+              <label class="empdash-search-wrap" for="emp-search">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="search" id="emp-search" class="text-input empdash-search" placeholder="Mitarbeitende filtern…" autocomplete="off">
+              </label>
+              <div class="empdash-filter-pills" id="emp-role-filters" role="toolbar" aria-label="Rollenfilter"></div>
+            </div>
+            <div class="empdash-toolbar-right">
+              <div class="empdash-count" id="emp-visible-count" aria-live="polite"></div>
+            </div>
+          </div>
+          <div class="empdash-card-grid" id="emp-year-grid" role="list" aria-label="Jahresübersicht aller Mitarbeitenden"></div>
+        </section>
+        <section class="empdash-section empdash-detail-section">
+          <div class="empdash-detail-head">
+            <div>
+              <div class="empdash-detail-title">Detailansicht Kalenderjahr</div>
+              <div class="empdash-detail-sub" id="emp-detail-sub">Bitte eine Person auswählen.</div>
+            </div>
+            <div class="empdash-view-switch" role="tablist" aria-label="Detailansicht umschalten">
+              <button type="button" class="empdash-view-btn active" id="emp-view-months" data-view="months" role="tab" aria-selected="true">Monatsverlauf</button>
+              <button type="button" class="empdash-view-btn" id="emp-view-calendar" data-view="calendar" role="tab" aria-selected="false">Jahreskalender</button>
+              <button type="button" class="empdash-view-btn" id="emp-view-admin" data-view="admin" role="tab" aria-selected="false">Verwaltung</button>
+            </div>
+          </div>
+          <div class="empdash-detail-panel" id="emp-detail-panel" role="tabpanel" aria-live="polite"></div>
+        </section>
+      </div>
+      <div class="modal-ft">
+        <button type="button" class="mbtn mbtn-ghost" data-close="modal-emps">Schließen</button>
+      </div>
+    </div>
+  </div>
+
   <div class="overlay" id="modal-import" role="dialog" aria-modal="true" aria-labelledby="import-title" hidden style="display:none">
     <div class="modal modal-import">
       <div class="modal-hd">
@@ -418,32 +486,27 @@
     </div>
   </div>
 
-  <div class="overlay" id="modal-team" role="dialog" aria-modal="true" aria-labelledby="team-modal-title" hidden style="display:none">
-    <div class="modal modal-dept employee-dashboard-modal">
-      <div class="modal-hd dept-modal-hd empdash-hd">
+  <div class="overlay" id="modal-dept" role="dialog" aria-modal="true" aria-labelledby="dept-modal-title" hidden style="display:none">
+    <div class="modal modal-dept">
+      <div class="modal-hd dept-modal-hd">
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
             <div>
-              <div class="modal-hd-title" id="team-modal-title">Abteilung &amp; Team</div>
-              <div class="modal-hd-sub" id="team-modal-sub">Klinik für Radiologie &amp; Nuklearmedizin</div>
+              <div class="modal-hd-title" id="dept-modal-title">Abteilungsübersicht</div>
+              <div class="modal-hd-sub" id="dept-modal-sub">Klinik für Radiologie &amp; Nuklearmedizin</div>
             </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <button type="button" class="period-inline-btn" id="team-open-period" aria-label="Zeitraumsteuerung öffnen">Zeitraum</button>
-              <button type="button" class="modal-x" data-close="modal-team" aria-label="Team-Hub schließen">✕</button>
-            </div>
+            <button type="button" class="modal-x" data-close="modal-dept" aria-label="Abteilungsübersicht schließen">✕</button>
           </div>
-          <div class="dept-context-line" id="team-context-line" aria-live="polite"></div>
-          <div class="dept-tabs" role="tablist" style="margin-top:16px;">
-            <button type="button" class="dept-tab active" id="tab-team-month" role="tab" aria-selected="true">Monats-Reporting</button>
-            <button type="button" class="dept-tab" id="tab-team-year" role="tab" aria-selected="false">Jahres-Reporting</button>
-            <button type="button" class="dept-tab" id="tab-team-profiles" role="tab" aria-selected="false">Mitarbeitenden-Profile</button>
+          <div class="dept-context-line" id="dept-context-line" aria-live="polite"></div>
+          <div class="dept-tabs" role="tablist">
+            <button type="button" class="dept-tab active" id="dept-tab-month" role="tab" aria-selected="true">Aktueller Monat</button>
+            <button type="button" class="dept-tab" id="dept-tab-year" role="tab" aria-selected="false">Jahresübersicht</button>
           </div>
         </div>
       </div>
-      <div class="dept-body empdash-body" id="team-body" role="tabpanel" style="display:flex; flex-direction:column; padding:0; flex:1; overflow:hidden;">
-        </div>
+      <div class="dept-body" id="dept-body" role="tabpanel"></div>
       <div class="modal-ft">
-        <button type="button" class="mbtn mbtn-ghost" data-close="modal-team">Schließen</button>
+        <button type="button" class="mbtn mbtn-ghost" data-close="modal-dept">Schließen</button>
       </div>
     </div>
   </div>
