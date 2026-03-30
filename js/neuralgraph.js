@@ -63,16 +63,27 @@ function injectStyles() {
       pointer-events: none;
       user-select: none;
     }
+    .ng-duty-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      transform: translateZ(2px);
+      pointer-events: none;
+      width: 100%;
+    }
     .ng-emp-label {
       font-family: var(--font-mono, monospace);
-      font-size: 14px;
+      font-size: 10.5px;
       font-weight: 800;
       color: transparent;
       transition: color 0.3s;
-      transform: translateZ(2px);
-      pointer-events: none;
       user-select: none;
       letter-spacing: 0.05em;
+      line-height: 1;
+      text-align: center;
+      min-height: 10.5px;
     }
   `;
   document.head.appendChild(style);
@@ -165,16 +176,26 @@ export class NeuralGraph {
       dayLabel.className = 'ng-day-number';
       dayLabel.textContent = d;
 
-      const empLabel = document.createElement('div');
-      empLabel.className = 'ng-emp-label';
-      empLabel.textContent = ''; 
+      const dutyWrap = document.createElement('div');
+      dutyWrap.className = 'ng-duty-wrap';
+
+      const dLabel = document.createElement('div');
+      dLabel.className = 'ng-emp-label ng-emp-d';
+      dLabel.textContent = ''; 
+
+      const hgLabel = document.createElement('div');
+      hgLabel.className = 'ng-emp-label ng-emp-hg';
+      hgLabel.textContent = ''; 
+      
+      dutyWrap.appendChild(dLabel);
+      dutyWrap.appendChild(hgLabel);
       
       cell.appendChild(shadow);
       cell.appendChild(dayLabel);
-      cell.appendChild(empLabel);
+      cell.appendChild(dutyWrap);
       this.gridFloat.appendChild(cell);
       
-      this.cells.set(d, { el: cell, shadow, empLabel });
+      this.cells.set(d, { el: cell, shadow, dLabel, hgLabel });
     }
     this.updateGridScale();
   }
@@ -228,14 +249,18 @@ export class NeuralGraph {
     return last.substring(0, 2).toUpperCase();
   }
 
-  pulseCell(dayIdx, empId, isActive, isError = false) {
+  pulseCell(dayIdx, empId, isActive, isError = false, dutyType = "D") {
     const cellData = this.cells.get(dayIdx);
     if (!cellData) return;
     
-    const { el, shadow, empLabel } = cellData;
+    const { el, shadow, dLabel, hgLabel } = cellData;
 
     if (empId) {
-      empLabel.textContent = this.getAbbreviation(empId);
+      if (dutyType === "HG") {
+        hgLabel.textContent = this.getAbbreviation(empId);
+      } else {
+        dLabel.textContent = this.getAbbreviation(empId);
+      }
     }
 
     if (isActive) {
@@ -246,15 +271,15 @@ export class NeuralGraph {
       el.style.background = color;
       el.style.borderColor = color;
       shadow.style.boxShadow = `0 15px 25px ${shadowColor}`;
-      empLabel.style.color = '#ffffff';
+      if (dutyType === "HG" && hgLabel.textContent) hgLabel.style.color = '#ffffff';
+      if (dutyType === "D" && dLabel.textContent) dLabel.style.color = '#ffffff';
     } else {
       el.style.transform = 'translateZ(0px)';
       el.style.background = 'rgba(255, 255, 255, 0.04)';
       el.style.borderColor = 'rgba(255, 255, 255, 0.1)';
       shadow.style.boxShadow = 'none';
-      if (empLabel.textContent) {
-        empLabel.style.color = 'rgba(255, 255, 255, 0.5)';
-      }
+      if (dLabel.textContent) dLabel.style.color = '#EF4444'; 
+      if (hgLabel.textContent) hgLabel.style.color = '#0EA5E9';
     }
   }
 
@@ -267,37 +292,37 @@ export class NeuralGraph {
     });
   }
 
-  triggerSwap(dayIdx, oldEmpId, newEmpId) {
-    this.pulseCell(dayIdx, newEmpId, true);
+  triggerSwap(dayIdx, oldEmpId, newEmpId, dutyType = "D") {
+    this.pulseCell(dayIdx, newEmpId, true, false, dutyType);
     this.fireMiniMapPulse();
     
     setTimeout(() => {
       if (this.phase !== 'success') {
-        this.pulseCell(dayIdx, newEmpId, false);
+        this.pulseCell(dayIdx, newEmpId, false, false, dutyType);
       }
     }, 400);
   }
 
-  triggerAssignment(dayIdx, empId) {
-    this.pulseCell(dayIdx, empId, true);
+  triggerAssignment(dayIdx, empId, dutyType = "D") {
+    this.pulseCell(dayIdx, empId, true, false, dutyType);
     this.fireMiniMapPulse();
     
     setTimeout(() => {
       if (this.phase !== 'success') {
-        this.pulseCell(dayIdx, empId, false);
+        this.pulseCell(dayIdx, empId, false, false, dutyType);
       }
     }, 400);
   }
 
-  triggerError(dayIdx, empId) {
+  triggerError(dayIdx, empId, dutyType = "D") {
     const oldPhase = this.phase;
     this.phase = 'error';
-    this.pulseCell(dayIdx, empId, true, true);
+    this.pulseCell(dayIdx, empId, true, true, dutyType);
     this.fireMiniMapPulse(true);
     
     setTimeout(() => {
       this.phase = oldPhase;
-      this.pulseCell(dayIdx, empId, false);
+      this.pulseCell(dayIdx, empId, false, false, dutyType);
     }, 300);
   }
 
@@ -305,17 +330,35 @@ export class NeuralGraph {
     this.phase = phase;
   }
 
-  triggerSuccess() {
+  triggerSuccess(finalAssignments) {
     this.phase = 'success';
+    
+    if (finalAssignments) {
+      for (const [emp, days] of Object.entries(finalAssignments)) {
+        for (const [dayStr, data] of Object.entries(days)) {
+          const dayIdx = parseInt(dayStr, 10);
+          const cellData = this.cells.get(dayIdx);
+          if (cellData && data.duty) {
+            if (data.duty === "D") cellData.dLabel.textContent = this.getAbbreviation(emp);
+            if (data.duty === "HG") cellData.hgLabel.textContent = this.getAbbreviation(emp);
+          }
+        }
+      }
+    }
+
     let delay = 0;
     for (const [dayIdx, cellData] of this.cells.entries()) {
-      if (cellData.empLabel.textContent !== '') {
+      const hasD = cellData.dLabel.textContent !== '';
+      const hasHG = cellData.hgLabel.textContent !== '';
+      
+      if (hasD || hasHG) {
         setTimeout(() => {
           cellData.el.style.transform = 'translateZ(15px)';
           cellData.el.style.background = this.getPhaseColor(0.8);
           cellData.el.style.borderColor = this.getPhaseColor(1);
           cellData.shadow.style.boxShadow = `0 10px 20px ${this.getPhaseColor(0.4)}`;
-          cellData.empLabel.style.color = '#ffffff';
+          if (hasD) cellData.dLabel.style.color = '#ffffff';
+          if (hasHG) cellData.hgLabel.style.color = '#ffffff';
         }, delay);
         delay += 25;
       }

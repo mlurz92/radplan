@@ -1422,8 +1422,13 @@ export async function streamProgressLogs(result) {
     const entry = log[i];
     await sleep(delayPerEntry);
 
+    let dutyType = "D";
+    if (entry.msg && entry.msg.includes("HG")) {
+      dutyType = "HG";
+    }
+
     if (entry.icon === "→" || entry.icon === "🟣") {
-      if (entry.msg.includes("HG")) {
+      if (dutyType === "HG") {
         hgCount++; 
       } else {
         bdCount++;
@@ -1458,20 +1463,20 @@ export async function streamProgressLogs(result) {
     if (neuralGraphInstance) {
       if (entry.icon === "🔀" || entry.icon === "🔁" || entry.icon === "🧠") {
         if (entry.dayIdx !== undefined && entry.oldEmpId && entry.newEmpId) {
-          neuralGraphInstance.triggerSwap(entry.dayIdx, entry.oldEmpId, entry.newEmpId);
+          neuralGraphInstance.triggerSwap(entry.dayIdx, entry.oldEmpId, entry.newEmpId, dutyType);
         }
       } else if (entry.icon === "→" || entry.icon === "🟣") {
         if (entry.dayIdx !== undefined) {
           if (entry.oldEmpId && entry.newEmpId) {
-            neuralGraphInstance.triggerSwap(entry.dayIdx, entry.oldEmpId, entry.newEmpId);
+            neuralGraphInstance.triggerSwap(entry.dayIdx, entry.oldEmpId, entry.newEmpId, dutyType);
           } else if (entry.newEmpId || entry.empId) {
-            neuralGraphInstance.triggerAssignment(entry.dayIdx, entry.newEmpId || entry.empId);
+            neuralGraphInstance.triggerAssignment(entry.dayIdx, entry.newEmpId || entry.empId, dutyType);
           }
         }
       }
       if (entry.msg.includes("KRITISCH") || entry.msg.includes("Penalty") || entry.icon === "⚠" || entry.icon === "🚨") {
         if (entry.dayIdx !== undefined) {
-          neuralGraphInstance.triggerError(entry.dayIdx, entry.newEmpId || entry.empId);
+          neuralGraphInstance.triggerError(entry.dayIdx, entry.newEmpId || entry.empId, dutyType);
         }
       }
       
@@ -1519,7 +1524,7 @@ export async function streamProgressLogs(result) {
   }
 
   if (neuralGraphInstance) {
-     neuralGraphInstance.triggerSuccess();
+     neuralGraphInstance.triggerSuccess(result.assignments);
      const phasePill = document.getElementById("ap-ng-phase-pill");
      if (phasePill) {
        phasePill.textContent = "CONVERGED";
