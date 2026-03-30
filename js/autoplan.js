@@ -1836,7 +1836,7 @@ export async function computeAutoPlan(customTargets) {
     if (!emps.some((e) => result[e]?.[d]?.duty === "HG")) {
       summary.warnings.push(`Tag ${d}: kein HG besetzt.`);
     }
-    if (hasDalitzMammographyConflict(y, m, "Fr. Dalitz", d, "HG", result)) {
+    if (result["Fr. Dalitz"]?.[d]?.duty === "HG" && hasDalitzMammographyConflict(y, m, "Fr. Dalitz", d, "HG", result)) {
       summary.warnings.push(`KRITISCH Tag ${d}: Fr. Dalitz HG für Torki/Sebastian (Mammographie-Konflikt am Folgetag).`);
     }
   }

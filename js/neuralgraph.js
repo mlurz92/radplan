@@ -103,8 +103,8 @@ export class NeuralGraph {
     this.resizeObserver = null;
     this.gridBase = null;
     this.gridFloat = null;
-    this.cellSize = 48;
-    this.cellGap = 8;
+    this.cellSize = 44;
+    this.cellGap = 6;
     this.columns = 7;
     
     injectStyles();
@@ -144,12 +144,24 @@ export class NeuralGraph {
     const gridW = this.columns * (this.cellSize + this.cellGap) - this.cellGap;
     const gridH = rows * (this.cellSize + this.cellGap) - this.cellGap;
     
-    const boundingW = gridW * 0.866 + gridH * 0.866;
-    const boundingH = gridW * 0.5 + gridH * 0.5;
+    // Exakte trigonometrische Bounding-Box für CSS isometrische Projektion
+    // Z-Rotation: -45deg -> cos(45) ≈ 0.7071
+    // X-Rotation: 60deg -> cos(60) = 0.5
+    const cos45 = 0.7071;
+    const cos60 = 0.5;
     
-    const scaleX = (w * 0.85) / boundingW;
-    const scaleY = (h * 0.85) / boundingH;
-    const scale = Math.min(scaleX, scaleY, 1.4);
+    const boundingW = (gridW + gridH) * cos45;
+    const boundingH = (gridW + gridH) * cos45 * cos60;
+    
+    // Optimales ausnutzen des Platzes (90% Breite, 85% Höhe für Z-Pop Puffer)
+    const targetW = w * 0.90;
+    const targetH = h * 0.85;
+    
+    const scaleX = targetW / boundingW;
+    const scaleY = targetH / boundingH;
+    
+    // Minimaler Skalierungsfaktor um Box in Viewport einzupassen
+    const scale = Math.min(scaleX, scaleY, 4.0);
     
     this.gridBase.style.transform = `scale(${scale}) rotateX(60deg) rotateZ(-45deg)`;
   }

@@ -930,7 +930,8 @@ export function doExport() {
     if (k && k.startsWith("radplan_v3_plan_")) {
       try {
         plans[k.replace("radplan_v3_plan_", "")] = JSON.parse(localStorage.getItem(k));
-      } catch (e) {}
+      } catch (e) {
+      }
     }
   }
   
@@ -1115,8 +1116,6 @@ export function openAutoPlanModal() {
   
   const body = document.getElementById("ap-body");
   if (body) {
-    body.className = "modal-bd";
-    body.removeAttribute("style");
     body.innerHTML = `
       <div class="ap-config-intro">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;color:#0EA5E9">
@@ -1162,8 +1161,10 @@ export async function renderAutoPlanModal(renderToken = null) {
   }
 
   if (localApViewMode === "config") {
-    body.className = "modal-bd";
-    body.removeAttribute("style");
+    body.style.height = "auto";
+    body.style.maxHeight = "none";
+    body.style.overflowY = "auto";
+    body.style.display = "block";
     applyBtn.style.display = "none";
     
     const hist = await collectHistoricalDutyStatsAsync(y, m);
@@ -1321,12 +1322,16 @@ export function renderProgressShell() {
   
   if (applyBtn) applyBtn.style.display = "none";
   
-  body.className = "modal-bd ap-progress-bd";
-  body.removeAttribute("style");
+  body.style.height = "72vh";
+  body.style.maxHeight = "72vh";
+  body.style.overflow = "hidden";
+  body.style.padding = "10px";
+  body.style.display = "flex";
+  body.style.flexDirection = "column";
   
   body.innerHTML = `
-    <div class="ap-engine ap-engine-immersive ap-engine-compact">
-      <div class="ap-hero-shell ap-hero-shell-compact">
+    <div class="ap-engine ap-engine-immersive ap-engine-compact" style="flex:1; min-height:0; display:flex; flex-direction:column;">
+      <div class="ap-hero-shell ap-hero-shell-compact" style="flex-shrink:0;">
         <div class="ap-hero-hud">
           <div class="ap-hud-block">
             <span class="ap-hud-kicker">RadPlan Neural Scheduler</span>
@@ -1346,7 +1351,7 @@ export function renderProgressShell() {
           <div class="ap-ls-item"><strong class="ap-ls-val" id="ap-ls-swaps">0</strong><span class="ap-ls-lbl">Optimierung</span></div>
         </div>
 
-        <div class="ap-bar-wrap">
+        <div class="ap-bar-wrap" id="ap-bar-wrap">
           <div class="ap-bar-track">
             <div class="ap-bar-fill" id="ap-prog-bar"></div>
             <div class="ap-bar-glow" id="ap-prog-glow"></div>
@@ -1358,25 +1363,25 @@ export function renderProgressShell() {
         </div>
       </div>
 
-      <div class="ap-engine-main">
-        <div class="ap-neural-view">
+      <div class="ap-engine-main" style="flex:1; min-height:0; display:flex; gap:10px;">
+        <div class="ap-neural-view" style="flex:1; position:relative; min-width:0; min-height:0;">
           <div id="ap-neural-container" style="position:absolute; top:0; left:0; width:100%; height:100%;"></div>
-          <div class="ap-neural-vignette"></div>
-          <div class="ap-neural-hud-layer">
-             <div class="ap-neural-hud-item"><span class="ap-nhi-lbl">Topologie</span><span class="ap-nhi-val">Isometric Tensor Grid</span></div>
+          <div class="ap-neural-vignette" style="pointer-events:none;"></div>
+          <div class="ap-neural-hud-layer" style="pointer-events:none;">
+             <div class="ap-neural-hud-item"><span class="ap-nhi-lbl">Topologie</span><span class="ap-nhi-val">Neural Constellation</span></div>
              <div class="ap-neural-hud-item"><span class="ap-nhi-lbl">Status</span><span class="ap-nhi-val" id="ap-ng-status">COMPUTING</span></div>
           </div>
-          <div class="ap-neural-stats">
+          <div class="ap-neural-stats" style="pointer-events:none;">
              <span class="ap-neural-stat-pill">Visualizer Active</span>
              <span class="ap-neural-stat-pill" style="color:#0EA5E9" id="ap-ng-phase-pill">INITIALIZING</span>
           </div>
         </div>
 
-        <div class="ap-terminal ap-terminal-deep">
-          <div class="ap-term-header">
+        <div class="ap-terminal ap-terminal-deep" style="flex:1; display:flex; flex-direction:column; min-width:0; min-height:0;">
+          <div class="ap-term-header" style="flex-shrink:0;">
             <span class="ap-term-title">Trace Console</span>
           </div>
-          <div class="ap-term-body" id="ap-term-body"></div>
+          <div class="ap-term-body" id="ap-term-body" style="flex:1; overflow-y:auto; min-height:0;"></div>
         </div>
       </div>
     </div>
@@ -1390,8 +1395,7 @@ export function renderProgressShell() {
     neuralGraphInstance = new NeuralGraph(container);
     const daysCount = daysInMonth(state.year, state.month);
     neuralGraphInstance.initData(daysCount, planData.employees);
-    const statusEl = document.getElementById("ap-ng-status");
-    if (statusEl) statusEl.textContent = `${daysCount} TAGE × ${planData.employees.length} MA`;
+    document.getElementById("ap-ng-status").textContent = `${daysCount} TAGE × ${planData.employees.length} MA`;
     
     const spectacleContainer = document.getElementById("ap-hud-spectacle-container");
     if (spectacleContainer) {
@@ -1534,8 +1538,26 @@ export async function streamProgressLogs(result) {
        progTitle.textContent = "Berechnung abgeschlossen";
      }
   }
-  
-  await sleep(1000);
+
+  await new Promise(resolve => {
+    const wrap = document.getElementById("ap-bar-wrap");
+    if (wrap) {
+      wrap.innerHTML = `
+        <button type="button" class="mbtn" id="ap-show-result-btn" style="width:100%; justify-content:center; background:linear-gradient(135deg, #22c55e, #16a34a); color:#fff; font-weight:700; box-shadow: 0 4px 14px rgba(34, 197, 94, 0.3); border:none; margin-top:8px;">
+          Ergebnis anzeigen
+        </button>
+      `;
+      const btn = document.getElementById("ap-show-result-btn");
+      if (btn) {
+        btn.addEventListener("click", resolve);
+      } else {
+        setTimeout(resolve, 1500);
+      }
+    } else {
+      setTimeout(resolve, 1500);
+    }
+  });
+
   localApViewMode = "result";
   renderResultView();
 }
@@ -1569,8 +1591,11 @@ export function renderResultView() {
   };
   const body = document.getElementById("ap-body");
   
-  body.className = "modal-bd";
-  body.removeAttribute("style");
+  body.style.height = "auto";
+  body.style.maxHeight = "72vh";
+  body.style.overflowY = "auto";
+  body.style.padding = "24px";
+  body.style.display = "block";
   
   const applyBtn = document.getElementById("ap-apply");
   const reportBtn = document.getElementById("ap-report-btn");

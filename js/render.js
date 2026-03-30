@@ -1175,13 +1175,43 @@ export function openScoreInfoModal(resultData = autoPlanResult) {
   const getTone = (s) => s >= 80 ? "#22C55E" : s >= 60 ? "#F59E0B" : "#EF4444";
   
   const metrics = [
-    { label: "D-Abdeckung", val: q.dutyGaps === 0 ? "100%" : `${q.dutyGaps} Lücken`, weight: "36%", hint: "Stabilität des Bereitschaftsdienst-Netzes.", pct: Math.max(0, 100 - q.dutyGaps * 20), color: q.dutyGaps === 0 ? "#22C55E" : "#EF4444" },
-    { label: "HG-Abdeckung", val: q.hgGaps === 0 ? "100%" : `${q.hgGaps} Lücken`, weight: "24%", hint: "Verfügbarkeit der fachärztlichen Leitung.", pct: Math.max(0, 100 - q.hgGaps * 20), color: q.hgGaps === 0 ? "#22C55E" : "#EF4444" },
-    { label: "BD-Gerechtigkeit", val: `Δ ${q.bdSpread}`, weight: "16%", hint: "Maximaler Unterschied der BD-Anzahl zwischen Personen.", pct: Math.max(0, 100 - q.bdSpread * 15), color: q.bdSpread <= 1 ? "#22C55E" : "#F59E0B" },
-    { label: "HG-Balance", val: `Δ ${q.hgSpread}`, weight: "10%", hint: "Gleichmäßige Belastung im Hintergrunddienst.", pct: Math.max(0, 100 - q.hgSpread * 20), color: q.hgSpread <= 1 ? "#22C55E" : "#F59E0B" },
-    { label: "WE-Streuung", val: `Δ ${q.weSpread}`, weight: "8%", hint: "Fairness der Wochenend- und Feiertagsdienste.", pct: Math.max(0, 100 - q.weSpread * 25), color: q.weSpread <= 1 ? "#22C55E" : "#F59E0B" },
-    { label: "Wunscherfüllung", val: `${Math.round(q.wishes * 100)}%`, weight: "6%", hint: "Erfolgsrate der eingetragenen BD/HG-Wünsche.", pct: Math.round(q.wishes * 100), color: q.wishes >= 0.8 ? "#22C55E" : "#93C5FD" }
+    { label: "D-Abdeckung", val: q.dutyGaps === 0 ? "100%" : `${q.dutyGaps} Lücken`, weight: "D-Prio", hint: "Jede Lücke im Bereitschaftsdienst führt zu massiven Penalty-Abzügen (-15 Punkte pro fehlendem Dienst).", pct: Math.max(0, 100 - q.dutyGaps * 20), color: q.dutyGaps === 0 ? "#22C55E" : "#EF4444" },
+    { label: "HG-Abdeckung", val: q.hgGaps === 0 ? "100%" : `${q.hgGaps} Lücken`, weight: "HG-Prio", hint: "Jede Lücke im Hintergrunddienst bestraft den Score (-10 Punkte pro fehlendem Dienst).", pct: Math.max(0, 100 - q.hgGaps * 20), color: q.hgGaps === 0 ? "#22C55E" : "#EF4444" },
+    { label: "BD-Gerechtigkeit", val: `Δ ${q.bdSpread}`, weight: "Spread", hint: "Unterschied zwischen der Person mit den meisten und wenigsten Bereitschaftsdiensten. Exponentieller Abzug ab Δ > 1.", pct: Math.max(0, 100 - q.bdSpread * 15), color: q.bdSpread <= 1 ? "#22C55E" : "#F59E0B" },
+    { label: "HG-Balance", val: `Δ ${q.hgSpread}`, weight: "Spread", hint: "Gleichmäßige Verteilung im Hintergrunddienst. Strafen skalieren mit zunehmender Ungerechtigkeit.", pct: Math.max(0, 100 - q.hgSpread * 20), color: q.hgSpread <= 1 ? "#22C55E" : "#F59E0B" },
+    { label: "WE-Streuung", val: `Δ ${q.weSpread}`, weight: "Spread", hint: "Fairness der Wochenend- und Feiertagsdienste. Diese Dienste sind hoch gewichtet und müssen fair rotieren.", pct: Math.max(0, 100 - q.weSpread * 25), color: q.weSpread <= 1 ? "#22C55E" : "#F59E0B" },
+    { label: "Wunscherfüllung", val: `${Math.round(q.wishes * 100)}%`, weight: "Bonus", hint: "Erfolgsrate der eingetragenen BD/HG-Wünsche. Erfüllte Wünsche generieren Bonuspunkte (bis zu +5.0 auf den Score).", pct: Math.round(q.wishes * 100), color: q.wishes >= 0.8 ? "#22C55E" : "#93C5FD" }
   ];
+
+  let reasoningHtml = "";
+  
+  if (q.dutyGaps === 0) {
+    reasoningHtml += `<div class="score-reasoning-item pos"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#22C55E" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><div class="score-r-text">Vollständige Bereitschaftsdienst-Abdeckung ohne Lücken.</div><span class="score-r-pts pos">±0.0</span></div>`;
+  } else {
+    reasoningHtml += `<div class="score-reasoning-item neg"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><div class="score-r-text"><strong>Kritisch:</strong> ${q.dutyGaps} unbesetzte D-Schichten. Der Algorithmus konnte keine passenden Kandidaten ohne Verletzung harter Constraints finden.</div><span class="score-r-pts neg">-${(q.dutyGaps * 15.0).toFixed(1)}</span></div>`;
+  }
+  
+  if (q.hgGaps === 0) {
+    reasoningHtml += `<div class="score-reasoning-item pos"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#22C55E" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><div class="score-r-text">Vollständige Hintergrunddienst-Abdeckung ohne Lücken.</div><span class="score-r-pts pos">±0.0</span></div>`;
+  } else {
+    reasoningHtml += `<div class="score-reasoning-item neg"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><div class="score-r-text"><strong>Kritisch:</strong> ${q.hgGaps} unbesetzte HG-Schichten. Möglicher Mangel an verfügbaren Fachärzten.</div><span class="score-r-pts neg">-${(q.hgGaps * 10.0).toFixed(1)}</span></div>`;
+  }
+
+  if (q.bdSpread <= 1) {
+    reasoningHtml += `<div class="score-reasoning-item pos"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#22C55E" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><div class="score-r-text">Optimale Gleichverteilung der D-Dienste (Spread &le; 1). Höchstmögliche Fairness erreicht.</div><span class="score-r-pts pos">-${(q.bdSpread * 2.5).toFixed(1)}</span></div>`;
+  } else {
+    reasoningHtml += `<div class="score-reasoning-item neg"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#F59E0B" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><div class="score-r-text">Ungleiche Verteilung der D-Dienste detektiert. Die Varianz (Spread ${q.bdSpread}) führt zu exponentiellen Penalty-Abzügen.</div><span class="score-r-pts neg">-${(q.bdSpread * 2.5).toFixed(1)}</span></div>`;
+  }
+  
+  if (q.hgSpread > 1) {
+    reasoningHtml += `<div class="score-reasoning-item neg"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#F59E0B" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><div class="score-r-text">Suboptimale Hintergrund-Balance (Spread ${q.hgSpread}) unter den Fachärzten festgestellt.</div><span class="score-r-pts neg">-${(q.hgSpread * 1.5).toFixed(1)}</span></div>`;
+  }
+  
+  if (q.wishes > 0) {
+    reasoningHtml += `<div class="score-reasoning-item pos"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#22C55E" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><div class="score-r-text">Bonus für erfüllte Dienstwünsche (${Math.round(q.wishes * 100)}%). Dienstplanung berücksichtigt Präferenzen.</div><span class="score-r-pts pos">+${(q.wishes * 5.0).toFixed(1)}</span></div>`;
+  }
+  
+  reasoningHtml += `<div class="score-reasoning-item neu"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#38BDF8" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><div class="score-r-text">Rechenkosten-Penalty für komplexe Umverteilungen. Der Algorithmus benötigte ${q.deepMoves} Deep-Moves zur Konvergenz.</div><span class="score-r-pts neg">-${(q.deepMoves * 0.005).toFixed(1)}</span></div>`;
 
   body.innerHTML = `
     <div class="score-dashboard">
@@ -1198,34 +1228,39 @@ export function openScoreInfoModal(resultData = autoPlanResult) {
         </div>
         <div class="score-dash-info">
           <h3 class="score-dash-rating" style="color: ${getTone(q.score)}">${getRating(q.score)}</h3>
-          <p class="score-dash-desc">Der RadPlan Neural Scheduler hat <strong>${q.deepMoves}</strong> Optimierungs-Schritte durchgeführt, um dieses Ergebnis zu erzielen.</p>
+          <p class="score-dash-desc">Der RadPlan Neural Scheduler hat <strong>${q.deepMoves}</strong> Optimierungs-Schritte durchgeführt, um die harte und weiche Constraint-Matrix in dieses lokale Minimum zu transformieren.</p>
         </div>
       </header>
 
       <div class="score-grid-enhanced">
         ${metrics.map(m => `
-          <div class="score-card-enhanced">
+          <div class="score-card-enhanced" data-tooltip="${m.hint}" data-tooltip-pos="bottom">
             <div class="score-card-top">
-              <span class="score-card-lbl">${m.label}</span>
+              <span class="score-card-lbl">
+                ${m.label}
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:0.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </span>
               <span class="score-card-weight">${m.weight}</span>
             </div>
             <div class="score-card-mid">
               <span class="score-card-val" style="color: ${m.color}">${m.val}</span>
               <div class="score-card-bar"><div class="score-card-fill" style="width: ${m.pct}%; background: ${m.color}"></div></div>
             </div>
-            <p class="score-card-hint">${m.hint}</p>
           </div>
         `).join("")}
       </div>
 
       <div class="score-math-box-enhanced">
-        <div class="score-math-title">Was bedeutet "Spread" (Δ)?</div>
-        <p class="score-math-text">Ein Spread von 0 bedeutet absolute Gleichheit. Δ 1 heißt, dass die Person mit den meisten Diensten nur einen Dienst mehr hat als die Person mit den wenigsten. Je niedriger dieser Wert, desto "fairer" ist der Plan.</p>
+        <div class="score-math-title">Punkte-Analyse &amp; Penalty-Metriken</div>
+        <p class="score-math-text" style="margin-bottom:12px;">Der Algorithmus startet mit einem Basis-Score von 100.0 Punkten. Harte Regelverletzungen sind blockiert (Penalty = &infin;). Weiche Regelverletzungen werden mit spezifischen Gewichten abgezogen.</p>
+        <div class="score-reasoning-list">
+          ${reasoningHtml}
+        </div>
       </div>
       
       <div class="score-formula-display">
-        <span class="formula-lbl">Berechnungs-Basis:</span>
-        <code>Fitness = Σ (Abdeckung × Gewicht) - (Fairness-Verlust) + (Wunsch-Bonus)</code>
+        <span class="formula-lbl">Berechnungs-Basis (NFI):</span>
+        <code>Fitness = 100 - (Lücken × G) - (Spread × G) + (Wünsche × G) - (Rechenkosten)</code>
       </div>
     </div>
   `;
