@@ -12,46 +12,67 @@ function injectStyles() {
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      perspective: 1500px;
+      perspective: 1600px;
       background: transparent;
     }
     .ng-grid-base {
-      display: grid;
       transform-style: preserve-3d;
-      transition: transform 0.6s cubic-bezier(0.34, 1.2, 0.64, 1);
       transform-origin: center center;
       will-change: transform;
     }
+    .ng-grid-float {
+      display: grid;
+      transform-style: preserve-3d;
+      animation: ngFloating 10s ease-in-out infinite;
+      will-change: transform;
+    }
+    @keyframes ngFloating {
+      0%, 100% { transform: translateZ(0px) rotateZ(0deg); }
+      50% { transform: translateZ(25px) rotateZ(1.5deg); }
+    }
     .ng-iso-cell {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
       transform-style: preserve-3d;
       transition: all 0.4s cubic-bezier(0.34, 1.5, 0.64, 1);
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
-      will-change: transform, background-color;
+      will-change: transform, background-color, border-color;
     }
     .ng-iso-shadow {
       position: absolute;
       inset: -1px;
       background: transparent;
-      transition: box-shadow 0.4s, background 0.4s;
+      transition: box-shadow 0.4s;
       transform: translateZ(-1px);
-      border-radius: 3px;
+      border-radius: 4px;
       pointer-events: none;
     }
-    .ng-iso-label {
+    .ng-day-number {
+      position: absolute;
+      top: 4px;
+      left: 6px;
       font-family: var(--font-mono, monospace);
       font-size: 10px;
-      font-weight: 800;
-      color: rgba(255, 255, 255, 0.15);
-      transition: color 0.4s;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.2);
       transform: translateZ(1px);
       pointer-events: none;
       user-select: none;
+    }
+    .ng-emp-label {
+      font-family: var(--font-mono, monospace);
+      font-size: 14px;
+      font-weight: 800;
+      color: transparent;
+      transition: color 0.3s;
+      transform: translateZ(2px);
+      pointer-events: none;
+      user-select: none;
+      letter-spacing: 0.05em;
     }
   `;
   document.head.appendChild(style);
@@ -66,14 +87,14 @@ export class NeuralGraph {
     this.phase = 'init';
     this.miniMapCanvas = null;
     this.miniMapCtx = null;
-    this.nodes = [];
-    this.links = [];
     this.pulses = [];
     this.animId = null;
     this.resizeObserver = null;
     this.gridBase = null;
-    this.cellSize = 26;
-    this.cellGap = 6;
+    this.gridFloat = null;
+    this.cellSize = 48;
+    this.cellGap = 8;
+    this.columns = 7;
     
     injectStyles();
     this.buildDOM();
@@ -86,6 +107,10 @@ export class NeuralGraph {
     this.wrapper.className = 'ng-container';
     this.gridBase = document.createElement('div');
     this.gridBase.className = 'ng-grid-base';
+    this.gridFloat = document.createElement('div');
+    this.gridFloat.className = 'ng-grid-float';
+    
+    this.gridBase.appendChild(this.gridFloat);
     this.wrapper.appendChild(this.gridBase);
     this.container.appendChild(this.wrapper);
   }
@@ -99,20 +124,21 @@ export class NeuralGraph {
   }
 
   updateGridScale() {
-    if (!this.daysCount || !this.employees.length || !this.gridBase) return;
+    if (!this.daysCount || !this.gridBase) return;
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
     if (w === 0 || h === 0) return;
     
-    const gridW = this.daysCount * (this.cellSize + this.cellGap) - this.cellGap;
-    const gridH = this.employees.length * (this.cellSize + this.cellGap) - this.cellGap;
+    const rows = Math.ceil(this.daysCount / this.columns);
+    const gridW = this.columns * (this.cellSize + this.cellGap) - this.cellGap;
+    const gridH = rows * (this.cellSize + this.cellGap) - this.cellGap;
     
     const boundingW = gridW * 0.866 + gridH * 0.866;
     const boundingH = gridW * 0.5 + gridH * 0.5;
     
-    const scaleX = (w * 0.9) / boundingW;
-    const scaleY = (h * 0.9) / boundingH;
-    const scale = Math.min(scaleX, scaleY, 1.5);
+    const scaleX = (w * 0.85) / boundingW;
+    const scaleY = (h * 0.85) / boundingH;
+    const scale = Math.min(scaleX, scaleY, 1.4);
     
     this.gridBase.style.transform = `scale(${scale}) rotateX(60deg) rotateZ(-45deg)`;
   }
@@ -120,35 +146,35 @@ export class NeuralGraph {
   initData(daysCount, employees) {
     this.daysCount = daysCount;
     this.employees = employees;
-    this.gridBase.innerHTML = '';
+    this.gridFloat.innerHTML = '';
     this.cells.clear();
 
-    this.gridBase.style.gridTemplateColumns = `repeat(${daysCount}, ${this.cellSize}px)`;
-    this.gridBase.style.gridTemplateRows = `repeat(${employees.length}, ${this.cellSize}px)`;
-    this.gridBase.style.gap = `${this.cellGap}px`;
+    const rows = Math.ceil(daysCount / this.columns);
+    this.gridFloat.style.gridTemplateColumns = `repeat(${this.columns}, ${this.cellSize}px)`;
+    this.gridFloat.style.gridTemplateRows = `repeat(${rows}, ${this.cellSize}px)`;
+    this.gridFloat.style.gap = `${this.cellGap}px`;
 
-    for (let r = 0; r < employees.length; r++) {
-      for (let c = 0; c < daysCount; c++) {
-        const cell = document.createElement('div');
-        cell.className = 'ng-iso-cell';
-        
-        const shadow = document.createElement('div');
-        shadow.className = 'ng-iso-shadow';
-        
-        const label = document.createElement('div');
-        label.className = 'ng-iso-label';
-        
-        const nameParts = employees[r].split(' ');
-        const shortName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : employees[r];
-        label.textContent = shortName.substring(0, 2).toUpperCase();
-        
-        cell.appendChild(shadow);
-        cell.appendChild(label);
-        this.gridBase.appendChild(cell);
-        
-        const key = `${c + 1}_${employees[r]}`;
-        this.cells.set(key, { el: cell, shadow, label });
-      }
+    for (let d = 1; d <= daysCount; d++) {
+      const cell = document.createElement('div');
+      cell.className = 'ng-iso-cell';
+      
+      const shadow = document.createElement('div');
+      shadow.className = 'ng-iso-shadow';
+      
+      const dayLabel = document.createElement('div');
+      dayLabel.className = 'ng-day-number';
+      dayLabel.textContent = d;
+
+      const empLabel = document.createElement('div');
+      empLabel.className = 'ng-emp-label';
+      empLabel.textContent = ''; 
+      
+      cell.appendChild(shadow);
+      cell.appendChild(dayLabel);
+      cell.appendChild(empLabel);
+      this.gridFloat.appendChild(cell);
+      
+      this.cells.set(d, { el: cell, shadow, empLabel });
     }
     this.updateGridScale();
   }
@@ -167,7 +193,6 @@ export class NeuralGraph {
     }
     
     this.resizeMiniMap();
-    this.initNeuralNetwork();
     this.startLoop();
   }
 
@@ -182,45 +207,6 @@ export class NeuralGraph {
     this.miniMapCanvas.width = w * dpr;
     this.miniMapCanvas.height = h * dpr;
     this.miniMapCtx.scale(dpr, dpr);
-    this.initNeuralNetwork(w, h);
-  }
-
-  initNeuralNetwork(w = 180, h = 85) {
-    this.nodes = [];
-    this.links = [];
-    this.pulses = [];
-    
-    const layers = [3, 4, 2];
-    const padX = 25;
-    const padY = 15;
-    const usableW = w - padX * 2;
-    const usableH = h - padY * 2;
-
-    layers.forEach((nodeCount, layerIdx) => {
-      const x = padX + (layerIdx / (layers.length - 1)) * usableW;
-      const spacingY = nodeCount > 1 ? usableH / (nodeCount - 1) : 0;
-      
-      for (let i = 0; i < nodeCount; i++) {
-        const y = nodeCount === 1 ? h / 2 : padY + i * spacingY;
-        this.nodes.push({
-          id: `${layerIdx}-${i}`,
-          layer: layerIdx,
-          x: x,
-          y: y
-        });
-      }
-    });
-
-    for (let l = 0; l < layers.length - 1; l++) {
-      const currentLayer = this.nodes.filter(n => n.layer === l);
-      const nextLayer = this.nodes.filter(n => n.layer === l + 1);
-      
-      currentLayer.forEach(n1 => {
-        nextLayer.forEach(n2 => {
-          this.links.push({ source: n1, target: n2 });
-        });
-      });
-    }
   }
 
   getPhaseColor(alpha = 1) {
@@ -235,52 +221,72 @@ export class NeuralGraph {
     return colors[this.phase] || colors.init;
   }
 
+  getAbbreviation(empId) {
+    if (!empId) return '';
+    const parts = empId.split(' ');
+    const last = parts.length > 1 ? parts[parts.length - 1] : empId;
+    return last.substring(0, 2).toUpperCase();
+  }
+
   pulseCell(dayIdx, empId, isActive, isError = false) {
-    const key = `${dayIdx}_${empId}`;
-    const cellData = this.cells.get(key);
+    const cellData = this.cells.get(dayIdx);
     if (!cellData) return;
     
-    const { el, shadow, label } = cellData;
+    const { el, shadow, empLabel } = cellData;
+
+    if (empId) {
+      empLabel.textContent = this.getAbbreviation(empId);
+    }
 
     if (isActive) {
       const color = isError ? this.getPhaseColor(1) : this.getPhaseColor(0.8);
       const shadowColor = isError ? this.getPhaseColor(0.5) : this.getPhaseColor(0.3);
       
-      el.style.transform = isError ? 'translateZ(30px) scale(1.05)' : 'translateZ(20px)';
+      el.style.transform = isError ? 'translateZ(40px) scale(1.08)' : 'translateZ(25px)';
       el.style.background = color;
       el.style.borderColor = color;
-      shadow.style.boxShadow = `0 10px 20px ${shadowColor}`;
-      label.style.color = '#ffffff';
+      shadow.style.boxShadow = `0 15px 25px ${shadowColor}`;
+      empLabel.style.color = '#ffffff';
     } else {
       el.style.transform = 'translateZ(0px)';
       el.style.background = 'rgba(255, 255, 255, 0.04)';
       el.style.borderColor = 'rgba(255, 255, 255, 0.1)';
       shadow.style.boxShadow = 'none';
-      label.style.color = 'rgba(255, 255, 255, 0.15)';
+      if (empLabel.textContent) {
+        empLabel.style.color = 'rgba(255, 255, 255, 0.5)';
+      }
     }
   }
 
   fireMiniMapPulse(isError = false) {
-    if (this.links.length === 0) return;
-    const link = this.links[Math.floor(Math.random() * this.links.length)];
     this.pulses.push({
-      link: link,
       progress: 0,
       color: isError ? 'rgba(239, 68, 68, 1)' : this.getPhaseColor(1),
-      speed: 0.06 + Math.random() * 0.04
+      speed: 0.04 + Math.random() * 0.04,
+      direction: Math.random() > 0.5 ? 1 : -1
     });
   }
 
   triggerSwap(dayIdx, oldEmpId, newEmpId) {
-    this.pulseCell(dayIdx, oldEmpId, false);
     this.pulseCell(dayIdx, newEmpId, true);
     this.fireMiniMapPulse();
-    this.fireMiniMapPulse();
+    
+    setTimeout(() => {
+      if (this.phase !== 'success') {
+        this.pulseCell(dayIdx, newEmpId, false);
+      }
+    }, 400);
   }
 
   triggerAssignment(dayIdx, empId) {
     this.pulseCell(dayIdx, empId, true);
     this.fireMiniMapPulse();
+    
+    setTimeout(() => {
+      if (this.phase !== 'success') {
+        this.pulseCell(dayIdx, empId, false);
+      }
+    }, 400);
   }
 
   triggerError(dayIdx, empId) {
@@ -292,7 +298,7 @@ export class NeuralGraph {
     setTimeout(() => {
       this.phase = oldPhase;
       this.pulseCell(dayIdx, empId, false);
-    }, 200);
+    }, 300);
   }
 
   setPhase(phase) {
@@ -301,20 +307,22 @@ export class NeuralGraph {
 
   triggerSuccess() {
     this.phase = 'success';
-    let i = 0;
-    for (const [key, cellData] of this.cells.entries()) {
-      if (cellData.el.style.transform.includes('translateZ')) {
+    let delay = 0;
+    for (const [dayIdx, cellData] of this.cells.entries()) {
+      if (cellData.empLabel.textContent !== '') {
         setTimeout(() => {
-          cellData.el.style.background = this.getPhaseColor(0.9);
+          cellData.el.style.transform = 'translateZ(15px)';
+          cellData.el.style.background = this.getPhaseColor(0.8);
           cellData.el.style.borderColor = this.getPhaseColor(1);
           cellData.shadow.style.boxShadow = `0 10px 20px ${this.getPhaseColor(0.4)}`;
-        }, (i % 30) * 15);
+          cellData.empLabel.style.color = '#ffffff';
+        }, delay);
+        delay += 25;
       }
-      i++;
     }
     
-    for (let p = 0; p < 20; p++) {
-      setTimeout(() => this.fireMiniMapPulse(), p * 80);
+    for (let p = 0; p < 15; p++) {
+      setTimeout(() => this.fireMiniMapPulse(), p * 60);
     }
   }
 
@@ -331,20 +339,23 @@ export class NeuralGraph {
     if (!this.miniMapCtx || !this.miniMapCanvas.parentElement) return;
     
     const ctx = this.miniMapCtx;
-    const w = this.miniMapCanvas.parentElement.clientWidth;
-    const h = this.miniMapCanvas.parentElement.clientHeight;
+    const parent = this.miniMapCanvas.parentElement;
+    const w = parent.clientWidth;
+    const h = parent.clientHeight;
 
     ctx.fillStyle = '#040A15';
     ctx.fillRect(0, 0, w, h);
 
-    ctx.lineWidth = 1;
-    this.links.forEach(link => {
-      ctx.beginPath();
-      ctx.moveTo(link.source.x, link.source.y);
-      ctx.lineTo(link.target.x, link.target.y);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-      ctx.stroke();
-    });
+    const padX = 30;
+    const lineY = h / 2;
+    const lineLen = w - padX * 2;
+
+    ctx.beginPath();
+    ctx.moveTo(padX, lineY);
+    ctx.lineTo(w - padX, lineY);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.stroke();
 
     for (let i = this.pulses.length - 1; i >= 0; i--) {
       const p = this.pulses[i];
@@ -355,32 +366,27 @@ export class NeuralGraph {
         continue;
       }
 
-      const curX = p.link.source.x + (p.link.target.x - p.link.source.x) * p.progress;
-      const curY = p.link.source.y + (p.link.target.y - p.link.source.y) * p.progress;
+      const x = p.direction === 1 
+        ? padX + lineLen * p.progress 
+        : (w - padX) - lineLen * p.progress;
 
       ctx.beginPath();
-      ctx.arc(curX, curY, 2.5, 0, Math.PI * 2);
+      ctx.arc(x, lineY, 3, 0, Math.PI * 2);
       ctx.fillStyle = p.color;
       ctx.shadowColor = p.color;
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 10;
       ctx.fill();
       ctx.shadowBlur = 0;
     }
 
-    this.nodes.forEach(n => {
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, 4, 0, Math.PI * 2);
-      ctx.fillStyle = '#0F172A';
-      ctx.fill();
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = this.getPhaseColor(0.6);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, 1.5, 0, Math.PI * 2);
-      ctx.fillStyle = this.getPhaseColor(1);
-      ctx.fill();
-    });
+    ctx.beginPath();
+    ctx.arc(padX, lineY, 4, 0, Math.PI * 2);
+    ctx.arc(w - padX, lineY, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#0F172A';
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = this.getPhaseColor(0.8);
+    ctx.stroke();
   }
 
   dispose() {
@@ -393,10 +399,7 @@ export class NeuralGraph {
       this.resizeObserver = null;
     }
     if (this.container) this.container.innerHTML = '';
-    if (this.miniMapContainer) this.miniMapContainer.innerHTML = '';
     this.cells.clear();
-    this.nodes = [];
-    this.links = [];
     this.pulses = [];
   }
 }
