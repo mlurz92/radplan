@@ -1,394 +1,98 @@
-export const WORKPLACES = [
-  { code: "MR", label: "MRT", bg: "#DBEAFE", fg: "#1D4ED8" },
-  { code: "CT", label: "CT", bg: "#FFEDD5", fg: "#C2410C" },
-  { code: "US", label: "Sonographie", bg: "#CCFBF1", fg: "#0F766E" },
-  { code: "AN", label: "Angiographie", bg: "#F3E8FF", fg: "#7E22CE" },
-  { code: "MA", label: "Mammographie", bg: "#FCE7F3", fg: "#BE185D" },
-  { code: "KUS", label: "Kinder-US", bg: "#DCFCE7", fg: "#15803D" },
-  { code: "W", label: "Wermsdorf", bg: "#FEF9C3", fg: "#854D0E" },
-  { code: "T", label: "Teleradiologie", bg: "#E0E7FF", fg: "#3730A3" },
-];
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="App-Icon fÃ¼r eine Radiologie-Dienstplan-App ohne Schrift" style="">
+  <defs>
+    <linearGradient id="bg" x1="140" y1="90" x2="860" y2="934" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#07101B"></stop>
+      <stop offset="0.55" stop-color="#0A1525"></stop>
+      <stop offset="1" stop-color="#11243D"></stop>
+    </linearGradient>
+    <radialGradient id="glowCyan" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(316 254) rotate(48) scale(426 328)">
+      <stop offset="0" stop-color="#67D4FF" stop-opacity="0.42"></stop>
+      <stop offset="0.38" stop-color="#0EA5E9" stop-opacity="0.18"></stop>
+      <stop offset="1" stop-color="#0EA5E9" stop-opacity="0"></stop>
+    </radialGradient>
+    <radialGradient id="glowIndigo" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(772 772) rotate(-35) scale(362 288)">
+      <stop offset="0" stop-color="#7999FF" stop-opacity="0.16"></stop>
+      <stop offset="1" stop-color="#7999FF" stop-opacity="0"></stop>
+    </radialGradient>
+    <radialGradient id="ringCore" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 512) rotate(90) scale(344)">
+      <stop offset="0.6" stop-color="#0EA5E9" stop-opacity="0"></stop>
+      <stop offset="0.82" stop-color="#0EA5E9" stop-opacity="0.12"></stop>
+      <stop offset="1" stop-color="#67D4FF" stop-opacity="0.28"></stop>
+    </radialGradient>
+    <linearGradient id="ringStroke" x1="252" y1="226" x2="770" y2="802" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#79DEFF"></stop>
+      <stop offset="0.52" stop-color="#1CAFEA"></stop>
+      <stop offset="1" stop-color="#2A5080"></stop>
+    </linearGradient>
+    <linearGradient id="card" x1="320" y1="292" x2="720" y2="756" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FAFDFF" stop-opacity="0.98"></stop>
+      <stop offset="0.55" stop-color="#EEF5FB" stop-opacity="0.95"></stop>
+      <stop offset="1" stop-color="#DCE9F5" stop-opacity="0.9"></stop>
+    </linearGradient>
+    <linearGradient id="cardHeader" x1="350" y1="318" x2="676" y2="446" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#173455"></stop>
+      <stop offset="1" stop-color="#0F243D"></stop>
+    </linearGradient>
+    <linearGradient id="glassStroke" x1="330" y1="296" x2="706" y2="742" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.8"></stop>
+      <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.28"></stop>
+      <stop offset="1" stop-color="#A7C9E4" stop-opacity="0.28"></stop>
+    </linearGradient>
+    <linearGradient id="scan" x1="424" y1="252" x2="632" y2="776" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0"></stop>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.34"></stop>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"></stop>
+    </linearGradient>
+    <clipPath id="cardClip">
+      <path width="408" height="484" d="M 408,270 L 616,270 A 100,100,0,0,1,716,370 L 716,654 A 100,100,0,0,1,616,754 L 408,754 A 100,100,0,0,1,308,654 L 308,370 A 100,100,0,0,1,408,270" class="eLkyoVkH_0"></path>
+    </clipPath>
+  </defs>
 
-export const STATUSES = [
-  { code: "F", label: "Frei", bg: "#F1F5F9", fg: "#475569" },
-  { code: "U", label: "Urlaub", bg: "#EDE9FE", fg: "#5B21B6" },
-  { code: "ZU", label: "Zusatzurlaub", bg: "#DDD6FE", fg: "#4C1D95" },
-  { code: "SU", label: "Sonderurlaub", bg: "#C4B5FD", fg: "#2E1065" },
-  { code: "FZA", label: "FZA", bg: "#E0E7FF", fg: "#3730A3" },
-  { code: "K", label: "Krank", bg: "#FEE2E2", fg: "#991B1B" },
-  { code: "KK", label: "Kind Krank", bg: "#FECACA", fg: "#7F1D1D" },
-  { code: "§15c", label: "§15c", bg: "#CFFAFE", fg: "#155E75" },
-  { code: "WB", label: "Weiterbildung", bg: "#FEF3C7", fg: "#78350F" },
-];
+  <path width="944" height="944" fill="url(#bg)" d="M 264,40 L 760,40 A 224,224,0,0,1,984,264 L 984,760 A 224,224,0,0,1,760,984 L 264,984 A 224,224,0,0,1,40,760 L 40,264 A 224,224,0,0,1,264,40" class="eLkyoVkH_1"></path>
+  <path width="944" height="944" fill="url(#glowCyan)" d="M 264,40 L 760,40 A 224,224,0,0,1,984,264 L 984,760 A 224,224,0,0,1,760,984 L 264,984 A 224,224,0,0,1,40,760 L 40,264 A 224,224,0,0,1,264,40" class="eLkyoVkH_2"></path>
+  <path width="944" height="944" fill="url(#glowIndigo)" d="M 264,40 L 760,40 A 224,224,0,0,1,984,264 L 984,760 A 224,224,0,0,1,760,984 L 264,984 A 224,224,0,0,1,40,760 L 40,264 A 224,224,0,0,1,264,40" class="eLkyoVkH_3"></path>
 
-export const CODE_MAP = {};
-[...WORKPLACES, ...STATUSES].forEach((x) => {
-  CODE_MAP[x.code] = x;
-});
+  <path fill="url(#ringCore)" d="M164,512A348,348 0,1,1 860,512A348,348 0,1,1 164,512" class="eLkyoVkH_4"></path>
+  <path fill="none" stroke="url(#ringStroke)" stroke-width="28" stroke-linecap="round" opacity="0.95" d="M220,512A292,292 0,1,1 804,512A292,292 0,1,1 220,512" class="eLkyoVkH_5"></path>
+  <path fill="none" stroke="#D8F4FF" stroke-opacity="0.14" stroke-width="10" d="M260,512A252,252 0,1,1 764,512A252,252 0,1,1 260,512" class="eLkyoVkH_6"></path>
 
-export const RBN_ROW_KEY = "__RBN_NEURORAD__";
-export const RBN_ROW_LABEL = "RD Neurorad";
-export const RBN_ROW_START = { year: 2025, month: 5 };
+  <path d="M768 334a26 26 0 0 1 36 3l17 20a26 26 0 0 1-4 38l-20 16a26 26 0 0 1-38-5l-13-18a26 26 0 0 1 5-36z" fill="#EF4444" class="eLkyoVkH_7"></path>
+  <path d="M245 635a26 26 0 0 1 36-3l20 16a26 26 0 0 1 5 36l-13 18a26 26 0 0 1-38 5l-20-16a26 26 0 0 1-4-38z" fill="#0EA5E9" class="eLkyoVkH_8"></path>
 
-export const RBN_OPTIONS = [
-  "Prof. Schob (NRAD)",
-  "Dr. Maybaum (NRAD)",
-  "Dr. Bailis (NRAD)",
-  "Dr. Schüngel (NRAD)",
-  "Fr. Dalitz (RAD)",
-  "Fr. Thaler (RAD)",
-];
+  <path width="432" height="508" fill="#07101B" fill-opacity="0.26" d="M 404,258 L 620,258 A 108,108,0,0,1,728,366 L 728,658 A 108,108,0,0,1,620,766 L 404,766 A 108,108,0,0,1,296,658 L 296,366 A 108,108,0,0,1,404,258" class="eLkyoVkH_9"></path>
+  <path width="408" height="484" fill="url(#card)" d="M 408,270 L 616,270 A 100,100,0,0,1,716,370 L 716,654 A 100,100,0,0,1,616,754 L 408,754 A 100,100,0,0,1,308,654 L 308,370 A 100,100,0,0,1,408,270" class="eLkyoVkH_10"></path>
+  <path width="408" height="484" fill="none" stroke="url(#glassStroke)" stroke-width="8" d="M 408,270 L 616,270 A 100,100,0,0,1,716,370 L 716,654 A 100,100,0,0,1,616,754 L 408,754 A 100,100,0,0,1,308,654 L 308,370 A 100,100,0,0,1,408,270" class="eLkyoVkH_11"></path>
 
-export const RBN_THALER_LAST_MONTH = { year: 2026, month: 2 };
+  <path width="352" height="112" fill="url(#cardHeader)" d="M 400,302 L 624,302 A 64,56,0,0,1,688,358 L 688,358 A 64,56,0,0,1,624,414 L 400,414 A 64,56,0,0,1,336,358 L 336,358 A 64,56,0,0,1,400,302" class="eLkyoVkH_12"></path>
+  <path fill="#D6E8F7" fill-opacity="0.86" d="M376,358A12,12 0,1,1 400,358A12,12 0,1,1 376,358" class="eLkyoVkH_13"></path>
+  <path fill="#D6E8F7" fill-opacity="0.54" d="M418,358A12,12 0,1,1 442,358A12,12 0,1,1 418,358" class="eLkyoVkH_14"></path>
+  <path fill="#67D4FF" fill-opacity="0.8" d="M460,358A12,12 0,1,1 484,358A12,12 0,1,1 460,358" class="eLkyoVkH_15"></path>
 
-export function formatRbnDisplay(name) {
-  if (!name) return "";
-  const match = name.match(/(?:Prof\.|Dr\.|Fr\.|Hr\.)?\s*([A-ZÄÖÜ][a-zäöüß]+)/);
-  return match ? match[1] : name;
-}
+  <g clip-path="url(#cardClip)">
+    <path width="324" height="256" fill="#FFFFFF" fill-opacity="0.36" d="M 394,446 L 630,446 A 44,44,0,0,1,674,490 L 674,658 A 44,44,0,0,1,630,702 L 394,702 A 44,44,0,0,1,350,658 L 350,490 A 44,44,0,0,1,394,446" class="eLkyoVkH_16"></path>
+    <path d="M458 438h28v276h-28zM538 438h28v276h-28z" fill="#A8C3D8" fill-opacity="0.42" class="eLkyoVkH_17"></path>
+    <path d="M338 518h348v22H338zM338 598h348v22H338z" fill="#A8C3D8" fill-opacity="0.42" class="eLkyoVkH_18"></path>
 
-export function getRbnOptionsForDate(y, m) {
-  const allowThaler =
-    y < RBN_THALER_LAST_MONTH.year ||
-    (y === RBN_THALER_LAST_MONTH.year && m <= RBN_THALER_LAST_MONTH.month);
-  
-  if (allowThaler) {
-    return [...RBN_OPTIONS];
-  }
-  
-  return RBN_OPTIONS.filter((opt) => opt !== "Fr. Thaler (RAD)");
-}
+    <path width="88" height="64" fill="#EAF3FB" fill-opacity="0.9" d="M 388,462 L 428,462 A 24,24,0,0,1,452,486 L 452,502 A 24,24,0,0,1,428,526 L 388,526 A 24,24,0,0,1,364,502 L 364,486 A 24,24,0,0,1,388,462" class="eLkyoVkH_19"></path>
+    <path width="88" height="64" fill="#FEE2E2" d="M 508,462 L 548,462 A 24,24,0,0,1,572,486 L 572,502 A 24,24,0,0,1,548,526 L 508,526 A 24,24,0,0,1,484,502 L 484,486 A 24,24,0,0,1,508,462" class="eLkyoVkH_20"></path>
+    <path width="56" height="64" fill="#EAF3FB" fill-opacity="0.9" d="M 628,462 L 636,462 A 24,24,0,0,1,660,486 L 660,502 A 24,24,0,0,1,636,526 L 628,526 A 24,24,0,0,1,604,502 L 604,486 A 24,24,0,0,1,628,462" class="eLkyoVkH_21"></path>
 
-export const MONTHS = [
-  "Januar", "Februar", "März", "April", "Mai", "Juni",
-  "Juli", "August", "September", "Oktober", "November", "Dezember"
-];
+    <path width="88" height="64" fill="#EAF3FB" fill-opacity="0.9" d="M 388,542 L 428,542 A 24,24,0,0,1,452,566 L 452,582 A 24,24,0,0,1,428,606 L 388,606 A 24,24,0,0,1,364,582 L 364,566 A 24,24,0,0,1,388,542" class="eLkyoVkH_22"></path>
+    <path width="88" height="64" fill="#EAF3FB" fill-opacity="0.95" d="M 508,542 L 548,542 A 24,24,0,0,1,572,566 L 572,582 A 24,24,0,0,1,548,606 L 508,606 A 24,24,0,0,1,484,582 L 484,566 A 24,24,0,0,1,508,542" class="eLkyoVkH_23"></path>
+    <path width="56" height="64" fill="#E0F2FE" d="M 628,542 L 636,542 A 24,24,0,0,1,660,566 L 660,582 A 24,24,0,0,1,636,606 L 628,606 A 24,24,0,0,1,604,582 L 604,566 A 24,24,0,0,1,628,542" class="eLkyoVkH_24"></path>
 
-export const MONTHS_SHORT = [
-  "Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
-  "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"
-];
+    <path width="88" height="64" fill="#EAF3FB" fill-opacity="0.95" d="M 388,622 L 428,622 A 24,24,0,0,1,452,646 L 452,662 A 24,24,0,0,1,428,686 L 388,686 A 24,24,0,0,1,364,662 L 364,646 A 24,24,0,0,1,388,622" class="eLkyoVkH_25"></path>
+    <path width="88" height="64" fill="#EAF3FB" fill-opacity="0.9" d="M 508,622 L 548,622 A 24,24,0,0,1,572,646 L 572,662 A 24,24,0,0,1,548,686 L 508,686 A 24,24,0,0,1,484,662 L 484,646 A 24,24,0,0,1,508,622" class="eLkyoVkH_26"></path>
+    <path width="56" height="64" fill="#EAF3FB" fill-opacity="0.9" d="M 628,622 L 636,622 A 24,24,0,0,1,660,646 L 660,662 A 24,24,0,0,1,636,686 L 628,686 A 24,24,0,0,1,604,662 L 604,646 A 24,24,0,0,1,628,622" class="eLkyoVkH_27"></path>
 
-export const DOW_ABBR = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
-export const DOW_LONG = [
-  "Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"
-];
+    <path width="64" height="32" fill="#EF4444" d="M 512,478 L 544,478 A 16,16,0,0,1,560,494 L 560,494 A 16,16,0,0,1,544,510 L 512,510 A 16,16,0,0,1,496,494 L 496,494 A 16,16,0,0,1,512,478" class="eLkyoVkH_28"></path>
+    <path width="40" height="32" fill="#0EA5E9" d="M 628,558 L 636,558 A 16,16,0,0,1,652,574 L 652,574 A 16,16,0,0,1,636,590 L 628,590 A 16,16,0,0,1,612,574 L 612,574 A 16,16,0,0,1,628,558" class="eLkyoVkH_29"></path>
 
-export const STORAGE_KEY = "radplan_v3";
-export const ABSENCE_CODES = ["U", "ZU", "SU", "FZA", "K", "KK", "§15c", "WB"];
-export const VACATION_CODES = ["U", "ZU", "SU", "§15c"];
+    <path d="M298 244h204l194 520H492z" fill="url(#scan)" opacity="0.52" class="eLkyoVkH_30"></path>
+  </g>
 
-export const WISH_TYPES = [
-  {
-    code: "NO_DUTY",
-    label: "Kein Dienst",
-    icon: "✗",
-    bg: "#FEE2E2",
-    fg: "#991B1B",
-    border: "#FCA5A5",
-  },
-  {
-    code: "BD_WISH",
-    label: "BD Wunsch",
-    icon: "D",
-    bg: "#FEE2E2",
-    fg: "#B91C1C",
-    border: "#F87171",
-  },
-  {
-    code: "HG_WISH",
-    label: "HG Wunsch",
-    icon: "H",
-    bg: "#E0F2FE",
-    fg: "#0369A1",
-    border: "#7DD3FC",
-  },
-];
+  <path d="M342 312c20-20 58-34 92-34h126" fill="none" stroke="#FFFFFF" stroke-opacity="0.26" stroke-width="10" stroke-linecap="round" class="eLkyoVkH_31"></path>
 
-export const WISH_MAP = {};
-WISH_TYPES.forEach((w) => {
-  WISH_MAP[w.code] = w;
-});
-
-export const EMP_META = {
-  "Prof. Schäfer": {
-    fullName: "Prof. Dr. Arnd-Oliver Schäfer",
-    position: "CA",
-    posLabel: "Chefarzt",
-    type: "FA für Radiologie",
-    area: "",
-    deputy: "Dr. Lurz",
-  },
-  "Dr. Lurz": {
-    fullName: "Dr. med. Markus Lurz",
-    position: "LOA",
-    posLabel: "Leitender Oberarzt",
-    type: "FA für Radiologie",
-    area: "MRT · Röntgen KV",
-    deputy: "Prof. Schäfer / Dr. Polednia",
-  },
-  "Dr. Polednia": {
-    fullName: "Dr. med. Alexander Polednia",
-    position: "OA",
-    posLabel: "Oberarzt",
-    type: "FA für Radiologie · Kinderradiologie",
-    area: "Leiter Kinderradiologie",
-    deputy: "",
-  },
-  "Fr. Dalitz": {
-    fullName: "Bettina Dalitz",
-    position: "OÄ",
-    posLabel: "Oberärztin",
-    type: "FÄ für Radiologie · Neuroradiologie",
-    area: "Leiterin Mammographie",
-    deputy: "",
-  },
-  "Fr. Thaler": {
-    fullName: "Fr. Thaler",
-    position: "FÄ",
-    posLabel: "Fachärztin",
-    type: "FÄ für Radiologie",
-    area: "",
-    deputy: "",
-  },
-  "Dr. Becker": {
-    fullName: "Dr. med. Juliane Becker",
-    position: "OÄ",
-    posLabel: "Oberärztin",
-    type: "FÄ für Radiologie · FÄ für Nuklearmedizin",
-    area: "CT",
-    deputy: "Dr. Martin",
-  },
-  "Dr. Martin": {
-    fullName: "Dr. med. Arno Martin",
-    position: "FA",
-    posLabel: "Facharzt",
-    type: "FA für Radiologie",
-    area: "",
-    deputy: "",
-  },
-  "Hr. El Houba": {
-    fullName: "Abdelilah El Houba",
-    position: "AA",
-    posLabel: "Assistenzarzt",
-    type: "AA für Radiologie",
-    area: "",
-    deputy: "",
-  },
-  "Fr. Licenji": {
-    fullName: "Johanna Licenji",
-    position: "AÄ",
-    posLabel: "Assistenzärztin",
-    type: "AÄ für Radiologie",
-    area: "",
-    deputy: "",
-  },
-  "Hr. Torki": {
-    fullName: "Mohamed Torki",
-    position: "AA",
-    posLabel: "Assistenzarzt",
-    type: "AA für Radiologie",
-    area: "",
-    deputy: "",
-  },
-  "Hr. Sebastian": {
-    fullName: "Ron Sebastian",
-    position: "AA",
-    posLabel: "Assistenzarzt",
-    type: "AA für Radiologie",
-    area: "",
-    deputy: "",
-  },
-};
-
-export function isFacharzt(empName) {
-  const m = EMP_META[empName];
-  if (m) {
-    return ["CA", "LOA", "OA", "OÄ", "FA", "FÄ"].includes(m.position);
-  }
-  return false;
-}
-
-export function isAssistenzarzt(empName) {
-  const m = EMP_META[empName];
-  if (m) {
-    return ["AA", "AÄ"].includes(m.position);
-  }
-  return true;
-}
-
-export function getEmpMeta(name) {
-  return (
-    EMP_META[name] || {
-      fullName: name,
-      position: "—",
-      posLabel: "—",
-      type: "—",
-      area: "",
-      deputy: "",
-    }
-  );
-}
-
-export function posColor(pos) {
-  const m = {
-    CA: { bg: "#F3E8FF", fg: "#7E22CE", border: "#A855F7" },
-    LOA: { bg: "#DBEAFE", fg: "#1D4ED8", border: "#3B82F6" },
-    OA: { bg: "#CCFBF1", fg: "#0F766E", border: "#14B8A6" },
-    OÄ: { bg: "#CCFBF1", fg: "#0F766E", border: "#14B8A6" },
-    FA: { bg: "#DCFCE7", fg: "#15803D", border: "#22C55E" },
-    FÄ: { bg: "#DCFCE7", fg: "#15803D", border: "#22C55E" },
-    AA: { bg: "#F1F5F9", fg: "#475569", border: "#94A3B8" },
-    AÄ: { bg: "#F1F5F9", fg: "#475569", border: "#94A3B8" },
-  };
-  return m[pos] || { bg: "#F1F5F9", fg: "#6B7280", border: "#CBD5E1" };
-}
-
-export const pad2 = (n) => String(n).padStart(2, "0");
-
-export const dateKey = (y, m, d) => `${y}-${pad2(m + 1)}-${pad2(d)}`;
-
-export const monthKey = (y, m) => `${y}-${m}`;
-
-export const prevMK = (y, m) => (m === 0 ? `${y - 1}-11` : `${y}-${m - 1}`);
-
-export const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
-
-export const isRbnMonthVisible = (y, m) => {
-  return y > RBN_ROW_START.year || (y === RBN_ROW_START.year && m >= RBN_ROW_START.month);
-};
-
-export function normalizeMonthDataShape(md) {
-  if (!md || typeof md !== "object") return;
-  if (!Array.isArray(md.employees)) md.employees = [];
-  if (!md.assignments || typeof md.assignments !== "object") md.assignments = {};
-  if (!md.rbn || typeof md.rbn !== "object") md.rbn = {};
-}
-
-export const weekday = (y, m, d) => new Date(y, m, d).getDay();
-
-export const isWeekend = (y, m, d) => {
-  const w = weekday(y, m, d);
-  return w === 0 || w === 6;
-};
-
-export const isFriday = (y, m, d) => weekday(y, m, d) === 5;
-
-export function easterDate(year) {
-  const a = year % 19;
-  const b = Math.floor(year / 100);
-  const c = year % 100;
-  const d = Math.floor(b / 4);
-  const e = b % 4;
-  const f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4);
-  const k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m2 = Math.floor((a + 11 * h + 22 * l) / 451);
-  const mo = Math.floor((h + l - 7 * m2 + 114) / 31);
-  const dy = ((h + l - 7 * m2 + 114) % 31) + 1;
-  
-  return new Date(year, mo - 1, dy);
-}
-
-export const addDays = (dt, n) => {
-  const d = new Date(dt);
-  d.setDate(d.getDate() + n);
-  return d;
-};
-
-export const dateToDK = (dt) => dateKey(dt.getFullYear(), dt.getMonth(), dt.getDate());
-
-export function getSaxonyHolidays(year) {
-  const e = easterDate(year);
-  const nov22 = new Date(year, 10, 22);
-  while (nov22.getDay() !== 3) {
-    nov22.setDate(nov22.getDate() - 1);
-  }
-  
-  return {
-    [dateKey(year, 0, 1)]: "Neujahr",
-    [dateToDK(addDays(e, -2))]: "Karfreitag",
-    [dateToDK(addDays(e, 1))]: "Ostermontag",
-    [dateKey(year, 4, 1)]: "Tag der Arbeit",
-    [dateToDK(addDays(e, 39))]: "Christi Himmelfahrt",
-    [dateToDK(addDays(e, 50))]: "Pfingstmontag",
-    [dateKey(year, 9, 3)]: "Tag der Deutschen Einheit",
-    [dateKey(year, 9, 31)]: "Reformationstag",
-    [dateToDK(nov22)]: "Buß- und Bettag",
-    [dateKey(year, 11, 25)]: "1. Weihnachtstag",
-    [dateKey(year, 11, 26)]: "2. Weihnachtstag",
-  };
-}
-
-const HOLIDAY_CACHE = new Map();
-
-export function getSaxonyHolidaysCached(year) {
-  if (!HOLIDAY_CACHE.has(year)) {
-    HOLIDAY_CACHE.set(year, getSaxonyHolidays(year));
-  }
-  return HOLIDAY_CACHE.get(year);
-}
-
-export const isHoliday = (y, m, d, hols) => !!hols[dateKey(y, m, d)];
-
-export const isWorkday = (y, m, d, hols) => !isWeekend(y, m, d) && !isHoliday(y, m, d, hols);
-
-export const isTodayCol = (y, m, d, TOD_Y, TOD_M, TOD_D) => {
-  return y === TOD_Y && m === TOD_M && d === TOD_D;
-};
-
-export function isoWeekNumber(y, m, d) {
-  const dt = new Date(y, m, d);
-  const thu = new Date(dt);
-  thu.setDate(dt.getDate() - (dt.getDay() === 0 ? 6 : dt.getDay() - 1) + 3);
-  const ft = new Date(thu.getFullYear(), 0, 4);
-  ft.setDate(4 - (ft.getDay() === 0 ? 6 : ft.getDay() - 1));
-  return 1 + Math.round((thu - ft) / 604800000);
-}
-
-export function nextCalendarDay(y, m, d) {
-  const dim = daysInMonth(y, m);
-  if (d < dim) {
-    return { y, m, d: d + 1 };
-  }
-  if (m < 11) {
-    return { y, m: m + 1, d: 1 };
-  }
-  return { y: y + 1, m: 0, d: 1 };
-}
-
-export function prevCalendarDay(y, m, d) {
-  if (d > 1) {
-    return { y, m, d: d - 1 };
-  }
-  if (m > 0) {
-    return { y, m: m - 1, d: daysInMonth(y, m - 1) };
-  }
-  return { y: y - 1, m: 11, d: daysInMonth(y - 1, 11) };
-}
-
-export function cellColor(assignment) {
-  if (!assignment) {
-    return { bg: "transparent", fg: "#374151" };
-  }
-  const meta = CODE_MAP[assignment.split("/")[0].trim()];
-  if (meta) {
-    return { bg: meta.bg, fg: meta.fg };
-  }
-  return { bg: "#F9FAFB", fg: "#374151" };
-}
-
-export function empInitials(name) {
-  const parts = name.split(/\s+/).filter(Boolean);
-  const caps = parts.filter((p) => p.length > 0 && /[A-ZÄÖÜ]/.test(p[0]));
-  if (caps.length >= 2) {
-    return caps.map((p) => p[0]).slice(0, 2).join("");
-  }
-  return name.slice(0, 2).toUpperCase();
-}
-
-export const MOBILE_BREAKPOINT = 768;
-export const TOUCH_DEVICE_RE = /iPhone|iPad|iPod|Android/i;
+  <path d="M168 698c28 74 84 137 158 179" fill="none" stroke="#FFFFFF" stroke-opacity="0.06" stroke-width="20" stroke-linecap="round" class="eLkyoVkH_32"></path>
+  <path d="M698 164c64 22 122 65 164 121" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="20" stroke-linecap="round" class="eLkyoVkH_33"></path>
+<style data-made-with="vivus-instant">.eLkyoVkH_0{stroke-dasharray:1613 1615;stroke-dashoffset:1614;animation:eLkyoVkH_draw_0 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_1{stroke-dasharray:3392 3394;stroke-dashoffset:3393;animation:eLkyoVkH_draw_1 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_2{stroke-dasharray:3392 3394;stroke-dashoffset:3393;animation:eLkyoVkH_draw_2 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_3{stroke-dasharray:3392 3394;stroke-dashoffset:3393;animation:eLkyoVkH_draw_3 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_4{stroke-dasharray:2187 2189;stroke-dashoffset:2188;animation:eLkyoVkH_draw_4 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_5{stroke-dasharray:1835 1837;stroke-dashoffset:1836;animation:eLkyoVkH_draw_5 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_6{stroke-dasharray:1584 1586;stroke-dashoffset:1585;animation:eLkyoVkH_draw_6 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_7{stroke-dasharray:266 268;stroke-dashoffset:267;animation:eLkyoVkH_draw_7 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_8{stroke-dasharray:263 265;stroke-dashoffset:264;animation:eLkyoVkH_draw_8 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_9{stroke-dasharray:1695 1697;stroke-dashoffset:1696;animation:eLkyoVkH_draw_9 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_10{stroke-dasharray:1613 1615;stroke-dashoffset:1614;animation:eLkyoVkH_draw_10 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_11{stroke-dasharray:1613 1615;stroke-dashoffset:1614;animation:eLkyoVkH_draw_11 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_12{stroke-dasharray:826 828;stroke-dashoffset:827;animation:eLkyoVkH_draw_12 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_13{stroke-dasharray:76 78;stroke-dashoffset:77;animation:eLkyoVkH_draw_13 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_14{stroke-dasharray:76 78;stroke-dashoffset:77;animation:eLkyoVkH_draw_14 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_15{stroke-dasharray:76 78;stroke-dashoffset:77;animation:eLkyoVkH_draw_15 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_16{stroke-dasharray:1085 1087;stroke-dashoffset:1086;animation:eLkyoVkH_draw_16 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_17{stroke-dasharray:1216 1218;stroke-dashoffset:1217;animation:eLkyoVkH_draw_17 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_18{stroke-dasharray:1480 1482;stroke-dashoffset:1481;animation:eLkyoVkH_draw_18 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_19{stroke-dasharray:263 265;stroke-dashoffset:264;animation:eLkyoVkH_draw_19 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_20{stroke-dasharray:263 265;stroke-dashoffset:264;animation:eLkyoVkH_draw_20 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_21{stroke-dasharray:199 201;stroke-dashoffset:200;animation:eLkyoVkH_draw_21 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_22{stroke-dasharray:263 265;stroke-dashoffset:264;animation:eLkyoVkH_draw_22 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_23{stroke-dasharray:263 265;stroke-dashoffset:264;animation:eLkyoVkH_draw_23 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_24{stroke-dasharray:199 201;stroke-dashoffset:200;animation:eLkyoVkH_draw_24 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_25{stroke-dasharray:263 265;stroke-dashoffset:264;animation:eLkyoVkH_draw_25 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_26{stroke-dasharray:263 265;stroke-dashoffset:264;animation:eLkyoVkH_draw_26 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_27{stroke-dasharray:199 201;stroke-dashoffset:200;animation:eLkyoVkH_draw_27 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_28{stroke-dasharray:165 167;stroke-dashoffset:166;animation:eLkyoVkH_draw_28 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_29{stroke-dasharray:117 119;stroke-dashoffset:118;animation:eLkyoVkH_draw_29 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_30{stroke-dasharray:1519 1521;stroke-dashoffset:1520;animation:eLkyoVkH_draw_30 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_31{stroke-dasharray:227 229;stroke-dashoffset:228;animation:eLkyoVkH_draw_31 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_32{stroke-dasharray:244 246;stroke-dashoffset:245;animation:eLkyoVkH_draw_32 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}.eLkyoVkH_33{stroke-dasharray:207 209;stroke-dashoffset:208;animation:eLkyoVkH_draw_33 5200ms linear 0ms infinite,eLkyoVkH_fade 5200ms linear 0ms infinite;}@keyframes eLkyoVkH_draw{100%{stroke-dashoffset:0;}}@keyframes eLkyoVkH_fade{0%{stroke-opacity:1;}92.3076923076923%{stroke-opacity:1;}100%{stroke-opacity:0;}}@keyframes eLkyoVkH_draw_0{15.384615384615385%{stroke-dashoffset: 1614}41.02564102564103%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_1{15.773115773115773%{stroke-dashoffset: 3393}41.41414141414142%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_2{16.161616161616163%{stroke-dashoffset: 3393}41.8026418026418%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_3{16.55011655011655%{stroke-dashoffset: 3393}42.19114219114219%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_4{16.93861693861694%{stroke-dashoffset: 2188}42.57964257964259%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_5{17.327117327117328%{stroke-dashoffset: 1836}42.96814296814298%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_6{17.715617715617714%{stroke-dashoffset: 1585}43.35664335664337%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_7{18.104118104118104%{stroke-dashoffset: 267}43.74514374514374%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_8{18.492618492618494%{stroke-dashoffset: 264}44.13364413364414%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_9{18.88111888111888%{stroke-dashoffset: 1696}44.52214452214452%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_10{19.26961926961927%{stroke-dashoffset: 1614}44.91064491064491%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_11{19.65811965811966%{stroke-dashoffset: 1614}45.2991452991453%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_12{20.04662004662005%{stroke-dashoffset: 827}45.68764568764569%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_13{20.435120435120435%{stroke-dashoffset: 77}46.07614607614609%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_14{20.82362082362082%{stroke-dashoffset: 77}46.464646464646464%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_15{21.21212121212121%{stroke-dashoffset: 77}46.85314685314685%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_16{21.600621600621604%{stroke-dashoffset: 1086}47.24164724164724%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_17{21.989121989121987%{stroke-dashoffset: 1217}47.630147630147626%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_18{22.377622377622373%{stroke-dashoffset: 1481}48.01864801864802%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_19{22.766122766122766%{stroke-dashoffset: 264}48.40714840714841%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_20{23.15462315462316%{stroke-dashoffset: 264}48.7956487956488%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_21{23.543123543123542%{stroke-dashoffset: 200}49.18414918414919%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_22{23.93162393162393%{stroke-dashoffset: 264}49.572649572649574%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_23{24.32012432012432%{stroke-dashoffset: 264}49.961149961149964%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_24{24.708624708624708%{stroke-dashoffset: 200}50.34965034965035%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_25{25.0971250971251%{stroke-dashoffset: 264}50.738150738150736%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_26{25.485625485625484%{stroke-dashoffset: 264}51.126651126651126%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_27{25.874125874125873%{stroke-dashoffset: 200}51.515151515151516%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_28{26.26262626262626%{stroke-dashoffset: 166}51.90365190365191%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_29{26.65112665112665%{stroke-dashoffset: 118}52.292152292152295%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_30{27.03962703962704%{stroke-dashoffset: 1520}52.680652680652685%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_31{27.42812742812743%{stroke-dashoffset: 228}53.069153069153074%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_32{27.816627816627815%{stroke-dashoffset: 245}53.45765345765345%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}@keyframes eLkyoVkH_draw_33{28.205128205128204%{stroke-dashoffset: 208}53.84615384615385%{ stroke-dashoffset: 0;}100%{ stroke-dashoffset: 0;}}</style></svg>

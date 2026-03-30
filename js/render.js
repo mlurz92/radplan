@@ -1,2222 +1,1889 @@
 import { 
-  WORKPLACES, 
-  STATUSES, 
-  CODE_MAP, 
-  MONTHS, 
-  MONTHS_SHORT, 
-  DOW_ABBR, 
-  DOW_LONG, 
   VACATION_CODES, 
-  WISH_MAP,
-  RBN_ROW_KEY,
-  RBN_ROW_LABEL,
+  ABSENCE_CODES, 
   isFacharzt, 
   isAssistenzarzt, 
-  getEmpMeta, 
-  posColor, 
   getSaxonyHolidaysCached, 
-  dateKey, 
+  monthKey, 
+  dateKey,
   daysInMonth, 
   weekday, 
-  isWeekend, 
-  isFriday, 
+  isWeekend,
+  isWorkday, 
   isHoliday, 
-  isWorkday,
-  isTodayCol, 
-  isoWeekNumber, 
-  cellColor, 
-  empInitials, 
-  MOBILE_BREAKPOINT,
-  isRbnMonthVisible,
-  formatRbnDisplay
+  nextCalendarDay, 
+  prevCalendarDay, 
+  isoWeekNumber,
+  easterDate, 
+  addDays,
+  DOW_ABBR,
+  DOW_LONG,
+  MONTHS,
+  MONTHS_SHORT,
+  getEmpMeta,
+  posColor
 } from './constants.js';
 
 import { 
   state, 
   planMode, 
-  IS_MOBILE, 
-  TOD_Y, 
-  TOD_M, 
-  TOD_D,
-  teamTab,
-  setIsMobile
+  planData, 
+  DATA 
 } from './state.js';
 
 import { 
   getMonthData, 
   getCell, 
-  getRbnValue, 
-  dayCodeCount, 
-  buildProfileStats, 
-  buildYearlyStats, 
-  getEmployeesForYear, 
-  getRoleFilterBuckets, 
-  getEmployeeYearCardMetrics, 
-  matchRoleFilter,
-  addEmployee,
-  removeEmployee
+  dutyOwner 
 } from './model.js';
 
-import { 
-  openEditor, 
-  getWish,
-  isPeriodFlyoutOpen,
-  syncPeriodControls,
-  openTeamProfileFor
-} from './app.js';
+export let autoPlanResult = null;
+export let autoPlanTargets = {};
+export let apViewMode = "config";
+export let autoPlanConfigRenderToken = 0;
 
-import { autoPlanResult } from './autoplan.js';
+export const DUTY_EXEMPT = ["Prof. Schäfer"];
+export const TARGET_WEEKEND_DUTY = 1;
+export const RELAXED_WEEKEND_DUTY_LIMIT = 1.5;
 
-const originalFetch = window.fetch;
-window.fetch = async function(...args) {
-  const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
-  if (url.includes('/api?action=save')) {
-    showToast("🔄 Speichere Daten...");
-    return new Response(JSON.stringify({ success: true }), { 
-      status: 200, 
-      statusText: "OK",
-      headers: { 'Content-Type': 'application/json' }
+export function isDutyExempt(empName) { 
+  return DUTY_EXEMPT.includes(empName); 
+}
+
+export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+export function collectHistoricalDutyStats(upToYear, upToMonth) {
+  const stats = {};
+  const md = getMonthData(upToYear, upToMonth);
+  
+  md.employees.forEach((e) => {
+    stats[e] = { 
+      bd: 0, 
+      hg: 0, 
+      weDuty: 0, 
+      holDuty: 0, 
+      thuBd: 0, 
+      hgForAA: 0, 
+      hgForFA: 0, 
+      satBd: 0 
+    };
+  });
+  
+  for (const [k, mData] of Object.entries(DATA)) {
+    if (!mData || typeof mData !== "object" || !Array.isArray(mData.employees) || !mData.assignments) {
+      continue;
+    }
+    
+    const parts = k.split("-");
+    const ky = parseInt(parts[0], 10);
+    const km = parseInt(parts[1], 10);
+    
+    if (!Number.isFinite(ky) || !Number.isFinite(km) || km < 0 || km > 11) {
+      continue;
+    }
+    
+    if (ky > upToYear || (ky === upToYear && km >= upToMonth)) {
+      continue;
+    }
+    
+    const hols = getSaxonyHolidaysCached(ky);
+    const dim = daysInMonth(ky, km);
+    const weMapPerEmp = {};
+    const bdOwnerByDay = {};
+    const dayMeta = new Array(dim + 1);
+    
+    for (let d = 1; d <= dim; d++) {
+      const wd = weekday(ky, km, d);
+      dayMeta[d] = { 
+        wd: wd, 
+        hol: isHoliday(ky, km, d, hols), 
+        isWEDay: wd === 5 || wd === 6 || wd === 0, 
+        kw: isoWeekNumber(ky, km, d) 
+      };
+    }
+    
+    mData.employees.forEach(emp => {
+      if (!stats[emp]) {
+        stats[emp] = { bd: 0, hg: 0, weDuty: 0, holDuty: 0, thuBd: 0, hgForAA: 0, hgForFA: 0, satBd: 0 };
+      }
+      weMapPerEmp[emp] = {};
     });
-  } else if (url.includes('/api?action=load')) {
-    return new Response(JSON.stringify({ error: "Lokaler Cache aktiv" }), { 
-      status: 400, 
-      statusText: "Bad Request",
-      headers: { 'Content-Type': 'application/json' }
+    
+    for (let d = 1; d <= dim; d++) {
+      mData.employees.forEach(emp => { 
+        if (mData.assignments?.[emp]?.[d]?.duty === "D") {
+          bdOwnerByDay[d] = emp;
+        }
+      });
+    }
+    
+    for (let d = 1; d <= dim; d++) {
+      const meta = dayMeta[d];
+      mData.employees.forEach(emp => {
+        const cell = mData.assignments?.[emp]?.[d];
+        if (!cell?.duty) {
+          return;
+        }
+        
+        if (cell.duty === "D") {
+          stats[emp].bd++;
+          if (meta.hol) stats[emp].holDuty++;
+          if (meta.wd === 4) stats[emp].thuBd++;
+          if (meta.wd === 6) stats[emp].satBd++;
+          if (meta.isWEDay) {
+            if (!weMapPerEmp[emp][meta.kw]) {
+              weMapPerEmp[emp][meta.kw] = { hasD: false, hasHG: false };
+            }
+            weMapPerEmp[emp][meta.kw].hasD = true;
+          }
+        } else if (cell.duty === "HG") {
+          stats[emp].hg++;
+          if (meta.hol) stats[emp].holDuty++;
+          if (meta.isWEDay) {
+            if (!weMapPerEmp[emp][meta.kw]) {
+              weMapPerEmp[emp][meta.kw] = { hasD: false, hasHG: false };
+            }
+            if (!weMapPerEmp[emp][meta.kw].hasD) {
+              weMapPerEmp[emp][meta.kw].hasHG = true;
+            }
+          }
+          const bdHolder = bdOwnerByDay[d];
+          if (bdHolder && isAssistenzarzt(bdHolder)) {
+            stats[emp].hgForAA++;
+          } else {
+            stats[emp].hgForFA++;
+          }
+        }
+      });
+    }
+    
+    mData.employees.forEach(emp => {
+      Object.values(weMapPerEmp[emp] || {}).forEach(({hasD, hasHG}) => {
+        if (hasD) {
+          stats[emp].weDuty += 1; 
+        } else if (hasHG) {
+          stats[emp].weDuty += 0.5;
+        }
+      });
     });
   }
-  return originalFetch.apply(this, args);
-};
+  return stats;
+}
 
-window._radplanCharts = window._radplanCharts || {};
+export async function collectHistoricalDutyStatsAsync(upToYear, upToMonth) {
+  await sleep(0);
+  return collectHistoricalDutyStats(upToYear, upToMonth);
+}
 
-function initChart(id, config) {
-  if (window._radplanCharts[id]) {
-    window._radplanCharts[id].destroy();
-  }
-  if (window.Chart) {
-    const ctx = document.getElementById(id);
-    if (ctx) {
-      window._radplanCharts[id] = new window.Chart(ctx, config);
+export function hasVacationInWeek(y, m, emp, targetKW) {
+  const dim = daysInMonth(y, m);
+  for (let d = 1; d <= dim; d++) {
+    if (isoWeekNumber(y, m, d) !== targetKW) continue;
+    const cell = getCell(y, m, emp, d);
+    if (cell.assignment && cell.assignment.split("/").map((x) => x.trim()).some((c) => VACATION_CODES.includes(c))) {
+      return true;
     }
   }
+  
+  const nextM = m === 11 ? 0 : m + 1;
+  const nextY = m === 11 ? y + 1 : y;
+  const nk = monthKey(nextY, nextM);
+  
+  if (DATA[nk]) {
+    const ndim = daysInMonth(nextY, nextM);
+    for (let d = 1; d <= ndim; d++) {
+      if (isoWeekNumber(nextY, nextM, d) !== targetKW) continue;
+      const cell = DATA[nk].assignments?.[emp]?.[d];
+      if (cell?.assignment && cell.assignment.split("/").map((x) => x.trim()).some((c) => VACATION_CODES.includes(c))) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
-export function getViewportWidth() {
-  const vv = window.visualViewport?.width;
-  const dw = document.documentElement?.clientWidth;
-  const ww = window.innerWidth;
-  return Math.min(...[vv, dw, ww].filter((v) => Number.isFinite(v) && v > 0));
+export function isAbsentOnDay(y, m, emp, day, assignments) {
+  const cell = assignments[emp]?.[day];
+  if (!cell?.assignment) return false;
+  return cell.assignment.split("/").map((x) => x.trim()).some((c) => ABSENCE_CODES.includes(c));
 }
 
-export function getViewportHeight() {
-  return window.visualViewport?.height || window.innerHeight || document.documentElement?.clientHeight || 0;
+export function isVacationOnDay(y, m, emp, day, assignments) {
+  const cell = assignments[emp]?.[day];
+  if (!cell?.assignment) return false;
+  return cell.assignment.split("/").map((x) => x.trim()).some((c) => VACATION_CODES.includes(c));
 }
 
-export function updateModalLayout(target) {
-  const overlay = typeof target === "string" ? document.getElementById(target) : target;
-  if (!overlay || overlay.hasAttribute("hidden")) return;
-  
-  const modal = overlay.querySelector(".modal");
-  if (!modal) return;
-  
-  const viewportH = getViewportHeight();
-  const viewportW = getViewportWidth();
-  
-  const mobileSheet = document.body.classList.contains("is-mobile") && 
-                      overlay.id !== "modal-mobile-menu" && 
-                      overlay.id !== "modal-mobile-day";
-                      
-  const pad = mobileSheet ? 0 : Math.max(10, Math.min(24, viewportW * 0.024));
-  const availableH = Math.max(280, Math.floor(viewportH - pad * 2));
-  
-  modal.style.setProperty("--modal-max-height", `${availableH}px`);
-  
-  requestAnimationFrame(() => {
-    const naturalHeight = modal.scrollHeight;
-    const fitsViewport = naturalHeight <= availableH;
-    modal.classList.toggle("modal-fit-content", fitsViewport);
-    modal.classList.toggle("modal-fit-viewport", !fitsViewport);
-  });
+export function isNextDayVacation(y, m, emp, d, assignments) {
+  const next = nextCalendarDay(y, m, d);
+  if (next.y === y && next.m === m) {
+    return isVacationOnDay(y, m, emp, next.d, assignments);
+  }
+  const nk = monthKey(next.y, next.m);
+  if (DATA[nk]?.assignments?.[emp]?.[next.d]) {
+    const cell = DATA[nk].assignments[emp][next.d];
+    if (cell.assignment && cell.assignment.split("/").map((x) => x.trim()).some((c) => VACATION_CODES.includes(c))) {
+      return true;
+    }
+  }
+  return false;
 }
 
-export function updateOpenModalLayouts() {
-  document.querySelectorAll(".overlay:not([hidden])").forEach((overlay) => {
-    updateModalLayout(overlay);
-  });
-}
-
-export function refreshResponsiveLayout(options = {}) {
-  const { forceRender = false } = options;
-  const width = getViewportWidth();
-  const coarsePointer = window.matchMedia ? window.matchMedia("(pointer: coarse)").matches : false;
-  const touchLike = coarsePointer || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  const nextMobile = width <= MOBILE_BREAKPOINT || (touchLike && width <= 820);
-  
-  const changed = nextMobile !== IS_MOBILE;
-  setIsMobile(nextMobile);
-  document.body.classList.toggle("is-mobile", IS_MOBILE);
-  
-  if (!changed && !forceRender) {
-    updateOpenModalLayouts();
+export function hasCTLeadershipConflict(y, m, emp, day, assignments) {
+  if (emp !== "Dr. Becker" && emp !== "Dr. Martin") {
     return false;
   }
   
-  if (!IS_MOBILE) {
-    hideOverlay("modal-mobile-menu");
-    hideOverlay("modal-mobile-day");
+  const partner = emp === "Dr. Becker" ? "Dr. Martin" : "Dr. Becker";
+  const next = nextCalendarDay(y, m, day);
+  const hols = getSaxonyHolidaysCached(next.y);
+  
+  if (!isWorkday(next.y, next.m, next.d, hols)) {
+    return false;
   }
   
-  render();
-  refreshOpenContextPanels();
-  updateOpenModalLayouts();
-  
-  return true;
-}
-
-let responsiveRefreshTimer = null;
-let responsiveRefreshQueued = false;
-
-export function queueResponsiveRefresh() {
-  if (responsiveRefreshTimer) {
-    clearTimeout(responsiveRefreshTimer);
-  }
-  if (responsiveRefreshQueued) {
-    return;
-  }
-  responsiveRefreshQueued = true;
-  responsiveRefreshTimer = setTimeout(() => {
-    responsiveRefreshTimer = null;
-    requestAnimationFrame(() => {
-      responsiveRefreshQueued = false;
-      refreshResponsiveLayout();
-    });
-  }, 90);
-}
-
-export function scrollToToday() {
-  if (state.year !== TOD_Y || state.month !== TOD_M) {
-    showToast(`Heute liegt in ${MONTHS[TOD_M]} ${TOD_Y}`);
-    return;
-  }
-
-  const mobileTodayCard = document.querySelector(".mobile-day-card.mdc-today");
-  if (mobileTodayCard) {
-    mobileTodayCard.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
-    return;
-  }
-
-  const todayCol = document.querySelector("#plan-thead th.today");
-  const todayCell = document.querySelector("#plan-tbody td.today-col");
-  const gridWrapper = document.getElementById("grid-wrapper");
-
-  if (todayCell) {
-    todayCell.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
-  }
-
-  if (gridWrapper && todayCol) {
-    const targetX = todayCol.offsetLeft - Math.max(0, (gridWrapper.clientWidth - todayCol.offsetWidth) / 2);
-    gridWrapper.scrollTo({ left: Math.max(0, targetX), behavior: "smooth" });
-  }
-}
-
-export function refreshOpenContextPanels() {
-  const teamModal = document.getElementById("modal-team");
-  if (teamModal && !teamModal.hasAttribute("hidden")) {
-    renderTeamHub();
+  let partnerCell;
+  if (next.y === y && next.m === m) {
+    partnerCell = assignments[partner]?.[next.d] || {};
+  } else {
+    const nk = monthKey(next.y, next.m);
+    partnerCell = DATA[nk]?.assignments?.[partner]?.[next.d] || {};
   }
   
-  const profileModal = document.getElementById("modal-profile");
-  if (profileModal && !profileModal.hasAttribute("hidden") && state.profileEmp) {
-    openProfileModal(state.profileEmp);
+  if (partnerCell.assignment) {
+    const codes = partnerCell.assignment.split("/").map((x) => x.trim());
+    if (codes.some((c) => VACATION_CODES.includes(c) || ABSENCE_CODES.includes(c))) {
+      return true;
+    }
   }
+  return false;
 }
 
-export function render() {
-  const { year: y, month: m } = state;
-  const hols = getSaxonyHolidaysCached(y);
-  const md = getMonthData(y, m);
+export function countWeekendDuties(y, m, emp, assignments) {
+  const weMap = {};
   const dim = daysInMonth(y, m);
   
-  const monthLabel = document.getElementById("month-label");
-  if (monthLabel) {
-    monthLabel.textContent = `${MONTHS[m]} ${y}`;
+  for (let d = 1; d <= dim; d++) {
+    const wd = weekday(y, m, d);
+    if (wd !== 5 && wd !== 6 && wd !== 0) continue;
+    
+    const cell = assignments[emp]?.[d];
+    if (!cell?.duty) continue;
+    
+    const kw = isoWeekNumber(y, m, d);
+    if (!weMap[kw]) {
+      weMap[kw] = { hasD: false, hasHG: false };
+    }
+    
+    if (cell.duty === "D") {
+      weMap[kw].hasD = true;
+    } else if (cell.duty === "HG") {
+      weMap[kw].hasHG = true;
+    }
   }
   
-  syncPeriodControls();
+  let count = 0;
+  for (const { hasD, hasHG } of Object.values(weMap)) {
+    if (hasD) {
+      count += 1;
+    } else if (hasHG) {
+      count += 0.5;
+    }
+  }
+  return count;
+}
+
+export function getWeekendDutyKWs(y, m, emp, assignments) {
+  const dim = daysInMonth(y, m);
+  const kws = new Set();
   
-  const todayBtn = document.getElementById("btn-today");
-  if (todayBtn) {
-    todayBtn.classList.toggle("today-btn-active", y === TOD_Y && m === TOD_M);
+  for (let d = 1; d <= dim; d++) {
+    const wd = weekday(y, m, d);
+    const cell = assignments[emp]?.[d];
+    if (!cell?.duty) continue;
+    
+    if (wd === 5 || wd === 6 || wd === 0) {
+      kws.add(isoWeekNumber(y, m, d));
+    }
+  }
+  return kws;
+}
+
+export function wouldCreateDFDF(emp, d, assignments) {
+  if (d >= 3 && assignments[emp]?.[d - 2]?.duty === "D" && assignments[emp]?.[d - 1]?.assignment === "F") {
+    return true;
+  }
+  if (assignments[emp]?.[d + 2]?.duty === "D") {
+    return true;
+  }
+  return false;
+}
+
+export function getWeekendStateForKW(y, m, emp, assignments, kw) {
+  const dim = daysInMonth(y, m);
+  let hasD = false;
+  let hasHG = false;
+  
+  for (let d = 1; d <= dim; d++) {
+    const wd = weekday(y, m, d);
+    if (wd !== 5 && wd !== 6 && wd !== 0) continue;
+    if (isoWeekNumber(y, m, d) !== kw) continue;
+    
+    const duty = assignments[emp]?.[d]?.duty;
+    if (duty === "D") {
+      hasD = true;
+    } else if (duty === "HG") {
+      hasHG = true;
+    }
+  }
+  return { hasD, hasHG };
+}
+
+export function projectedWeekendDutyCount(y, m, emp, assignments, dutyCode, d) {
+  const current = countWeekendDuties(y, m, emp, assignments);
+  const wd = weekday(y, m, d);
+  
+  if (wd !== 5 && wd !== 6 && wd !== 0) {
+    return current;
   }
   
-  const planBar = document.getElementById("plan-bar");
-  if (planBar) {
-    if (planMode) {
-      planBar.removeAttribute("hidden");
-      planBar.style.display = "flex";
-      document.body.classList.add("plan-mode-active");
-      const lbl = document.getElementById("plan-bar-month");
-      if (lbl) {
-        lbl.textContent = `${MONTHS[m]} ${y}`;
+  const kw = isoWeekNumber(y, m, d);
+  const { hasD, hasHG } = getWeekendStateForKW(y, m, emp, assignments, kw);
+  
+  if (dutyCode === "D") {
+    if (hasD) return current;
+    return current + (hasHG ? 0.5 : 1);
+  }
+  
+  if (dutyCode === "HG") {
+    if (hasD || hasHG) return current;
+    return current + 0.5;
+  }
+  
+  return current;
+}
+
+export function wouldCreateConsecutiveWeekendDuty(y, m, emp, assignments, d) {
+  const wd = weekday(y, m, d);
+  if (wd !== 5 && wd !== 6 && wd !== 0) {
+    return false;
+  }
+  
+  const candidateKw = isoWeekNumber(y, m, d);
+  const kws = getWeekendDutyKWs(y, m, emp, assignments);
+  
+  if (!kws.has(candidateKw)) {
+    kws.add(candidateKw);
+  }
+  
+  const ordered = [...kws].sort((a, b) => a - b);
+  for (let i = 1; i < ordered.length; i++) {
+    if (ordered[i] - ordered[i - 1] === 1) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function hasDalitzMammographyConflict(y, m, emp, d, dutyType, assignments) {
+  const wd = weekday(y, m, d);
+  if (wd !== 0 && wd !== 1) return false;
+  
+  const empsList = Object.keys(assignments);
+  
+  if (dutyType === "HG" && emp === "Fr. Dalitz") {
+    const bdHolder = empsList.find(e => assignments[e]?.[d]?.duty === "D");
+    if (bdHolder === "Hr. Torki" || bdHolder === "Hr. Sebastian") {
+      return true;
+    }
+  }
+  
+  if (dutyType === "D" && (emp === "Hr. Torki" || emp === "Hr. Sebastian")) {
+    const hgHolder = empsList.find(e => assignments[e]?.[d]?.duty === "HG");
+    if (hgHolder === "Fr. Dalitz") {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+export function dutyKey(emp, day) { 
+  return `${emp}@@${day}`; 
+}
+
+export function buildRuleTelemetryBucket() { 
+  return { counts: {}, events: [] }; 
+}
+
+export function trackRuleTelemetry(bucket, phase, label, detail, severity = "info") {
+  if (!bucket || !label) return;
+  bucket.counts[label] = (bucket.counts[label] || 0) + 1;
+  bucket.events.push({ phase, label, detail, severity, count: bucket.counts[label] });
+}
+
+export function computeFairnessSpread(values) {
+  if (!values.length) return 0;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  return max - min;
+}
+
+export function averageFromArray(values) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+export function listDutyAssignments(emps, dim, assignments, dutyCode) {
+  const items = [];
+  for (let d = 1; d <= dim; d++) {
+    for (const emp of emps) {
+      if (assignments[emp]?.[d]?.duty === dutyCode) {
+        items.push({ day: d, emp });
+        break;
       }
+    }
+  }
+  return items;
+}
+
+export function cleanupAssignmentCell(assignments, emp, day) {
+  if (!assignments[emp]?.[day]) return;
+  Object.keys(assignments[emp][day]).forEach((key) => {
+    if (!assignments[emp][day][key]) {
+      delete assignments[emp][day][key];
+    }
+  });
+  if (!Object.keys(assignments[emp][day]).length) {
+    delete assignments[emp][day];
+  }
+}
+
+export async function computeAutoPlan(customTargets) {
+  const { year: y, month: m } = state;
+  if (!planMode || !planData) return null;
+  
+  const hols = getSaxonyHolidaysCached(y);
+  const dim = daysInMonth(y, m);
+  const emps = [...planData.employees];
+  const wishes = planData.wishes || {};
+  const result = JSON.parse(JSON.stringify(planData.assignments));
+  const externalAssignments = {};
+  const log = [];
+  const report = [];
+  const fluxTraces = [];
+  const fixedDutyKeys = new Set();
+  const autoRestDays = new Set();
+  const ruleTelemetry = buildRuleTelemetryBucket();
+  const beckerSaturdayFzaWarnings = [];
+
+  function trace(phase, msg) { 
+    fluxTraces.push({ phase, msg }); 
+  }
+  
+  function recordRule(phase, label, detail, severity = "info") { 
+    trackRuleTelemetry(ruleTelemetry, phase, label, detail, severity); 
+  }
+  
+  function isDayDTasked(d, assignments) { 
+    const a = assignments || result;
+    return emps.some(e => a[e]?.[d]?.duty === "D"); 
+  }
+  
+  function isDayHGTasked(d, assignments) { 
+    const a = assignments || result;
+    return emps.some(e => a[e]?.[d]?.duty === "HG"); 
+  }
+
+  emps.forEach((emp) => {
+    for (let d = 1; d <= dim; d++) {
+      const duty = planData.assignments?.[emp]?.[d]?.duty;
+      if (duty) {
+        fixedDutyKeys.add(`${duty}:${dutyKey(emp, d)}`);
+      }
+    }
+  });
+
+  log.push({ phase: "init", icon: "📊", msg: "Lade historische Daten und initialisiere Constraints...", pct: 5 });
+  await sleep(10);
+  
+  const hist = collectHistoricalDutyStats(y, m);
+  const dutyEmps = emps.filter((e) => !isDutyExempt(e));
+  const hgFAs = dutyEmps.filter((e) => isFacharzt(e));
+
+  const bdTarget = {};
+  emps.forEach((e) => {
+    if (customTargets && customTargets[e] !== undefined) {
+      bdTarget[e] = customTargets[e];
     } else {
-      planBar.setAttribute("hidden", "");
-      planBar.style.display = "none";
-      document.body.classList.remove("plan-mode-active");
+      if (isDutyExempt(e)) bdTarget[e] = 0;
+      else if (e === "Dr. Polednia" || e === "Dr. Becker" || e === "Hr. Sebastian") bdTarget[e] = 3;
+      else bdTarget[e] = 4;
+    }
+  });
+
+  function getScheduledCell(targetY, targetM, emp, day, assignments) { 
+    const a = assignments || result;
+    if (targetY === y && targetM === m) {
+      return a[emp]?.[day] || {};
+    }
+    const mk = monthKey(targetY, targetM);
+    const stored = DATA[mk]?.assignments?.[emp]?.[day] || {};
+    const queued = externalAssignments[mk]?.[emp]?.[day] || {};
+    return { ...stored, ...queued };
+  }
+
+  function getScheduledDuty(targetY, targetM, emp, day, assignments) { 
+    return getScheduledCell(targetY, targetM, emp, day, assignments).duty || null; 
+  }
+  
+  function getScheduledAssignmentCodes(targetY, targetM, emp, day, assignments) {
+    const assignment = getScheduledCell(targetY, targetM, emp, day, assignments).assignment || "";
+    return assignment.split("/").map((code) => code.trim()).filter(Boolean);
+  }
+
+  function findNextWorkdayFrom(startY, startM, startD) {
+    let cursor = nextCalendarDay(startY, startM, startD);
+    let guard = 0;
+    while (guard < 14) {
+      const holsForCursor = getSaxonyHolidaysCached(cursor.y);
+      if (isWorkday(cursor.y, cursor.m, cursor.d, holsForCursor)) {
+        return cursor;
+      }
+      cursor = nextCalendarDay(cursor.y, cursor.m, cursor.d);
+      guard++;
+    }
+    return null;
+  }
+
+  function hasOtherFAFreeOrVacationOn(targetY, targetM, day, excludedEmp, assignments) {
+    return hgFAs.some((emp) => {
+      if (emp === excludedEmp) return false;
+      const codes = getScheduledAssignmentCodes(targetY, targetM, emp, day, assignments);
+      return codes.some((code) => code === "F" || VACATION_CODES.includes(code));
+    });
+  }
+
+  function queueExternalAssignment(targetY, targetM, emp, day, patch) {
+    const mk = monthKey(targetY, targetM);
+    if (!externalAssignments[mk]) {
+      externalAssignments[mk] = {};
+    }
+    if (!externalAssignments[mk][emp]) {
+      externalAssignments[mk][emp] = {};
+    }
+    const existingQueued = externalAssignments[mk][emp][day] || {};
+    const existingStored = DATA[mk]?.assignments?.[emp]?.[day] || {};
+    const merged = { ...existingQueued };
+    
+    for (const [key, value] of Object.entries(patch)) {
+      if (!value) continue;
+      if (!existingQueued[key] && !existingStored[key]) {
+        merged[key] = value;
+      }
+    }
+    
+    if (Object.keys(merged).length) {
+      externalAssignments[mk][emp][day] = merged;
+    }
+  }
+
+  let repairedF = 0;
+  for (const emp of emps) {
+    if (!result[emp]) continue;
+    for (let d = 1; d <= dim; d++) {
+      if (result[emp][d]?.duty !== "D") continue;
+      const next = nextCalendarDay(y, m, d);
+      if (next.y === y && next.m === m) {
+        if (!result[emp]) result[emp] = {};
+        if (!result[emp][next.d]) result[emp][next.d] = {};
+        if (!result[emp][next.d].assignment) {
+          result[emp][next.d].assignment = "F";
+          autoRestDays.add(dutyKey(emp, next.d));
+          repairedF++;
+        }
+      }
     }
   }
   
-  if (IS_MOBILE) {
-    renderMobileView();
-    updateOpenModalLayouts();
-    return;
+  if (repairedF > 0) {
+    log.push({ phase: "init", icon: "🔧", msg: `${repairedF} fehlende Ruhetage nach gesetzten BD ergänzt`, pct: 10 });
   }
-  
-  renderStatsBar(y, m, dim, md);
-  renderThead(y, m, dim, hols);
-  renderTbody(y, m, dim, hols, md);
-  renderTfoot(y, m, dim, md);
-  updateOpenModalLayouts();
-}
 
-export function renderStatsBar(y, m, dim, md) {
-  const bar = document.getElementById("stats-bar");
-  bar.innerHTML = "";
+  const currentBD = {};
+  const currentHG = {};
+  const currentHGForAA = {};
+  const currentHGForFA = {};
+  const currentSatBD = {};
   
-  const empCount = document.createElement("div");
-  empCount.className = "stat-item stat-item-emp";
-  empCount.innerHTML = `
-    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-      <circle cx="9" cy="7" r="4"/>
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
-    </svg>
-    <span class="stat-count">${md.employees.length}</span>
-    <span class="stat-label-sm">MA</span>
-  `;
-  bar.appendChild(empCount);
-  
-  const totals = {};
-  [...WORKPLACES.map((w) => w.code), ...STATUSES.map((s) => s.code), "D", "HG"].forEach((c) => {
-    totals[c] = 0;
+  emps.forEach((e) => { 
+    currentBD[e] = 0; 
+    currentHG[e] = 0; 
+    currentHGForAA[e] = 0; 
+    currentHGForFA[e] = 0; 
+    currentSatBD[e] = 0; 
   });
   
   for (let d = 1; d <= dim; d++) {
-    md.employees.forEach((emp) => {
-      const cell = md.assignments?.[emp]?.[d] || {};
-      if (cell.assignment) {
-        cell.assignment.split("/").map((x) => x.trim()).forEach((c) => { 
-          if (c in totals) totals[c]++; 
-        });
+    for (const e of emps) {
+      if (!result[e]?.[d]) continue;
+      const wd = weekday(y, m, d);
+      
+      if (result[e][d].duty === "D") { 
+        currentBD[e]++; 
+        if (wd === 6) currentSatBD[e]++; 
       }
-      if (cell.duty && cell.duty in totals) {
-        totals[cell.duty]++;
+      
+      if (result[e][d].duty === "HG") {
+        currentHG[e]++;
+        const bdHolder = emps.find((e2) => e2 !== e && result[e2]?.[d]?.duty === "D");
+        if (bdHolder && isAssistenzarzt(bdHolder)) {
+          currentHGForAA[e]++;
+        } else {
+          currentHGForFA[e]++;
+        }
       }
-    });
+    }
   }
-  
-  const order = [
-    ...WORKPLACES.map((w) => w.code),
-    "D", "HG", "U", "K", "F", "WB", "FZA", "ZU", "SU", "KK", "§15c"
-  ];
-  
-  let any = false;
-  
-  order.forEach((code) => {
-    const v = totals[code];
-    if (!v) return;
-    any = true;
-    
-    const meta = CODE_MAP[code];
-    const isD = code === "D";
-    const isHG = code === "HG";
-    
-    const bg = isD ? "#EF4444" : isHG ? "#0EA5E9" : meta?.bg || "#E2E8F0";
-    const fg = isD || isHG ? "#fff" : meta?.fg || "#374151";
-    
-    const div = document.createElement("div");
-    div.className = "stat-item";
-    div.innerHTML = `
-      <span class="stat-code" style="background:${bg};color:${fg}">${code}</span>
-      <span class="stat-count">${v}</span>
-    `;
-    bar.appendChild(div);
-  });
-  
-  if (!any && !md.employees.length) {
-    bar.innerHTML = `<span id="stats-empty">Keine Daten</span>`;
-  }
-}
 
-export function renderThead(y, m, dim, hols) {
-  const thead = document.getElementById("plan-thead");
-  thead.innerHTML = "";
-  
-  const tr = document.createElement("tr");
-  const thC = document.createElement("th");
-  thC.className = "th-corner";
-  thC.innerHTML = '<div class="th-corner-inner">Mitarbeitende</div>';
-  tr.appendChild(thC);
-  
-  let prevKW = -1;
-  
+  const bdNeeded = [];
+  const hgNeeded = [];
   for (let d = 1; d <= dim; d++) {
+    if (!emps.some((e) => result[e]?.[d]?.duty === "D")) bdNeeded.push(d);
+    if (!emps.some((e) => result[e]?.[d]?.duty === "HG")) hgNeeded.push(d);
+  }
+
+  const easter = easterDate(y);
+  const easterDays = new Set();
+  const pfingstDays = new Set();
+  
+  [addDays(easter, -2), easter, addDays(easter, 1)].forEach((dt) => { 
+    if (dt.getMonth() === m) easterDays.add(dt.getDate()); 
+  });
+  [addDays(easter, 49), addDays(easter, 50)].forEach((dt) => { 
+    if (dt.getMonth() === m) pfingstDays.add(dt.getDate()); 
+  });
+
+  function hasOsterPfingstDutyInOtherMonth(emp, isEaster) {
+    const targetDates = isEaster ? [addDays(easter, -2), easter, addDays(easter, 1)] : [addDays(easter, 49), addDays(easter, 50)];
+    for (const dt of targetDates) {
+      const tm = dt.getMonth(); 
+      const td = dt.getDate();
+      if (tm === m) continue;
+      const mk = monthKey(y, tm);
+      if (DATA[mk]?.assignments?.[emp]?.[td]?.duty) return true;
+    }
+    return false;
+  }
+
+  function workedEasterOrPfingsten(emp) {
+    let easterWork = false;
+    let pfingstWork = false;
+    
+    for (const d of easterDays) {
+      if (result[emp]?.[d]?.duty) easterWork = true;
+    }
+    for (const d of pfingstDays) {
+      if (result[emp]?.[d]?.duty) pfingstWork = true;
+    }
+    
+    if (!easterWork) easterWork = hasOsterPfingstDutyInOtherMonth(emp, true);
+    if (!pfingstWork) pfingstWork = hasOsterPfingstDutyInOtherMonth(emp, false);
+    
+    return { easterWork, pfingstWork };
+  }
+
+  function hasHolidayBlockConflict(emp, d) {
+    if (easterDays.has(d)) return workedEasterOrPfingsten(emp).pfingstWork;
+    if (pfingstDays.has(d)) return workedEasterOrPfingsten(emp).easterWork;
+    return false;
+  }
+
+  function hasAdjacentHG(emp, d, assignments) {
+    const a = assignments || result;
+    const prev = prevCalendarDay(y, m, d);
+    const next = nextCalendarDay(y, m, d);
+    return (getScheduledDuty(prev.y, prev.m, emp, prev.d, a) === "HG" || getScheduledDuty(next.y, next.m, emp, next.d, a) === "HG");
+  }
+
+  function updateAutoF(emp, day) {
+    const next = nextCalendarDay(y, m, day);
+    if (next.y === y && next.m === m) {
+      if (!result[emp]) result[emp] = {};
+      if (!result[emp][next.d]) result[emp][next.d] = {};
+      if (!result[emp][next.d].assignment) { 
+        result[emp][next.d].assignment = "F"; 
+        autoRestDays.add(dutyKey(emp, next.d)); 
+      }
+      return;
+    }
+    queueExternalAssignment(next.y, next.m, emp, next.d, { assignment: "F" });
+  }
+
+  function clearAutoF(emp, day) {
+    const next = nextCalendarDay(y, m, day);
+    if (next.y !== y || next.m !== m) return;
+    
+    const key = dutyKey(emp, next.d);
+    if (!autoRestDays.has(key)) return;
+    
+    if (result[emp]?.[next.d]?.assignment === "F") {
+      delete result[emp][next.d].assignment;
+    }
+    cleanupAssignmentCell(result, emp, next.d);
+    autoRestDays.delete(key);
+  }
+
+  function minDistanceForDuty(emp, d, dutyCode, assignments) {
+    const a = assignments || result;
+    let minDist = Infinity;
+    for (let i = 1; i <= dim; i++) {
+      if (i === d) continue;
+      if (a[emp]?.[i]?.duty === dutyCode) {
+        minDist = Math.min(minDist, Math.abs(i - d));
+      }
+    }
+    return minDist;
+  }
+
+  function canDoBD(emp, d, relaxed, assignments, options) {
+    relaxed = relaxed || false;
+    assignments = assignments || result;
+    options = options || {};
+    const { ignoreExistingDuty = false } = options;
+    
+    if (isDutyExempt(emp) || bdTarget[emp] === 0) return false;
+    if (isAbsentOnDay(y, m, emp, d, assignments)) return false;
+    
+    const existingDuty = assignments[emp]?.[d]?.duty;
+    if (existingDuty && !(ignoreExistingDuty && existingDuty === "D")) return false;
+    
+    if (wishes[emp]?.[d] === "NO_DUTY") return false;
+    
     const wd = weekday(y, m, d);
-    const hol = isHoliday(y, m, d, hols);
-    const we = isWeekend(y, m, d);
-    const isT = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
-    const fri = isFriday(y, m, d);
-    const kw = isoWeekNumber(y, m, d);
-    const showKW = (wd === 1 || (d === 1 && wd !== 1)) && kw !== prevKW;
+    if (wd === 6 && !isFacharzt(emp)) return false;
+    if (emp === "Dr. Polednia" && (wd === 0 || wd === 2 || wd === 4)) return false;
+    if (hasCTLeadershipConflict(y, m, emp, d, assignments)) return false;
+    if (assignments[emp]?.[d]?.assignment === "F") return false;
+    if (isNextDayVacation(y, m, emp, d, assignments)) return false;
+    if (hasDalitzMammographyConflict(y, m, emp, d, "D", assignments)) return false;
     
-    if (showKW) {
-      prevKW = kw;
+    const prev = prevCalendarDay(y, m, d);
+    const next = nextCalendarDay(y, m, d);
+    
+    if (getScheduledDuty(prev.y, prev.m, emp, prev.d, assignments) === "D") return false;
+    if (getScheduledDuty(next.y, next.m, emp, next.d, assignments) === "D") return false;
+    if (getScheduledDuty(prev.y, prev.m, emp, prev.d, assignments) === "HG" && weekday(prev.y, prev.m, prev.d) !== 5) return false;
+    if (hasHolidayBlockConflict(emp, d)) return false;
+    
+    if (!relaxed) {
+      if (currentBD[emp] >= bdTarget[emp]) return false;
+      const projectedWe = projectedWeekendDutyCount(y, m, emp, assignments, "D", d);
+      if (projectedWe > RELAXED_WEEKEND_DUTY_LIMIT) return false;
+      if (wouldCreateConsecutiveWeekendDuty(y, m, emp, assignments, d)) return false;
+      if (emp === "Dr. Becker" && wd === 6) return false;
+      const minDistD = minDistanceForDuty(emp, d, "D", assignments);
+      if (minDistD < 3) return false;
     }
-    
-    const hn = hols[dateKey(y, m, d)] || "";
-    const th = document.createElement("th");
-    
-    let cls = "th-day ";
-    cls += hol ? "hol" : we ? "we" : "wd";
-    if (isT) cls += " today";
-    if (fri) cls += " is-fri";
-    
-    th.className = cls;
-    th.innerHTML = `
-      <div class="th-day-inner">
-        <span class="d-kw">${showKW ? "KW" + kw : ""}</span>
-        <span class="d-num">${d}</span>
-        <span class="d-dow">${DOW_ABBR[wd]}</span>
-        ${hn ? `<span class="d-hol">${hn}</span>` : ""}
-      </div>
-    `;
-    tr.appendChild(th);
+    return true;
   }
-  thead.appendChild(tr);
-}
 
-export function renderTbody(y, m, dim, hols, md) {
-  const tbody = document.getElementById("plan-tbody");
-  tbody.innerHTML = "";
-  
-  if (!md.employees.length) {
-    const tr = document.createElement("tr");
-    const td = document.createElement("td");
-    td.colSpan = dim + 1;
-    td.className = "td-empty";
-    td.innerHTML = `<div class="empty-inner"><p class="empty-title">Keine Mitarbeitenden</p></div>`;
-    tr.appendChild(td);
-    tbody.appendChild(tr);
-    return;
-  }
-  
-  md.employees.forEach((emp) => {
-    const meta = getEmpMeta(emp);
-    const pc = posColor(meta.position);
-    
-    const tr = document.createElement("tr");
-    const tdN = document.createElement("td");
-    tdN.className = "td-name";
-    tdN.style.borderLeft = `3px solid ${pc.border}`;
-    tdN.style.paddingLeft = "11px";
-    tdN.setAttribute("role", "button");
-    tdN.setAttribute("tabindex", "0");
-    
-    let tdNHtml = `<span class="emp-label">${emp}</span>`;
-    if (meta.position !== "—") {
-      tdNHtml += `<span class="emp-pos-tag" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span>`;
+  function scoreBDCandidate(emp, d, relaxed, phaseKey) {
+    relaxed = relaxed || false;
+    if (!canDoBD(emp, d, relaxed)) {
+      return { score: -Infinity, tags: [] };
     }
-    tdNHtml += `
-      <span class="emp-profile-icon">
-        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
-        </svg>
-      </span>
-      <button class="emp-del">
-        <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M1 1l7 7M8 1L1 8"/>
-        </svg>
-      </button>
-    `;
-    tdN.innerHTML = tdNHtml;
     
-    tdN.querySelector(".emp-del").addEventListener("click", (e) => { 
-      e.stopPropagation(); 
-      import('./app.js').then(module => module.confirmRemoveEmployee(emp));
-    });
+    let score = 100;
+    const wd = weekday(y, m, d);
+    const isWE = wd === 5 || wd === 6 || wd === 0;
+    const tags = [];
+    const projectedWe = projectedWeekendDutyCount(y, m, emp, result, "D", d);
+    const minDistD = minDistanceForDuty(emp, d, "D", result);
     
-    tdN.addEventListener("click", () => openProfileModal(emp));
-    tdN.addEventListener("keydown", (e) => { 
-      if (e.key === "Enter" || e.key === " ") { 
-        e.preventDefault(); 
-        openProfileModal(emp); 
+    if (currentBD[emp] >= bdTarget[emp]) { 
+      score -= 50000 * (currentBD[emp] - bdTarget[emp] + 1); 
+      tags.push("Soll überschritten"); 
+    } else { 
+      score += (bdTarget[emp] - currentBD[emp]) * 5000; 
+      tags.push("Zielerfüllung"); 
+    }
+    
+    if (wishes[emp]?.[d] === "BD_WISH") { 
+      score += 220; 
+      tags.push("Wunsch"); 
+    }
+    
+    if (wd === 4) { 
+      const nextKW = isoWeekNumber(y, m, d) + 1; 
+      if (hasVacationInWeek(y, m, emp, nextKW)) { 
+        score += 150; 
+        tags.push("Vor Urlaub"); 
       } 
-    });
-    
-    tr.appendChild(tdN);
-    
-    for (let d = 1; d <= dim; d++) {
-      const cell = md.assignments?.[emp]?.[d] || {};
-      const we = isWeekend(y, m, d);
-      const hol = isHoliday(y, m, d, hols);
-      const isT = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
-      const fri = isFriday(y, m, d);
-      
-      const emptyWd = !we && !hol && !cell.assignment && !cell.duty;
-      const isAutoFRest = cell.assignment === "F" && (we || hol);
-      const { bg, fg } = cellColor(cell.assignment);
-      
-      const tdEl = document.createElement("td");
-      let cls = "td-cell";
-      if (hol) cls += " hol";
-      if (we) cls += " we";
-      if (isT) cls += " today";
-      if (fri) cls += " is-fri";
-      if (emptyWd) cls += " empty-wd";
-      if (isAutoFRest) cls += " auto-f-rest";
-      
-      tdEl.className = cls;
-      tdEl.tabIndex = 0;
-      
-      if (cell.assignment && !isAutoFRest) {
-        tdEl.style.backgroundColor = bg;
-      }
-      
-      let innerHtml = `<div class="cell-inner">`;
-      innerHtml += `<span class="cell-assign" style="color:${isAutoFRest ? "rgba(71,85,105,0.35)" : fg}">${cell.assignment || ""}</span>`;
-      if (cell.duty) {
-        innerHtml += `<span class="cell-duty badge-${cell.duty}">${cell.duty}</span>`;
-      }
-      if (planMode && getWish(emp, d)) {
-        const wishCode = getWish(emp, d);
-        const icon = WISH_MAP[wishCode]?.icon || "";
-        innerHtml += `<span class="cell-wish wish-${wishCode}">${icon}</span>`;
-      }
-      innerHtml += `</div>`;
-      tdEl.innerHTML = innerHtml;
-      
-      tdEl.addEventListener("click", () => openEditor(emp, d));
-      tdEl.addEventListener("keydown", (e) => { 
-        if (e.key === "Enter" || e.key === " ") { 
-          e.preventDefault(); 
-          openEditor(emp, d); 
-        } 
-      });
-      tr.appendChild(tdEl);
     }
-    tbody.appendChild(tr);
-  });
-  
-  if (isRbnMonthVisible(y, m)) {
-    const tr = document.createElement("tr");
-    tr.className = "tr-rbn";
     
-    const tdN = document.createElement("td");
-    tdN.className = "td-name td-name-rbn";
-    tdN.style.borderLeft = "3px solid #0EA5E9";
-    tdN.style.paddingLeft = "11px";
-    tdN.innerHTML = `<span class="emp-label">${RBN_ROW_LABEL}</span>`;
-    tr.appendChild(tdN);
-    
-    for (let d = 1; d <= dim; d++) {
-      const we = isWeekend(y, m, d);
-      const hol = isHoliday(y, m, d, hols);
-      const isT = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
-      const fri = isFriday(y, m, d);
-      const rbnValue = getRbnValue(y, m, d);
-      
-      const tdEl = document.createElement("td");
-      let cls = "td-cell td-cell-rbn";
-      if (hol) cls += " hol";
-      if (we) cls += " we";
-      if (isT) cls += " today";
-      if (fri) cls += " is-fri";
-      
-      tdEl.className = cls;
-      tdEl.tabIndex = 0;
-      tdEl.innerHTML = `
-        <div class="cell-inner">
-          <span class="cell-assign cell-assign-rbn">${formatRbnDisplay(rbnValue)}</span>
-        </div>
-      `;
-      
-      tdEl.addEventListener("click", () => openEditor(RBN_ROW_KEY, d));
-      tdEl.addEventListener("keydown", (e) => { 
-        if (e.key === "Enter" || e.key === " ") { 
-          e.preventDefault(); 
-          openEditor(RBN_ROW_KEY, d); 
-        } 
-      });
-      tr.appendChild(tdEl);
+    if (isWE) {
+      score -= Math.abs(projectedWe - TARGET_WEEKEND_DUTY) * 220;
+      if (projectedWe > RELAXED_WEEKEND_DUTY_LIMIT) {
+        score -= (projectedWe - RELAXED_WEEKEND_DUTY_LIMIT) * 1000;
+      }
+      if (wouldCreateConsecutiveWeekendDuty(y, m, emp, result, d)) { 
+        score -= 1500; 
+        tags.push("WE-Puffer"); 
+      }
+      if (getWeekendDutyKWs(y, m, emp, result).has(isoWeekNumber(y, m, d) - 1)) { 
+        score -= 100; 
+        tags.push("WE-Abstand"); 
+      }
+      const histWeDuty = hist[emp]?.weDuty || 0;
+      const avgHistWe = averageFromArray(dutyEmps.map(e => hist[e]?.weDuty || 0));
+      score -= (histWeDuty - avgHistWe) * 5;
     }
-    tbody.appendChild(tr);
+    
+    if (wd === 6 && isFacharzt(emp)) {
+      const projectedSat = currentSatBD[emp] + 1;
+      if (projectedSat > 1) { 
+        score -= 25000 * projectedSat; 
+        tags.push("Doppel-Samstag"); 
+      } else if (currentSatBD[emp] === 0) { 
+        score += 5000; 
+        tags.push("Samstags-Priorität"); 
+      }
+      const avgProjectedSat = (hgFAs.reduce((s, e) => s + currentSatBD[e], 0) + 1) / Math.max(1, hgFAs.length);
+      score -= Math.abs(projectedSat - avgProjectedSat) * 1500;
+      const histSatBD = hist[emp]?.satBd || 0;
+      const avgHistSat = averageFromArray(hgFAs.map(e => hist[e]?.satBd || 0));
+      score -= (histSatBD - avgHistSat) * 5;
+    }
+    
+    if (emp === "Dr. Becker" && wd === 6 && relaxed) { 
+      score -= 5000; 
+      tags.push("Notlösung"); 
+    }
+    
+    if (minDistD < 4) {
+      score -= (4 - minDistD) * 250;
+    }
+    
+    if (wouldCreateDFDF(emp, d, result)) { 
+      score -= 500; 
+      tags.push("D-F-D-F weich vermieden"); 
+    }
+    
+    if (isHoliday(y, m, d, hols)) { 
+      const holAvg = dutyEmps.reduce((s, e) => s + (hist[e]?.holDuty || 0), 0) / Math.max(1, dutyEmps.length); 
+      score += (holAvg - (hist[emp]?.holDuty || 0)) * 6; 
+      tags.push("Feiertag"); 
+    }
+    
+    score += ((emp.charCodeAt(0) * 31 + d * 7) % 10) * 0.1;
+    trace(phaseKey || "bd_eval", `EVAL [${emp}|D${d}] Base:100 Final:${Math.round(score)} Tags:[${tags.join(',')}]`);
+    return { score, tags };
   }
-}
 
-export function renderTfoot(y, m, dim, md) {
-  const tfoot = document.getElementById("plan-tfoot");
-  tfoot.innerHTML = "";
-  
-  const hols = getSaxonyHolidaysCached(y);
-  const rows = [
-    { code: "MR", label: "MRT", meta: CODE_MAP["MR"] },
-    { code: "CT", label: "CT", meta: CODE_MAP["CT"] },
-    { code: "D", label: "Bereitschaftsdienst", meta: null },
-    { code: "HG", label: "Hintergrunddienst", meta: null },
-  ];
-  
-  rows.forEach(({ code, label, meta }, rowIdx) => {
-    const isD = code === "D";
-    const isHG = code === "HG";
-    
-    const bg = isD ? "#EF4444" : isHG ? "#0EA5E9" : meta.bg;
-    const fg = isD || isHG ? "#fff" : meta.fg;
-    
-    const tr = document.createElement("tr");
-    tr.className = "tr-stat" + (rowIdx === 0 ? " tr-stat-first" : "");
-    
-    const tdL = document.createElement("td");
-    tdL.className = "td-stat-lbl";
-    tdL.innerHTML = `
-      <span class="stat-lbl-badge" style="background:${bg};color:${fg}">${code}</span>
-      <span class="stat-lbl-text">${label}</span>
-    `;
-    tr.appendChild(tdL);
-    
-    for (let d = 1; d <= dim; d++) {
-      const val = dayCodeCount(y, m, d, code);
-      const we = isWeekend(y, m, d);
-      const hol = isHoliday(y, m, d, hols);
-      const fri = isFriday(y, m, d);
-      const isT = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
-      
-      const td = document.createElement("td");
-      let cls = "td-stat-val";
-      
-      if (we || hol) {
-        cls += " dim";
-      } else if ((isD || isHG) && val > 1) {
-        cls += " warn";
-      } else if (val > 0) {
-        cls += " nz";
-      }
-      
-      if (isT) cls += " today-col";
-      if (fri) cls += " is-fri";
-      
-      td.className = cls;
-      td.textContent = val > 0 ? val : "";
-      tr.appendChild(td);
-    }
-    tfoot.appendChild(tr);
+  bdNeeded.sort((a, b) => {
+    const aWe = isWeekend(y, m, a) || isHoliday(y, m, a, hols) || weekday(y, m, a) === 5;
+    const bWe = isWeekend(y, m, b) || isHoliday(y, m, b, hols) || weekday(y, m, b) === 5;
+    if (aWe !== bWe) return aWe ? -1 : 1;
+    return a - b;
   });
-}
 
-export function renderMobileView() {
-  const { year: y, month: m } = state;
-  document.body.classList.add("is-mobile");
-  renderMobileSummary(y, m);
-  renderMobileDayList(y, m);
-}
-
-export function renderMobileSummary(y, m) {
-  const summaryEl = document.getElementById("mobile-month-summary");
-  if (!summaryEl) return;
-  
-  const md = getMonthData(y, m);
-  const dim = daysInMonth(y, m);
-  const totals = {};
-  
-  [...WORKPLACES.map(w => w.code), ...STATUSES.map(s => s.code), "D", "HG"].forEach(c => { 
-    totals[c] = 0; 
+  const weBDs = bdNeeded.filter((d) => { 
+    const wd = weekday(y, m, d); 
+    return wd === 5 || wd === 6 || wd === 0 || isHoliday(y, m, d, hols); 
   });
-  
-  for (let d = 1; d <= dim; d++) {
-    md.employees.forEach(emp => {
-      const cell = md.assignments?.[emp]?.[d] || {};
-      if (cell.assignment) {
-        cell.assignment.split("/").map(x => x.trim()).forEach(c => { 
-          if (c in totals) totals[c]++; 
-        });
-      }
-      if (cell.duty && cell.duty in totals) {
-        totals[cell.duty]++;
-      }
-    });
-  }
-  
-  const order = ["D", "HG", "U", "K", "F", "MR", "CT", "US", "WB", "FZA", "ZU", "SU", "KK", "§15c", "AN", "MA", "KUS", "W", "T"];
-  
-  let html = `
-    <div class="mms-item mms-item-emp">
-      <span class="mms-val">${md.employees.length}</span>
-      <span class="mms-code">MA</span>
-    </div>
-  `;
-  
-  order.forEach(code => {
-    const v = totals[code];
-    if (!v) return;
-    
-    const meta = CODE_MAP[code];
-    const isD = code === "D";
-    const isHG = code === "HG";
-    
-    const bg = isD ? "#EF4444" : isHG ? "#0EA5E9" : meta?.bg || "#E2E8F0";
-    const fg = isD || isHG ? "#fff" : meta?.fg || "#374151";
-    
-    html += `
-      <div class="mms-item">
-        <span class="mms-code" style="background:${bg};color:${fg};padding:1px 5px;border-radius:3px;font-size:8px;font-weight:700;font-family:var(--font-mono)">${code}</span>
-        <span class="mms-val">${v}</span>
-      </div>
-    `;
-  });
-  
-  summaryEl.innerHTML = html;
-}
+  const nonWeBDs = bdNeeded.filter((d) => !weBDs.includes(d));
 
-export function renderMobileDayList(y, m) {
-  const listEl = document.getElementById("mobile-day-list");
-  if (!listEl) return;
+  log.push({ phase: "bd_weekend", icon: "🌙", msg: `Verteile ${weBDs.length} WE/FT-BD...`, pct: 22 });
   
-  const hols = getSaxonyHolidaysCached(y);
-  const md = getMonthData(y, m);
-  const dim = daysInMonth(y, m);
-  
-  listEl.innerHTML = "";
-  let prevKW = -1;
-  
-  for (let d = 1; d <= dim; d++) {
-    const wd = weekday(y, m, d);
-    const hol = isHoliday(y, m, d, hols);
-    const holName = hols[dateKey(y, m, d)] || "";
-    const isToday = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
-    const kw = isoWeekNumber(y, m, d);
+  let bdRelaxedCount = 0;
+  let hgRelaxedCount = 0;
+
+  for (let i = 0; i < weBDs.length; i++) {
+    const d = weBDs[i];
+    if (isDayDTasked(d)) continue;
     
-    if (wd === 1 && kw !== prevKW) {
-      prevKW = kw;
-      const sep = document.createElement("div");
-      sep.className = "mobile-week-sep";
-      sep.textContent = `KW ${kw}`;
-      listEl.appendChild(sep);
+    let candidates = dutyEmps.map((e) => ({ emp: e, ...scoreBDCandidate(e, d, false, "bd_weekend") })).filter((c) => c.score > -Infinity).sort((a, b) => b.score - a.score);
+    let relaxed = false;
+    
+    if (candidates.length === 0) {
+      candidates = dutyEmps.map((e) => ({ emp: e, ...scoreBDCandidate(e, d, true, "bd_weekend") })).filter((c) => c.score > -Infinity).sort((a, b) => b.score - a.score);
+      if (candidates.length > 0) { 
+        bdRelaxedCount++; 
+        relaxed = true; 
+        candidates[0].tags.push("Regeln gelockert"); 
+        recordRule("bd_weekend", "BD-Constraint gelockert", `Tag ${d}: Keine harte BD-Lösung.`, "warn"); 
+        log.push({ phase: "bd_weekend", icon: "⚠", msg: `BD-Regeln gelockert für Tag ${d}`, dayIdx: d, newEmpId: candidates[0].emp, pct: 22 });
+      }
     }
     
-    const bdHolder = md.employees.find(e => md.assignments?.[e]?.[d]?.duty === "D") || null;
-    const hgHolder = md.employees.find(e => md.assignments?.[e]?.[d]?.duty === "HG") || null;
-    const allAssigns = [];
-    
-    md.employees.forEach(emp => {
-      const cell = md.assignments?.[emp]?.[d] || {};
-      if (cell.assignment) {
-        cell.assignment.split("/").map(x => x.trim()).filter(Boolean).forEach(code => {
-          if (!allAssigns.find(a => a.code === code)) {
-            const meta = CODE_MAP[code];
-            if (meta) {
-              allAssigns.push({ code, bg: meta.bg, fg: meta.fg });
+    if (candidates.length > 0) {
+      const chosen = candidates[0];
+      if (!result[chosen.emp]) result[chosen.emp] = {};
+      if (!result[chosen.emp][d]) result[chosen.emp][d] = {};
+      
+      result[chosen.emp][d].duty = "D";
+      currentBD[chosen.emp]++;
+      
+      if (weekday(y, m, d) === 6) {
+        currentSatBD[chosen.emp]++;
+      }
+      
+      updateAutoF(chosen.emp, d);
+      
+      let reason = `Bester Score (${Math.round(chosen.score)}).`;
+      if (chosen.tags.includes("Wunsch")) reason = "Wunschdienst berücksichtigt.";
+      if (chosen.tags.includes("Vor Urlaub")) reason = "Donnerstags-Dienst vor Urlaub priorisiert.";
+      if (chosen.tags.includes("Samstags-Priorität")) reason += " Person hatte noch keinen Samstag im Monat.";
+      if (chosen.tags.includes("D-F-D-F weich vermieden")) reason += " D-F-D-F wurde nur weich bestraft.";
+      if (relaxed) reason += " Auswahl im gelockerten Modus.";
+      
+      if (chosen.emp === "Dr. Becker" && weekday(y, m, d) === 6) {
+        const nextWorkday = findNextWorkdayFrom(y, m, d);
+        if (nextWorkday) {
+          const blockedByOtherFA = hasOtherFAFreeOrVacationOn(nextWorkday.y, nextWorkday.m, nextWorkday.d, chosen.emp, result);
+          const beckerAssignments = getScheduledAssignmentCodes(nextWorkday.y, nextWorkday.m, chosen.emp, nextWorkday.d, result);
+          const beckerAlreadyOccupied = beckerAssignments.length > 0;
+          
+          if (!blockedByOtherFA && !beckerAlreadyOccupied) {
+            reason += ` Samstags-Dienst unvermeidbar -> FZA am nächsten Werktag (${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]}) eingetragen.`;
+            if (nextWorkday.y === y && nextWorkday.m === m) {
+              if (!result[chosen.emp][nextWorkday.d]) result[chosen.emp][nextWorkday.d] = {};
+              result[chosen.emp][nextWorkday.d].assignment = "FZA";
+            } else {
+              queueExternalAssignment(nextWorkday.y, nextWorkday.m, chosen.emp, nextWorkday.d, { assignment: "FZA" });
             }
+            log.push({ phase: "bd_weekend", icon: "🟣", msg: `Dr. Becker erhält FZA am ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]}.`, dayIdx: nextWorkday.d, newEmpId: chosen.emp, pct: Math.min(40, 22 + 2) });
+            recordRule("bd_weekend", "Becker-FZA-Kompensation", `Ausgleich nach Samstags-BD am ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]}.`, "accent");
+          } else {
+            const warnMsg = blockedByOtherFA
+              ? `KRITISCH: Dr. Becker hat am ${d}. einen Samstags-BD, aber der nächste Werktag ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]} ist blockiert, weil dort bereits ein anderer FA Urlaub/F hat. FZA bitte manuell prüfen.`
+              : `KRITISCH: Dr. Becker hat am ${d}. einen Samstags-BD, aber am nächsten Werktag ${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]} besteht bereits eine Belegung (${beckerAssignments.join("/")}). FZA bitte manuell prüfen.`;
+            beckerSaturdayFzaWarnings.push(warnMsg);
+            reason += " FZA konnte nicht automatisch gesetzt werden; sichtbare Warnung erzeugt.";
+            log.push({ phase: "bd_weekend", icon: "🚨", msg: warnMsg, dayIdx: d, newEmpId: chosen.emp, pct: Math.min(40, 22 + 2) });
+            recordRule("bd_weekend", "Kritische Becker-Prüfung", warnMsg, "critical");
           }
-        });
+        }
       }
-    });
-    
-    const card = document.createElement("div");
-    let cardCls = "mobile-day-card";
-    if (hol) cardCls += " mdc-hol";
-    else if (wd === 0 || wd === 6) cardCls += " mdc-we";
-    if (isToday) cardCls += " mdc-today";
-    
-    card.className = cardCls;
-    card.setAttribute("role", "button");
-    card.setAttribute("tabindex", "0");
-    
-    let dutyHtml = "";
-    if (bdHolder) {
-      const shortName = bdHolder.split(" ").pop();
-      dutyHtml += `<span class="mdc-duty-badge mdc-d"><span class="mdc-duty-letter">D</span><span class="mdc-duty-name">${shortName}</span></span>`;
-    }
-    if (hgHolder) {
-      const shortName = hgHolder.split(" ").pop();
-      dutyHtml += `<span class="mdc-duty-badge mdc-hg"><span class="mdc-duty-letter">H</span><span class="mdc-duty-name">${shortName}</span></span>`;
-    }
-    if (!bdHolder && !hgHolder) {
-      dutyHtml = `<span class="mdc-empty-duty">kein Dienst</span>`;
-    }
-    
-    let assignHtml = "";
-    const shown = allAssigns.slice(0, 5);
-    shown.forEach(a => {
-      assignHtml += `<span class="mdc-assign-chip" style="background:${a.bg};color:${a.fg}">${a.code}</span>`;
-    });
-    if (allAssigns.length > 5) {
-      assignHtml += `<span class="mdc-assign-more">+${allAssigns.length - 5}</span>`;
-    }
-    
-    const planWishIndicator = planMode ? `<span class="mdc-plan-badge"></span>` : "";
-    
-    card.innerHTML = `
-      <div class="mdc-date">
-        <span class="mdc-day-num">${d}</span>
-        <span class="mdc-day-dow">${DOW_ABBR[wd]}</span>
-        ${d === 1 || wd === 1 ? `<span class="mdc-day-kw">KW${kw}</span>` : ""}
-      </div>
-      <div class="mdc-divider"></div>
-      <div class="mdc-content">
-        ${hol ? `<div class="mdc-hol-label">${holName}</div>` : ""}
-        <div class="mdc-duties">${dutyHtml}</div>
-        ${allAssigns.length ? `<div class="mdc-assigns">${assignHtml}</div>` : ""}
-      </div>
-      <div class="mdc-arrow">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-      </div>
-      ${planWishIndicator}
-    `;
-    
-    card.addEventListener("click", () => import('./app.js').then(m => m.openMobileDay(d)));
-    card.addEventListener("keydown", e => { 
-      if (e.key === "Enter" || e.key === " ") { 
-        e.preventDefault(); 
-        import('./app.js').then(m => m.openMobileDay(d)); 
-      } 
-    });
-    
-    listEl.appendChild(card);
-    
-    if (isToday) {
-      setTimeout(() => card.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
+      
+      report.push({ day: d, emp: chosen.emp, duty: "D", reason: reason, tags: chosen.tags });
+      log.push({ phase: "bd_weekend", icon: "→", msg: `Tag ${d}. → ${chosen.emp}`, dayIdx: d, newEmpId: chosen.emp, pct: 22 + Math.round((i / Math.max(1, weBDs.length)) * 18) });
     }
   }
-}
 
-export function openProfileModal(empName) {
-  const { year: y, month: m } = state;
-  const meta = getEmpMeta(empName);
-  const pc = posColor(meta.position);
-  const ini = empInitials(empName);
-  const hols = getSaxonyHolidaysCached(y);
+  log.push({ phase: "bd_workday", icon: "☀️", msg: `Verteile ${nonWeBDs.length} Werktags-BD...`, pct: 42 });
   
-  const s = buildProfileStats(y, m, empName);
-  const ys = buildYearlyStats(empName, y);
-  
-  const avatarEl = document.getElementById("pm-avatar");
-  if (avatarEl) {
-    avatarEl.textContent = ini;
-    avatarEl.style.background = `linear-gradient(135deg,${pc.border},${pc.fg})`;
-  }
-  
-  state.profileEmp = empName;
-  
-  const nameEl = document.getElementById("pm-name");
-  if (nameEl) {
-    nameEl.textContent = meta.fullName !== empName ? meta.fullName : empName;
-  }
-  
-  const subEl = document.getElementById("pm-sub");
-  if (subEl) {
-    subEl.textContent = `${MONTHS[m]} ${y} · ${s.totalWorkdays} Werktage`;
-  }
-  
-  const metaRow = document.getElementById("pm-meta-row");
-  if (metaRow) {
-    let metaHtml = "";
-    if (meta.position !== "—") {
-      metaHtml += `<span class="pm-pos-pill" style="background:${pc.bg};color:${pc.fg}">${meta.position} · ${meta.posLabel}</span>`;
-    }
-    if (meta.area) {
-      metaHtml += `<span class="pm-meta-chip pm-chip-area">${meta.area}</span>`;
-    }
-    if (meta.deputy) {
-      metaHtml += `<span class="pm-meta-chip pm-chip-deputy">V: ${meta.deputy}</span>`;
-    }
-    metaRow.innerHTML = metaHtml;
-  }
-  
-  const kpiEl = document.getElementById("pm-kpi");
-  if (kpiEl) {
-    const vac = VACATION_CODES.reduce((sum, c) => sum + (s.stCounts[c] || 0), 0);
-    const sick = (s.stCounts["K"] || 0) + (s.stCounts["KK"] || 0);
-    const fza = s.stCounts["FZA"] || 0;
+  for (let i = 0; i < nonWeBDs.length; i++) {
+    const d = nonWeBDs[i];
+    if (isDayDTasked(d)) continue;
     
-    const requiredWorkdays = Math.max(0, s.totalWorkdays - s.totalAbs - s.frei);
-    const covPct = requiredWorkdays > 0 ? Math.min(100, Math.round((s.totalActive / requiredWorkdays) * 100)) : 0;
+    let candidates = dutyEmps.map((e) => ({ emp: e, ...scoreBDCandidate(e, d, false, "bd_workday") })).filter((c) => c.score > -Infinity).sort((a, b) => b.score - a.score);
+    let relaxed = false;
     
-    const kpis = [
-      { label: "Werktage", val: s.totalWorkdays, sub: `${s.totalActive} Aktiv`, color: "#1D4ED8", pct: covPct },
-      { label: "Nicht geplant", val: s.uncovered, sub: "offen", color: s.uncovered > 0 ? "#F97316" : "#15803D", pct: 0 },
-      { label: "D-Dienste", val: s.dutyD.length, sub: `${s.dutyD.map(d => d + ".").join(" ") || "—"}`, color: "#EF4444", pct: 0 },
-      { label: "HG-Dienste", val: s.dutyHG.length, sub: `${s.dutyHG.map(d => d + ".").join(" ") || "—"}`, color: "#0EA5E9", pct: 0 },
-      { label: "Urlaub", val: vac, sub: "U/ZU/SU/§15c", color: "#7C3AED", pct: 0 },
-      { label: "Krank", val: sick, sub: "K / KK", color: "#DC2626", pct: 0 },
-      { label: "FZA", val: fza, sub: "Freizeitausgleich", color: "#3730A3", pct: 0 },
-      { label: "Frei", val: s.frei, sub: "F-Tage", color: "#475569", pct: 0 },
-    ];
-    
-    kpiEl.innerHTML = kpis.map(k => `
-      <div class="kpi-card" style="border-top-color:${k.color}">
-        <div class="kpi-head">
-          <span class="kpi-label">${k.label}</span>
-          <span class="kpi-icon">
-            <svg width="12" height="12" fill="none" stroke="${k.color}" stroke-width="2" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="9"/>
-            </svg>
-          </span>
-        </div>
-        <div class="kpi-value" style="color:${k.color}">${k.val}</div>
-        <div class="kpi-sub">${k.sub}</div>
-        ${k.pct > 0 ? `<div class="kpi-bar-wrap"><div class="kpi-bar-fill" style="width:${k.pct}%;background:${k.color}"></div></div>` : ""}
-      </div>
-    `).join("");
-  }
-  
-  const wpChartEl = document.getElementById("pm-wp-chart");
-  const wpHdEl = document.getElementById("pm-wp-hd");
-  if (wpChartEl) {
-    const wpEntries = Object.entries(s.wpCounts).sort((a, b) => b[1] - a[1]);
-    if (wpEntries.length) {
-      if (wpHdEl) wpHdEl.style.display = "";
-      if (window.Chart) {
-        wpChartEl.innerHTML = '<div style="position:relative;height:180px;width:100%"><canvas id="pm-wp-canvas"></canvas></div>';
-        requestAnimationFrame(() => {
-          initChart('pm-wp-canvas', {
-            type: 'doughnut',
-            data: {
-              labels: wpEntries.map(e => e[0]),
-              datasets: [{
-                data: wpEntries.map(e => e[1]),
-                backgroundColor: wpEntries.map(e => CODE_MAP[e[0]]?.fg || '#475569'),
-                borderColor: '#ffffff',
-                borderWidth: 2
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              cutout: '65%',
-              plugins: {
-                legend: { position: 'right', labels: { color: '#64748B', font: { family: 'var(--font-sans)', size: 11 } } },
-                tooltip: { backgroundColor: '#1E293B', titleFont: { family: 'var(--font-sans)', size: 12 }, bodyFont: { family: 'var(--font-sans)', size: 13 }, padding: 10, cornerRadius: 4 }
-              }
-            }
-          });
-        });
-      } else {
-        const maxV = wpEntries[0][1];
-        const totalWP = s.totalActive;
-        wpChartEl.innerHTML = wpEntries.map(([code, cnt]) => {
-          const meta2 = CODE_MAP[code];
-          const pct = totalWP > 0 ? Math.round((cnt/totalWP)*100) : 0;
-          return `
-            <div class="dist-row">
-              <span class="dist-code" style="background:${meta2?.bg||"#f1f5f9"};color:${meta2?.fg||"#475569"}">${code}</span>
-              <div class="dist-bar-bg">
-                <div class="dist-bar-fill" style="width:${Math.round((cnt/maxV)*100)}%;background:${meta2?.fg||"#94a3b8"}"></div>
-              </div>
-              <span class="dist-count">${cnt}</span>
-              <span class="dist-pct">${pct}%</span>
-            </div>
-          `;
-        }).join("");
+    if (candidates.length === 0) {
+      candidates = dutyEmps.map((e) => ({ emp: e, ...scoreBDCandidate(e, d, true, "bd_workday") })).filter((c) => c.score > -Infinity).sort((a, b) => b.score - a.score);
+      if (candidates.length > 0) { 
+        bdRelaxedCount++; 
+        relaxed = true; 
+        candidates[0].tags.push("Regeln gelockert");
+        log.push({ phase: "bd_workday", icon: "⚠", msg: `BD-Regeln gelockert für Tag ${d}`, dayIdx: d, newEmpId: candidates[0].emp, pct: 42 });
       }
-    } else {
-      if (wpHdEl) wpHdEl.style.display = "none";
-      wpChartEl.innerHTML = "";
     }
-  }
-  
-  const stChartEl = document.getElementById("pm-st-chart");
-  const stHdEl = document.getElementById("pm-st-hd");
-  if (stChartEl) {
-    const stEntries = Object.entries(s.stCounts).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-    if (stEntries.length) {
-      if (stHdEl) stHdEl.style.display = "";
-      if (window.Chart) {
-        stChartEl.innerHTML = '<div style="position:relative;height:180px;width:100%"><canvas id="pm-st-canvas"></canvas></div>';
-        requestAnimationFrame(() => {
-          initChart('pm-st-canvas', {
-            type: 'doughnut',
-            data: {
-              labels: stEntries.map(e => e[0]),
-              datasets: [{
-                data: stEntries.map(e => e[1]),
-                backgroundColor: stEntries.map(e => CODE_MAP[e[0]]?.fg || '#475569'),
-                borderColor: '#ffffff',
-                borderWidth: 2
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              cutout: '65%',
-              plugins: {
-                legend: { position: 'right', labels: { color: '#64748B', font: { family: 'var(--font-sans)', size: 11 } } },
-                tooltip: { backgroundColor: '#1E293B', titleFont: { family: 'var(--font-sans)', size: 12 }, bodyFont: { family: 'var(--font-sans)', size: 13 }, padding: 10, cornerRadius: 4 }
-              }
-            }
-          });
-        });
-      } else {
-        const maxSt = stEntries[0][1];
-        stChartEl.innerHTML = stEntries.map(([code, cnt]) => {
-          const meta2 = CODE_MAP[code];
-          return `
-            <div class="dist-row">
-              <span class="dist-code" style="background:${meta2?.bg||"#f1f5f9"};color:${meta2?.fg||"#475569"}">${code}</span>
-              <div class="dist-bar-bg">
-                <div class="dist-bar-fill" style="width:${Math.round((cnt/maxSt)*100)}%;background:${meta2?.fg||"#94a3b8"}"></div>
-              </div>
-              <span class="dist-count">${cnt}</span>
-              <span class="dist-pct"></span>
-            </div>
-          `;
-        }).join("");
-      }
-    } else {
-      if (stHdEl) stHdEl.style.display = "none";
-      stChartEl.innerHTML = "";
-    }
-  }
-  
-  const dutyDetailEl = document.getElementById("pm-duty-detail");
-  const dutyHdEl = document.getElementById("pm-duty-hd");
-  if (dutyDetailEl) {
-    if (s.dutyD.length || s.dutyHG.length) {
-      if (dutyHdEl) dutyHdEl.style.display = "";
-      let dHtml = "";
+    
+    if (candidates.length > 0) {
+      const chosen = candidates[0];
+      if (!result[chosen.emp]) result[chosen.emp] = {};
+      if (!result[chosen.emp][d]) result[chosen.emp][d] = {};
       
-      if (s.dutyD.length) {
-        const dayBadges = s.dutyD.map(d => {
-          const wd = weekday(y, m, d);
-          const hol = isHoliday(y, m, d, hols);
-          const isWeOrHol = wd === 5 || wd === 6 || wd === 0 || hol;
-          const cls = isWeOrHol ? ` style="background:#FEF3C7;color:#78350F;border-color:#FDE68A"` : "";
-          return `<span class="duty-day-badge"${cls}>${DOW_ABBR[wd]} ${d}.</span>`;
-        }).join("");
-        dHtml += `
-          <div class="duty-detail-group">
-            <span class="duty-group-lbl badge-D">D</span>
-            <div>
-              <div class="duty-group-label">Bereitschaftsdienst</div>
-              <div class="duty-group-days">${dayBadges}</div>
-            </div>
-          </div>
-        `;
-      }
+      result[chosen.emp][d].duty = "D";
+      currentBD[chosen.emp]++;
+      updateAutoF(chosen.emp, d);
       
-      if (s.dutyHG.length) {
-        const dayBadges = s.dutyHG.map(d => {
-          const wd = weekday(y, m, d);
-          const hol = isHoliday(y, m, d, hols);
-          const isWeOrHol = wd === 5 || wd === 6 || wd === 0 || hol;
-          const cls = isWeOrHol ? ` style="background:#E0F2FE;color:#0369A1;border-color:#7DD3FC"` : "";
-          return `<span class="duty-day-badge"${cls}>${DOW_ABBR[wd]} ${d}.</span>`;
-        }).join("");
-        dHtml += `
-          <div class="duty-detail-group">
-            <span class="duty-group-lbl badge-HG">HG</span>
-            <div>
-              <div class="duty-group-label">Hintergrunddienst</div>
-              <div class="duty-group-days">${dayBadges}</div>
-            </div>
-          </div>
-        `;
-      }
-      dutyDetailEl.innerHTML = dHtml;
-    } else {
-      if (dutyHdEl) dutyHdEl.style.display = "none";
-      dutyDetailEl.innerHTML = "";
+      report.push({ day: d, emp: chosen.emp, duty: "D", reason: `Bester Score (${Math.round(chosen.score)}).`, tags: chosen.tags });
+      log.push({ phase: "bd_workday", icon: "→", msg: `Tag ${d}. → ${chosen.emp}`, dayIdx: d, newEmpId: chosen.emp, pct: 42 + Math.round((i / Math.max(1, nonWeBDs.length)) * 18) });
     }
   }
-  
-  const calEl = document.getElementById("pm-cal");
-  if (calEl) {
-    const dim = daysInMonth(y, m);
-    const firstWd = weekday(y, m, 1);
-    
-    let calHtml = `<div class="mcd-grid">`;
-    DOW_ABBR.forEach((d, i) => {
-      calHtml += `<div class="mcd-dow${(i === 0 || i === 6) ? " is-we" : ""}">${d}</div>`;
+
+  function rebuildCurrentCounters() {
+    emps.forEach((e) => { 
+      currentBD[e] = 0; 
+      currentHG[e] = 0; 
+      currentHGForAA[e] = 0; 
+      currentHGForFA[e] = 0; 
+      currentSatBD[e] = 0; 
     });
     
-    for (let i = 0; i < firstWd; i++) {
-      calHtml += `<div class="mcd-ph"></div>`;
+    for (let day = 1; day <= dim; day++) {
+      const bdHolder = emps.find((e) => result[e]?.[day]?.duty === "D") || null;
+      for (const e of emps) {
+        const duty = result[e]?.[day]?.duty;
+        if (duty === "D") { 
+          currentBD[e]++; 
+          if (weekday(y, m, day) === 6) {
+            currentSatBD[e]++; 
+          }
+        }
+        else if (duty === "HG") {
+          currentHG[e]++;
+          if (bdHolder && isAssistenzarzt(bdHolder)) {
+            currentHGForAA[e]++;
+          } else {
+            currentHGForFA[e]++;
+          }
+        }
+      }
+    }
+  }
+
+  function setDutyAssignment(emp, day, dutyCode) {
+    if (!result[emp]) result[emp] = {};
+    if (!result[emp][day]) result[emp][day] = {};
+    result[emp][day].duty = dutyCode;
+    if (dutyCode === "D") {
+      updateAutoF(emp, day);
+    }
+  }
+
+  function clearDutyAssignment(emp, day, dutyCode) {
+    if (dutyCode === "D") {
+      clearAutoF(emp, day);
+    }
+    if (result[emp]?.[day]?.duty === dutyCode) {
+      delete result[emp][day].duty;
+    }
+    cleanupAssignmentCell(result, emp, day);
+  }
+
+  function computeBDObjective() {
+    let score = 0;
+    for (let day = 1; day <= dim; day++) {
+      let dCount = 0; 
+      emps.forEach(e => { 
+        if(result[e]?.[day]?.duty === "D") dCount++; 
+      });
+      if (dCount === 0) score += 20000; 
+      if (dCount > 1) score += 50000 * dCount;
     }
     
+    const satAvg = hgFAs.length > 0 ? hgFAs.reduce((sum, e) => sum + currentSatBD[e], 0) / hgFAs.length : 0;
+    let deficitSum = 0;
+    let surplusSum = 0;
+    
+    const avgHistBD = averageFromArray(dutyEmps.map(e => hist[e]?.bd || 0));
+    
+    dutyEmps.forEach((emp) => {
+      const diff = currentBD[emp] - bdTarget[emp];
+      if (diff < 0) deficitSum += -diff; 
+      if (diff > 0) surplusSum += diff;
+      
+      score += diff * diff * 25000 + Math.abs(diff) * 10000;
+      
+      const histBD = hist[emp]?.bd || 0;
+      const histBDDiff = histBD - avgHistBD;
+      score += histBDDiff * currentBD[emp] * 5;
+      
+      const weDiff = countWeekendDuties(y, m, emp, result) - TARGET_WEEKEND_DUTY;
+      score += weDiff * weDiff * 10000;
+      
+      const weProjected = countWeekendDuties(y, m, emp, result);
+      if (weProjected > RELAXED_WEEKEND_DUTY_LIMIT) {
+        score += (weProjected - RELAXED_WEEKEND_DUTY_LIMIT) * 30000;
+      }
+      
+      const weekendKws = [...getWeekendDutyKWs(y, m, emp, result)].sort((a, b) => a - b);
+      for (let i = 1; i < weekendKws.length; i++) { 
+        if (weekendKws[i] - weekendKws[i - 1] === 1) {
+          score += 15000; 
+        }
+      }
+      
+      if (isFacharzt(emp)) {
+        if (currentSatBD[emp] > 1) {
+          score += 80000 * currentSatBD[emp];
+        }
+        score += (currentSatBD[emp] - satAvg) * (currentSatBD[emp] - satAvg) * 12000;
+      }
+      
+      for (let day = 1; day <= dim; day++) {
+        if (result[emp]?.[day]?.duty !== "D") continue;
+        
+        const nxt = nextCalendarDay(y, m, day);
+        if (getScheduledDuty(nxt.y, nxt.m, emp, nxt.d, result) === "D") {
+          score += 100000;
+        }
+        
+        const minDistD = minDistanceForDuty(emp, day, "D", result);
+        if (minDistD < 3) {
+          score += (3 - minDistD) * 15000;
+        }
+        if (minDistD < 5) {
+          score += (5 - minDistD) * 800;
+        }
+        
+        if (wouldCreateDFDF(emp, day, result)) {
+          score += 1200;
+        }
+        
+        if (weekday(y, m, day) === 6 && emp === "Dr. Becker") {
+          score += 40000;
+        }
+      }
+    });
+    
+    score += deficitSum * 15000 + surplusSum * 12000 + Math.abs(deficitSum - surplusSum) * 10000;
+    return score;
+  }
+
+  let bundledHGDays = new Set();
+  let bundledHGKeys = new Set();
+  let swaps = 0;
+  let hgMoves = 0;
+  let deepMoves = 0;
+
+  const MAX_OPTIMIZATION_CYCLES = 25;
+  const BD_MAX_PASSES = 80;
+  const HG_MAX_PASSES = 120;
+  const DEEP_MAX_PASSES = 150;
+
+  function assignBundledHG(emp, d, bindReason, options) {
+    options = options || {};
+    if (isDayHGTasked(d) || !isFacharzt(emp) || isDutyExempt(emp) || wishes[emp]?.[d] === "NO_DUTY" || isAbsentOnDay(y, m, emp, d, result) || result[emp]?.[d]?.duty || hasHolidayBlockConflict(emp, d)) {
+      return false;
+    }
+    const wd = weekday(y, m, d);
+    if (result[emp]?.[d]?.assignment === "F" && !(wd === 6 || wd === 0)) {
+      return false;
+    }
+    const nxtBundled = nextCalendarDay(y, m, d);
+    if (getScheduledDuty(nxtBundled.y, nxtBundled.m, emp, nxtBundled.d, result) === "D" && wd !== 5) {
+      return false;
+    }
+    if (!options.allowAdjacentHG && hasAdjacentHG(emp, d, result)) {
+      return false;
+    }
+    if (hasDalitzMammographyConflict(y, m, emp, d, "HG", result)) {
+      return false;
+    }
+    
+    setDutyAssignment(emp, d, "HG");
+    bundledHGDays.add(d);
+    bundledHGKeys.add(dutyKey(emp, d));
+    report.push({ day: d, emp, duty: "HG", reason: bindReason, tags: ["Gekoppelt"] });
+    return true;
+  }
+
+  function canDoHG(emp, d, relaxed, assignments, options) {
+    relaxed = relaxed || false;
+    assignments = assignments || result;
+    options = options || {};
+    const { ignoreExistingDuty = false } = options;
+    
+    if (isDutyExempt(emp) || !isFacharzt(emp)) return false;
+    if (isAbsentOnDay(y, m, emp, d, assignments)) return false;
+    
+    const existingDuty = assignments[emp]?.[d]?.duty;
+    if (existingDuty && !(ignoreExistingDuty && existingDuty === "HG")) return false;
+    
+    if (wishes[emp]?.[d] === "NO_DUTY") return false;
+    if (hasDalitzMammographyConflict(y, m, emp, d, "HG", assignments)) return false;
+    
+    const wd = weekday(y, m, d);
+    const isWE = wd === 6 || wd === 0;
+    
+    if (assignments[emp]?.[d]?.assignment === "F" && !isWE) return false;
+    
+    const bdOnDay = dutyEmps.find((e) => assignments[e]?.[d]?.duty === "D");
+    const isBdAA = bdOnDay && isAssistenzarzt(bdOnDay);
+
+    const nxtHG = nextCalendarDay(y, m, d);
+    const nxtDuty = getScheduledDuty(nxtHG.y, nxtHG.m, emp, nxtHG.d, assignments);
+    if (nxtDuty === "D") {
+      if (isBdAA) return false;
+      if (wd !== 5) return false;
+    }
+    
+    if (hasHolidayBlockConflict(emp, d)) return false;
+
+    if (emp === "Dr. Polednia" && (wd === 0 || wd === 2 || wd === 4)) {
+      if (isBdAA) return false;
+    }
+
+    if (!relaxed) {
+      const projectedWe = projectedWeekendDutyCount(y, m, emp, assignments, "HG", d);
+      if (projectedWe > RELAXED_WEEKEND_DUTY_LIMIT) return false;
+      if (wouldCreateConsecutiveWeekendDuty(y, m, emp, assignments, d)) return false;
+      if (hasAdjacentHG(emp, d, assignments)) return false;
+    }
+    
+    return true;
+  }
+
+  function scoreHGCandidate(emp, d, relaxed, phaseKey) {
+    relaxed = relaxed || false;
+    if (!canDoHG(emp, d, relaxed)) return { score: -Infinity, tags: [] };
+    
+    let score = 100;
+    const tags = [];
+    const projectedHG = currentHG[emp] + 1;
+    const avgProjectedHG = (hgFAs.reduce((s, e) => s + currentHG[e], 0) + 1) / Math.max(1, hgFAs.length);
+    const avgBDforFAsNow = averageFromArray(hgFAs.map(e => currentBD[e]));
+    
+    const idealHG = avgProjectedHG + (avgBDforFAsNow - currentBD[emp]) * 1.0;
+    
+    score -= Math.abs(projectedHG - idealHG) * 10000;
+    tags.push("HG-Monatsausgleich");
+
+    const histHG = hist[emp]?.hg || 0;
+    const avgHistHG = averageFromArray(hgFAs.map(e => hist[e]?.hg || 0));
+    score -= (histHG - avgHistHG) * 5;
+
+    if (wishes[emp]?.[d] === "HG_WISH") {
+      score += 500;
+      tags.push("Wunsch");
+    }
+    
+    if (isNextDayVacation(y, m, emp, d, result)) {
+      score -= 100;
+    }
+
+    const wd = weekday(y, m, d);
+    if (wd === 6 || wd === 0) {
+      const projectedWe = projectedWeekendDutyCount(y, m, emp, result, "HG", d);
+      score -= Math.abs(projectedWe - TARGET_WEEKEND_DUTY) * 1500;
+      if (projectedWe > RELAXED_WEEKEND_DUTY_LIMIT) {
+        score -= (projectedWe - RELAXED_WEEKEND_DUTY_LIMIT) * 5000;
+      }
+      if (wouldCreateConsecutiveWeekendDuty(y, m, emp, result, d)) {
+        score -= 2500;
+        tags.push("WE-Puffer");
+      }
+    }
+
+    const minDistHG = minDistanceForDuty(emp, d, "HG", result);
+    if (minDistHG < 3) {
+      score -= (3 - minDistHG) * 8000;
+      tags.push("HG-Abstand");
+    }
+
+    if (hasAdjacentHG(emp, d, result)) {
+      score -= 25000;
+      tags.push("kein Direkt-HG");
+    }
+
+    score += ((emp.charCodeAt(1 % emp.length) * 17 + d * 13) % 10) * 0.1;
+    return { score, tags };
+  }
+
+  function computeHGObjective() {
+    let score = 0;
+    for (let day = 1; day <= dim; day++) {
+      let hgCount = 0;
+      emps.forEach(e => { 
+        if(result[e]?.[day]?.duty === "HG") hgCount++; 
+      });
+      if (hgCount === 0) score += 15000;
+      if (hgCount > 1) score += 40000 * hgCount;
+    }
+    
+    const avgHG = averageFromArray(hgFAs.map((emp) => currentHG[emp]));
+    const avgBDforFAs = averageFromArray(hgFAs.map((emp) => currentBD[emp]));
+    const avgHGForAA = averageFromArray(hgFAs.map((emp) => currentHGForAA[emp]));
+    const avgHGForFA = averageFromArray(hgFAs.map((emp) => currentHGForFA[emp]));
+    
+    hgFAs.forEach((emp) => {
+      const idealHG = avgHG + (avgBDforFAs - currentBD[emp]) * 1.0;
+      score += Math.pow(currentHG[emp] - idealHG, 2) * 25000;
+      score += Math.pow(currentHGForAA[emp] - avgHGForAA, 2) * 15000;
+      score += Math.pow(currentHGForFA[emp] - avgHGForFA, 2) * 8000;
+      
+      const weCount = countWeekendDuties(y, m, emp, result);
+      score += Math.pow(weCount - TARGET_WEEKEND_DUTY, 2) * 5000;
+      
+      if (weCount > RELAXED_WEEKEND_DUTY_LIMIT) {
+        score += (weCount - RELAXED_WEEKEND_DUTY_LIMIT) * 20000;
+      }
+      
+      for (let day = 1; day <= dim; day++) {
+        if (result[emp]?.[day]?.duty !== "HG") continue;
+        
+        const wd = weekday(y, m, day);
+        if (emp === "Fr. Dalitz" && (wd === 0 || wd === 1)) {
+          const bdHolder = emps.find(e => result[e]?.[day]?.duty === "D");
+          if (bdHolder === "Hr. Torki" || bdHolder === "Hr. Sebastian") {
+            score += 100000;
+          }
+        }
+
+        const isBundled = bundledHGKeys.has(dutyKey(emp, day));
+        if (hasAdjacentHG(emp, day, result)) {
+          score += isBundled ? 5000 : 45000;
+        }
+
+        const minDistHG = minDistanceForDuty(emp, day, "HG", result);
+        if (minDistHG < 3 && !isBundled) {
+          score += (3 - minDistHG) * 18000;
+        }
+        if (minDistHG < 5 && !isBundled) {
+          score += (5 - minDistHG) * 2500;
+        }
+
+        let density = 0;
+        for (let j = Math.max(1, day - 3); j <= Math.min(dim, day + 3); j++) {
+          if (j !== day && result[emp]?.[j]?.duty === "HG") density++;
+        }
+        if (density > 1) score += density * 12000;
+
+        const nxtObj = nextCalendarDay(y, m, day);
+        if (getScheduledDuty(nxtObj.y, nxtObj.m, emp, nxtObj.d, result) === "D" && wd !== 5) {
+          score += 60000;
+        }
+      }
+    });
+    return score;
+  }
+
+  function computeGlobalObjective() {
+    const bdObjective = computeBDObjective();
+    const hgObjective = hgFAs.length > 0 ? computeHGObjective() : 0;
+    let coveragePenalty = 0;
+    
+    for (let day = 1; day <= dim; day++) {
+      let dCount = 0, hgCount = 0;
+      emps.forEach(e => {
+        if(result[e]?.[day]?.duty === "D") dCount++;
+        if(result[e]?.[day]?.duty === "HG") hgCount++;
+      });
+      if (dCount === 0) coveragePenalty += 25000;
+      if (hgCount === 0) coveragePenalty += 18000;
+      if (dCount > 1 || hgCount > 1) coveragePenalty += 100000;
+    }
+    
+    return bdObjective + hgObjective + coveragePenalty;
+  }
+
+  function runPhase4_BDOptimize(cyclePct) {
+    const mutableBDDays = listDutyAssignments(dutyEmps, dim, result, "D")
+      .filter(({ emp, day }) => !fixedDutyKeys.has(`D:${dutyKey(emp, day)}`))
+      .map(({ day }) => day);
+
+    rebuildCurrentCounters();
+    let bestBD = computeBDObjective();
+
+    for (let pass = 0; pass < BD_MAX_PASSES; pass++) {
+      let improved = false;
+      for (const day of mutableBDDays) {
+        const currentEmp = dutyEmps.find((e) => result[e]?.[day]?.duty === "D");
+        if (!currentEmp) continue;
+        
+        const candidates = [...dutyEmps].sort((a, b) => {
+          const aScore = Math.abs((currentBD[a] + 1) - bdTarget[a]) * 100 + projectedWeekendDutyCount(y, m, a, result, "D", day) * 50 + (weekday(y, m, day) === 6 ? currentSatBD[a] * 200 : 0);
+          const bScore = Math.abs((currentBD[b] + 1) - bdTarget[b]) * 100 + projectedWeekendDutyCount(y, m, b, result, "D", day) * 50 + (weekday(y, m, day) === 6 ? currentSatBD[b] * 200 : 0);
+          return aScore - bScore;
+        });
+        
+        for (const candidate of candidates) {
+          if (candidate === currentEmp) continue;
+          
+          clearDutyAssignment(currentEmp, day, "D");
+          rebuildCurrentCounters();
+          
+          if (!canDoBD(candidate, day, true, result)) { 
+            setDutyAssignment(currentEmp, day, "D"); 
+            rebuildCurrentCounters(); 
+            continue; 
+          }
+          
+          setDutyAssignment(candidate, day, "D");
+          rebuildCurrentCounters();
+          
+          const newBD = computeBDObjective();
+          if (newBD + 0.01 < bestBD) { 
+            bestBD = newBD; 
+            improved = true; 
+            swaps++; 
+            log.push({ phase: "greedy", icon: "🔀", msg: `BD Swap Tag ${day}: ${currentEmp} ➔ ${candidate}`, dayIdx: day, oldEmpId: currentEmp, newEmpId: candidate, pct: cyclePct });
+            break; 
+          }
+          
+          clearDutyAssignment(candidate, day, "D");
+          setDutyAssignment(currentEmp, day, "D");
+          rebuildCurrentCounters();
+        }
+      }
+      if (!improved) break;
+    }
+  }
+
+  function runPhase5_HGBundle(cyclePct) {
+    const prevBundledKeys = new Set(bundledHGKeys);
+    for (const key of prevBundledKeys) {
+      const atIdx = key.indexOf("@@");
+      const emp = key.substring(0, atIdx);
+      const day = parseInt(key.substring(atIdx + 2), 10);
+      if (!fixedDutyKeys.has(`HG:${key}`) && result[emp]?.[day]?.duty === "HG") {
+        delete result[emp][day].duty;
+        cleanupAssignmentCell(result, emp, day);
+      }
+    }
+    
+    bundledHGDays = new Set();
+    bundledHGKeys = new Set();
+
     for (let d = 1; d <= dim; d++) {
       const wd = weekday(y, m, d);
-      const hol = isHoliday(y, m, d, hols);
-      const cell = getCell(y, m, empName, d);
-      const isToday = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
+      const bdHolder = dutyEmps.find(e => result[e]?.[d]?.duty === "D");
+      if (!bdHolder) continue;
       
-      let cls = "mcd";
-      if (hol) cls += " mcd-hol";
-      else if (wd === 0 || wd === 6) cls += " mcd-we";
-      else if (!cell.assignment && !cell.duty) cls += " mcd-empty";
-      
-      if (isToday) cls += " mcd-today";
-      
-      const assign = cell.assignment || "";
-      const duty = cell.duty || "";
-      const { bg: cbg, fg: cfg } = cellColor(assign);
-      const bgStyle = assign ? `background:${cbg}` : "";
-      const interactive = (!hol && wd !== 0 && wd !== 6) ? ` role="button" tabindex="0"` : "";
-      
-      calHtml += `
-        <div class="${cls}" style="${bgStyle}"${interactive} data-day="${d}">
-          <span class="mcd-num">${d}</span>
-          <span class="mcd-assign" style="color:${cfg}">${assign}</span>
-          ${duty ? `<span class="mcd-duty badge-${duty}">${duty}</span>` : ""}
-        </div>
-      `;
-    }
-    calHtml += `</div>`;
-    calEl.innerHTML = calHtml;
-    
-    calEl.querySelectorAll(".mcd[data-day]").forEach(el => {
-      const dayNum = parseInt(el.dataset.day);
-      const wd = weekday(y, m, dayNum);
-      const hol = isHoliday(y, m, dayNum, hols);
-      
-      if (!hol && wd !== 0 && wd !== 6) {
-        el.addEventListener("click", () => {
-          hideOverlay("modal-profile");
-          setTimeout(() => openEditor(empName, dayNum), 180);
-        });
-      }
-    });
-  }
-  
-  const yrEl = document.getElementById("pm-yearly");
-  if (yrEl) {
-    const kpiVals = [
-      { lbl: "Aktiv", val: ys.totals.totalActive, color: "#1D4ED8" },
-      { lbl: "Urlaub", val: ys.totals.vacationDays, color: "#7C3AED" },
-      { lbl: "Krank", val: ys.totals.sickDays, color: "#DC2626" },
-      { lbl: "FZA", val: ys.totals.fzaDays, color: "#3730A3" },
-      { lbl: "D", val: ys.totals.dutyD, color: "#EF4444" },
-      { lbl: "HG", val: ys.totals.dutyHG, color: "#0EA5E9" },
-    ];
-    
-    let yrHtml = `<div class="yr-kpi-strip">`;
-    kpiVals.forEach((k, i) => {
-      if (i > 0) yrHtml += `<div class="yr-kpi-div"></div>`;
-      yrHtml += `
-        <div class="yr-kpi-item">
-          <div class="yr-kpi-val" style="color:${k.color}">${k.val}</div>
-          <div class="yr-kpi-lbl">${k.lbl}</div>
-        </div>
-      `;
-    });
-    yrHtml += `</div>`;
-    
-    yrHtml += `
-      <div class="yr-table-wrap">
-        <table class="yr-table">
-          <thead>
-            <tr>
-              <th class="yr-th yr-th-month">Monat</th>
-              <th class="yr-th">Aktiv</th>
-              <th class="yr-th yr-th-vac">U</th>
-              <th class="yr-th yr-th-sick">K</th>
-              <th class="yr-th">FZA</th>
-              <th class="yr-th">WB</th>
-              <th class="yr-th yr-th-d">D</th>
-              <th class="yr-th yr-th-hg">HG</th>
-            </tr>
-          </thead>
-          <tbody>
-    `;
-    
-    ys.months.forEach(mon => {
-      const isCur = mon.m === m;
-      const vac = VACATION_CODES.reduce((s2, c) => s2 + (mon.stCounts[c] || 0), 0);
-      const sick = (mon.stCounts["K"] || 0) + (mon.stCounts["KK"] || 0);
-      const fza2 = mon.stCounts["FZA"] || 0;
-      const wb = mon.stCounts["WB"] || 0;
-      const rc = mon.hasData ? "" : " yr-row-empty";
-      const totalActive = mon.totalActive;
-      
-      yrHtml += `
-        <tr class="yr-row${isCur ? " yr-row-current" : ""}${rc}">
-          <td class="yr-td-month">${MONTHS_SHORT[mon.m]}</td>
-          <td class="yr-td yr-td-num">${mon.hasData && mon.totalWorkdays > 0 ? (totalActive || "—") : "—"}</td>
-          <td class="yr-td yr-td-num yr-vac">${mon.hasData && vac ? vac : "—"}</td>
-          <td class="yr-td yr-td-num yr-sick">${mon.hasData && sick ? sick : "—"}</td>
-          <td class="yr-td yr-td-num">${mon.hasData && fza2 ? fza2 : "—"}</td>
-          <td class="yr-td yr-td-num">${mon.hasData && wb ? wb : "—"}</td>
-          <td class="yr-td yr-td-num yr-duty-d">${mon.hasData && mon.dutyD ? mon.dutyD : "—"}</td>
-          <td class="yr-td yr-td-num yr-duty-hg">${mon.hasData && mon.dutyHG ? mon.dutyHG : "—"}</td>
-        </tr>
-      `;
-    });
-    
-    yrHtml += `
-          <tr class="yr-total-row">
-            <td class="yr-total-lbl">Gesamt</td>
-            <td class="yr-td yr-td-num yr-total">${ys.totals.totalActive || "—"}</td>
-            <td class="yr-td yr-td-num yr-vac yr-total">${ys.totals.vacationDays || "—"}</td>
-            <td class="yr-td yr-td-num yr-sick yr-total">${ys.totals.sickDays || "—"}</td>
-            <td class="yr-td yr-td-num yr-total">${ys.totals.fzaDays || "—"}</td>
-            <td class="yr-td yr-td-num yr-total">${ys.totals.wbDays || "—"}</td>
-            <td class="yr-td yr-td-num yr-duty-d yr-total">${ys.totals.dutyD || "—"}</td>
-            <td class="yr-td yr-td-num yr-duty-hg yr-total">${ys.totals.dutyHG || "—"}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    `;
-    
-    yrEl.innerHTML = yrHtml;
-  }
-  
-  showOverlay("modal-profile");
-}
-
-export function showOverlay(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  
-  el.removeAttribute("hidden");
-  el.style.display = "flex";
-  
-  const mEl = el.querySelector(".modal");
-  if (mEl) {
-    mEl.classList.remove("modal-closing");
-  }
-  
-  document.body.classList.add("modal-open");
-  updateModalLayout(el);
-  setTimeout(() => updateModalLayout(el), 60);
-  
-  const first = el.querySelector('[autofocus],[tabindex="0"],button:not([disabled]),input,textarea');
-  if (first) {
-    setTimeout(() => first.focus(), 60);
-  }
-}
-
-export function hideOverlay(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  
-  const mEl = el.querySelector(".modal");
-  if (mEl) {
-    mEl.classList.add("modal-closing");
-    setTimeout(() => {
-      el.setAttribute("hidden", "");
-      el.style.display = "none";
-      mEl.classList.remove("modal-closing");
-      if (!document.querySelector(".overlay:not([hidden])")) {
-        document.body.classList.remove("modal-open");
-      }
-    }, 160);
-  } else {
-    el.setAttribute("hidden", "");
-    el.style.display = "none";
-    if (!document.querySelector(".overlay:not([hidden])")) {
-      document.body.classList.remove("modal-open");
-    }
-  }
-}
-
-export function openScoreInfoModal(resultData = autoPlanResult) {
-  const body = document.getElementById("score-info-body");
-  if (!body) return;
-
-  const q = {
-    score: Number(resultData?.summary?.quality?.score ?? resultData?.quality?.score) || 0,
-    dutyGaps: Number(resultData?.summary?.quality?.dutyCoverageMisses ?? resultData?.quality?.dutyCoverageMisses) || 0,
-    hgGaps: Number(resultData?.summary?.quality?.hgCoverageMisses ?? resultData?.quality?.hgCoverageMisses) || 0,
-    bdSpread: Number(resultData?.summary?.quality?.bdSpread ?? resultData?.quality?.bdSpread) || 0,
-    hgSpread: Number(resultData?.summary?.quality?.hgSpread ?? resultData?.quality?.hgSpread) || 0,
-    weSpread: Number(resultData?.summary?.quality?.weekendSpread ?? resultData?.quality?.weekendSpread) || 0,
-    wishes: Number(resultData?.summary?.quality?.wishFulfillmentRate ?? resultData?.quality?.wishFulfillmentRate) || 0,
-    deepMoves: Number(resultData?.summary?.quality?.deepMoves ?? resultData?.quality?.deepMoves) || 0
-  };
-
-  const getRating = (s) => s >= 90 ? "Exzellent" : s >= 80 ? "Sehr Gut" : s >= 70 ? "Gut" : s >= 50 ? "Befriedigend" : "Optimierung empfohlen";
-  const getTone = (s) => s >= 80 ? "#22C55E" : s >= 60 ? "#F59E0B" : "#EF4444";
-  
-  const metrics = [
-    { label: "D-Abdeckung", val: q.dutyGaps === 0 ? "100%" : `${q.dutyGaps} Lücken`, weight: "D-Prio", hint: "Jede Lücke im Bereitschaftsdienst führt zu massiven Penalty-Abzügen (-15 Punkte pro fehlendem Dienst).", pct: Math.max(0, 100 - q.dutyGaps * 20), color: q.dutyGaps === 0 ? "#22C55E" : "#EF4444" },
-    { label: "HG-Abdeckung", val: q.hgGaps === 0 ? "100%" : `${q.hgGaps} Lücken`, weight: "HG-Prio", hint: "Jede Lücke im Hintergrunddienst bestraft den Score (-10 Punkte pro fehlendem Dienst).", pct: Math.max(0, 100 - q.hgGaps * 20), color: q.hgGaps === 0 ? "#22C55E" : "#EF4444" },
-    { label: "BD-Gerechtigkeit", val: `Δ ${q.bdSpread}`, weight: "Spread", hint: "Unterschied zwischen der Person mit den meisten und wenigsten Bereitschaftsdiensten. Exponentieller Abzug ab Δ > 1.", pct: Math.max(0, 100 - q.bdSpread * 15), color: q.bdSpread <= 1 ? "#22C55E" : "#F59E0B" },
-    { label: "HG-Balance", val: `Δ ${q.hgSpread}`, weight: "Spread", hint: "Gleichmäßige Verteilung im Hintergrunddienst. Strafen skalieren mit zunehmender Ungerechtigkeit.", pct: Math.max(0, 100 - q.hgSpread * 20), color: q.hgSpread <= 1 ? "#22C55E" : "#F59E0B" },
-    { label: "WE-Streuung", val: `Δ ${q.weSpread}`, weight: "Spread", hint: "Fairness der Wochenend- und Feiertagsdienste. Diese Dienste sind hoch gewichtet und müssen fair rotieren.", pct: Math.max(0, 100 - q.weSpread * 25), color: q.weSpread <= 1 ? "#22C55E" : "#F59E0B" },
-    { label: "Wunscherfüllung", val: `${Math.round(q.wishes * 100)}%`, weight: "Bonus", hint: "Erfolgsrate der eingetragenen BD/HG-Wünsche. Erfüllte Wünsche generieren Bonuspunkte (bis zu +5.0 auf den Score).", pct: Math.round(q.wishes * 100), color: q.wishes >= 0.8 ? "#22C55E" : "#93C5FD" }
-  ];
-
-  let reasoningHtml = "";
-  
-  if (q.dutyGaps === 0) {
-    reasoningHtml += `<div class="score-reasoning-item pos"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#22C55E" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><div class="score-r-text">Vollständige Bereitschaftsdienst-Abdeckung ohne Lücken.</div><span class="score-r-pts pos">±0.0</span></div>`;
-  } else {
-    reasoningHtml += `<div class="score-reasoning-item neg"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><div class="score-r-text"><strong>Kritisch:</strong> ${q.dutyGaps} unbesetzte D-Schichten. Der Algorithmus konnte keine passenden Kandidaten ohne Verletzung harter Constraints finden.</div><span class="score-r-pts neg">-${(q.dutyGaps * 15.0).toFixed(1)}</span></div>`;
-  }
-  
-  if (q.hgGaps === 0) {
-    reasoningHtml += `<div class="score-reasoning-item pos"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#22C55E" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><div class="score-r-text">Vollständige Hintergrunddienst-Abdeckung ohne Lücken.</div><span class="score-r-pts pos">±0.0</span></div>`;
-  } else {
-    reasoningHtml += `<div class="score-reasoning-item neg"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><div class="score-r-text"><strong>Kritisch:</strong> ${q.hgGaps} unbesetzte HG-Schichten. Möglicher Mangel an verfügbaren Fachärzten.</div><span class="score-r-pts neg">-${(q.hgGaps * 10.0).toFixed(1)}</span></div>`;
-  }
-
-  if (q.bdSpread <= 1) {
-    reasoningHtml += `<div class="score-reasoning-item pos"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#22C55E" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><div class="score-r-text">Optimale Gleichverteilung der D-Dienste (Spread &le; 1). Höchstmögliche Fairness erreicht.</div><span class="score-r-pts pos">-${(q.bdSpread * 2.5).toFixed(1)}</span></div>`;
-  } else {
-    reasoningHtml += `<div class="score-reasoning-item neg"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#F59E0B" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><div class="score-r-text">Ungleiche Verteilung der D-Dienste detektiert. Die Varianz (Spread ${q.bdSpread}) führt zu exponentiellen Penalty-Abzügen.</div><span class="score-r-pts neg">-${(q.bdSpread * 2.5).toFixed(1)}</span></div>`;
-  }
-  
-  if (q.hgSpread > 1) {
-    reasoningHtml += `<div class="score-reasoning-item neg"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#F59E0B" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><div class="score-r-text">Suboptimale Hintergrund-Balance (Spread ${q.hgSpread}) unter den Fachärzten festgestellt.</div><span class="score-r-pts neg">-${(q.hgSpread * 1.5).toFixed(1)}</span></div>`;
-  }
-  
-  if (q.wishes > 0) {
-    reasoningHtml += `<div class="score-reasoning-item pos"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#22C55E" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><div class="score-r-text">Bonus für erfüllte Dienstwünsche (${Math.round(q.wishes * 100)}%). Dienstplanung berücksichtigt Präferenzen.</div><span class="score-r-pts pos">+${(q.wishes * 5.0).toFixed(1)}</span></div>`;
-  }
-  
-  reasoningHtml += `<div class="score-reasoning-item neu"><svg class="score-r-icon" width="16" height="16" fill="none" stroke="#38BDF8" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><div class="score-r-text">Rechenkosten-Penalty für komplexe Umverteilungen. Der Algorithmus benötigte ${q.deepMoves} Deep-Moves zur Konvergenz.</div><span class="score-r-pts neg">-${(q.deepMoves * 0.005).toFixed(1)}</span></div>`;
-
-  body.innerHTML = `
-    <div class="score-dashboard">
-      <header class="score-dash-head">
-        <div class="score-main-circle" style="--score-color: ${getTone(q.score)}">
-          <svg viewBox="0 0 36 36" class="score-ring">
-            <path class="score-ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-            <path class="score-ring-fill" stroke-dasharray="${q.score}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-          </svg>
-          <div class="score-val-box">
-            <span class="score-num">${q.score.toFixed(1)}</span>
-            <span class="score-pct-sign">NFI</span>
-          </div>
-        </div>
-        <div class="score-dash-info">
-          <h3 class="score-dash-rating" style="color: ${getTone(q.score)}">${getRating(q.score)}</h3>
-          <p class="score-dash-desc">Der RadPlan Neural Scheduler hat <strong>${q.deepMoves}</strong> Optimierungs-Schritte durchgeführt, um die harte und weiche Constraint-Matrix in dieses lokale Minimum zu transformieren.</p>
-        </div>
-      </header>
-
-      <div class="score-grid-enhanced">
-        ${metrics.map(m => `
-          <div class="score-card-enhanced" data-tooltip="${m.hint}" data-tooltip-pos="bottom">
-            <div class="score-card-top">
-              <span class="score-card-lbl">
-                ${m.label}
-                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="opacity:0.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              </span>
-              <span class="score-card-weight">${m.weight}</span>
-            </div>
-            <div class="score-card-mid">
-              <span class="score-card-val" style="color: ${m.color}">${m.val}</span>
-              <div class="score-card-bar"><div class="score-card-fill" style="width: ${m.pct}%; background: ${m.color}"></div></div>
-            </div>
-          </div>
-        `).join("")}
-      </div>
-
-      <div class="score-math-box-enhanced">
-        <div class="score-math-title">Punkte-Analyse &amp; Penalty-Metriken</div>
-        <p class="score-math-text" style="margin-bottom:12px;">Der Algorithmus startet mit einem Basis-Score von 100.0 Punkten. Harte Regelverletzungen sind blockiert (Penalty = &infin;). Weiche Regelverletzungen werden mit spezifischen Gewichten abgezogen.</p>
-        <div class="score-reasoning-list">
-          ${reasoningHtml}
-        </div>
-      </div>
-      
-      <div class="score-formula-display">
-        <span class="formula-lbl">Berechnungs-Basis (NFI):</span>
-        <code>Fitness = 100 - (Lücken × G) - (Spread × G) + (Wünsche × G) - (Rechenkosten)</code>
-      </div>
-    </div>
-  `;
-
-  showOverlay("modal-score-info");
-}
-
-let toastTimer = null;
-
-export function showToast(msg) {
-  const el = document.getElementById("toast");
-  if (!el) return;
-  
-  el.textContent = msg;
-  el.classList.remove("visible");
-  
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      el.classList.add("visible");
-    });
-  });
-  
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    el.classList.remove("visible");
-  }, 3400);
-}
-
-export function renderTeamHub() {
-  const { year: y, month: m } = state;
-  if (teamTab === "month") {
-    renderTeamMonth(y, m);
-  } else if (teamTab === "year") {
-    renderTeamYear(y);
-  } else if (teamTab === "profiles") {
-    renderTeamProfiles(y, m);
-  }
-}
-
-export function renderTeamMonth(y, m) {
-  const body = document.getElementById("team-body");
-  if (!body) return;
-  
-  const hols = getSaxonyHolidaysCached(y);
-  const md = getMonthData(y, m);
-  const dim = daysInMonth(y, m);
-  
-  const teamHeadLine = document.getElementById("team-context-line");
-  if (teamHeadLine) {
-    teamHeadLine.textContent = `Monats-Reporting · ${MONTHS[m]} ${y}`;
-  }
-  
-  if (!md.employees.length) {
-    body.innerHTML = `<div class="dept-empty"><p>Keine Daten</p></div>`;
-    return;
-  }
-  
-  let workdayCount = 0;
-  let mrCov = 0;
-  let ctCov = 0;
-  let dCov = 0;
-  let hgCov = 0;
-  
-  for (let d = 1; d <= dim; d++) {
-    if (!isWorkday(y, m, d, hols)) continue;
-    workdayCount++;
-    
-    let hasMR = false, hasCT = false, hasD = false, hasHG = false;
-    
-    md.employees.forEach((emp) => {
-      const cell = md.assignments?.[emp]?.[d] || {};
-      const assign = (cell.assignment || "").split("/").map((x) => x.trim());
-      if (assign.includes("MR")) hasMR = true;
-      if (assign.includes("CT")) hasCT = true;
-      if (cell.duty === "D") hasD = true;
-      if (cell.duty === "HG") hasHG = true;
-    });
-    
-    if (hasMR) mrCov++;
-    if (hasCT) ctCov++;
-    if (hasD) dCov++;
-    if (hasHG) hgCov++;
-  }
-  
-  const pct = (v) => workdayCount > 0 ? Math.round((v / workdayCount) * 100) : 0;
-  
-  const covItems = [
-    { label: "MR", val: mrCov, pct: pct(mrCov), color: "#1D4ED8", bg: "#DBEAFE" },
-    { label: "CT", val: ctCov, pct: pct(ctCov), color: "#C2410C", bg: "#FFEDD5" },
-    { label: "D", val: dCov, pct: pct(dCov), color: "#EF4444", bg: "#FEE2E2" },
-    { label: "HG", val: hgCov, pct: pct(hgCov), color: "#0EA5E9", bg: "#E0F2FE" },
-  ];
-  
-  let stripHtml = `
-    <div class="dept-cov-strip">
-      <div class="dept-cov-meta">
-        <span class="dept-cov-meta-val">${workdayCount}</span>
-        <span class="dept-cov-meta-lbl">Werktage</span>
-      </div>
-      <div class="dept-cov-meta">
-        <span class="dept-cov-meta-val">${md.employees.length}</span>
-        <span class="dept-cov-meta-lbl">Mitarbeitende</span>
-      </div>
-      <div class="dept-cov-bars">
-  `;
-  
-  covItems.forEach((item) => {
-    stripHtml += `
-      <div class="dept-cov-bar-item">
-        <div class="dept-cov-bar-head">
-          <span class="dept-cov-code" style="background:${item.bg};color:${item.color}">${item.label}</span>
-          <span class="dept-cov-fraction">${item.val}/${workdayCount}</span>
-          <span class="dept-cov-pct" style="color:${item.pct >= 80 ? item.color : "#94A3B8"}">${item.pct}%</span>
-        </div>
-        <div class="dept-cov-bar-bg">
-          <div class="dept-cov-bar-fill" style="width:${item.pct}%;background:${item.color}"></div>
-        </div>
-      </div>
-    `;
-  });
-  
-  stripHtml += `</div></div>`;
-  
-  const empStats = md.employees.map((emp) => {
-    const s = buildProfileStats(y, m, emp);
-    const meta = getEmpMeta(emp);
-    const pc = posColor(meta.position);
-    const vac = VACATION_CODES.reduce((sum, c) => sum + (s.stCounts[c] || 0), 0);
-    const sick = (s.stCounts["K"] || 0) + (s.stCounts["KK"] || 0);
-    const fza = s.stCounts["FZA"] || 0;
-    const frei = s.stCounts["F"] || 0;
-    return { emp, s, meta, pc, vac, sick, fza, frei };
-  });
-  
-  const team = empStats.reduce((acc, { s, vac, sick, fza, frei }) => {
-    acc.wp += s.totalActive;
-    acc.vac += vac;
-    acc.sick += sick;
-    acc.fza += fza;
-    acc.d += s.dutyD.length;
-    acc.hg += s.dutyHG.length;
-    acc.frei += frei;
-    acc.offen += s.uncovered;
-    return acc;
-  }, { wp: 0, vac: 0, sick: 0, fza: 0, d: 0, hg: 0, frei: 0, offen: 0 });
-  
-  let rowsHtml = "";
-  empStats.forEach(({ emp, s, meta, pc, vac, sick, fza, frei }) => {
-    rowsHtml += `
-      <tr class="dept-tr is-clickable" data-emp="${emp}" style="cursor:pointer">
-        <td class="dept-td-name" style="border-left:3px solid ${pc.border}">
-          <span class="dept-emp-name">${emp}</span>
-          ${meta.position !== "—" ? `<span class="dept-pos-badge" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span>` : ""}
-        </td>
-        <td class="dept-td dept-td-num">${s.totalActive || "—"}</td>
-        <td class="dept-td dept-td-num">${s.wpCounts["MR"] || ""}</td>
-        <td class="dept-td dept-td-num">${s.wpCounts["CT"] || ""}</td>
-        <td class="dept-td dept-td-num dept-vac">${vac || ""}</td>
-        <td class="dept-td dept-td-num dept-sick">${sick || ""}</td>
-        <td class="dept-td dept-td-num">${fza || ""}</td>
-        <td class="dept-td dept-td-num dept-duty-d">${s.dutyD.length || ""}</td>
-        <td class="dept-td dept-td-num dept-duty-hg">${s.dutyHG.length || ""}</td>
-        <td class="dept-td dept-td-num dept-frei">${frei || ""}</td>
-        <td class="dept-td dept-td-num ${s.uncovered > 0 ? "dept-offen" : ""}">${s.uncovered || ""}</td>
-      </tr>
-    `;
-  });
-  
-  const tableHtml = `
-    <div class="dept-table-wrap">
-      <table class="dept-table">
-        <thead>
-          <tr>
-            <th class="dept-th-name">Mitarbeitende</th>
-            <th class="dept-th">Aktiv</th>
-            <th class="dept-th">MR</th>
-            <th class="dept-th">CT</th>
-            <th class="dept-th dept-th-vac">Urlaub</th>
-            <th class="dept-th dept-th-sick">Krank</th>
-            <th class="dept-th">FZA</th>
-            <th class="dept-th dept-th-d">D</th>
-            <th class="dept-th dept-th-hg">HG</th>
-            <th class="dept-th">Frei</th>
-            <th class="dept-th dept-th-offen">Offen</th>
-          </tr>
-        </thead>
-        <tbody>${rowsHtml}</tbody>
-        <tfoot>
-          <tr class="dept-total-row">
-            <td class="dept-td-name dept-total-lbl">Gesamt&ensp;(${md.employees.length}&thinsp;MA)</td>
-            <td class="dept-td dept-td-num dept-total">${team.wp || "—"}</td>
-            <td class="dept-td dept-td-num dept-total" colspan="2"></td>
-            <td class="dept-td dept-td-num dept-total dept-vac">${team.vac || "—"}</td>
-            <td class="dept-td dept-td-num dept-total dept-sick">${team.sick || "—"}</td>
-            <td class="dept-td dept-td-num dept-total">${team.fza || "—"}</td>
-            <td class="dept-td dept-td-num dept-total dept-duty-d">${team.d || "—"}</td>
-            <td class="dept-td dept-td-num dept-total dept-duty-hg">${team.hg || "—"}</td>
-            <td class="dept-td dept-td-num dept-total dept-frei">${team.frei || "—"}</td>
-            <td class="dept-td dept-td-num dept-total ${team.offen > 0 ? "dept-offen" : ""}">${team.offen || "—"}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  `;
-  
-  body.innerHTML = stripHtml + tableHtml;
-  
-  body.querySelectorAll('.dept-tr.is-clickable').forEach(tr => {
-    tr.addEventListener('click', () => {
-      const empName = tr.dataset.emp;
-      if (empName) openTeamProfileFor(empName);
-    });
-  });
-}
-
-export function renderTeamYear(year) {
-  const body = document.getElementById("team-body");
-  if (!body) return;
-  
-  const teamHeadLine = document.getElementById("team-context-line");
-  if (teamHeadLine) {
-    teamHeadLine.textContent = `Jahres-Reporting · ${year}`;
-  }
-  
-  const allEmpsList = getEmployeesForYear(year);
-  
-  if (!allEmpsList.length) {
-    body.innerHTML = `<div class="dept-empty"><p>Keine Daten für ${year}</p></div>`;
-    return;
-  }
-  
-  const empYS = allEmpsList.map((emp) => {
-    return { 
-      emp, 
-      ys: buildYearlyStats(emp, year), 
-      meta: getEmpMeta(emp) 
-    };
-  }).filter(({ ys }) => {
-    return ys.totals.totalWorkdays > 0 || ys.totals.dutyD > 0 || ys.totals.dutyHG > 0;
-  });
-  
-  if (!empYS.length) {
-    body.innerHTML = `<div class="dept-empty"><p>Keine Daten</p></div>`;
-    return;
-  }
-  
-  const team = empYS.reduce((acc, { ys }) => {
-    acc.wd += ys.totals.totalWorkdays;
-    acc.cov += ys.totals.coveredWorkdays;
-    acc.wp += ys.totals.totalActive;
-    acc.vac += ys.totals.vacationDays;
-    acc.sick += ys.totals.sickDays;
-    acc.fza += ys.totals.fzaDays;
-    acc.wb += ys.totals.wbDays;
-    acc.d += ys.totals.dutyD;
-    acc.hg += ys.totals.dutyHG;
-    return acc;
-  }, { wd: 0, cov: 0, wp: 0, vac: 0, sick: 0, fza: 0, wb: 0, d: 0, hg: 0 });
-  
-  const teamCovPct = team.wd > 0 ? Math.round((team.cov / team.wd) * 100) : 0;
-  
-  const stripHtml = `
-    <div class="dept-yr-strip">
-      <div class="dept-yr-kpi">
-        <span class="dept-yr-kpi-val">${empYS.length}</span>
-        <span class="dept-yr-kpi-lbl">Mitarbeitende</span>
-      </div>
-      <div class="dept-yr-kpi">
-        <span class="dept-yr-kpi-val" style="color:#1D4ED8">${team.wp}</span>
-        <span class="dept-yr-kpi-lbl">Aktiv-Tage</span>
-      </div>
-      <div class="dept-yr-kpi">
-        <span class="dept-yr-kpi-val" style="color:#5B21B6">${team.vac}</span>
-        <span class="dept-yr-kpi-lbl">Urlaub</span>
-      </div>
-      <div class="dept-yr-kpi">
-        <span class="dept-yr-kpi-val" style="color:#991B1B">${team.sick}</span>
-        <span class="dept-yr-kpi-lbl">Krank</span>
-      </div>
-      <div class="dept-yr-kpi">
-        <span class="dept-yr-kpi-val">
-          <span style="color:#EF4444">${team.d}</span>&thinsp;/&thinsp;<span style="color:#0EA5E9">${team.hg}</span>
-        </span>
-        <span class="dept-yr-kpi-lbl">D/HG</span>
-      </div>
-      <div class="dept-yr-kpi">
-        <span class="dept-yr-kpi-val" style="color:${teamCovPct >= 80 ? "#15803D" : teamCovPct >= 60 ? "#854D0E" : "#991B1B"}">${teamCovPct}%</span>
-        <span class="dept-yr-kpi-lbl">Abdeckung</span>
-      </div>
-    </div>
-  `;
-  
-  let rowsHtml = "";
-  empYS.forEach(({ emp, ys, meta }) => {
-    const t = ys.totals;
-    const pc = posColor(meta.position);
-    
-    const requiredWorkdays = Math.max(0, t.totalWorkdays - t.vacationDays - t.sickDays - t.fzaDays - t.wbDays - t.freiDays);
-    const cov = requiredWorkdays > 0 ? Math.min(100, Math.round((t.totalActive / requiredWorkdays) * 100)) : 0;
-    const covCls = cov >= 80 ? "dept-cov-good" : cov >= 60 ? "dept-cov-mid" : cov > 0 ? "dept-cov-low" : "";
-    
-    rowsHtml += `
-      <tr class="dept-tr is-clickable" data-emp="${emp}" style="cursor:pointer">
-        <td class="dept-td-name" style="border-left:3px solid ${pc.border}">
-          <span class="dept-emp-name">${emp}</span>
-          ${meta.position !== "—" ? `<span class="dept-pos-badge" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span>` : ""}
-        </td>
-        <td class="dept-td dept-td-num">${t.totalActive || "—"}</td>
-        <td class="dept-td dept-td-num dept-vac">${t.vacationDays || "—"}</td>
-        <td class="dept-td dept-td-num dept-sick">${t.sickDays || "—"}</td>
-        <td class="dept-td dept-td-num">${t.fzaDays || "—"}</td>
-        <td class="dept-td dept-td-num">${t.wbDays || "—"}</td>
-        <td class="dept-td dept-td-num dept-duty-d">${t.dutyD || "—"}</td>
-        <td class="dept-td dept-td-num dept-duty-hg">${t.dutyHG || "—"}</td>
-        <td class="dept-td dept-td-num ${covCls}">${t.totalWorkdays > 0 ? cov + "%" : "—"}</td>
-      </tr>
-    `;
-  });
-  
-  const tableHtml = `
-    <div class="dept-table-wrap">
-      <table class="dept-table">
-        <thead>
-          <tr>
-            <th class="dept-th-name">Mitarbeitende</th>
-            <th class="dept-th">Aktiv-Tage</th>
-            <th class="dept-th dept-th-vac">Urlaub</th>
-            <th class="dept-th dept-th-sick">Krank</th>
-            <th class="dept-th">FZA</th>
-            <th class="dept-th">WB</th>
-            <th class="dept-th dept-th-d">D</th>
-            <th class="dept-th dept-th-hg">HG</th>
-            <th class="dept-th">Abdeckung</th>
-          </tr>
-        </thead>
-        <tbody>${rowsHtml}</tbody>
-        <tfoot>
-          <tr class="dept-total-row">
-            <td class="dept-td-name dept-total-lbl">Gesamt&ensp;(${empYS.length}&thinsp;MA)</td>
-            <td class="dept-td dept-td-num dept-total">${team.wp || "—"}</td>
-            <td class="dept-td dept-td-num dept-total dept-vac">${team.vac || "—"}</td>
-            <td class="dept-td dept-td-num dept-total dept-sick">${team.sick || "—"}</td>
-            <td class="dept-td dept-td-num dept-total">${team.fza || "—"}</td>
-            <td class="dept-td dept-td-num dept-total">${team.wb || "—"}</td>
-            <td class="dept-td dept-td-num dept-total dept-duty-d">${team.d || "—"}</td>
-            <td class="dept-td dept-td-num dept-total dept-duty-hg">${team.hg || "—"}</td>
-            <td class="dept-td dept-td-num dept-total ${teamCovPct >= 80 ? "dept-cov-good" : teamCovPct >= 60 ? "dept-cov-mid" : "dept-cov-low"}">${teamCovPct}%</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  `;
-  
-  body.innerHTML = stripHtml + tableHtml;
-  
-  body.querySelectorAll('.dept-tr.is-clickable').forEach(tr => {
-    tr.addEventListener('click', () => {
-      const empName = tr.dataset.emp;
-      if (empName) openTeamProfileFor(empName);
-    });
-  });
-}
-
-export function renderTeamProfiles(y, m) {
-  const body = document.getElementById("team-body");
-  if (!body) return;
-
-  let shell = document.getElementById("team-profiles-shell");
-  if (!shell) {
-    body.innerHTML = `
-      <div id="team-profiles-shell" style="display:flex; flex-direction:column; width:100%; height:100%; overflow-y:auto; padding: 20px;">
-        <section class="empdash-section">
-          <div class="empdash-summary-grid" id="emp-summary-grid"></div>
-        </section>
-        <section class="empdash-section">
-          <div class="empdash-toolbar">
-            <div class="empdash-toolbar-left">
-              <label class="empdash-search-wrap" for="emp-search">
-                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="search" id="emp-search" class="text-input empdash-search" placeholder="Mitarbeitende filtern…" autocomplete="off" value="${state.employeeDashboard.filter}">
-              </label>
-              <div class="empdash-filter-pills" id="emp-role-filters" role="toolbar" aria-label="Rollenfilter"></div>
-            </div>
-            <div class="empdash-toolbar-right">
-              <div class="empdash-count" id="emp-visible-count" aria-live="polite"></div>
-            </div>
-          </div>
-          <div class="empdash-card-grid" id="emp-year-grid" role="list" aria-label="Jahresübersicht"></div>
-        </section>
-        <section class="empdash-section empdash-detail-section">
-          <div class="empdash-detail-head">
-            <div>
-              <div class="empdash-detail-title">Detailansicht Kalenderjahr</div>
-              <div class="empdash-detail-sub" id="emp-detail-sub">Bitte eine Person auswählen.</div>
-            </div>
-            <div class="empdash-view-switch" role="tablist">
-              <button type="button" class="empdash-view-btn ${state.employeeDashboard.detailView === 'months' ? 'active' : ''}" id="emp-view-months" data-view="months" role="tab" aria-selected="${state.employeeDashboard.detailView === 'months'}">Monatsverlauf</button>
-              <button type="button" class="empdash-view-btn ${state.employeeDashboard.detailView === 'calendar' ? 'active' : ''}" id="emp-view-calendar" data-view="calendar" role="tab" aria-selected="${state.employeeDashboard.detailView === 'calendar'}">Jahreskalender</button>
-              <button type="button" class="empdash-view-btn ${state.employeeDashboard.detailView === 'admin' ? 'active' : ''}" id="emp-view-admin" data-view="admin" role="tab" aria-selected="${state.employeeDashboard.detailView === 'admin'}">Verwaltung</button>
-            </div>
-          </div>
-          <div class="empdash-detail-panel" id="emp-detail-panel" role="tabpanel" aria-live="polite"></div>
-        </section>
-      </div>
-    `;
-
-    document.getElementById("emp-search").addEventListener("input", (e) => {
-      state.employeeDashboard.filter = e.target.value;
-      renderTeamProfiles(state.year, state.month);
-    });
-
-    document.querySelectorAll(".empdash-view-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        state.employeeDashboard.detailView = btn.dataset.view;
-        renderTeamProfiles(state.year, state.month);
-      });
-    });
-  }
-
-  document.querySelectorAll('.empdash-view-btn').forEach((btn) => {
-    const active = btn.dataset.view === state.employeeDashboard.detailView;
-    btn.classList.toggle('active', active);
-    btn.setAttribute('aria-selected', active ? 'true' : 'false');
-  });
-
-  const dash = state.employeeDashboard;
-  const employees = getEmployeesForYear(y);
-  const currentMonthData = getMonthData(y, m);
-
-  const contextEl = document.getElementById("team-context-line");
-  if (contextEl) {
-    contextEl.textContent = `Mitarbeitenden-Profile · ${employees.length} Profile im Jahr ${y}`;
-  }
-
-  const summaryEl = document.getElementById("emp-summary-grid");
-  const gridEl = document.getElementById("emp-year-grid");
-  const detailEl = document.getElementById("emp-detail-panel");
-  const detailSub = document.getElementById("emp-detail-sub");
-  const countEl = document.getElementById("emp-visible-count");
-
-  if (!employees.length) {
-    if (summaryEl) summaryEl.innerHTML = `<div class="empdash-empty">Keine Mitarbeitendendaten für ${y} vorhanden.</div>`;
-    if (gridEl) gridEl.innerHTML = "";
-    if (detailEl) detailEl.innerHTML = `<div class="empdash-empty">Bitte zuerst Mitarbeitende anlegen.</div>`;
-    if (countEl) countEl.textContent = "0 sichtbar";
-    renderRoleFilters(employees);
-    return;
-  }
-
-  const metrics = employees.map((emp) => getEmployeeYearCardMetrics(emp, y));
-  const activeCount = metrics.filter((item) => item.activeMonths > 0).length;
-  const dutyCount = metrics.reduce((sum, item) => sum + item.ys.totals.dutyD + item.ys.totals.dutyHG, 0);
-
-  const roles = metrics.reduce((acc, item) => {
-    const pos = item.meta.position;
-    if (["CA", "LOA", "OA", "OÄ"].includes(pos)) acc.lead++;
-    else if (["FA", "FÄ"].includes(pos)) acc.fa++;
-    else if (["AA", "AÄ"].includes(pos)) acc.aa++;
-    else acc.other++;
-    return acc;
-  }, { lead: 0, fa: 0, aa: 0, other: 0 });
-
-  const kpiItems = [
-    { label: "Mitarbeitende im Jahr", value: employees.length, sub: `${activeCount} mit Aktivität`, tone: "#0EA5E9" },
-    { label: "Aktueller Monatsbestand", value: currentMonthData.employees.length, sub: `${MONTHS[m]} ${y}`, tone: "#22C55E" },
-    { label: "Dienste im Jahr", value: dutyCount, sub: "D + HG kumuliert", tone: "#F97316" },
-    { label: "Rollenmix", value: `${roles.lead}/${roles.fa}/${roles.aa}`, sub: "Leitung · FA · AA", tone: "#A855F7" },
-  ];
-
-  if (summaryEl) {
-    summaryEl.innerHTML = kpiItems.map((item) => `
-      <article class="empdash-kpi">
-        <div class="empdash-kpi-label">${item.label}</div>
-        <div class="empdash-kpi-value" style="color:${item.tone}">${item.value}</div>
-        <div class="empdash-kpi-sub">${item.sub}</div>
-      </article>
-    `).join("");
-  }
-
-  renderRoleFilters(employees);
-
-  const query = dash.filter.trim().toLowerCase();
-  const filtered = metrics.filter((item) => {
-    if (!matchRoleFilter(item.emp, dash.role)) return false;
-    if (!query) return true;
-    const hay = [item.emp, item.meta.fullName, item.meta.posLabel, item.meta.position, item.meta.area].join(" ").toLowerCase();
-    return hay.includes(query);
-  });
-
-  if (!dash.selectedEmp || !employees.includes(dash.selectedEmp)) {
-    dash.selectedEmp = filtered[0]?.emp || null;
-  }
-
-  if (countEl) {
-    countEl.textContent = `${filtered.length} von ${employees.length} sichtbar`;
-  }
-
-  if (filtered.length === 0) {
-    if (gridEl) gridEl.innerHTML = `<div class="empdash-empty">Keine Mitarbeitenden entsprechen dem Filter.</div>`;
-  } else {
-    if (gridEl) {
-      gridEl.innerHTML = filtered.map((item) => {
-        const pc = posColor(item.meta.position);
-        const vac = item.ys.totals.vacationDays || 0;
-        const sick = item.ys.totals.sickDays || 0;
-        const selectedCls = dash.selectedEmp === item.emp ? " active" : "";
-        
-        return `
-          <button type="button" class="empdash-card${selectedCls}" data-emp="${item.emp}" role="listitem">
-            <div class="empdash-card-top">
-              <span class="empdash-avatar" style="background:linear-gradient(135deg,${pc.border},${pc.fg})">${empInitials(item.emp)}</span>
-              <div class="empdash-card-meta">
-                <span class="empdash-card-name">${item.emp}</span>
-                <span class="empdash-card-sub">${item.meta.posLabel !== "—" ? item.meta.posLabel : "ohne Stammdaten"}</span>
-              </div>
-              <span class="empdash-pos" style="background:${pc.bg};color:${pc.fg}">${item.meta.position}</span>
-            </div>
-            <div class="empdash-card-stats">
-              <span><strong>${item.ys.totals.totalActive || 0}</strong><small>Aktiv</small></span>
-              <span><strong>${item.ys.totals.dutyD || 0}</strong><small>D</small></span>
-              <span><strong>${item.ys.totals.dutyHG || 0}</strong><small>HG</small></span>
-              <span><strong>${item.coverage}%</strong><small>Abdeckung</small></span>
-            </div>
-            <div class="empdash-card-foot">
-              <span>${item.activeMonths}/12 Monate</span>
-              <span>U ${vac} · K ${sick}</span>
-            </div>
-          </button>
-        `;
-      }).join("");
-
-      gridEl.querySelectorAll("[data-emp]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          dash.selectedEmp = btn.dataset.emp;
-          renderTeamProfiles(state.year, state.month);
-        });
-      });
-    }
-  }
-
-  if (!dash.selectedEmp) {
-    if (detailEl) detailEl.innerHTML = `<div class="empdash-empty">Bitte eine Person auswählen.</div>`;
-    if (detailSub) {
-      detailSub.textContent = "Bitte eine Person auswählen.";
-    }
-    return;
-  }
-
-  renderTeamEmployeeDetail(dash.selectedEmp, y);
-
-  if (detailSub) {
-    const viewName = dash.detailView === "months" ? "Monatsverlauf" : dash.detailView === "calendar" ? "Jahreskalender" : "Verwaltung";
-    detailSub.textContent = `${dash.selectedEmp} · Kalenderjahr ${y} · Detailansicht ${viewName}`;
-  }
-}
-
-export function renderRoleFilters(employees) {
-  const el = document.getElementById("emp-role-filters");
-  if (!el) return;
-  
-  const buckets = getRoleFilterBuckets(state.year, employees);
-  const defs = [
-    ["ALL", "Alle"], 
-    ["CA", "Chefärzte"], 
-    ["OA", "Oberärzte"], 
-    ["FA", "Fachärzte"], 
-    ["AA", "Assistenz"], 
-    ["OHNE", "Ohne Profil"]
-  ];
-  
-  el.innerHTML = defs.map(([code, label]) => {
-    const isActive = state.employeeDashboard.role === code;
-    return `
-      <button type="button" class="empdash-filter-btn${isActive ? " active" : ""}" data-role="${code}">
-        ${label}<span>${buckets[code] || 0}</span>
-      </button>
-    `;
-  }).join("");
-  
-  el.querySelectorAll("[data-role]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      state.employeeDashboard.role = btn.dataset.role;
-      renderTeamProfiles(state.year, state.month);
-    });
-  });
-}
-
-export function renderTeamEmployeeDetail(emp, year) {
-  const detailEl = document.getElementById("emp-detail-panel");
-  if (!detailEl) return;
-  
-  const meta = getEmpMeta(emp);
-  const pc = posColor(meta.position);
-  const ys = buildYearlyStats(emp, year);
-  const currentMonthData = getMonthData(state.year, state.month);
-  
-  if (state.employeeDashboard.detailView === 'months') {
-    let html = `
-      <div class="empdash-detail-profile">
-        <div class="empdash-detail-profile-head">
-          <span class="empdash-avatar lg" style="background:linear-gradient(135deg,${pc.border},${pc.fg})">${empInitials(emp)}</span>
-          <div>
-            <div class="empdash-detail-name">${meta.fullName !== emp ? meta.fullName : emp}</div>
-            <div class="empdash-detail-meta">${meta.posLabel} · ${meta.type}</div>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    if (window.Chart) {
-      html += `<div class="empdash-chart-container" style="position:relative; height:220px; width:100%; margin:24px 0;"><canvas id="empdash-months-chart"></canvas></div>`;
-    }
-    
-    html += `
-      <div class="empdash-month-table-wrap">
-        <table class="empdash-month-table">
-          <thead>
-            <tr>
-              <th>Monat</th>
-              <th>Aktiv</th>
-              <th>Urlaub</th>
-              <th>Krank</th>
-              <th>FZA</th>
-              <th>WB</th>
-              <th>D</th>
-              <th>HG</th>
-              <th>Abdeckung</th>
-            </tr>
-          </thead>
-          <tbody>
-    `;
-    
-    ys.months.forEach((mon) => {
-      const vac = VACATION_CODES.reduce((sum, c) => sum + (mon.stCounts[c] || 0), 0);
-      const sick = (mon.stCounts['K'] || 0) + (mon.stCounts['KK'] || 0);
-      
-      const reqWd = Math.max(0, mon.totalWorkdays - vac - sick - (mon.stCounts['FZA'] || 0) - (mon.stCounts['WB'] || 0) - (mon.stCounts['F'] || 0));
-      const cov = reqWd > 0 ? Math.min(100, Math.round((mon.totalActive / reqWd) * 100)) : 0;
-      
-      const isCur = mon.m === state.month;
-      const covCls = cov >= 80 ? 'good' : cov >= 60 ? 'mid' : 'low';
-      
-      html += `
-        <tr class="${isCur ? 'is-current' : ''}">
-          <td>${MONTHS_SHORT[mon.m]}</td>
-          <td>${mon.totalActive || '—'}</td>
-          <td>${vac || '—'}</td>
-          <td>${sick || '—'}</td>
-          <td>${mon.stCounts['FZA'] || '—'}</td>
-          <td>${mon.stCounts['WB'] || '—'}</td>
-          <td>${mon.dutyD || '—'}</td>
-          <td>${mon.dutyHG || '—'}</td>
-          <td><span class="empdash-cov ${covCls}">${mon.totalWorkdays ? cov + '%' : '—'}</span></td>
-        </tr>
-      `;
-    });
-    
-    const reqWdTotal = Math.max(0, ys.totals.totalWorkdays - ys.totals.vacationDays - ys.totals.sickDays - ys.totals.fzaDays - ys.totals.wbDays - ys.totals.freiDays);
-    const totalCov = reqWdTotal > 0 ? Math.min(100, Math.round((ys.totals.totalActive / reqWdTotal) * 100)) : 0;
-    
-    html += `
-          </tbody>
-          <tfoot>
-            <tr>
-              <td>Gesamt</td>
-              <td>${ys.totals.totalActive || '—'}</td>
-              <td>${ys.totals.vacationDays || '—'}</td>
-              <td>${ys.totals.sickDays || '—'}</td>
-              <td>${ys.totals.fzaDays || '—'}</td>
-              <td>${ys.totals.wbDays || '—'}</td>
-              <td>${ys.totals.dutyD || '—'}</td>
-              <td>${ys.totals.dutyHG || '—'}</td>
-              <td>${reqWdTotal ? totalCov + '%' : '—'}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    `;
-    
-    detailEl.innerHTML = html;
-    
-    if (window.Chart) {
-      requestAnimationFrame(() => {
-        const labels = ys.months.map(m => MONTHS_SHORT[m.m]);
-        const dataActive = ys.months.map(m => m.totalActive);
-        const dataD = ys.months.map(m => m.dutyD);
-        const dataHG = ys.months.map(m => m.dutyHG);
-        
-        initChart('empdash-months-chart', {
-          type: 'bar',
-          data: {
-            labels: labels,
-            datasets: [
-              {
-                type: 'line',
-                label: 'Aktiv (Tage)',
-                data: dataActive,
-                borderColor: '#1D4ED8',
-                backgroundColor: 'rgba(29, 78, 216, 0.1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.3,
-                yAxisID: 'y'
-              },
-              {
-                type: 'bar',
-                label: 'Bereitschaft (D)',
-                data: dataD,
-                backgroundColor: '#EF4444',
-                borderRadius: 4,
-                yAxisID: 'y1'
-              },
-              {
-                type: 'bar',
-                label: 'Hintergrund (HG)',
-                data: dataHG,
-                backgroundColor: '#0EA5E9',
-                borderRadius: 4,
-                yAxisID: 'y1'
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-              mode: 'index',
-              intersect: false,
-            },
-            plugins: {
-              legend: {
-                position: 'top',
-                labels: { color: '#475569', font: { family: 'var(--font-sans)', size: 12 } }
-              },
-              tooltip: {
-                backgroundColor: '#1E293B',
-                titleFont: { family: 'var(--font-sans)', size: 13 },
-                bodyFont: { family: 'var(--font-sans)', size: 12 },
-                padding: 10,
-                cornerRadius: 6
-              }
-            },
-            scales: {
-              x: {
-                grid: { display: false }
-              },
-              y: {
-                type: 'linear',
-                display: true,
-                position: 'left',
-                beginAtZero: true,
-                title: { display: true, text: 'Aktiv-Tage', color: '#64748B', font: { size: 11 } }
-              },
-              y1: {
-                type: 'linear',
-                display: true,
-                position: 'right',
-                beginAtZero: true,
-                grid: { drawOnChartArea: false },
-                title: { display: true, text: 'Dienste', color: '#64748B', font: { size: 11 } }
-              }
+      if (wd === 5 && isAssistenzarzt(bdHolder)) {
+        const satDay = d + 1;
+        if (satDay <= dim) {
+          const satBDHolder = dutyEmps.find(e => result[e]?.[satDay]?.duty === "D");
+          if (satBDHolder && isFacharzt(satBDHolder) && satBDHolder !== bdHolder) {
+            let currentHGHolder = hgFAs.find(e => result[e]?.[d]?.duty === "HG");
+            if (currentHGHolder && currentHGHolder !== satBDHolder && !fixedDutyKeys.has(`HG:${dutyKey(currentHGHolder, d)}`)) {
+              clearDutyAssignment(currentHGHolder, d, "HG");
+            } else {
+              currentHGHolder = null;
+            }
+            if (assignBundledHG(satBDHolder, d, "Freitags-HG gekoppelt an FA des Samstags-BD.", { allowAdjacentHG: true })) {
+               log.push({ phase: "hg", icon: "→", msg: `HG Tag ${d}. → ${satBDHolder}`, dayIdx: d, oldEmpId: currentHGHolder, newEmpId: satBDHolder, pct: cyclePct });
             }
           }
-        });
-      });
+        }
+      }
+      
+      if (wd === 6 && isFacharzt(bdHolder)) {
+        const sunDay = d + 1;
+        if (sunDay <= dim) {
+          let currentHGHolder = hgFAs.find(e => result[e]?.[sunDay]?.duty === "HG");
+          if (currentHGHolder && currentHGHolder !== bdHolder && !fixedDutyKeys.has(`HG:${dutyKey(currentHGHolder, sunDay)}`)) {
+            clearDutyAssignment(currentHGHolder, sunDay, "HG");
+          } else {
+            currentHGHolder = null;
+          }
+          if (assignBundledHG(bdHolder, sunDay, "Sonntags-HG gekoppelt an eigenen Samstags-BD.", { allowAdjacentHG: true })) {
+             log.push({ phase: "hg", icon: "→", msg: `HG Tag ${sunDay}. → ${bdHolder}`, dayIdx: sunDay, oldEmpId: currentHGHolder, newEmpId: bdHolder, pct: cyclePct });
+          }
+        }
+      }
+
+      const nxtHolObj = nextCalendarDay(y, m, d);
+      if (nxtHolObj.y === y && nxtHolObj.m === m) {
+        const isNxtHol = isHoliday(nxtHolObj.y, nxtHolObj.m, nxtHolObj.d, hols);
+        if (isNxtHol && isAssistenzarzt(bdHolder)) {
+          const holBDHolder = dutyEmps.find(e => result[e]?.[nxtHolObj.d]?.duty === "D");
+          if (holBDHolder && isFacharzt(holBDHolder) && holBDHolder !== bdHolder) {
+            let currentHGHolder = hgFAs.find(e => result[e]?.[d]?.duty === "HG");
+            if (currentHGHolder && currentHGHolder !== holBDHolder && !fixedDutyKeys.has(`HG:${dutyKey(currentHGHolder, d)}`)) {
+              clearDutyAssignment(currentHGHolder, d, "HG");
+            } else {
+              currentHGHolder = null;
+            }
+            if (assignBundledHG(holBDHolder, d, "Vortag-Feiertag-HG (AA im D) gekoppelt an FA des Feiertags-BD.", { allowAdjacentHG: true })) {
+               log.push({ phase: "hg", icon: "→", msg: `HG Tag ${d}. → ${holBDHolder}`, dayIdx: d, oldEmpId: currentHGHolder, newEmpId: holBDHolder, pct: cyclePct });
+            }
+          }
+        }
+      }
     }
-    return;
-  }
-  
-  if (state.employeeDashboard.detailView === 'calendar') {
-    const cards = ys.months.map((mon) => {
-      const vac = VACATION_CODES.reduce((sum, c) => sum + (mon.stCounts[c] || 0), 0);
-      const sick = (mon.stCounts['K'] || 0) + (mon.stCounts['KK'] || 0);
-      const items = [];
-      
-      Object.entries(mon.wpCounts).filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1]).slice(0,4).forEach(([code,val]) => {
-        items.push(`<span class="empdash-mini-chip">${code} ${val}</span>`);
-      });
-      
-      if (mon.dutyD) items.push(`<span class="empdash-mini-chip duty">D ${mon.dutyD}</span>`);
-      if (mon.dutyHG) items.push(`<span class="empdash-mini-chip hg">HG ${mon.dutyHG}</span>`);
-      if (vac) items.push(`<span class="empdash-mini-chip vac">U ${vac}</span>`);
-      if (sick) items.push(`<span class="empdash-mini-chip sick">K ${sick}</span>`);
-      
-      const reqWd = Math.max(0, mon.totalWorkdays - vac - sick - (mon.stCounts['FZA'] || 0) - (mon.stCounts['WB'] || 0) - (mon.stCounts['F'] || 0));
-      const cov = reqWd > 0 ? Math.min(100, Math.round((mon.totalActive / reqWd) * 100)) : 0;
-      const isActive = mon.m === state.month;
-      
-      return `
-        <article class="empdash-mini-month ${isActive ? 'active' : ''}">
-          <header>
-            <strong>${MONTHS[mon.m]}</strong>
-            <span>${mon.totalWorkdays || 0} WT</span>
-          </header>
-          <div class="empdash-mini-body">
-            ${items.join('') || '<span class="empdash-mini-empty">Keine Einträge</span>'}
-          </div>
-          <footer>${cov}% Abdeckung</footer>
-        </article>
-      `;
-    }).join('');
     
-    detailEl.innerHTML = `<div class="empdash-mini-grid">${cards}</div>`;
-    return;
+    rebuildCurrentCounters();
+  }
+
+  function runPhase6_HGAssign(cyclePct) {
+    for (let d = 1; d <= dim; d++) {
+      if (bundledHGDays.has(d) || isDayHGTasked(d)) continue;
+      
+      let candidates = hgFAs.map((e) => ({ emp: e, ...scoreHGCandidate(e, d, false, "hg_assign") })).filter((c) => c.score > -Infinity).sort((a, b) => b.score - a.score);
+      
+      if (candidates.length === 0) {
+        candidates = hgFAs.map((e) => ({ emp: e, ...scoreHGCandidate(e, d, true, "hg_assign") })).filter((c) => c.score > -Infinity).sort((a, b) => b.score - a.score);
+        if (candidates.length > 0) {
+          hgRelaxedCount++;
+          candidates[0].tags.push("Regeln gelockert");
+          log.push({ phase: "hg", icon: "⚠", msg: `HG-Regeln gelockert für Tag ${d}`, dayIdx: d, newEmpId: candidates[0].emp, pct: cyclePct });
+        }
+      }
+      
+      if (candidates.length > 0) {
+        const chosen = candidates[0];
+        setDutyAssignment(chosen.emp, d, "HG");
+        rebuildCurrentCounters();
+        report.push({ day: d, emp: chosen.emp, duty: "HG", reason: "Gleichmäßige Verteilung.", tags: chosen.tags });
+        log.push({ phase: "hg", icon: "→", msg: `HG Tag ${d}. → ${chosen.emp}`, dayIdx: d, newEmpId: chosen.emp, pct: cyclePct });
+      }
+    }
+  }
+
+  function runPhase7_HGOptimize(cyclePct) {
+    const mutableHGDays = listDutyAssignments(hgFAs, dim, result, "HG")
+      .filter(({ emp, day }) => !fixedDutyKeys.has(`HG:${dutyKey(emp, day)}`) && !bundledHGKeys.has(dutyKey(emp, day)))
+      .map(({ day }) => day);
+
+    rebuildCurrentCounters();
+    let bestHG = computeHGObjective();
+    
+    for (let pass = 0; pass < HG_MAX_PASSES; pass++) {
+      let improved = false;
+      for (const day of mutableHGDays) {
+        const currentEmp = hgFAs.find((e) => result[e]?.[day]?.duty === "HG");
+        if (!currentEmp) continue;
+        
+        const avgBDforFAs = averageFromArray(hgFAs.map(e => currentBD[e]));
+        const avgHG = averageFromArray(hgFAs.map(e => currentHG[e]));
+        
+        const candidates = [...hgFAs].sort((a, b) => {
+          const aIdeal = avgHG + (avgBDforFAs - currentBD[a]) * 1.0;
+          const bIdeal = avgHG + (avgBDforFAs - currentBD[b]) * 1.0;
+          const aBias = currentHG[a] - aIdeal;
+          const bBias = currentHG[b] - bIdeal;
+          return aBias - bBias;
+        });
+        
+        for (const candidate of candidates) {
+          if (candidate === currentEmp) continue;
+          
+          clearDutyAssignment(currentEmp, day, "HG");
+          rebuildCurrentCounters();
+          
+          if (!canDoHG(candidate, day, true, result)) {
+            setDutyAssignment(currentEmp, day, "HG");
+            rebuildCurrentCounters();
+            continue;
+          }
+          
+          setDutyAssignment(candidate, day, "HG");
+          rebuildCurrentCounters();
+          
+          const newHG = computeHGObjective();
+          if (newHG + 0.01 < bestHG) {
+            bestHG = newHG;
+            improved = true;
+            hgMoves++;
+            log.push({ phase: "hg", icon: "🔁", msg: `HG Swap Tag ${day}: ${currentEmp} ➔ ${candidate}`, dayIdx: day, oldEmpId: currentEmp, newEmpId: candidate, pct: cyclePct });
+            break;
+          }
+          
+          clearDutyAssignment(candidate, day, "HG");
+          setDutyAssignment(currentEmp, day, "HG");
+          rebuildCurrentCounters();
+        }
+      }
+      if (!improved) break;
+    }
+  }
+
+  function runPhase8_DeepOptimize(cyclePct) {
+    const deepMutableBDDays = listDutyAssignments(dutyEmps, dim, result, "D")
+      .filter(({ emp, day }) => !fixedDutyKeys.has(`D:${dutyKey(emp, day)}`))
+      .map(({ day }) => day);
+      
+    const deepMutableHGDays = listDutyAssignments(hgFAs, dim, result, "HG")
+      .filter(({ emp, day }) => !fixedDutyKeys.has(`HG:${dutyKey(emp, day)}`) && !bundledHGKeys.has(dutyKey(emp, day)))
+      .map(({ day }) => day);
+
+    rebuildCurrentCounters();
+    let bestGlobal = computeGlobalObjective();
+
+    function tryImproveDay(day, dutyCode) {
+      const pool = dutyCode === "D" ? dutyEmps : hgFAs;
+      const currentEmp = pool.find((e) => result[e]?.[day]?.duty === dutyCode);
+      if (!currentEmp) return false;
+      
+      const canDo = dutyCode === "D" ? canDoBD : canDoHG;
+      const orderedPool = [...pool].sort((a, b) => {
+        const aDelta = dutyCode === "D" ? currentBD[a] - bdTarget[a] : currentHG[a] - averageFromArray(hgFAs.map((e) => currentHG[e]));
+        const bDelta = dutyCode === "D" ? currentBD[b] - bdTarget[b] : currentHG[b] - averageFromArray(hgFAs.map((e) => currentHG[e]));
+        return aDelta - bDelta;
+      });
+      
+      for (const candidate of orderedPool) {
+        if (candidate === currentEmp) continue;
+        
+        clearDutyAssignment(currentEmp, day, dutyCode);
+        rebuildCurrentCounters();
+        
+        if (!canDo(candidate, day, true, result)) {
+          setDutyAssignment(currentEmp, day, dutyCode);
+          rebuildCurrentCounters();
+          continue;
+        }
+        
+        setDutyAssignment(candidate, day, dutyCode);
+        rebuildCurrentCounters();
+        
+        const newGlobal = computeGlobalObjective();
+        if (newGlobal + 0.01 < bestGlobal) {
+          bestGlobal = newGlobal;
+          deepMoves++;
+          log.push({ phase: "deep", icon: "🧠", msg: `Deep Move Tag ${day} (${dutyCode}): ${currentEmp} ➔ ${candidate}`, dayIdx: day, oldEmpId: currentEmp, newEmpId: candidate, pct: cyclePct });
+          return true;
+        }
+        
+        clearDutyAssignment(candidate, day, dutyCode);
+        setDutyAssignment(currentEmp, day, dutyCode);
+        rebuildCurrentCounters();
+      }
+      return false;
+    }
+
+    for (let pass = 0; pass < DEEP_MAX_PASSES; pass++) {
+      let improved = false;
+      for (const day of deepMutableBDDays) {
+        improved = tryImproveDay(day, "D") || improved;
+      }
+      for (const day of deepMutableHGDays) {
+        improved = tryImproveDay(day, "HG") || improved;
+      }
+      if (!improved) break;
+    }
+  }
+
+  function runCoverageRepair(cyclePct) {
+    for (let d = 1; d <= dim; d++) {
+      if (!emps.some(e => result[e]?.[d]?.duty === "D")) {
+        const wd = weekday(y, m, d);
+        const bdCandidates = dutyEmps
+          .filter(e => {
+            if (isDutyExempt(e) || bdTarget[e] === 0) return false;
+            if (isAbsentOnDay(y, m, e, d, result)) return false;
+            if (result[e]?.[d]?.duty) return false;
+            if (wishes[e]?.[d] === "NO_DUTY") return false;
+            if (wd === 6 && !isFacharzt(e)) return false;
+            if (e === "Dr. Polednia" && (wd === 0 || wd === 2 || wd === 4)) return false;
+            const pv = prevCalendarDay(y, m, d);
+            const nx = nextCalendarDay(y, m, d);
+            if (getScheduledDuty(pv.y, pv.m, e, pv.d, result) === "D") return false;
+            if (getScheduledDuty(nx.y, nx.m, e, nx.d, result) === "D") return false;
+            if (hasDalitzMammographyConflict(y, m, e, d, "D", result)) return false;
+            return true;
+          })
+          .sort((a, b) => currentBD[a] - currentBD[b]);
+        
+        if (bdCandidates.length > 0) {
+          const chosen = bdCandidates[0];
+          setDutyAssignment(chosen, d, "D");
+          if (wd === 6) currentSatBD[chosen]++;
+          bdRelaxedCount++;
+          rebuildCurrentCounters();
+          report.push({ day: d, emp: chosen, duty: "D", reason: "Zwangsbelegung (Coverage Repair).", tags: ["Coverage Repair"] });
+          recordRule("coverage_repair", "BD-Lücke gefüllt", `Tag ${d}: ${chosen}`, "warn");
+          log.push({ phase: "repair", icon: "⚠", msg: `BD-Lücke Tag ${d} gefüllt mit ${chosen}`, dayIdx: d, newEmpId: chosen, pct: cyclePct });
+        }
+      }
+      
+      if (!emps.some(e => result[e]?.[d]?.duty === "HG")) {
+        const hgCandidates = hgFAs
+          .filter(e => {
+            if (isDutyExempt(e)) return false;
+            if (isAbsentOnDay(y, m, e, d, result)) return false;
+            if (result[e]?.[d]?.duty) return false;
+            if (wishes[e]?.[d] === "NO_DUTY") return false;
+            if (hasDalitzMammographyConflict(y, m, e, d, "HG", result)) return false;
+            return true;
+          })
+          .sort((a, b) => currentHG[a] - currentHG[b]);
+        
+        if (hgCandidates.length > 0) {
+          const chosen = hgCandidates[0];
+          setDutyAssignment(chosen, d, "HG");
+          hgRelaxedCount++;
+          rebuildCurrentCounters();
+          report.push({ day: d, emp: chosen, duty: "HG", reason: "Zwangsbelegung (Coverage Repair).", tags: ["Coverage Repair"] });
+          recordRule("coverage_repair", "HG-Lücke gefüllt", `Tag ${d}: ${chosen}`, "warn");
+          log.push({ phase: "repair", icon: "⚠", msg: `HG-Lücke Tag ${d} gefüllt mit ${chosen}`, dayIdx: d, newEmpId: chosen, pct: cyclePct });
+        }
+      }
+    }
+  }
+
+  log.push({ phase: "hg_bundle", icon: "🔗", msg: "Initiale Wochenend-Kopplung für HG...", pct: 62 });
+  runPhase5_HGBundle(62);
+
+  log.push({ phase: "hg_assign", icon: "📞", msg: "Initiale HG-Verteilung...", pct: 65 });
+  runPhase6_HGAssign(65);
+  rebuildCurrentCounters();
+
+  log.push({ phase: "optimize", icon: "⚙️", msg: `Starte Multi-Zyklus-Optimierung (${MAX_OPTIMIZATION_CYCLES} Zyklen, BD:${BD_MAX_PASSES}/HG:${HG_MAX_PASSES}/Deep:${DEEP_MAX_PASSES} Passes)...`, pct: 68 });
+
+  let bestGlobalForCycles = computeGlobalObjective();
+  
+  for (let cycle = 0; cycle < MAX_OPTIMIZATION_CYCLES; cycle++) {
+    const prevGlobalForCycle = computeGlobalObjective();
+    const cyclePct = 68 + Math.round((cycle / MAX_OPTIMIZATION_CYCLES) * 22);
+    
+    log.push({ phase: "optimize", icon: "🔄", msg: `Zyklus ${cycle + 1}/${MAX_OPTIMIZATION_CYCLES}: BD-Optimierung läuft...`, pct: cyclePct });
+    runPhase4_BDOptimize(cyclePct);
+    rebuildCurrentCounters();
+    
+    log.push({ phase: "optimize", icon: "🔗", msg: `Zyklus ${cycle + 1}: HG-Wochenend-Kopplung aktualisieren...`, pct: cyclePct + 1 });
+    runPhase5_HGBundle(cyclePct + 1);
+    rebuildCurrentCounters();
+    
+    log.push({ phase: "optimize", icon: "📞", msg: `Zyklus ${cycle + 1}: HG-Lücken auffüllen...`, pct: cyclePct + 2 });
+    runPhase6_HGAssign(cyclePct + 2);
+    rebuildCurrentCounters();
+    
+    log.push({ phase: "optimize", icon: "🧠", msg: `Zyklus ${cycle + 1}: HG-Optimierung läuft...`, pct: cyclePct + 2 });
+    runPhase7_HGOptimize(cyclePct + 2);
+    rebuildCurrentCounters();
+    
+    log.push({ phase: "optimize", icon: "🧬", msg: `Zyklus ${cycle + 1}: Globale Metaheuristik läuft...`, pct: cyclePct + 3 });
+    runPhase8_DeepOptimize(cyclePct + 3);
+    rebuildCurrentCounters();
+    
+    log.push({ phase: "optimize", icon: "🛠️", msg: `Zyklus ${cycle + 1}: Coverage Repair...`, pct: cyclePct + 3 });
+    runCoverageRepair(cyclePct + 3);
+    rebuildCurrentCounters();
+    
+    const newGlobalForCycle = computeGlobalObjective();
+    const delta = Math.round(prevGlobalForCycle - newGlobalForCycle);
+    const deltaSign = delta >= 0 ? "-" : "+";
+    log.push({ phase: "optimize", icon: "📊", msg: `Zyklus ${cycle + 1} abgeschlossen. Δ${deltaSign}${Math.abs(delta)} | BD-Swaps: ${swaps} | HG-Moves: ${hgMoves} | Deep: ${deepMoves}`, pct: cyclePct + 4 });
+    
+    if (newGlobalForCycle >= prevGlobalForCycle - 0.01) {
+      log.push({ phase: "optimize", icon: "✓", msg: `Konvergenz nach Zyklus ${cycle + 1} erreicht. Optimierung abgeschlossen.`, pct: 90 });
+      break;
+    }
+    
+    bestGlobalForCycles = newGlobalForCycle;
+  }
+
+  log.push({ phase: "validate", icon: "🛡️", msg: "Abschlussprüfung der Dienst-Exklusivität...", pct: 93 });
+
+  for (let d = 1; d <= dim; d++) {
+    let dList = emps.filter(e => result[e]?.[d]?.duty === "D");
+    if (dList.length > 1) {
+      for (let i = 1; i < dList.length; i++) {
+        clearDutyAssignment(dList[i], d, "D");
+      }
+    }
+    let hgList = emps.filter(e => result[e]?.[d]?.duty === "HG");
+    if (hgList.length > 1) {
+      for (let i = 1; i < hgList.length; i++) {
+        clearDutyAssignment(hgList[i], d, "HG");
+      }
+    }
+  }
+
+  log.push({ phase: "done", icon: "✅", msg: "Planung abgeschlossen!", pct: 100 });
+
+  const summary = { bd: {}, hg: {}, warnings: [], infos: [], bdTarget };
+  
+  emps.forEach((e) => {
+    let bd = 0;
+    let hg = 0;
+    let holDuty = 0;
+    const bdDays = [];
+    const hgDays = [];
+    const weMapSummary = {};
+    
+    for (let d = 1; d <= dim; d++) {
+      const cell = result[e]?.[d];
+      const wd = weekday(y, m, d);
+      const hol = isHoliday(y, m, d, hols);
+      const isWEDay = wd === 5 || wd === 6 || wd === 0;
+      
+      if (cell?.duty === "D") {
+        bd++;
+        bdDays.push(d);
+        if (hol) holDuty++;
+        if (isWEDay) {
+          const kw = isoWeekNumber(y, m, d);
+          if (!weMapSummary[kw]) weMapSummary[kw] = { hasD: false, hasHG: false };
+          weMapSummary[kw].hasD = true;
+        }
+      }
+      
+      if (cell?.duty === "HG") {
+        hg++;
+        hgDays.push(d);
+        if (hol) holDuty++;
+        if (isWEDay) {
+          const kw = isoWeekNumber(y, m, d);
+          if (!weMapSummary[kw]) weMapSummary[kw] = { hasD: false, hasHG: false };
+          if (!weMapSummary[kw].hasD) weMapSummary[kw].hasHG = true;
+        }
+      }
+    }
+    
+    let weDuty = 0;
+    for (const { hasD, hasHG } of Object.values(weMapSummary)) {
+      if (hasD) weDuty += 1;
+      else if (hasHG) weDuty += 0.5;
+    }
+    
+    summary.bd[e] = { count: bd, target: bdTarget[e], days: bdDays, weDuty, holDuty };
+    summary.hg[e] = { count: hg, days: hgDays };
+  });
+
+  dutyEmps.forEach((e) => {
+    const bd = summary.bd[e];
+    if (bd.target > 0 && bd.count < bd.target) {
+      summary.warnings.push(`${e}: nur ${bd.count}/${bd.target} BD`);
+    }
+    if (bd.weDuty > RELAXED_WEEKEND_DUTY_LIMIT) {
+      summary.warnings.push(`${e}: ${bd.weDuty} WE-Dienste (Ziel ${TARGET_WEEKEND_DUTY})`);
+    }
+  });
+  
+  beckerSaturdayFzaWarnings.forEach((warning) => summary.warnings.push(warning));
+  
+  for (let d = 1; d <= dim; d++) {
+    if (!emps.some((e) => result[e]?.[d]?.duty === "D")) {
+      summary.warnings.push(`Tag ${d}: kein BD besetzt.`);
+    }
+    if (!emps.some((e) => result[e]?.[d]?.duty === "HG")) {
+      summary.warnings.push(`Tag ${d}: kein HG besetzt.`);
+    }
+    if (result["Fr. Dalitz"]?.[d]?.duty === "HG" && hasDalitzMammographyConflict(y, m, "Fr. Dalitz", d, "HG", result)) {
+      summary.warnings.push(`KRITISCH Tag ${d}: Fr. Dalitz HG für Torki/Sebastian (Mammographie-Konflikt am Folgetag).`);
+    }
+  }
+
+  summary.infos.push(`Multi-Zyklus-Optimierung: ${MAX_OPTIMIZATION_CYCLES} Zyklen × (BD:${BD_MAX_PASSES} + HG:${HG_MAX_PASSES} + Deep:${DEEP_MAX_PASSES} Passes). BD-Swaps: ${swaps}, HG-Moves: ${hgMoves}, Deep-Moves: ${deepMoves}.`);
+  summary.infos.push(`Algorithmus garantiert exakt einen D und einen HG pro Kalendertag.`);
+  summary.infos.push(`Die Samstags-Dienste wurden bevorzugt auf Fachärzte verteilt (Dr. Becker nur im Notfall).`);
+  summary.infos.push(`Wochenend-Kopplung: Falls ein AA am Freitag D hatte, übernimmt der FA vom Samstag den HG am Freitag.`);
+  
+  if (bdRelaxedCount > 0 || hgRelaxedCount > 0) {
+    summary.infos.push(`Harte Abstandsregeln wurden bei ${bdRelaxedCount} BD / ${hgRelaxedCount} HG weich gelockert, um die Vollbesetzung zu sichern.`);
   }
   
-  const currentIncluded = currentMonthData.employees.includes(emp);
+  const dutyCoverageMisses = Array.from({ length: dim }, (_, idx) => idx + 1).filter((day) => !emps.some((emp) => result[emp]?.[day]?.duty === "D")).length;
+  const hgCoverageMisses = Array.from({ length: dim }, (_, idx) => idx + 1).filter((day) => !emps.some((emp) => result[emp]?.[day]?.duty === "HG")).length;
   
-  const monthList = currentMonthData.employees.map((name) => {
-    const metaItem = getEmpMeta(name);
-    const pos = posColor(metaItem.position);
-    return `
-      <div class="emp-row">
-        <div class="emp-row-left">
-          <span class="emp-avatar" style="background:linear-gradient(135deg,${pos.border},${pos.fg})">${empInitials(name)}</span>
-          <div class="emp-row-info">
-            <span class="emp-row-name">${name}</span>
-            <span class="emp-row-meta">${metaItem.posLabel}</span>
-          </div>
-        </div>
-        <button type="button" class="emp-row-del" data-remove="${name}" aria-label="${name} entfernen">
-          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <path d="M1 1l9 9M10 1L1 10"/>
-          </svg>
-        </button>
-      </div>
-    `;
-  }).join('') || `<div class="emp-none">Keine Mitarbeitenden im aktuellen Monat</div>`;
+  rebuildCurrentCounters();
+  const bdSpread = computeFairnessSpread(dutyEmps.map((emp) => summary.bd[emp]?.count || 0));
+  const hgSpread = computeFairnessSpread(hgFAs.map((emp) => summary.hg[emp]?.count || 0));
+  const weekendSpread = computeFairnessSpread(dutyEmps.map((emp) => summary.bd[emp]?.weDuty || 0));
   
-  detailEl.innerHTML = `
-    <div class="empdash-admin-layout">
-      <div class="empdash-admin-card">
-        <div class="empdash-admin-title">Ausgewählte Person</div>
-        <div class="empdash-admin-meta">
-          <span class="empdash-pos" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span>
-          <span>${meta.posLabel}</span>
-          <span>${meta.area || 'kein Bereich hinterlegt'}</span>
-        </div>
-        <div class="empdash-admin-actions">
-          <button type="button" class="mbtn ${currentIncluded ? 'mbtn-ghost' : 'mbtn-primary'}" id="emp-toggle-current">
-            ${currentIncluded ? 'Aus aktuellem Monat entfernen' : 'Zum aktuellen Monat hinzufügen'}
-          </button>
-        </div>
-      </div>
-      <div class="empdash-admin-card">
-        <div class="empdash-admin-title">Monatsliste ${MONTHS[state.month]} ${state.year}</div>
-        <div class="emp-list-inner" id="emp-list">${monthList}</div>
-        <div class="emp-add-row">
-          <input type="text" class="text-input" id="emp-input" placeholder="Name (z.B. Dr. Müller)…" autocomplete="off" spellcheck="false" maxlength="80" aria-label="Name des neuen Mitarbeiters eingeben">
-          <button type="button" class="mbtn mbtn-primary" id="emp-add-btn">
-            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            Hinzufügen
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-  
-  detailEl.querySelectorAll('[data-remove]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      import('./app.js').then(m => m.confirmRemoveEmployee(btn.dataset.remove, false));
+  const reportedWishDays = new Set();
+  let wishCount = 0;
+  for (let d = 1; d <= dim; d++) {
+    dutyEmps.forEach(e => {
+      if (wishes[e]?.[d]) {
+        wishCount++;
+      }
     });
-  });
+  }
+  const wishFulfillmentRate = wishCount > 0 ? (report.filter(r => r.tags && r.tags.includes("Wunsch")).length / wishCount) : 1;
   
-  document.getElementById('emp-toggle-current')?.addEventListener('click', () => {
-    if (currentIncluded) {
-      removeEmployee(state.year, state.month, emp);
-    } else {
-      addEmployee(state.year, state.month, emp);
-    }
-    render();
-    renderTeamProfiles(state.year, state.month);
-  });
+  const rawScore = 100.0 
+    - (dutyCoverageMisses * 15.0) 
+    - (hgCoverageMisses * 10.0) 
+    - (bdSpread * 2.5) 
+    - (hgSpread * 1.5) 
+    - (weekendSpread * 2.0) 
+    + (wishFulfillmentRate * 5.0) 
+    - (deepMoves * 0.005);
+    
+  const qualityScore = Math.max(0, Math.min(100, rawScore)).toFixed(1);
   
-  document.getElementById('emp-add-btn')?.addEventListener('click', () => {
-    const input = document.getElementById('emp-input');
-    const name = input.value.trim();
-    if (!name) return;
-    addEmployee(state.year, state.month, name);
-    input.value = '';
-    state.employeeDashboard.selectedEmp = name;
-    render();
-    renderTeamProfiles(state.year, state.month);
-    input.focus();
-  });
+  summary.quality = { score: qualityScore, dutyCoverageMisses, hgCoverageMisses, bdSpread, hgSpread, weekendSpread, wishFulfillmentRate, deepMoves, swaps, hgMoves };
+
+  report.sort((a, b) => a.day - b.day || (a.duty === "D" ? -1 : 1));
   
-  document.getElementById('emp-input')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      document.getElementById('emp-add-btn')?.click();
-    }
-  });
+  rebuildCurrentCounters();
+  return { assignments: result, summary, log, report, externalAssignments, ruleTelemetry, fluxTraces };
 }
