@@ -1,147 +1,144 @@
-# RadPlan v3 — Digitaler Dienstplan & Quantum Heuristic Scheduler
+# RadPlan – Neural Scheduler & Duty Management System
 
-RadPlan v3 ist eine hochspezialisierte, performante Single-Page-Application (SPA) für die Klinik für Radiologie und Nuklearmedizin. Die Anwendung dient der Verwaltung und algorithmischen Optimierung von komplexen ärztlichen Dienstplänen. Sie operiert vollständig clientseitig, nutzt den lokalen Browser-Speicher (Offline-First) und integriert einen in JavaScript geschriebenen, hochkomplexen Optimierungsalgorithmus gekoppelt an eine cineastische WebGL-Visualisierungsengine.
-
----
-
-## 1. Systemarchitektur & Technologischer Kern
-
-### 1.1 Client-Side First & Persistenz
-Das System verzichtet vollständig auf ein Backend. Alle Daten (Mitarbeiterlisten, Dienstplan-Zuweisungen, Status, Dienstwünsche und Planungsentwürfe) werden in Echtzeit im `localStorage` des Browsers persistiert.
-* **Datensicherheit**: Es fließen keine Patientendaten oder Mitarbeiterdaten über externe Netzwerke.
-* **Datenstruktur**: Der State wird pro Monat im Format `radplan_v3_plan_YYYY-MM` (für Entwürfe) und im `DATA`-Hauptobjekt vorgehalten.
-* **Im-/Export**: Der gesamte Zustand kann jederzeit als strukturierte JSON-Datei exportiert und per Drag & Drop wiederhergestellt werden.
-
-### 1.2 Benutzeroberfläche (UI/UX)
-Das Design-Paradigma basiert auf einem "Glassmorphismus" im Navy-Darkmode. Es nutzt CSS Grid, Flexbox und CSS-Variablen für ein vollständig responsives Erlebnis über alle Viewports (Smartphone bis 4K-Desktop).
-* **Hauptmatrix**: Eine scrollbare 2D-Tabelle mit eingefrorenen Kopfzeilen (Sticky Headers) für Namen und Tage. Wochenenden und sächsische Feiertage werden dynamisch farblich hervorgehoben.
-* **Modale Architektur**: Jede Interaktion (Editor, Dashboards, Algorithmus) erfolgt über fokussierte Overlay-Modals mit weichen `GSAP`- und CSS-Transitionen.
-* **Mobile-View**: Auf kleinen Bildschirmen wechselt die Matrix in eine kartenbasierte Tageslisten-Ansicht mit einer sticky Bottom-Navigation (`mnav-h`).
+**RadPlan** ist eine hochspezialisierte, reaktive und vollständig clientseitig operierende Web-Applikation zur Dienst- und Arbeitsplatzplanung in radiologischen Kliniken. Die Anwendung kombiniert eine hochperformante, datengesteuerte Benutzeroberfläche mit einem iterativen, heuristischen Optimierungsalgorithmus (**Neural Scheduler**), um komplexe Dienstpläne (Bereitschafts- und Hintergrunddienste) unter Berücksichtigung strenger arbeitsrechtlicher, ergonomischer und individueller Constraints automatisiert zu generieren.
 
 ---
 
-## 2. Planungsmodus (Sandbox & Historie)
+## 1. Systemarchitektur & Technologie-Stack
 
-Um den laufenden Dienstplan nicht zu gefährden, bietet das System einen gekapselten "Planungsmodus".
-* **State-Cloning**: Bei Aktivierung wird der aktuelle Monat tiefenkopiert (`Deep Clone`) und in ein `planData`-Objekt überführt.
-* **Undo/Redo-Stack**: Jede Zelländerung (manuell oder automatisch) pusht einen Snapshot in ein Array (`planHistory`). Der Nutzer kann lückenlos vor- und zurückspringen.
-* **Wunsch-Management**: Nur im Planungsmodus wird im Editor die Option für Dienstwünsche (`BD_WISH`, `HG_WISH`, `NO_DUTY`) freigeschaltet.
-* **Entwürfe**: Der Sandbox-Zustand kann separat gespeichert werden, ohne den Live-Plan zu überschreiben. Erst der Klick auf "Übernehmen" führt die Entwurfsdaten in den Hauptspeicher (`DATA`) zurück.
+Die Applikation ist nach dem Prinzip einer **Progressive Web App (PWA)** konzipiert und verzichtet vollständig auf externe Frameworks oder Backend-Abhängigkeiten. 
 
----
-
-## 3. Der manuelle Editor & Zuweisungslogiken
-
-Ein Klick auf eine Zelle in der Matrix öffnet den Editor.
-* **Arbeitsplatz (WP)**: Mehrfachauswahl möglich (z.B. MR, CT, US). Tastatur-Kürzel (1-8) erlauben schnelle Zuweisungen.
-* **Status**: Exklusive Stati (Urlaub, Krank, Frei, FZA, F). Ein Status überschreibt immer die Arbeitsplatz-Zuweisung.
-* **Dienst**: Zuweisung von Bereitschaftsdienst (`D`) oder Hintergrunddienst (`HG`).
-* **Auto-F Logik**: Wird ein `D` zugewiesen, prüft das System den Folgetag. Ist dieser leer, wird automatisch ein Ruhetag (`F`) gesetzt. Wird das `D` gelöscht, wird auch das automatisch generierte `F` (und nur dieses) wieder entfernt.
-* **Warnsystem**: Der Editor warnt in Echtzeit, wenn ein Dienst an dem Tag bereits einem anderen Mitarbeiter zugewiesen ist, oder wenn der Folgetag des Mitarbeiters ein Urlaubstag ist (was einen BD ausschließt).
+* **Kern-Technologien:** Vanilla JavaScript (ES6+), HTML5, CSS3 (CSS Variables, Flexbox, CSS Grid, 3D Transforms).
+* **Persistenz-Schicht:** Vollständige Datenspeicherung im lokalen `localStorage` des Browsers. Das Datenmodell wird echtzeitfähig serialisiert und deserialisiert.
+* **Offline-Fähigkeit:** Ein integrierter Service Worker (oder Fetch-Interceptor) fängt Netzwerk-Requests (`/api?action=save`, `/api?action=load`) ab und simuliert HTTP-Responses, um eine lückenlose Offline-Nutzung inklusive persistenter Speicherung zu garantieren.
+* **Rendering-Engine:** Ein feingranulares, zustandsbasiertes Rendering (`js/render.js`). DOM-Updates erfolgen selektiv und responsiv. 
+* **Visualisierung:** Native HTML5-Canvas-API und hardwarebeschleunigte CSS-3D-Matrizen für die Darstellung des algorithmischen Fortschritts.
 
 ---
 
-## 4. RadPlan Neural Scheduler (Die Algorithmus-Engine)
+## 2. Das Datenmodell (State & Storage)
 
-Der Kern der Applikation ist eine deterministische und stochastische Metaheuristik (`js/autoplan.js`), die den Dienstplan automatisch erstellt und optimiert. Der Algorithmus wertet historische Daten aus, evaluiert harte und weiche Constraints und sucht in mehreren Optimierungs-Zyklen das globale Optimum.
+Der Zustand der Applikation (`state.js`) trennt strikt zwischen **Persistent Data** (Dienstpläne, Mitarbeiterstamm) und **Volatile Data** (UI-Status, geöffnete Modals, Planungs-Drafts).
 
-### 4.1 Initiale Datenerfassung (Historical Tracking)
-Vor jedem Lauf liest der Algorithmus alle Vor-Monate des aktuellen Jahres aus. Berechnet werden:
-* Gesamtzahl der BD und HG.
-* Anzahl der Feiertagsdienste.
-* Anzahl der Wochenend-Dienste (ein WE zählt als 1, wenn mind. ein D vorliegt, und als 0.5 für reine HG-Belegung).
-* Geleistete Samstags-Dienste pro Facharzt.
-* Verteilung, wie oft ein FA den HG für einen Assistenzarzt (AA) im BD gemacht hat.
+### 2.1 Persistente Struktur (`DATA`)
+Die Datenstruktur ist chronologisch in Monats-Schlüsseln (z. B. `2026-03`) organisiert:
+* `employees`: Array von Strings (Namen der aktiven Mitarbeiter im Monat).
+* `assignments`: Objekt, das jedem Mitarbeiter ein weiteres Objekt (Tag -> Zuweisung) mappt.
+  * *Struktur:* `assignments["Dr. Muster"]["15"] = { assignment: "MR/CT", duty: "D" }`
+* `rbn`: Separates Mapping für stationsübergreifende Rollen (z. B. Neuroradiologie).
+* `wishes`: Objekt zur Speicherung von Dienstwünschen (`BD_WISH`, `HG_WISH`, `NO_DUTY`).
 
-### 4.2 Harte Constraints (K.-o.-Kriterien)
-Führt eine Kombination zu einem dieser Konflikte, wird der Score auf `-Infinity` gesetzt:
-* **Exemptions**: Prof. Schäfer (`DUTY_EXEMPT`) macht niemals Dienste. Mitarbeiter mit einem expliziten Zielwert von `0` werden ignoriert.
-* **Abwesenheiten**: Kein Dienst bei Urlaub (`VACATION_CODES`), Krankheit, Freizeitausgleich oder Fortbildung.
-* **Wünsche**: Kein Dienst, wenn `NO_DUTY` eingetragen ist.
-* **Qualifikation**: Samstags-BDs dürfen ausschließlich von Fachärzten absolviert werden. Dr. Becker ist ein Backup, wird jedoch stark pönalisiert. Assistenzärzte dürfen samstags keinen BD machen. Alle HGs dürfen nur von Fachärzten gemacht werden.
-* **Arbeitszeitgesetz**: Ein `D` darf nicht an zwei aufeinanderfolgenden Tagen stattfinden.
-* **Urlaubs-Schutz**: Wenn am Folgetag Urlaub eingetragen ist, ist ein BD am Vortag verboten. (Ein HG am Vortag generiert einen Malus, ist aber nicht hart verboten).
-* **Ruhetags-Schutz**: Ein manuell gesetztes `F` verbietet Dienste (außer HGs an Wochenenden).
-* **Feiertags-Blockade**: Wer über den Oster-Block (Karfreitag bis Ostermontag) Dienste macht, ist für den Pfingst-Block gesperrt (und vice versa).
-* **Mammographie-Konflikt**: Fr. Dalitz darf an Sonntagen und Montagen keinen HG machen, wenn Hr. Torki oder Hr. Sebastian an diesem Tag BD haben (Kollision mit der Mammographie-Befundung am Folgetag).
-* **CT-Leitung Konflikt**: Dr. Becker und Dr. Martin dürfen an Werktagen keinen Dienst machen, wenn der jeweils andere am Folgetag Urlaub oder Abwesenheit hat.
-* **Teilzeit-Regel (Dr. Polednia)**: Darf keinen Dienst an Sonntagen, Dienstagen und Donnerstagen machen. Wenn sie an diesen Tagen HG machen soll, darf der zugeordnete BD kein Assistenzarzt sein.
-
-### 4.3 Soft Constraints & Die Objective Function (Scoring)
-Das Scoring startet bei 100 Punkten pro Tag/Kandidat. Abweichungen werden mathematisch gewichtet:
-
-**Bereitschaftsdienst (D):**
-* **Soll-Abweichung**: Erreichtes Ziel = +5000 Pkt. pro fehlendem Dienst. Überschrittenes Ziel = -50000 Pkt. pro zu viel gemachtem Dienst.
-* **Wunsch (`BD_WISH`)**: +220 Punkte.
-* **Vor-Urlaub-Bonus**: BD an einem Donnerstag, wenn in der Folgewoche Urlaub ansteht = +150 Punkte.
-* **Wochenend-Balancierung**: 
-    * Ziel: 1 WE pro Monat pro Person. Abweichung = -220 Punkte.
-    * Übersteigt der WE-Wert 1.5 (`RELAXED_WEEKEND_DUTY_LIMIT`), erfolgt ein Malus von -1000 Punkten.
-    * Historischer WE-Ausgleich gegenüber dem Team-Durchschnitt: -5 Pkt. pro historischem Delta.
-    * Konsekutive Wochenenden (zwei Wochenenden in Folge) = -1500 Punkte.
-* **Facharzt-Samstage**: 
-    * Hat der FA noch keinen Samstag = +5000 Punkte.
-    * Zweiter Samstag im Monat = -25000 Punkte.
-    * Abweichung vom mathematisch perfekten FA-Durchschnitt für Samstage = -1500 Punkte.
-* **Dr. Becker Samstag**: Wenn Dr. Becker als Notlösung einen Samstag machen muss = -5000 Punkte.
-* **Abstands-Regeln**: Distanz zwischen zwei Diensten < 4 Tage = (4 - Distanz) * -250 Punkte.
-* **Muster-Vermeidung**: Die Folge D - F - D - F wird erkannt und mit -500 Punkten weich bestraft.
-* **Feiertags-Ausgleich**: Wer historisch weniger Feiertage gemacht hat, erhält einen Bonus (+6 Pkt pro Delta).
-
-**Hintergrunddienst (HG):**
-* **Gerechte Last-Verteilung**: Der ideale HG-Anteil berechnet sich aus dem HG-Soll plus dem Delta der fehlenden BD-Dienste. Abweichung vom Ideal = -10000 Punkte.
-* **Historischer HG-Ausgleich**: -5 Punkte pro historischer Abweichung.
-* **Direkter HG**: HG an zwei direkt aufeinanderfolgenden Tagen = -25000 Punkte.
-* **Abstand**: Weniger als 3 Tage zwischen zwei HGs = -8000 Punkte.
-* **Wunsch (`HG_WISH`)**: +500 Punkte.
-
-### 4.4 Automatischer FZA (Freizeitausgleich)
-Wird Dr. Becker aufgrund von Mangel an anderen Fachärzten an einem Samstag für den Bereitschaftsdienst (`D`) eingeteilt, durchsucht der Algorithmus die nachfolgenden Kalendertage nach dem nächsten Werktag. 
-Er prüft: Ist dieser Werktag durch einen anderen Facharzt urlaubsbedingt blockiert? Hat Dr. Becker selbst dort schon Termine?
-Wenn nein, trägt der Algorithmus vollautomatisch ein `FZA` an diesem Werktag für Dr. Becker ein und loggt dies als speziellen Vorfall. Bei Konflikten wird eine rote Warnung im Abschlussbericht generiert, die manuelle Überprüfung anfordert.
-
-### 4.5 Die Ausführungs-Phasen
-
-1.  **Phase 4: Greedy Weekend BD**: Wochenend- und Feiertags-BDs werden zuerst an die punktbesten Kandidaten verteilt. Ist kein Kandidat verfügbar, werden die harten Abstands-Regeln temporär gelockert (Relaxed Mode), um die Basisabdeckung zu sichern.
-2.  **Phase 5: Greedy Workday BD**: Die restlichen Werktags-BDs werden verteilt.
-3.  **Phase 6: HG Bundling**: Zwingende HG-Kopplungen werden vorgenommen:
-    * Macht ein AA am **Freitag** BD, wird der FA, der den **Samstags-BD** hat, gezwungen, den Freitags-HG zu übernehmen.
-    * Macht ein FA am **Samstag** BD, muss er zwingend den **Sonntags-HG** übernehmen.
-    * Macht ein AA am **Tag vor einem Feiertag** BD, übernimmt der FA, der am **Feiertag** BD hat, den HG des Vortages.
-4.  **Phase 7: Greedy HG Assign**: Die restlichen, nicht gekoppelten HGs werden an die Fachärzte vergeben.
-5.  **Phase 8: Multi-Zyklus Metaheuristik (Deep Optimize)**: 
-    * Der Algorithmus führt 25 komplette Durchläufe durch.
-    * In jedem Durchlauf testet er für jeden Kalendertag und jeden Dienst, ob ein Tausch (`Swap`) mit einem anderen Mitarbeiter den Wert der **Global Objective Function** verbessert.
-    * Die Global Objective Function ist extrem strafend konfiguriert (z.B. Lücken = +25.000, Doppelbelegungen = +100.000). Jeder Tausch, der den globalen Score senkt, wird sofort übernommen (`Deep Move`).
-    * Der Zyklus bricht frühzeitig ab, wenn mathematische Konvergenz erreicht ist (keine Verbesserung im letzten Zyklus).
-6.  **Coverage Repair**: Falls das strenge Regelwerk immer noch Lücken im Plan gelassen hat, werden Kandidaten im "Brute-Force-Verfahren" unter Ignorierung aller Abstandsregeln in die Lücken gezwungen.
+### 2.2 Planungsmodus (Draft & History)
+Beim Betreten des Planungsmodus (`enterPlanMode`) wird ein **Isolierter Speicher-Branch** (Snapshot) erstellt. 
+* **History-Stack:** Jede Aktion (Zuweisung, Löschung) pusht einen Deep-Clone des Monats in das `planHistory`-Array.
+* **Undo/Redo:** Manipulation des Pointers (`planHistoryIdx`) ermöglicht verlustfreies Navigieren in der Historie.
+* **Commit/Abort:** Erst bei "Übernehmen" wird der Draft-Branch in das Haupt-`DATA`-Objekt gemerged.
 
 ---
 
-## 5. Quantum Heuristic Core (Die WebGL Visualisierung)
+## 3. Benutzeroberfläche (UI) & Module
 
-Die Anwendung nutzt die `NeuralGraph` Klasse, um den Rechenprozess des Schedulers cineastisch, im Hacker/Mainframe-Stil der 90er/00er-Jahre (Cyber-Matrix) visuell darzustellen, während der Algorithmus asynchron im Hintergrund arbeitet.
+Die Designsprache folgt einem extrem verdichteten, datengetriebenen Ansatz ("High-Density UI") mit klarem Fokus auf **visuelle Informationshierarchie** und **telegrafischen Nominalstil**.
 
-### 5.1 Visuelle Komponenten
-* **Voxel Cloud**: Das 3D-Gitter (`THREE.Points` mit `vertexColors`). Jeder Punkt (Voxel) entspricht der Kombination aus einem Kalendertag und einem Mitarbeiter. Das Netz schwingt sanft über trigonometrische Zeit-Funktionen.
-* **Hex-Decryption Sprites**: Sobald der Algorithmus jemanden prüft oder zuweist, erscheint ein Canvas-basiertes Sprite. Dieses durchläuft rasend schnell falsche Mitarbeiter-Namen und Hex-Codes in Rot/Orange (`SYS_ERR`), bevor es sich mit einem grünen Blitz auf dem korrekten Namen einloggt.
-* **Heuristic Probes**: Pro Frame werden zufällige Such-Laser (`fireProbeBeam`) durch die Voxel-Cloud geschossen, die die verworfenen Evaluationen (Trial & Error) der Heuristik visualisieren.
-* **Swap-Beams**: Ändert der Deep-Optimize-Pass eine Zuweisung, schießt ein violetter Laser (`0xB026FF`) vom alten Voxel zum neuen Voxel. Der alte Voxel glitched rot auf.
-* **Glitch-Effekt**: Bei Regelverstößen oder Penalties (`triggerError`) zittert der betroffene Voxel hochfrequent um seine Achse und pulsiert in Warnfarben.
-* **Data-Streams**: Im Hintergrund regnen Matrix-artige Datenströme kontinuierlich herab. Scanner-Ebenen wischen von unten nach oben durch den Raum.
+### 3.1 Hauptkalender (Main Grid)
+* **Desktop-Ansicht:** Matrix (Mitarbeiter auf Y-Achse, Tage auf X-Achse). Wochenenden und Feiertage (berechnet via dynamischem Feiertags-Array für Sachsen) sind visuell abgedunkelt.
+* **Responsive Breakpoint:** Wechselt bei `< 1200px` (oder Touch-Devices) in eine vertikale Kartenansicht (`renderMobileDayList`).
+* **Zell-Interaktion:** Klick auf eine Zelle öffnet den Editor. Zuweisungen sind mehrfach wählbar (z.B. "MR/CT"), Status (z.B. "U", "K") sind exklusiv.
+* **Statistik-Fußzeile:** Aggregiert die tägliche Belegung aller Arbeitsplätze. Warnungen (Rot) bei doppelter Dienstvergabe.
 
-### 5.2 Performance-Management
-* **Null-Safety & Disposing**: Da Modals vom User jederzeit geschlossen werden können, verfügt die `NeuralGraph` Klasse über ein extrem striktes Garbage-Collection-System. Jede Textur, jede Geometrie und jedes Material (inkl. Arrays) wird geprüft und per `.dispose()` aus dem VRAM (Grafikkartenspeicher) gelöscht.
-* **Debounced Resizing**: Das Canvas skaliert via CSS flüssig mit dem Container mit. Der speicherintensive WebGL-Render-Buffer wird über einen `ResizeObserver` erst nach einem 150ms Debounce-Timeout neu berechnet, was jegliches Ruckeln während der Modal-Animation eliminiert.
+### 3.2 Mitarbeiter-Dashboard (`modal-emps`)
+* **KPI-Metriken:** Anzeige von aktiven Monaten, Abdeckungsquote, kumulierten Diensten (D/HG) und Fehlzeiten pro Jahr.
+* **Filterung:** Facettierung nach Qualifikationsebene (CA, OA, FA, AA).
+* **Profil-Integration:** Klick auf einen Mitarbeiter öffnet die detaillierte Profil-Ansicht (`modal-profile`).
+
+### 3.3 Profil & Analytics (`modal-profile`)
+* **Radar & Verteilung:** Berechnet die Auslastung (FTE-Äquivalent), Urlaubstage, Krankheitstage und Freizeitausgleich (FZA) für den spezifischen Monat und das Gesamtjahr.
+* **Dienst-Kaskade:** Listet explizit alle D- und HG-Tage.
+* **Mini-Jahreskalender:** 12-Monats-Übersicht mit Heatmap-Charakter für schnelle Fehlzeiten-Identifikation.
+
+### 3.4 Abteilungs-Ansicht (`modal-dept`)
+* Aggregiert die Daten *aller* Mitarbeiter gegen die zur Verfügung stehenden *Werktage*.
+* Zeigt Lücken in der Arbeitsplatzbesetzung (Coverage-Prozent) und identifiziert Engpässe.
 
 ---
 
-## 6. Berichte & Qualitätssicherung
+## 4. Der "Neural Scheduler" (Auto-Plan Algorithmus)
 
-Nach Abschluss der Optimierung generiert das System einen detaillierten Bericht:
-* **Neural Fitness Index (NFI)**: Ein Score von 0 bis 100, der die Perfektion des Plans bewertet.
-* **Spread-Metriken**: Zeigt die Spreizung (Varianz) von Bereitschafts-, Hintergrund- und Wochenenddiensten auf. Ein Wert von `1` oder `0` ist optimal.
-* **Detailed Log**: Eine tagesgenaue Auflistung (`Abschlussbericht`), die für jede einzelne Dienstzuweisung die exakte algorithmische Begründung ausgibt (z. B. "Wunschdienst berücksichtigt", "Zwangsbelegung (Coverage Repair)" oder "Gekoppelt").
+Das Herzstück von RadPlan ist der in `js/autoplan.js` implementierte Optimierungsalgorithmus. Er löst das NP-schwere Problem der Dienstplanung durch eine mehrstufige Heuristik, kombiniert mit einer mutationsbasierten Tiefensuche (Simulated Annealing Derivat).
+
+### 4.1 Die vier Berechnungsphasen
+
+1. **Initialisierung & Constraint-Analyse (`init`)**
+   * Extrahieren der Monatsmatrix, Identifikation von Feiertagen und Wochenenden.
+   * Filtern der befreiten Mitarbeiter (`DUTY_EXEMPT`).
+   * Vorberechnung der individuellen D- und HG-Soll-Ziele (Basis: Historiendaten + manuelles Tuning).
+
+2. **Greedy-Heuristik (`greedy`)**
+   * **Wochenend-Pass:** Priorisierte Zuweisung von Diensten an Wochenenden und Feiertagen. Der Algorithmus sucht Mitarbeiter mit dem höchsten Rest-Kontingent, minimaler Wochenend-Belastung und prüft zwingend harte Constraints.
+   * **Werktag-Pass:** Auffüllen der verbleibenden D-Dienste unter Werktagen. Strenger Fokus auf equidistante Verteilung (Vermeidung von Cluster-Bildung).
+
+3. **Hintergrund-Allokation (`hg`)**
+   * Nur Fachärzte/Oberärzte sind HG-qualifiziert.
+   * Der HG wird idealerweise komplementär zu einem AA-Bereitschaftsdienst geplant.
+   * Priorisierung von Wunsch-Einträgen (`HG_WISH`).
+
+4. **Deep-Search / Optimierung (`deep`)**
+   * Ein stochastischer Optimierer (ähnlich Simulated Annealing).
+   * Generiert Tausende von zufälligen Swap-Paaren (Tausche Dienst von Tag A zu Tag B oder Mitarbeiter X zu Y).
+   * **Scoring-Evaluation:** Jeder Swap wird simuliert und durch die Penalty-Funktion bewertet. Reduziert der Swap den Penalty-Score, wird er akzeptiert (Hill-Climbing).
+   * Führt so lange Mutationen durch, bis ein lokales Minimum erreicht ist (Konvergenz) oder das Limit der Iterationen überschritten ist.
+
+### 4.2 Harte Constraints (K.O.-Kriterien / Illegale Zustände)
+Ein Dienst wird **niemals** zugewiesen, wenn eine dieser Bedingungen zutrifft (gibt `-Infinity` oder massive Penalty):
+1. **Abwesenheit:** Der Mitarbeiter hat "U" (Urlaub), "K" (Krank), "FZA", "WB" oder einen anderen Sperrstatus.
+2. **Mehrfachdienst:** Der Tag ist bereits mit einem D oder HG für diesen Mitarbeiter belegt.
+3. **Folgetag-Kollision:** Der Tag *nach* dem anvisierten Dienst ist bereits mit einem Dienst (D/HG) oder einem festen Arbeitsplatz (MR/CT) belegt, der nicht in "F" (Frei) umgewandelt werden kann. (Gesetzliche Ruhezeit).
+4. **Vortag-Kollision:** Der Mitarbeiter hat am *Vortag* bereits einen D-Dienst.
+5. **Wunsch-Veto:** Der Mitarbeiter hat explizit `NO_DUTY` (Sperrwunsch) für diesen Tag eingetragen.
+
+### 4.3 Weiche Constraints & das Penalty-Scoring-System
+Der Algorithmus minimiert einen globalen Penalty-Score. Höhere Penalties bedeuten eine schlechtere Bewertung.
+
+* **Gap Penalty (Die schwerwiegendste Strafe):** * Jeder Tag ohne besetzten D-Dienst: `+1000` Punkte.
+  * Jeder Tag ohne besetzten HG-Dienst: `+1000` Punkte.
+* **Target Deviation Penalty (Zielerreichung):**
+  * Verfehlt ein Mitarbeiter sein D-Dienst-Soll: `(Ist - Soll)^2 * 50`. Die quadratische Funktion bestraft große Abweichungen exponentiell.
+* **Weekend Overload Penalty:**
+  * Mehr als `RELAXED_WEEKEND_DUTY_LIMIT` (Standard: 2) Wochenend-/Feiertagsdienste pro Person generieren massive Strafen.
+  * Verhinderung von Wochenend-Clustern (Dienst am Samstag *und* Sonntag für dieselbe Person).
+* **Spacing Penalty (Erholungsphasen):**
+  * Dienste, die weniger als 3 Tage auseinander liegen, generieren gestaffelte Strafen (z. B. 2 Tage Abstand = `+40` Punkte).
+* **Wish Fulfillment Bonus:**
+  * Erfüllter `BD_WISH` oder `HG_WISH` reduziert den Penalty-Score (Bonus von `-30` Punkten).
+
+### 4.4 Neural Fitness Index (NFI)
+Das rohe Penalty-Ergebnis wird in einen normierten NFI überführt (0.0 bis 100.0). 
+* **Formel:** `Fitness = 100 - (TotalPenalty / NormalizationFactor)`
+* Ein NFI von `>= 80` gilt als "Sehr Gut". Der NFI sinkt massiv, sobald Lücken (Gaps) im Plan existieren oder die Streuung (Spread) der Dienste zwischen den Ärzten ungleichmäßig ist.
+
+### 4.5 Visualisierung des Algorithmus (`neuralgraph.js`)
+Während der Berechnung (`computeAutoPlan`) wird das Modal blockiert und der Berechnungsprozess asynchron via `streamProgressLogs` gerendert.
+* **Isometrisches 3D-Grid (Main):** Ein rotierendes, schwebendes (`ngFloating`) 7-Spalten-Raster. Bei jeder Zuweisung oder Swap-Operation "feuert" die spezifische Tages-Zelle, pulsiert und injiziert das Namenskürzel des Mitarbeiters.
+* **Topologie-HUD (MiniMap):** Eine minimalistische Canvas-Darstellung eines bidirektionalen Datenbusses. Synapsen (Puls-Partikel) wandern von links nach rechts synchron zu den Log-Einträgen. Die Farbcodierung spiegelt die aktuelle Berechnungsphase wider (Cyan = Init, Gelb = Greedy, Blau = HG, Violett = Deep, Grün = Success, Rot = Constraint Violation).
 
 ---
-**Entwickelt für höchste Ausfallsicherheit, operative Präzision und unübertroffene Benutzererfahrung im klinischen Alltag.**
+
+## 5. Datenstruktur Referenz (Code-Mapping)
+
+| Kürzel | Bedeutung | Typ | Farbe (UI) |
+| :--- | :--- | :--- | :--- |
+| **D** | Bereitschaftsdienst | Duty | Rot (`#EF4444`) |
+| **HG** | Hintergrunddienst | Duty | Blau (`#0EA5E9`) |
+| **MR** | MRT | Workplace | Indigo (`#6366F1`) |
+| **CT** | Computertomographie | Workplace | Orange (`#F97316`) |
+| **U** | Urlaub | Status | Violett (`#8B5CF6`) |
+| **K** | Krank | Status | Dunkelrot (`#B91C1C`) |
+| **F** | Frei (Post-BD) | Status | Grau (`#64748B`) |
+
+## 6. Import / Export & Datensicherheit
+
+Die Funktion `doExport` iteriert über den gesamten `localStorage`, extrahiert das Basis-`DATA`-Objekt sowie alle gespeicherten `radplan_v3_plan_YYYY_MM`-Drafts und kompiliert diese in ein einziges JSON-Dokument. Der Import parst dieses Dokument, führt eine Integritätsprüfung durch und erzwingt zwingend die Ausführung von `ensurePostBDFreiDays()`, um sicherzustellen, dass keine illegalen Zustände (fehlender Ruhetag nach Import) in den Plan geraten.
+
+---
+
+*(Dokumentation generiert passend zu Build v3.0 / Neural Scheduler Edition)*
