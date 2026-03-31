@@ -1380,8 +1380,6 @@ export function renderDeptMonth(y, m) {
     `;
   });
   
-  stripHtml += `</div></div>`;
-  
   const empStats = md.employees.map((emp) => {
     const s = buildProfileStats(y, m, emp);
     const meta = getEmpMeta(emp);
@@ -1392,7 +1390,29 @@ export function renderDeptMonth(y, m) {
     const frei = s.stCounts["F"] || 0;
     return { emp, s, meta, pc, vac, sick, fza, frei };
   });
-  
+
+  const rankedCoverage = empStats.map(({ emp, s, vac, sick, fza, frei }) => {
+    const required = Math.max(0, workdayCount - vac - sick - fza - frei);
+    const coverage = required > 0 ? Math.min(100, Math.round((s.totalActive / required) * 100)) : 0;
+    return { emp, coverage, dutyLoad: s.dutyD.length + s.dutyHG.length };
+  });
+  rankedCoverage.sort((a, b) => b.coverage - a.coverage || b.dutyLoad - a.dutyLoad || a.emp.localeCompare(b.emp, "de"));
+  const topCoverage = rankedCoverage[0];
+  const topDuty = [...rankedCoverage].sort((a, b) => b.dutyLoad - a.dutyLoad || b.coverage - a.coverage || a.emp.localeCompare(b.emp, "de"))[0];
+
+  stripHtml += `
+    </div>
+    <div class="dept-cov-meta dept-cov-highlight">
+      <span class="dept-cov-meta-val">${topCoverage?.coverage ?? 0}%</span>
+      <span class="dept-cov-meta-lbl">Top-Abdeckung · ${topCoverage?.emp || "—"}</span>
+    </div>
+    <div class="dept-cov-meta dept-cov-highlight">
+      <span class="dept-cov-meta-val">${topDuty?.dutyLoad ?? 0}</span>
+      <span class="dept-cov-meta-lbl">Höchste Dienstlast · ${topDuty?.emp || "—"}</span>
+    </div>
+  </div>
+  `;
+
   const team = empStats.reduce((acc, { s, vac, sick, fza, frei }) => {
     acc.wp += s.totalActive;
     acc.vac += vac;
@@ -1410,7 +1430,7 @@ export function renderDeptMonth(y, m) {
     rowsHtml += `
       <tr class="dept-tr">
         <td class="dept-td-name" style="border-left:3px solid ${pc.border}">
-          <span class="dept-emp-name">${emp}</span>
+          <button type="button" class="dept-emp-link" data-open-emp="${emp}" title="Mitarbeitenden-Dashboard öffnen">${emp}</button>
           ${meta.position !== "—" ? `<span class="dept-pos-badge" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span>` : ""}
         </td>
         <td class="dept-td dept-td-num">${s.totalActive || "—"}</td>
@@ -1512,6 +1532,15 @@ export function renderDeptYear(year) {
   }, { wd: 0, cov: 0, wp: 0, vac: 0, sick: 0, fza: 0, wb: 0, d: 0, hg: 0 });
   
   const teamCovPct = team.wd > 0 ? Math.round((team.cov / team.wd) * 100) : 0;
+  const yearlyRanking = empYS.map(({ emp, ys }) => {
+    const totals = ys.totals;
+    const required = Math.max(0, totals.totalWorkdays - totals.vacationDays - totals.sickDays - totals.fzaDays - totals.wbDays - totals.freiDays);
+    const coverage = required > 0 ? Math.min(100, Math.round((totals.totalActive / required) * 100)) : 0;
+    return { emp, coverage, dutyLoad: totals.dutyD + totals.dutyHG };
+  });
+  yearlyRanking.sort((a, b) => b.coverage - a.coverage || b.dutyLoad - a.dutyLoad || a.emp.localeCompare(b.emp, "de"));
+  const yearTopCoverage = yearlyRanking[0];
+  const yearTopDuty = [...yearlyRanking].sort((a, b) => b.dutyLoad - a.dutyLoad || b.coverage - a.coverage || a.emp.localeCompare(b.emp, "de"))[0];
   
   const stripHtml = `
     <div class="dept-yr-strip">
@@ -1541,6 +1570,14 @@ export function renderDeptYear(year) {
         <span class="dept-yr-kpi-val" style="color:${teamCovPct >= 80 ? "#15803D" : teamCovPct >= 60 ? "#854D0E" : "#991B1B"}">${teamCovPct}%</span>
         <span class="dept-yr-kpi-lbl">Abdeckung</span>
       </div>
+      <div class="dept-yr-kpi">
+        <span class="dept-yr-kpi-val">${yearTopCoverage?.coverage ?? 0}%</span>
+        <span class="dept-yr-kpi-lbl">Top-Abdeckung · ${yearTopCoverage?.emp || "—"}</span>
+      </div>
+      <div class="dept-yr-kpi">
+        <span class="dept-yr-kpi-val">${yearTopDuty?.dutyLoad ?? 0}</span>
+        <span class="dept-yr-kpi-lbl">Höchste Dienstlast · ${yearTopDuty?.emp || "—"}</span>
+      </div>
     </div>
   `;
   
@@ -1556,7 +1593,7 @@ export function renderDeptYear(year) {
     rowsHtml += `
       <tr class="dept-tr">
         <td class="dept-td-name" style="border-left:3px solid ${pc.border}">
-          <span class="dept-emp-name">${emp}</span>
+          <button type="button" class="dept-emp-link" data-open-emp="${emp}" title="Mitarbeitenden-Dashboard öffnen">${emp}</button>
           ${meta.position !== "—" ? `<span class="dept-pos-badge" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span>` : ""}
         </td>
         <td class="dept-td dept-td-num">${t.totalActive || "—"}</td>

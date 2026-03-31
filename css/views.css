@@ -655,6 +655,7 @@
 .dept-tab:active { transform: scale(0.96); }
 .dept-tab.active { color: var(--white); border-bottom-color: var(--accent-lt); }
 .dept-tab svg { flex-shrink: 0; }
+.dept-link-row { margin: 8px 0 10px; }
 
 .dept-context-line {
   font-size: 12px;
@@ -713,6 +714,7 @@
 .dept-cov-meta:last-of-type { border-right: none; }
 .dept-cov-meta-val { font-family: var(--font-mono); font-size: 28px; font-weight: 700; color: var(--gray-800); line-height: 1; }
 .dept-cov-meta-lbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--gray-400); }
+.dept-cov-highlight { align-items: flex-start; min-width: 180px; border-right: none; padding-right: 0; }
 
 .dept-cov-bars {
   flex: 1;
@@ -772,6 +774,21 @@
 .dept-td-num { font-family: var(--font-mono); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--gray-700); }
 
 .dept-emp-name { font-size: 13.5px; font-weight: 500; color: var(--gray-800); }
+.dept-emp-link {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--gray-800);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(14,165,233,.5);
+  text-underline-offset: 2px;
+}
+.dept-emp-link:hover { color: #0369A1; text-decoration-color: #0369A1; }
 .dept-pos-badge {
   display: inline-block;
   margin-left: 8px;
@@ -1474,6 +1491,7 @@ body.is-mobile.plan-mode-active .mobile-day-list {
   .yr-kpi-div { display: none; }
   .dept-cov-strip { flex-direction: column; }
   .dept-cov-meta { flex-direction: row; border-right: none; border-bottom: 1px solid var(--gray-200); padding: 0 0 12px; margin-bottom: 4px; }
+  .dept-cov-highlight { min-width: 0; }
 }
 
 @media (max-width: 720px) {
@@ -1537,6 +1555,7 @@ body.is-mobile .dept-cov-meta {
   justify-content: flex-start !important;
   gap: 10px !important;
 }
+body.is-mobile .dept-cov-highlight { align-items: center !important; }
 
 body.is-mobile .mcd-grid {
   max-width: 100% !important;

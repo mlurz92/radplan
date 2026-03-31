@@ -1878,25 +1878,41 @@ export function applyAutoPlan() {
   localAutoPlanResult = null;
 }
 
+function openEmployeeDashboard(targetEmp = null) {
+  const { year: y } = state;
+  const employees = getEmployeesForYear(y);
+  if (targetEmp && employees.includes(targetEmp)) {
+    state.employeeDashboard.selectedEmp = targetEmp;
+  } else if (!state.employeeDashboard.selectedEmp || !employees.includes(state.employeeDashboard.selectedEmp)) {
+    state.employeeDashboard.selectedEmp = employees[0] || null;
+  }
+  const empSub = document.getElementById("emp-sub");
+  if (empSub) {
+    empSub.textContent = `Kalenderjahr ${y}`;
+  }
+  renderEmployeeDashboard();
+  hideOverlay("modal-dept");
+  showOverlay("modal-emps");
+  setTimeout(() => document.getElementById("emp-search")?.focus(), 80);
+}
+
+function openDeptDashboard(tab = "month") {
+  const modal = document.getElementById("modal-dept");
+  if (!modal) return;
+  setDeptTab(tab);
+  document.querySelectorAll(".dept-tab").forEach((t) => t.classList.remove("active"));
+  document.getElementById(tab === "year" ? "dept-tab-year" : "dept-tab-month")?.classList.add("active");
+  renderDeptContent();
+  hideOverlay("modal-emps");
+  showOverlay("modal-dept");
+}
+
 export function wireEvents() {
   document.getElementById("btn-prev")?.addEventListener("click", () => changeMonth(-1));
   document.getElementById("btn-next")?.addEventListener("click", () => changeMonth(1));
   document.getElementById("btn-today")?.addEventListener("click", handleTodayClick);
   
-  document.getElementById("btn-employees")?.addEventListener("click", () => {
-    const { year: y } = state;
-    const employees = getEmployeesForYear(y);
-    if (!state.employeeDashboard.selectedEmp || !employees.includes(state.employeeDashboard.selectedEmp)) {
-      state.employeeDashboard.selectedEmp = employees[0] || null;
-    }
-    const empSub = document.getElementById("emp-sub");
-    if (empSub) {
-      empSub.textContent = `Kalenderjahr ${y}`;
-    }
-    renderEmployeeDashboard();
-    showOverlay("modal-emps");
-    setTimeout(() => document.getElementById("emp-search")?.focus(), 80);
-  });
+  document.getElementById("btn-employees")?.addEventListener("click", () => openEmployeeDashboard());
   
   document.getElementById("month-label-btn")?.addEventListener("click", () => { 
     if (isPeriodFlyoutOpen()) {
@@ -1976,15 +1992,7 @@ export function wireEvents() {
     closePeriodFlyout();
   });
   
-  document.getElementById("btn-dept")?.addEventListener("click", () => {
-    const modal = document.getElementById("modal-dept");
-    if (!modal) return;
-    setDeptTab("month");
-    document.querySelectorAll(".dept-tab").forEach((t) => t.classList.remove("active"));
-    document.getElementById("dept-tab-month")?.classList.add("active");
-    renderDeptContent();
-    showOverlay("modal-dept");
-  });
+  document.getElementById("btn-dept")?.addEventListener("click", () => openDeptDashboard("month"));
   
   document.getElementById("btn-export")?.addEventListener("click", () => {
     doExport();
@@ -2002,15 +2010,7 @@ export function wireEvents() {
     }
   });
   
-  document.getElementById("mnav-dept")?.addEventListener("click", () => {
-    const modal = document.getElementById("modal-dept");
-    if (!modal) return;
-    setDeptTab("month");
-    document.querySelectorAll(".dept-tab").forEach((t) => t.classList.remove("active"));
-    document.getElementById("dept-tab-month")?.classList.add("active");
-    renderDeptContent();
-    showOverlay("modal-dept");
-  });
+  document.getElementById("mnav-dept")?.addEventListener("click", () => openDeptDashboard("month"));
   
   document.getElementById("mnav-plan")?.addEventListener("click", () => { 
     if (planMode) {
@@ -2024,8 +2024,11 @@ export function wireEvents() {
   
   document.getElementById("mbtn-employees")?.addEventListener("click", () => { 
     hideOverlay("modal-mobile-menu"); 
-    setTimeout(() => document.getElementById("btn-employees")?.click(), 180); 
+    setTimeout(() => openEmployeeDashboard(), 180); 
   });
+
+  document.getElementById("dept-open-emps")?.addEventListener("click", () => openEmployeeDashboard());
+  document.getElementById("emp-open-dept")?.addEventListener("click", () => openDeptDashboard("month"));
   
   document.getElementById("mbtn-today")?.addEventListener("click", () => { 
     hideOverlay("modal-mobile-menu"); 
@@ -2091,6 +2094,14 @@ export function wireEvents() {
     document.querySelectorAll(".dept-tab").forEach((t) => t.classList.remove("active"));
     document.getElementById("dept-tab-year")?.classList.add("active");
     renderDeptContent();
+  });
+
+  document.addEventListener("click", (e) => {
+    const trigger = e.target?.closest?.("[data-open-emp]");
+    if (!trigger) return;
+    const emp = trigger.getAttribute("data-open-emp");
+    if (!emp) return;
+    openEmployeeDashboard(emp);
   });
   
   document.querySelectorAll("[data-close]").forEach((btn) => {
