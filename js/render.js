@@ -1847,8 +1847,8 @@ function renderEmployeeTeamAnalytics(teamPanelEl, teamControlsEl) {
       for (let d = 1; d <= dim; d++) {
         if (!isWorkday(y, m, d, hols)) continue;
         const c = getCell(y, m, emp, d);
-        const st = c.status || "";
-        if (!["U", "Ü", "K", "KK", "FZA", "WB", "F"].includes(st)) {
+        const st = c.assignment || "";
+        if (!["U", "ZU", "SU", "§15c", "K", "KK", "FZA", "WB", "F"].includes(st)) {
           requiredDays++;
         }
       }
