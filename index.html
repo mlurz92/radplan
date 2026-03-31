@@ -50,14 +50,14 @@
 
       <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
 
-      <button type="button" class="hbtn hbtn-accent" id="btn-dept" title="Abteilungsübersicht für alle Mitarbeitenden">
+      <button type="button" class="hbtn hbtn-accent" id="btn-dept" title="Mitarbeitendenbereich mit Team-Analytics">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <rect x="2" y="7" width="20" height="14" rx="2"/>
           <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
           <line x1="12" y1="12" x2="12" y2="17"/>
           <line x1="9"  y1="14.5" x2="15" y2="14.5"/>
         </svg>
-        <span class="hbtn-lbl">Abteilung</span>
+        <span class="hbtn-lbl">Mitarbeitende</span>
       </button>
 
       <button type="button" class="hbtn hbtn-ghost" id="btn-plan" title="Planungsmodus starten — unabhängige Planung ohne Hauptdaten zu verändern">
@@ -229,9 +229,9 @@
   </div>
 
   <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile Navigation">
-    <button type="button" class="mnav-btn" id="mnav-dept" aria-label="Abteilung">
+    <button type="button" class="mnav-btn" id="mnav-dept" aria-label="Mitarbeitende">
       <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="17"/><line x1="9" y1="14.5" x2="15" y2="14.5"/></svg>
-      <span>Abteilung</span>
+      <span>Mitarbeitende</span>
     </button>
     <button type="button" class="mnav-btn mnav-plan" id="mnav-plan" aria-label="Planung">
       <div class="mnav-plan-icon">
@@ -403,7 +403,7 @@
     <div class="modal employee-dashboard-modal modal-emps">
       <div class="modal-hd empdash-hd">
         <div class="empdash-hd-copy">
-          <div class="modal-hd-title" id="emp-title">Jahres-Dashboard Mitarbeitende</div>
+          <div class="modal-hd-title" id="emp-title">Mitarbeitendenbereich</div>
           <div class="modal-hd-sub" id="emp-sub"></div>
           <div class="empdash-context" id="emp-context-line" aria-live="polite"></div>
         </div>
@@ -415,6 +415,16 @@
       <div class="modal-bd empdash-body">
         <section class="empdash-section">
           <div class="empdash-summary-grid" id="emp-summary-grid"></div>
+        </section>
+        <section class="empdash-section empdash-team-section">
+          <div class="empdash-team-head">
+            <div>
+              <div class="empdash-detail-title">Team-Analytics</div>
+              <div class="empdash-detail-sub">Abteilungs- und Mitarbeitendenstatistiken für dynamische Zeiträume.</div>
+            </div>
+            <div class="empdash-team-controls" id="emp-team-controls" role="toolbar" aria-label="Zeitraum Team-Analytics"></div>
+          </div>
+          <div class="empdash-team-panel" id="emp-team-panel" aria-live="polite"></div>
         </section>
         <section class="empdash-section">
           <div class="empdash-toolbar">

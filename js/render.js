@@ -1619,6 +1619,8 @@ export function renderEmployeeDashboard() {
   const detailSub = document.getElementById("emp-detail-sub");
   const countEl = document.getElementById("emp-visible-count");
   const contextEl = document.getElementById("emp-context-line");
+  const teamPanelEl = document.getElementById("emp-team-panel");
+  const teamControlsEl = document.getElementById("emp-team-controls");
   
   if (!summaryEl || !gridEl || !detailEl) return;
   
@@ -1664,6 +1666,8 @@ export function renderEmployeeDashboard() {
       <div class="empdash-kpi-sub">${item.sub}</div>
     </article>
   `).join("");
+
+  renderEmployeeTeamAnalytics(teamPanelEl, teamControlsEl);
   
   renderRoleFilters(employees);
   
@@ -1738,6 +1742,191 @@ export function renderEmployeeDashboard() {
     const viewName = dash.detailView === "months" ? "Monatsverlauf" : dash.detailView === "calendar" ? "Jahreskalender" : "Verwaltung";
     detailSub.textContent = `${dash.selectedEmp} · Kalenderjahr ${y} · Detailansicht ${viewName}`;
   }
+}
+
+function getRangeMonths(range, year, month, customStart, customEnd) {
+  if (range === "month") return [{ year, month }];
+  if (range === "quarter") {
+    const start = Math.floor(month / 3) * 3;
+    return Array.from({ length: 3 }, (_, i) => ({ year, month: start + i }));
+  }
+  if (range === "year") {
+    return Array.from({ length: 12 }, (_, i) => ({ year, month: i }));
+  }
+  if (range === "rolling12") {
+    return Array.from({ length: 12 }, (_, idx) => {
+      const total = year * 12 + month - (11 - idx);
+      return { year: Math.floor(total / 12), month: ((total % 12) + 12) % 12 };
+    });
+  }
+  if (range === "custom" && customStart && customEnd) {
+    let from = customStart.year * 12 + customStart.month;
+    let to = customEnd.year * 12 + customEnd.month;
+    if (from > to) [from, to] = [to, from];
+    const months = [];
+    for (let t = from; t <= to; t++) {
+      months.push({ year: Math.floor(t / 12), month: ((t % 12) + 12) % 12 });
+    }
+    return months;
+  }
+  return [{ year, month }];
+}
+
+function renderEmployeeTeamAnalytics(teamPanelEl, teamControlsEl) {
+  if (!teamPanelEl || !teamControlsEl) return;
+  const dash = state.employeeDashboard;
+  const { year, month } = state;
+  if (!dash.customStart) dash.customStart = { year, month: Math.max(0, month - 2) };
+  if (!dash.customEnd) dash.customEnd = { year, month };
+  
+  const rangeDefs = [
+    ["month", "Monat"],
+    ["quarter", "Quartal"],
+    ["year", "Jahr"],
+    ["rolling12", "Rolling 12M"],
+    ["custom", "Custom"]
+  ];
+  
+  teamControlsEl.innerHTML = `
+    <div class="empdash-team-pills">
+      ${rangeDefs.map(([key, label]) => `<button type="button" class="empdash-filter-btn${dash.analyticsRange === key ? " active" : ""}" data-range="${key}">${label}</button>`).join("")}
+    </div>
+    <div class="empdash-custom-range"${dash.analyticsRange === "custom" ? "" : " style='display:none'"}>
+      <label>Von <input type="month" id="emp-custom-start" value="${dash.customStart.year}-${String(dash.customStart.month + 1).padStart(2, "0")}"></label>
+      <label>Bis <input type="month" id="emp-custom-end" value="${dash.customEnd.year}-${String(dash.customEnd.month + 1).padStart(2, "0")}"></label>
+    </div>
+  `;
+  
+  teamControlsEl.querySelectorAll("[data-range]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      dash.analyticsRange = btn.dataset.range;
+      renderEmployeeDashboard();
+    });
+  });
+  
+  teamControlsEl.querySelector("#emp-custom-start")?.addEventListener("change", (e) => {
+    const [y, m] = e.target.value.split("-").map(Number);
+    if (Number.isFinite(y) && Number.isFinite(m)) {
+      dash.customStart = { year: y, month: m - 1 };
+      renderEmployeeDashboard();
+    }
+  });
+  
+  teamControlsEl.querySelector("#emp-custom-end")?.addEventListener("change", (e) => {
+    const [y, m] = e.target.value.split("-").map(Number);
+    if (Number.isFinite(y) && Number.isFinite(m)) {
+      dash.customEnd = { year: y, month: m - 1 };
+      renderEmployeeDashboard();
+    }
+  });
+  
+  const rangeMonths = getRangeMonths(dash.analyticsRange, year, month, dash.customStart, dash.customEnd);
+  const allEmployees = getEmployeesForYear(year);
+  if (!allEmployees.length || !rangeMonths.length) {
+    teamPanelEl.innerHTML = `<div class="empdash-empty">Keine Teamdaten verfügbar.</div>`;
+    return;
+  }
+  
+  const agg = {
+    active: 0, vac: 0, sick: 0, fza: 0, wb: 0, d: 0, hg: 0, uncovered: 0, required: 0
+  };
+  const perEmp = new Map();
+  
+  allEmployees.forEach((emp) => perEmp.set(emp, { emp, active: 0, d: 0, hg: 0, vac: 0, sick: 0, uncovered: 0, required: 0 }));
+  
+  rangeMonths.forEach(({ year: y, month: m }) => {
+    const md = getMonthData(y, m);
+    const dim = daysInMonth(y, m);
+    const hols = getSaxonyHolidaysCached(y);
+    md.employees.forEach((emp) => {
+      const s = buildProfileStats(y, m, emp);
+      const row = perEmp.get(emp) || { emp, active: 0, d: 0, hg: 0, vac: 0, sick: 0, uncovered: 0, required: 0 };
+      const vac = VACATION_CODES.reduce((sum, c) => sum + (s.stCounts[c] || 0), 0);
+      const sick = (s.stCounts["K"] || 0) + (s.stCounts["KK"] || 0);
+      const requiredDays = (s.totalActive || 0) + (s.uncovered || 0);
+      row.active += s.totalActive || 0;
+      row.d += s.dutyD.length || 0;
+      row.hg += s.dutyHG.length || 0;
+      row.vac += vac;
+      row.sick += sick;
+      row.uncovered += s.uncovered || 0;
+      row.required += requiredDays;
+      perEmp.set(emp, row);
+      
+      agg.active += s.totalActive || 0;
+      agg.vac += vac;
+      agg.sick += sick;
+      agg.fza += s.stCounts["FZA"] || 0;
+      agg.wb += s.stCounts["WB"] || 0;
+      agg.d += s.dutyD.length || 0;
+      agg.hg += s.dutyHG.length || 0;
+      agg.uncovered += s.uncovered || 0;
+      agg.required += requiredDays;
+    });
+  });
+  
+  const rows = [...perEmp.values()].filter((x) => x.active || x.d || x.hg || x.vac || x.sick || x.required);
+  rows.sort((a, b) => (b.active - a.active) || (b.d + b.hg - (a.d + a.hg)));
+  const topRows = rows.slice(0, 8);
+  const teamCoverage = agg.required > 0 ? Math.round((agg.active / agg.required) * 100) : 0;
+  const busiest = rows[0]?.emp || "—";
+  const dutyLeader = rows.slice().sort((a, b) => (b.d + b.hg) - (a.d + a.hg))[0]?.emp || "—";
+  
+  teamPanelEl.innerHTML = `
+    <div class="empdash-team-kpis">
+      <article class="empdash-kpi"><div class="empdash-kpi-label">Zeitraum</div><div class="empdash-kpi-value" style="color:#0EA5E9">${rangeMonths.length} M</div><div class="empdash-kpi-sub">${MONTHS[rangeMonths[0].month]} ${rangeMonths[0].year} – ${MONTHS[rangeMonths.at(-1).month]} ${rangeMonths.at(-1).year}</div></article>
+      <article class="empdash-kpi"><div class="empdash-kpi-label">Team-Abdeckung</div><div class="empdash-kpi-value" style="color:${teamCoverage >= 80 ? "#22C55E" : teamCoverage >= 60 ? "#F59E0B" : "#EF4444"}">${teamCoverage}%</div><div class="empdash-kpi-sub">${agg.active} aktiv / ${agg.required} erforderlich</div></article>
+      <article class="empdash-kpi"><div class="empdash-kpi-label">Dienste D/HG</div><div class="empdash-kpi-value" style="color:#F97316">${agg.d}/${agg.hg}</div><div class="empdash-kpi-sub">Gesamt im Zeitraum</div></article>
+      <article class="empdash-kpi"><div class="empdash-kpi-label">Ausfalltage</div><div class="empdash-kpi-value" style="color:#A855F7">${agg.vac + agg.sick + agg.fza + agg.wb}</div><div class="empdash-kpi-sub">U/K/FZA/WB kumuliert</div></article>
+    </div>
+    <div class="empdash-team-insights">
+      <div class="empdash-team-note"><strong>Top Aktivität:</strong> ${busiest}</div>
+      <div class="empdash-team-note"><strong>Dienst-Fokus:</strong> ${dutyLeader}</div>
+      <div class="empdash-team-note"><strong>Offene Abdeckung:</strong> ${agg.uncovered} Tage</div>
+    </div>
+    <div class="dept-table-wrap">
+      <table class="dept-table">
+        <thead>
+          <tr>
+            <th class="dept-th-name">Mitarbeitende</th>
+            <th class="dept-th">Aktiv</th>
+            <th class="dept-th dept-th-d">D</th>
+            <th class="dept-th dept-th-hg">HG</th>
+            <th class="dept-th dept-th-vac">Urlaub</th>
+            <th class="dept-th dept-th-sick">Krank</th>
+            <th class="dept-th dept-th-offen">Offen</th>
+            <th class="dept-th">Abdeckung</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${topRows.map((row) => {
+            const cov = row.required > 0 ? Math.round((row.active / row.required) * 100) : 0;
+            const covCls = cov >= 80 ? "dept-cov-good" : cov >= 60 ? "dept-cov-mid" : "dept-cov-low";
+            return `
+            <tr class="dept-tr" data-team-emp="${row.emp}">
+              <td class="dept-td-name"><span class="dept-emp-name">${row.emp}</span></td>
+              <td class="dept-td dept-td-num">${row.active || "—"}</td>
+              <td class="dept-td dept-td-num dept-duty-d">${row.d || "—"}</td>
+              <td class="dept-td dept-td-num dept-duty-hg">${row.hg || "—"}</td>
+              <td class="dept-td dept-td-num dept-vac">${row.vac || "—"}</td>
+              <td class="dept-td dept-td-num dept-sick">${row.sick || "—"}</td>
+              <td class="dept-td dept-td-num dept-offen">${row.uncovered || "—"}</td>
+              <td class="dept-td dept-td-num ${covCls}">${cov}%</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+  
+  teamPanelEl.querySelectorAll("[data-team-emp]").forEach((row) => {
+    row.addEventListener("click", () => {
+      state.employeeDashboard.selectedEmp = row.dataset.teamEmp;
+      renderEmployeeDashboard();
+      const detailPanel = document.getElementById("emp-detail-panel");
+      detailPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
 }
 
 export function renderRoleFilters(employees) {

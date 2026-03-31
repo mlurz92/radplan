@@ -1977,13 +1977,7 @@ export function wireEvents() {
   });
   
   document.getElementById("btn-dept")?.addEventListener("click", () => {
-    const modal = document.getElementById("modal-dept");
-    if (!modal) return;
-    setDeptTab("month");
-    document.querySelectorAll(".dept-tab").forEach((t) => t.classList.remove("active"));
-    document.getElementById("dept-tab-month")?.classList.add("active");
-    renderDeptContent();
-    showOverlay("modal-dept");
+    document.getElementById("btn-employees")?.click();
   });
   
   document.getElementById("btn-export")?.addEventListener("click", () => {
@@ -2003,13 +1997,7 @@ export function wireEvents() {
   });
   
   document.getElementById("mnav-dept")?.addEventListener("click", () => {
-    const modal = document.getElementById("modal-dept");
-    if (!modal) return;
-    setDeptTab("month");
-    document.querySelectorAll(".dept-tab").forEach((t) => t.classList.remove("active"));
-    document.getElementById("dept-tab-month")?.classList.add("active");
-    renderDeptContent();
-    showOverlay("modal-dept");
+    document.getElementById("btn-employees")?.click();
   });
   
   document.getElementById("mnav-plan")?.addEventListener("click", () => { 
