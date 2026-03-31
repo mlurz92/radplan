@@ -1843,15 +1843,7 @@ function renderEmployeeTeamAnalytics(teamPanelEl, teamControlsEl) {
       const row = perEmp.get(emp) || { emp, active: 0, d: 0, hg: 0, vac: 0, sick: 0, uncovered: 0, required: 0 };
       const vac = VACATION_CODES.reduce((sum, c) => sum + (s.stCounts[c] || 0), 0);
       const sick = (s.stCounts["K"] || 0) + (s.stCounts["KK"] || 0);
-      let requiredDays = 0;
-      for (let d = 1; d <= dim; d++) {
-        if (!isWorkday(y, m, d, hols)) continue;
-        const c = getCell(y, m, emp, d);
-        const st = c.assignment || "";
-        if (!["U", "ZU", "SU", "§15c", "K", "KK", "FZA", "WB", "F"].includes(st)) {
-          requiredDays++;
-        }
-      }
+      const requiredDays = (s.totalActive || 0) + (s.uncovered || 0);
       row.active += s.totalActive || 0;
       row.d += s.dutyD.length || 0;
       row.hg += s.dutyHG.length || 0;
