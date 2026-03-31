@@ -965,6 +965,17 @@
 
 .empdash-body { display: grid; gap: 18px; }
 .empdash-section { display: grid; gap: 12px; }
+.empdash-team-section { border: 1px solid var(--gray-200); border-radius: var(--radius); background: linear-gradient(180deg,#fff 0%,#F8FAFC 100%); padding: 12px; }
+.empdash-team-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.empdash-team-controls { display: grid; gap: 10px; justify-items: end; }
+.empdash-team-pills { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.empdash-custom-range { display: flex; gap: 10px; flex-wrap: wrap; }
+.empdash-custom-range label { font-size: 11px; color: var(--gray-600); display: grid; gap: 4px; }
+.empdash-custom-range input { border: 1px solid var(--gray-300); border-radius: 10px; padding: 6px 8px; font: inherit; color: var(--gray-700); }
+.empdash-team-panel { display: grid; gap: 12px; }
+.empdash-team-kpis { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.empdash-team-insights { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.empdash-team-note { padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px solid var(--gray-200); font-size: 12px; color: var(--gray-700); }
 
 .empdash-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 
@@ -1072,6 +1083,19 @@
 .empdash-view-btn { border: 1px solid var(--gray-200); background: #fff; color: var(--gray-700); border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
 .empdash-view-btn:hover { background: var(--gray-50); }
 .empdash-view-btn:active { transform: scale(0.96); }
+
+@media (max-width: 980px) {
+  .empdash-team-head { flex-direction: column; }
+  .empdash-team-controls { justify-items: start; width: 100%; }
+  .empdash-team-pills { justify-content: flex-start; }
+  .empdash-team-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .empdash-team-insights { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .empdash-team-kpis { grid-template-columns: 1fr; }
+  .empdash-custom-range input { min-height: 40px; }
+}
 .empdash-view-btn.active { background: var(--navy-700); color: #fff; border-color: var(--navy-700); }
 
 .empdash-detail-panel { background: #fff; border: 1px solid var(--gray-200); border-radius: 18px; padding: 16px; box-shadow: var(--shadow-sm); min-height: 180px; }

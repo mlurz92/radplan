@@ -16,6 +16,9 @@ export let state = {
     role: "ALL",
     selectedEmp: null,
     detailView: "months",
+    analyticsRange: "month",
+    customStart: null,
+    customEnd: null,
   },
   periodDraft: { 
     year: 2026, 
