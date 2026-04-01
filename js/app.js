@@ -2305,6 +2305,15 @@ export async function init() {
   window.addEventListener("radplan-save-error", () => {
     showToast("Netzwerkfehler beim Speichern");
   });
+
+  setInterval(async () => {
+    if (document.visibilityState === "visible") {
+      const updated = await syncWithServer();
+      if (updated) {
+        ensurePostBDFreiDays();
+      }
+    }
+  }, 30000);
 }
 
 document.addEventListener("DOMContentLoaded", init);
