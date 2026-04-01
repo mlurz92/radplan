@@ -45,31 +45,46 @@ export const TOD_D = today.getDate();
 let saveTimeout = null;
 
 export async function loadFromStorage() {
+  let loadedData = null;
+  
   try {
-    const res = await fetch('/api?action=load');
+    const res = await fetch(`/api?action=load&t=${Date.now()}`, {
+      cache: "no-store",
+      headers: {
+        "Pragma": "no-cache",
+        "Cache-Control": "no-cache"
+      }
+    });
+    
     if (res.ok) {
       const serverData = await res.json();
       if (serverData.main) {
-        DATA = serverData.main;
+        loadedData = serverData.main;
         if (serverData.plans) {
           for (const [pk, pv] of Object.entries(serverData.plans)) {
             localStorage.setItem(`radplan_v3_plan_${pk}`, JSON.stringify(pv));
           }
         }
       } else {
-        DATA = serverData;
+        loadedData = serverData;
       }
     } else {
       const r = localStorage.getItem(STORAGE_KEY);
       if (r) {
-        DATA = JSON.parse(r);
+        loadedData = JSON.parse(r);
       }
     }
   } catch (e) {
     const r = localStorage.getItem(STORAGE_KEY);
     if (r) {
-      DATA = JSON.parse(r);
+      loadedData = JSON.parse(r);
     }
+  }
+  
+  if (loadedData) {
+    Object.keys(DATA).forEach((k) => delete DATA[k]);
+    Object.assign(DATA, loadedData);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
   }
   
   Object.values(DATA).forEach((md) => {
@@ -94,10 +109,13 @@ export function saveToStorage() {
         }
       }
       const payload = { main: DATA, plans };
-      await fetch('/api?action=save', {
-        method: 'POST',
+      await fetch(`/api?action=save&t=${Date.now()}`, {
+        method: "POST",
+        cache: "no-store",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
+          "Pragma": "no-cache",
+          "Cache-Control": "no-cache"
         },
         body: JSON.stringify(payload)
       });
