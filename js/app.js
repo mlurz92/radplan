@@ -1996,7 +1996,7 @@ export function wireEvents() {
     if (!confirm("WARNUNG: Alle lokalen Entwürfe und ungespeicherten Änderungen werden gelöscht und durch den aktuellen Server-Stand ersetzt. Wirklich fortfahren?")) return;
     const success = await forceSyncWithServer();
     if (success) {
-      import('./model.js').then(m => m.ensurePostBDFreiDays());
+      ensurePostBDFreiDays();
       render();
       showToast("Lokale Daten verworfen und mit Server synchronisiert");
     } else {
@@ -2052,7 +2052,7 @@ export function wireEvents() {
       if (!confirm("WARNUNG: Alle lokalen Entwürfe und ungespeicherten Änderungen werden gelöscht und durch den aktuellen Server-Stand ersetzt. Wirklich fortfahren?")) return;
       const success = await forceSyncWithServer();
       if (success) {
-        import('./model.js').then(m => m.ensurePostBDFreiDays());
+        ensurePostBDFreiDays();
         render();
         showToast("Lokale Daten verworfen und mit Server synchronisiert");
       } else {
@@ -2159,7 +2159,7 @@ export function wireEvents() {
           } else {
             state.ed.wp.push(code); 
           }
-          import('./app.js').then(m => m.refreshEditorChips()); 
+          refreshEditorChips(); 
         }
         return;
       }
@@ -2169,7 +2169,7 @@ export function wireEvents() {
         const owner = dutyOwner(state.year, state.month, state.edit.day, "D"); 
         if (!owner || owner === state.edit.emp) { 
           state.ed.duty = state.ed.duty === "D" ? null : "D"; 
-          import('./app.js').then(m => m.refreshEditorChips()); 
+          refreshEditorChips(); 
         } 
         return; 
       }
@@ -2179,7 +2179,7 @@ export function wireEvents() {
         const owner = dutyOwner(state.year, state.month, state.edit.day, "HG"); 
         if (!owner || owner === state.edit.emp) { 
           state.ed.duty = state.ed.duty === "HG" ? null : "HG"; 
-          import('./app.js').then(m => m.refreshEditorChips()); 
+          refreshEditorChips(); 
         } 
         return; 
       }
