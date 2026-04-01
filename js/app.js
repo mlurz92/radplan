@@ -54,7 +54,8 @@ import {
   setPlanHistoryIdx,
   setDeptTab,
   syncWithServer,
-  serverLastModified
+  serverLastModified,
+  serverFetchSuccessful
 } from './state.js';
 
 import {
@@ -2227,7 +2228,7 @@ export async function init() {
   await loadFromStorage();
   ensurePostBDFreiDays();
   
-  if (!Object.keys(DATA).length && serverLastModified === 0) {
+  if (!Object.keys(DATA).length && serverFetchSuccessful && serverLastModified === 0) {
     const k = monthKey(state.year, state.month);
     DATA[k] = {
       employees: [
@@ -2286,6 +2287,11 @@ export async function init() {
   window.addEventListener("radplan-sync-update", () => {
     render();
     showToast("Daten im Hintergrund aktualisiert");
+  });
+
+  window.addEventListener("radplan-sync-conflict", () => {
+    render();
+    showToast("Speicher-Konflikt: Aktuellster Server-Stand geladen");
   });
 }
 
