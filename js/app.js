@@ -54,6 +54,7 @@ import {
   setPlanHistoryIdx,
   setDeptTab,
   syncWithServer,
+  forceSyncWithServer,
   serverLastModified,
   serverFetchSuccessful
 } from './state.js';
@@ -1991,6 +1992,18 @@ export function wireEvents() {
     openImportModal();
   });
   
+  document.getElementById("btn-force-sync")?.addEventListener("click", async () => {
+    if (!confirm("WARNUNG: Alle lokalen Entwürfe und ungespeicherten Änderungen werden gelöscht und durch den aktuellen Server-Stand ersetzt. Wirklich fortfahren?")) return;
+    const success = await forceSyncWithServer();
+    if (success) {
+      import('./model.js').then(m => m.ensurePostBDFreiDays());
+      render();
+      showToast("Lokale Daten verworfen und mit Server synchronisiert");
+    } else {
+      showToast("Fehler bei der Server-Synchronisation");
+    }
+  });
+  
   document.getElementById("btn-plan")?.addEventListener("click", () => { 
     if (planMode) {
       closePlanMode(); 
@@ -2031,6 +2044,21 @@ export function wireEvents() {
   document.getElementById("mbtn-import")?.addEventListener("click", () => { 
     hideOverlay("modal-mobile-menu"); 
     setTimeout(() => openImportModal(), 180); 
+  });
+
+  document.getElementById("mbtn-force-sync")?.addEventListener("click", () => {
+    hideOverlay("modal-mobile-menu");
+    setTimeout(async () => {
+      if (!confirm("WARNUNG: Alle lokalen Entwürfe und ungespeicherten Änderungen werden gelöscht und durch den aktuellen Server-Stand ersetzt. Wirklich fortfahren?")) return;
+      const success = await forceSyncWithServer();
+      if (success) {
+        import('./model.js').then(m => m.ensurePostBDFreiDays());
+        render();
+        showToast("Lokale Daten verworfen und mit Server synchronisiert");
+      } else {
+        showToast("Fehler bei der Server-Synchronisation");
+      }
+    }, 180);
   });
   
   document.getElementById("btn-plan-apply")?.addEventListener("click", () => { 
