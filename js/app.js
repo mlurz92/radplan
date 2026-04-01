@@ -52,7 +52,9 @@ import {
   setPlanBaseline,
   setPlanHistory,
   setPlanHistoryIdx,
-  setDeptTab
+  setDeptTab,
+  syncWithServer,
+  serverLastModified
 } from './state.js';
 
 import {
@@ -2225,7 +2227,7 @@ export async function init() {
   await loadFromStorage();
   ensurePostBDFreiDays();
   
-  if (!Object.keys(DATA).length) {
+  if (!Object.keys(DATA).length && serverLastModified === 0) {
     const k = monthKey(state.year, state.month);
     DATA[k] = {
       employees: [
@@ -2271,6 +2273,20 @@ export async function init() {
       queueResponsiveRefresh();
     }, { passive: true });
   }
+
+  document.addEventListener("visibilitychange", async () => {
+    if (document.visibilityState === "visible") {
+       const updated = await syncWithServer();
+       if (updated) {
+         ensurePostBDFreiDays();
+       }
+    }
+  });
+
+  window.addEventListener("radplan-sync-update", () => {
+    render();
+    showToast("Daten im Hintergrund aktualisiert");
+  });
 }
 
 document.addEventListener("DOMContentLoaded", init);
