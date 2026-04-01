@@ -2293,6 +2293,18 @@ export async function init() {
     render();
     showToast("Speicher-Konflikt: Aktuellster Server-Stand geladen");
   });
+
+  window.addEventListener("radplan-save-start", () => {
+    showToast("Wird gespeichert...");
+  });
+
+  window.addEventListener("radplan-save-success", () => {
+    showToast("Erfolgreich gespeichert");
+  });
+
+  window.addEventListener("radplan-save-error", () => {
+    showToast("Netzwerkfehler beim Speichern");
+  });
 }
 
 document.addEventListener("DOMContentLoaded", init);
