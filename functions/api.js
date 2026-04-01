@@ -82,12 +82,12 @@ export async function onRequest(context) {
     try {
       const bodyText = await request.text();
       const parsedData = JSON.parse(bodyText);
-      const clientTimestamp = parsedData.lastModified || 0;
+      const clientTimestamp = parseInt(parsedData.lastModified, 10) || 0;
       
       const existingRaw = await env.RADPLAN_KV.get("RADPLAN_DATA");
       if (existingRaw) {
         const existingData = JSON.parse(existingRaw);
-        const serverTimestamp = existingData.lastModified || 0;
+        const serverTimestamp = parseInt(existingData.lastModified, 10) || 0;
         
         if (clientTimestamp > 0 && clientTimestamp < serverTimestamp) {
           return new Response(JSON.stringify({ error: "Conflict", latestData: existingData }), {
