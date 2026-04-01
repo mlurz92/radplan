@@ -49,7 +49,7 @@ export async function onRequest(context) {
           }
         });
       } else {
-        return new Response(JSON.stringify({ main: {}, plans: {} }), {
+        return new Response(JSON.stringify({ main: {}, plans: {}, lastModified: 0 }), {
           status: 200,
           headers: {
             "Content-Type": "application/json",
@@ -81,11 +81,14 @@ export async function onRequest(context) {
 
     try {
       const bodyText = await request.text();
-      JSON.parse(bodyText);
+      const parsedData = JSON.parse(bodyText);
       
-      await env.RADPLAN_KV.put("RADPLAN_DATA", bodyText);
+      parsedData.lastModified = Date.now();
       
-      return new Response(JSON.stringify({ success: true }), {
+      const dataToSave = JSON.stringify(parsedData);
+      await env.RADPLAN_KV.put("RADPLAN_DATA", dataToSave);
+      
+      return new Response(JSON.stringify({ success: true, lastModified: parsedData.lastModified }), {
         status: 200,
         headers: {
           "Content-Type": "application/json",
