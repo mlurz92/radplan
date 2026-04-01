@@ -6,7 +6,7 @@ export async function onRequest(context) {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Pragma, Cache-Control, Authorization",
     "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
     "Pragma": "no-cache",
     "Expires": "0"
