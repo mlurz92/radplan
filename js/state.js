@@ -36,6 +36,7 @@ export let planHistoryIdx = -1;
 export let planSessions = {};
 export let IS_MOBILE = false;
 export let responsiveLayoutRaf = 0;
+export let serverLastModified = 0;
 
 export const today = new Date();
 export const TOD_Y = today.getFullYear();
@@ -58,6 +59,9 @@ export async function loadFromStorage() {
     
     if (res.ok) {
       const serverData = await res.json();
+      if (serverData.lastModified !== undefined) {
+        serverLastModified = serverData.lastModified;
+      }
       if (serverData.main) {
         loadedData = serverData.main;
         if (serverData.plans) {
@@ -109,7 +113,7 @@ export function saveToStorage() {
         }
       }
       const payload = { main: DATA, plans };
-      await fetch(`/api?action=save&t=${Date.now()}`, {
+      const res = await fetch(`/api?action=save&t=${Date.now()}`, {
         method: "POST",
         cache: "no-store",
         headers: {
@@ -119,9 +123,59 @@ export function saveToStorage() {
         },
         body: JSON.stringify(payload)
       });
+      if (res.ok) {
+        const resData = await res.json();
+        if (resData.lastModified) {
+          serverLastModified = resData.lastModified;
+        }
+      }
     } catch (e) {
     }
   }, 800);
+}
+
+export async function syncWithServer() {
+  try {
+    const res = await fetch(`/api?action=load&t=${Date.now()}`, {
+      cache: "no-store",
+      headers: {
+        "Pragma": "no-cache",
+        "Cache-Control": "no-cache"
+      }
+    });
+    
+    if (!res.ok) {
+      return false;
+    }
+    
+    const serverData = await res.json();
+    
+    if (serverData.lastModified !== undefined && serverData.lastModified > serverLastModified) {
+      serverLastModified = serverData.lastModified;
+      const newMain = serverData.main ? serverData.main : serverData;
+      
+      Object.keys(DATA).forEach((k) => delete DATA[k]);
+      Object.assign(DATA, newMain);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
+      
+      Object.values(DATA).forEach((md) => {
+        normalizeMonthDataShape(md);
+      });
+      
+      if (serverData.plans) {
+        for (const [pk, pv] of Object.entries(serverData.plans)) {
+          localStorage.setItem(`radplan_v3_plan_${pk}`, JSON.stringify(pv));
+        }
+      }
+      
+      window.dispatchEvent(new CustomEvent("radplan-sync-update"));
+      return true;
+    }
+    
+    return false;
+  } catch (e) {
+    return false;
+  }
 }
 
 export function setDeptTab(val) { 
