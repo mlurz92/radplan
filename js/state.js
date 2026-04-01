@@ -51,7 +51,8 @@ export async function loadFromStorage() {
   serverFetchSuccessful = false;
   
   try {
-    const res = await fetch(`/api?action=load&t=${Date.now()}`, {
+    const res = await fetch(`/api?t=${Date.now()}`, {
+      method: "GET",
       cache: "no-store"
     });
     
@@ -124,7 +125,7 @@ export function saveToStorage() {
       
       const payload = { main: DATA, plans, lastModified: serverLastModified };
       
-      const res = await fetch(`/api?action=save&t=${Date.now()}`, {
+      const res = await fetch(`/api?t=${Date.now()}`, {
         method: "POST",
         cache: "no-store",
         headers: {
@@ -179,7 +180,8 @@ export function saveToStorage() {
 
 export async function syncWithServer() {
   try {
-    const res = await fetch(`/api?action=load&t=${Date.now()}`, {
+    const res = await fetch(`/api?t=${Date.now()}`, {
+      method: "GET",
       cache: "no-store"
     });
     
@@ -223,7 +225,8 @@ export async function syncWithServer() {
 
 export async function forceSyncWithServer() {
   try {
-    const res = await fetch(`/api?action=load&t=${Date.now()}`, {
+    const res = await fetch(`/api?t=${Date.now()}`, {
+      method: "GET",
       cache: "no-store"
     });
     
