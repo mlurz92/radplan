@@ -63,7 +63,7 @@ export async function loadFromStorage() {
       const serverData = await res.json();
       serverFetchSuccessful = true;
       if (serverData.lastModified !== undefined) {
-        serverLastModified = serverData.lastModified;
+        serverLastModified = parseInt(serverData.lastModified, 10) || 0;
       }
       if (serverData.main) {
         loadedData = serverData.main;
@@ -102,11 +102,15 @@ export async function loadFromStorage() {
 export function saveToStorage() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
   
+  window.dispatchEvent(new CustomEvent("radplan-save-queued"));
+  
   if (saveTimeout) {
     clearTimeout(saveTimeout);
   }
   
   saveTimeout = setTimeout(async () => {
+    window.dispatchEvent(new CustomEvent("radplan-save-start"));
+    
     try {
       const plans = {};
       for (let i = 0; i < localStorage.length; i++) {
@@ -133,7 +137,7 @@ export function saveToStorage() {
         const conflictData = await res.json();
         if (conflictData.latestData) {
           const sData = conflictData.latestData;
-          serverLastModified = sData.lastModified || 0;
+          serverLastModified = parseInt(sData.lastModified, 10) || 0;
           const newMain = sData.main ? sData.main : sData;
           
           Object.keys(DATA).forEach((k) => delete DATA[k]);
@@ -158,13 +162,17 @@ export function saveToStorage() {
       if (res.ok) {
         const resData = await res.json();
         if (resData.lastModified) {
-          serverLastModified = resData.lastModified;
+          serverLastModified = parseInt(resData.lastModified, 10) || 0;
           serverFetchSuccessful = true;
         }
+        window.dispatchEvent(new CustomEvent("radplan-save-success"));
+      } else {
+        window.dispatchEvent(new CustomEvent("radplan-save-error"));
       }
     } catch (e) {
+      window.dispatchEvent(new CustomEvent("radplan-save-error"));
     }
-  }, 800);
+  }, 500);
 }
 
 export async function syncWithServer() {
@@ -183,9 +191,10 @@ export async function syncWithServer() {
     
     const serverData = await res.json();
     serverFetchSuccessful = true;
+    const incomingMod = parseInt(serverData.lastModified, 10) || 0;
     
-    if (serverData.lastModified !== undefined && serverData.lastModified > serverLastModified) {
-      serverLastModified = serverData.lastModified;
+    if (incomingMod > 0 && incomingMod > serverLastModified) {
+      serverLastModified = incomingMod;
       const newMain = serverData.main ? serverData.main : serverData;
       
       Object.keys(DATA).forEach((k) => delete DATA[k]);
