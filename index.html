@@ -98,6 +98,17 @@
         </svg>
         <span class="hbtn-lbl">Import</span>
       </button>
+
+      <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
+
+      <button type="button" class="hbtn hbtn-ghost" id="btn-force-sync" title="Lokale Daten verwerfen und neuesten Server-Stand laden" style="color: #EF4444;">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="23 4 23 10 17 10"/>
+          <polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+        <span class="hbtn-lbl">Server-Sync</span>
+      </button>
     </div>
   </header>
 
@@ -273,6 +284,10 @@
         <button type="button" class="mbtn mbtn-ghost" id="mbtn-import" style="justify-content:flex-start; padding:14px; font-size: 14px;">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Daten importieren
+        </button>
+        <button type="button" class="mbtn mbtn-ghost" id="mbtn-force-sync" style="justify-content:flex-start; padding:14px; font-size: 14px; color: #EF4444;">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Lokal verwerfen & vom Server laden
         </button>
       </div>
     </div>
