@@ -52,11 +52,7 @@ export async function loadFromStorage() {
   
   try {
     const res = await fetch(`/api?action=load&t=${Date.now()}`, {
-      cache: "no-store",
-      headers: {
-        "Pragma": "no-cache",
-        "Cache-Control": "no-cache"
-      }
+      cache: "no-store"
     });
     
     if (res.ok) {
@@ -76,12 +72,14 @@ export async function loadFromStorage() {
         loadedData = serverData;
       }
     } else {
+      console.error("loadFromStorage HTTP Error:", res.status);
       const r = localStorage.getItem(STORAGE_KEY);
       if (r) {
         loadedData = JSON.parse(r);
       }
     }
   } catch (e) {
+    console.error("loadFromStorage Network/Parse Error:", e);
     const r = localStorage.getItem(STORAGE_KEY);
     if (r) {
       loadedData = JSON.parse(r);
@@ -116,7 +114,11 @@ export function saveToStorage() {
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
         if (k && k.startsWith("radplan_v3_plan_")) {
-          plans[k.replace("radplan_v3_plan_", "")] = JSON.parse(localStorage.getItem(k));
+          try {
+            plans[k.replace("radplan_v3_plan_", "")] = JSON.parse(localStorage.getItem(k));
+          } catch (err) {
+            console.error("Fehler beim Parsen eines lokalen Plans:", err);
+          }
         }
       }
       
@@ -126,9 +128,7 @@ export function saveToStorage() {
         method: "POST",
         cache: "no-store",
         headers: {
-          "Content-Type": "application/json",
-          "Pragma": "no-cache",
-          "Cache-Control": "no-cache"
+          "Content-Type": "application/json"
         },
         body: JSON.stringify(payload)
       });
@@ -167,9 +167,11 @@ export function saveToStorage() {
         }
         window.dispatchEvent(new CustomEvent("radplan-save-success"));
       } else {
+        console.error("saveToStorage HTTP Error:", res.status);
         window.dispatchEvent(new CustomEvent("radplan-save-error"));
       }
     } catch (e) {
+      console.error("saveToStorage Network/Parse Error:", e);
       window.dispatchEvent(new CustomEvent("radplan-save-error"));
     }
   }, 500);
@@ -178,14 +180,11 @@ export function saveToStorage() {
 export async function syncWithServer() {
   try {
     const res = await fetch(`/api?action=load&t=${Date.now()}`, {
-      cache: "no-store",
-      headers: {
-        "Pragma": "no-cache",
-        "Cache-Control": "no-cache"
-      }
+      cache: "no-store"
     });
     
     if (!res.ok) {
+      console.error("syncWithServer HTTP Error:", res.status);
       return false;
     }
     
@@ -217,6 +216,7 @@ export async function syncWithServer() {
     
     return false;
   } catch (e) {
+    console.error("syncWithServer Network/Parse Error:", e);
     return false;
   }
 }
@@ -224,18 +224,21 @@ export async function syncWithServer() {
 export async function forceSyncWithServer() {
   try {
     const res = await fetch(`/api?action=load&t=${Date.now()}`, {
-      cache: "no-store",
-      headers: {
-        "Pragma": "no-cache",
-        "Cache-Control": "no-cache"
-      }
+      cache: "no-store"
     });
     
     if (!res.ok) {
+      console.error("forceSyncWithServer HTTP Error:", res.status);
       return false;
     }
     
-    const serverData = await res.json();
+    const text = await res.text();
+    if (!text) {
+      console.error("forceSyncWithServer Error: Empty response body");
+      return false;
+    }
+    
+    const serverData = JSON.parse(text);
     serverFetchSuccessful = true;
     serverLastModified = parseInt(serverData.lastModified, 10) || 0;
     const newMain = serverData.main ? serverData.main : serverData;
@@ -264,6 +267,7 @@ export async function forceSyncWithServer() {
     window.dispatchEvent(new CustomEvent("radplan-sync-update"));
     return true;
   } catch (e) {
+    console.error("forceSyncWithServer Network/Parse Error:", e);
     return false;
   }
 }
