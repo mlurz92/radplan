@@ -37,6 +37,7 @@ export let planSessions = {};
 export let IS_MOBILE = false;
 export let responsiveLayoutRaf = 0;
 export let serverLastModified = 0;
+export let serverFetchSuccessful = false;
 
 export const today = new Date();
 export const TOD_Y = today.getFullYear();
@@ -47,6 +48,7 @@ let saveTimeout = null;
 
 export async function loadFromStorage() {
   let loadedData = null;
+  serverFetchSuccessful = false;
   
   try {
     const res = await fetch(`/api?action=load&t=${Date.now()}`, {
@@ -59,6 +61,7 @@ export async function loadFromStorage() {
     
     if (res.ok) {
       const serverData = await res.json();
+      serverFetchSuccessful = true;
       if (serverData.lastModified !== undefined) {
         serverLastModified = serverData.lastModified;
       }
@@ -112,7 +115,9 @@ export function saveToStorage() {
           plans[k.replace("radplan_v3_plan_", "")] = JSON.parse(localStorage.getItem(k));
         }
       }
-      const payload = { main: DATA, plans };
+      
+      const payload = { main: DATA, plans, lastModified: serverLastModified };
+      
       const res = await fetch(`/api?action=save&t=${Date.now()}`, {
         method: "POST",
         cache: "no-store",
@@ -123,10 +128,38 @@ export function saveToStorage() {
         },
         body: JSON.stringify(payload)
       });
+      
+      if (res.status === 409) {
+        const conflictData = await res.json();
+        if (conflictData.latestData) {
+          const sData = conflictData.latestData;
+          serverLastModified = sData.lastModified || 0;
+          const newMain = sData.main ? sData.main : sData;
+          
+          Object.keys(DATA).forEach((k) => delete DATA[k]);
+          Object.assign(DATA, newMain);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
+          
+          Object.values(DATA).forEach((md) => {
+            normalizeMonthDataShape(md);
+          });
+          
+          if (sData.plans) {
+            for (const [pk, pv] of Object.entries(sData.plans)) {
+              localStorage.setItem(`radplan_v3_plan_${pk}`, JSON.stringify(pv));
+            }
+          }
+          
+          window.dispatchEvent(new CustomEvent("radplan-sync-conflict"));
+        }
+        return;
+      }
+      
       if (res.ok) {
         const resData = await res.json();
         if (resData.lastModified) {
           serverLastModified = resData.lastModified;
+          serverFetchSuccessful = true;
         }
       }
     } catch (e) {
@@ -149,6 +182,7 @@ export async function syncWithServer() {
     }
     
     const serverData = await res.json();
+    serverFetchSuccessful = true;
     
     if (serverData.lastModified !== undefined && serverData.lastModified > serverLastModified) {
       serverLastModified = serverData.lastModified;
