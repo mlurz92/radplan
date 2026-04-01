@@ -1,7 +1,5 @@
 export async function onRequest(context) {
   const { request, env } = context;
-  const url = new URL(request.url);
-  const action = url.searchParams.get('action');
 
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -26,17 +24,7 @@ export async function onRequest(context) {
     });
   }
 
-  if (action === "load") {
-    if (request.method !== "GET") {
-      return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
-        status: 405,
-        headers: {
-          "Content-Type": "application/json",
-          ...corsHeaders
-        }
-      });
-    }
-
+  if (request.method === "GET") {
     try {
       const data = await env.RADPLAN_KV.get("RADPLAN_DATA");
       
@@ -68,17 +56,7 @@ export async function onRequest(context) {
     }
   }
 
-  if (action === "save") {
-    if (request.method !== "POST") {
-      return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
-        status: 405,
-        headers: {
-          "Content-Type": "application/json",
-          ...corsHeaders
-        }
-      });
-    }
-
+  if (request.method === "POST") {
     try {
       const bodyText = await request.text();
       const parsedData = JSON.parse(bodyText);
@@ -123,8 +101,8 @@ export async function onRequest(context) {
     }
   }
 
-  return new Response(JSON.stringify({ error: "Invalid action parameter" }), {
-    status: 400,
+  return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
+    status: 405,
     headers: {
       "Content-Type": "application/json",
       ...corsHeaders
