@@ -221,6 +221,53 @@ export async function syncWithServer() {
   }
 }
 
+export async function forceSyncWithServer() {
+  try {
+    const res = await fetch(`/api?action=load&t=${Date.now()}`, {
+      cache: "no-store",
+      headers: {
+        "Pragma": "no-cache",
+        "Cache-Control": "no-cache"
+      }
+    });
+    
+    if (!res.ok) {
+      return false;
+    }
+    
+    const serverData = await res.json();
+    serverFetchSuccessful = true;
+    serverLastModified = parseInt(serverData.lastModified, 10) || 0;
+    const newMain = serverData.main ? serverData.main : serverData;
+    
+    Object.keys(DATA).forEach((k) => delete DATA[k]);
+    Object.assign(DATA, newMain);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
+    
+    Object.values(DATA).forEach((md) => {
+      normalizeMonthDataShape(md);
+    });
+    
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("radplan_v3_plan_")) {
+        localStorage.removeItem(key);
+      }
+    }
+    
+    if (serverData.plans) {
+      for (const [pk, pv] of Object.entries(serverData.plans)) {
+        localStorage.setItem(`radplan_v3_plan_${pk}`, JSON.stringify(pv));
+      }
+    }
+    
+    window.dispatchEvent(new CustomEvent("radplan-sync-update"));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 export function setDeptTab(val) { 
   deptTab = val; 
 }
