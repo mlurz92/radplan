@@ -97,6 +97,26 @@ export function getViewportHeight() {
   return window.visualViewport?.height || window.innerHeight || document.documentElement?.clientHeight || 0;
 }
 
+function syncViewportCssVars() {
+  const root = document.documentElement;
+  if (!root) return;
+
+  const viewportW = getViewportWidth();
+  const viewportH = getViewportHeight();
+  const vv = window.visualViewport;
+
+  const keyboardInset = vv
+    ? Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)))
+    : 0;
+
+  root.style.setProperty("--app-vw", `${Math.max(320, Math.round(viewportW || 0))}px`);
+  root.style.setProperty("--app-vh", `${Math.max(320, Math.round(viewportH || 0))}px`);
+  root.style.setProperty("--kb-inset", `${keyboardInset}px`);
+
+  const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator?.standalone === true;
+  document.body.classList.toggle("is-standalone", !!standalone);
+}
+
 export function updateModalLayout(target) {
   const overlay = typeof target === "string" ? document.getElementById(target) : target;
   if (!overlay || overlay.hasAttribute("hidden")) return;
@@ -132,6 +152,7 @@ export function updateOpenModalLayouts() {
 
 export function refreshResponsiveLayout(options = {}) {
   const { forceRender = false } = options;
+  syncViewportCssVars();
   const width = getViewportWidth();
   const coarsePointer = window.matchMedia ? window.matchMedia("(pointer: coarse)").matches : false;
   const touchLike = coarsePointer || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);

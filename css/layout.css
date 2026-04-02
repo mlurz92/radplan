@@ -27,6 +27,11 @@
   pointer-events: none;
 }
 
+body.is-mobile.is-standalone #app-header {
+  height: calc(var(--header-h) + var(--safe-top));
+  padding-top: var(--safe-top);
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -921,10 +926,12 @@ body.is-mobile #stats-bar {
 
 body.is-mobile .mobile-view {
   display: flex !important;
+  min-height: 0;
 }
 
 body.is-mobile .mobile-nav {
   display: flex !important;
+  bottom: max(0px, var(--kb-inset));
 }
 
 body.is-mobile #app-header .header-actions {
@@ -998,6 +1005,8 @@ body.is-mobile .plan-bar-right {
     border-top: 1px solid rgba(255,255,255,.1);
     z-index: 1000;
     padding-bottom: var(--safe-bottom);
+    padding-left: max(10px, var(--safe-left));
+    padding-right: max(10px, var(--safe-right));
     justify-content: space-around;
     align-items: center;
     box-shadow: 0 -4px 20px rgba(0,0,0,.3);

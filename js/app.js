@@ -1326,8 +1326,8 @@ export function renderProgressShell() {
   
   if (applyBtn) applyBtn.style.display = "none";
   
-  body.style.height = "72vh";
-  body.style.maxHeight = "72vh";
+  body.style.height = "";
+  body.style.maxHeight = "";
   body.style.overflow = "hidden";
   body.style.padding = "10px";
   body.style.display = "flex";
@@ -1391,8 +1391,10 @@ export function renderProgressShell() {
     </div>
   `;
 
-  const container = document.getElementById("ap-neural-container");
-  if (container) {
+  requestAnimationFrame(() => {
+    const container = document.getElementById("ap-neural-container");
+    if (!container) return;
+
     if (neuralGraphInstance) {
       neuralGraphInstance.dispose();
     }
@@ -1400,12 +1402,12 @@ export function renderProgressShell() {
     const daysCount = daysInMonth(state.year, state.month);
     neuralGraphInstance.initData(daysCount, planData.employees);
     document.getElementById("ap-ng-status").textContent = `${daysCount} TAGE × ${planData.employees.length} MA`;
-    
+
     const spectacleContainer = document.getElementById("ap-hud-spectacle-container");
     if (spectacleContainer) {
       neuralGraphInstance.attachMiniMap(spectacleContainer);
     }
-  }
+  });
 }
 
 export async function streamProgressLogs(result) {
