@@ -1218,7 +1218,7 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 8px 10px;
-  padding-bottom: calc(var(--mnav-h) + 16px);
+  padding-bottom: calc(var(--mnav-h) + var(--kb-inset) + 16px);
   overscroll-behavior: contain;
   scrollbar-width: none;
 }
@@ -1226,7 +1226,7 @@
 .mobile-day-list::-webkit-scrollbar { display: none; }
 
 body.is-mobile.plan-mode-active .mobile-day-list {
-  padding-bottom: calc(var(--mnav-h) + 16px);
+  padding-bottom: calc(var(--mnav-h) + var(--kb-inset) + 16px);
 }
 
 .mobile-week-sep {

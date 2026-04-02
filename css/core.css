@@ -60,8 +60,14 @@
   --shadow-lg: 0 10px 30px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.06);
   --shadow-xl: 0 24px 64px rgba(0,0,0,.2), 0 8px 20px rgba(0,0,0,.1);
   --shadow-glow: 0 0 20px rgba(14,165,233,.15), 0 0 60px rgba(14,165,233,.05);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --mnav-h: calc(56px + var(--safe-bottom));
+  --app-vw: 100vw;
+  --app-vh: 100dvh;
+  --kb-inset: 0px;
   --overlay-pad: clamp(12px, 2.4vw, 24px);
 }
 
@@ -72,7 +78,8 @@
 }
 
 html, body {
-  height: 100%;
+  height: var(--app-vh);
+  min-height: var(--app-vh);
   overflow: hidden;
   touch-action: manipulation;
   scroll-behavior: smooth;

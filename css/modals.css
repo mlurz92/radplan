@@ -9,6 +9,9 @@
   backdrop-filter: blur(12px) saturate(1.2);
   -webkit-backdrop-filter: blur(12px) saturate(1.2);
   padding: var(--overlay-pad);
+  padding-left: max(var(--overlay-pad), var(--safe-left));
+  padding-right: max(var(--overlay-pad), var(--safe-right));
+  padding-top: max(var(--overlay-pad), var(--safe-top));
   overflow: auto;
   overscroll-behavior: contain;
   contain: strict;
@@ -52,8 +55,8 @@
 }
 
 .overlay#modal-autoplan .modal {
-  height: min(96dvh, calc(100dvh - (2 * var(--overlay-pad))));
-  max-height: min(96dvh, calc(100dvh - (2 * var(--overlay-pad))));
+  height: min(96dvh, calc(var(--app-vh) - (2 * var(--overlay-pad))));
+  max-height: min(96dvh, calc(var(--app-vh) - (2 * var(--overlay-pad))));
   display: flex;
   flex-direction: column;
 }
@@ -1609,7 +1612,7 @@ body.is-mobile .overlay#modal-score-info .modal {
   border-radius: 20px 20px 0 0 !important;
   max-width: 100% !important;
   width: 100% !important;
-  max-height: min(var(--modal-max-height, 92dvh), 92dvh) !important;
+  max-height: min(var(--modal-max-height, calc(var(--app-vh) - var(--safe-top))), calc(var(--app-vh) - var(--safe-top))) !important;
   margin: 0 !important;
   animation: slideUp .28s cubic-bezier(.34,1.2,.64,1) forwards !important;
 }
@@ -1636,6 +1639,14 @@ body.is-mobile #modal-autoplan .modal-bd {
 body.is-mobile #modal-autoplan .modal-bd.ap-progress-bd {
   padding: 10px !important;
   overflow: hidden !important;
+}
+
+body.is-mobile #modal-autoplan .ap-neural-view {
+  min-height: clamp(190px, 34vh, 320px);
+}
+
+body.is-mobile #modal-autoplan .ap-terminal {
+  min-height: clamp(160px, 28vh, 280px);
 }
 
 body.is-mobile .modal-x {
