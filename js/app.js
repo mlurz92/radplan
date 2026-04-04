@@ -1957,10 +1957,6 @@ export function wireEvents() {
     closePeriodFlyout();
   });
   
-  document.getElementById("btn-dept")?.addEventListener("click", () => {
-    document.getElementById("btn-employees")?.click();
-  });
-  
   document.getElementById("btn-export")?.addEventListener("click", () => {
     doExport();
   });
