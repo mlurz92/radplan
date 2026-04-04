@@ -1,10 +1,5 @@
 # RadPlan – Vollständige Anwendungs- und Algorithmusdokumentation
 
-> Stand dieser Dokumentation: **Codebasis im Repository `/workspace/radplan` vom 31.03.2026**.
-> Diese README beschreibt den **Ist-Zustand** der Anwendung umfassend (Architektur, Datenmodell, UI, Regeln, Algorithmus, Persistenz, Grenzen), **nicht** nur Änderungen gegenüber einer Vorversion.
-
----
-
 ## Inhaltsverzeichnis
 
 1. [Zweck und Einsatzkontext](#1-zweck-und-einsatzkontext)
@@ -119,7 +114,7 @@ In `state` werden u. a. geführt:
 ### 4.2 Wochenenddefinition (algorithmisch relevant)
 
 - Für mehrere Fairness- und WE-Regeln werden **Fr/Sa/So** als Wochenendblock betrachtet.
-- WE-Äquivalent pro KW: 
+- WE-Äquivalent pro KW:
   - mindestens ein `D` -> `1.0`
   - sonst mindestens ein `HG` -> `0.5`
 
@@ -303,7 +298,7 @@ Es existieren **zwei Ebenen**:
 ### 9.1 Beispielhafte BD-Objective-Gewichte
 
 - BD-Lücke pro Tag: +20.000 (BD-Teilobjective),
-- doppelte BD-Besetzung: +50.000 * Anzahl,
+- doppelte BD-Besetzung: +50.000 \* Anzahl,
 - Zielabweichung: quadratisch + linear,
 - WE-Überlast > Limit: zusätzliche harte Strafe,
 - aufeinanderfolgende WE-KWs: +15.000,
@@ -314,7 +309,7 @@ Es existieren **zwei Ebenen**:
 ### 9.2 Beispielhafte HG-Objective-Gewichte
 
 - HG-Lücke pro Tag: +15.000,
-- doppelte HG-Besetzung: +40.000 * Anzahl,
+- doppelte HG-Besetzung: +40.000 \* Anzahl,
 - Abweichung von Ideal-HG (inkl. BD-Kompensation): stark quadratisch,
 - HG-AA/HG-FA-Balance,
 - Adjacent-HG und kurze Abstände hoch penalisiert,

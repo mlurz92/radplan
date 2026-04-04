@@ -12,44 +12,47 @@ function injectStyles() {
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      perspective: 1600px;
       background: transparent;
+      padding: 16px;
+      perspective: 1200px; /* Hinzugefügte Perspektive für 3D-Effekte */
     }
-    .ng-grid-base {
-      transform-style: preserve-3d;
-      transform-origin: center center;
-      will-change: transform;
-    }
-    .ng-grid-float {
+    .ng-matrix-grid {
       display: grid;
-      transform-style: preserve-3d;
-      animation: ngFloating 10s ease-in-out infinite;
+      width: 100%;
+      height: 100%;
+      grid-auto-rows: 1fr;
       will-change: transform;
+      transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
     }
-    @keyframes ngFloating {
-      0%, 100% { transform: translateZ(0px) rotateZ(0deg); }
-      50% { transform: translateZ(25px) rotateZ(1.5deg); }
-    }
-    .ng-iso-cell {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+    .ng-flat-cell {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(56, 189, 248, 0.15);
       border-radius: 4px;
-      transform-style: preserve-3d;
-      transition: all 0.4s cubic-bezier(0.34, 1.5, 0.64, 1);
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
-      will-change: transform, background-color, border-color;
+      overflow: hidden;
+      will-change: background-color, border-color, transform;
+      /* Räumliche Transformationen */
+      transform-style: preserve-3d;
+      transition: all 0.2s ease-out, transform 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+      backface-visibility: hidden;
     }
-    .ng-iso-shadow {
-      position: absolute;
-      inset: -1px;
-      background: transparent;
-      transition: box-shadow 0.4s;
-      transform: translateZ(-1px);
-      border-radius: 4px;
-      pointer-events: none;
+    /* Leichte Schrägstellung im Ruhezustand (um nicht "grade von vorne" zu schauen) */
+    .ng-flat-cell.rest {
+       transform: rotateX(1deg) rotateY(-1deg);
+    }
+    .ng-flat-cell.pulse {
+      /* Erhöhte räumliche Transformationen */
+      transform: scale(1.08) rotateX(0deg) rotateY(2deg);
+      z-index: 10;
+      box-shadow: 0 5px 20px rgba(251, 191, 36, 0.4);
+    }
+    .ng-flat-cell.error {
+      /* Räumliche Verkippung bei Fehler */
+      transform: scale(1.05) rotateX(8deg) rotateY(15deg);
+      box-shadow: 0 5px 20px rgba(239, 68, 68, 0.5);
     }
     .ng-day-number {
       position: absolute;
@@ -58,32 +61,41 @@ function injectStyles() {
       font-family: var(--font-mono, monospace);
       font-size: 10px;
       font-weight: 600;
-      color: rgba(255, 255, 255, 0.2);
-      transform: translateZ(1px);
+      color: rgba(255, 255, 255, 0.3);
       pointer-events: none;
       user-select: none;
+      transform: translateZ(1px); /* Text leicht hervorheben */
     }
     .ng-duty-wrap {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 3px;
-      transform: translateZ(2px);
+      gap: 2px;
       pointer-events: none;
       width: 100%;
+      transform: translateZ(10px); /* Inhalt nach vorne schieben */
     }
     .ng-emp-label {
       font-family: var(--font-mono, monospace);
-      font-size: 10.5px;
+      font-size: 11px;
       font-weight: 800;
       color: transparent;
-      transition: color 0.3s;
+      transition: color 0.2s, text-shadow 0.2s;
       user-select: none;
       letter-spacing: 0.05em;
       line-height: 1;
       text-align: center;
-      min-height: 10.5px;
+      min-height: 11px;
+    }
+    .ng-flat-cell.pulse .ng-emp-label {
+       text-shadow: 0 0 4px currentColor;
+    }
+    .ng-emp-d {
+      color: transparent;
+    }
+    .ng-emp-hg {
+      color: transparent;
     }
   `;
   document.head.appendChild(style);
@@ -96,16 +108,13 @@ export class NeuralGraph {
     this.employees = [];
     this.daysCount = 0;
     this.phase = 'init';
+    this.basePhase = 'init';
     this.miniMapCanvas = null;
     this.miniMapCtx = null;
     this.pulses = [];
     this.animId = null;
     this.resizeObserver = null;
-    this.gridBase = null;
     this.gridFloat = null;
-    this.cellSize = 44;
-    this.cellGap = 6;
-    this.columns = 7;
     
     injectStyles();
     this.buildDOM();
@@ -116,54 +125,18 @@ export class NeuralGraph {
     this.container.innerHTML = '';
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'ng-container';
-    this.gridBase = document.createElement('div');
-    this.gridBase.className = 'ng-grid-base';
     this.gridFloat = document.createElement('div');
-    this.gridFloat.className = 'ng-grid-float';
+    this.gridFloat.className = 'ng-matrix-grid';
     
-    this.gridBase.appendChild(this.gridFloat);
-    this.wrapper.appendChild(this.gridBase);
+    this.wrapper.appendChild(this.gridFloat);
     this.container.appendChild(this.wrapper);
   }
 
   setupResizeObserver() {
     this.resizeObserver = new ResizeObserver(() => {
-      this.updateGridScale();
       this.resizeMiniMap();
     });
     this.resizeObserver.observe(this.container);
-  }
-
-  updateGridScale() {
-    if (!this.daysCount || !this.gridBase) return;
-    const w = this.container.clientWidth;
-    const h = this.container.clientHeight;
-    if (w === 0 || h === 0) return;
-    
-    const rows = Math.ceil(this.daysCount / this.columns);
-    const gridW = this.columns * (this.cellSize + this.cellGap) - this.cellGap;
-    const gridH = rows * (this.cellSize + this.cellGap) - this.cellGap;
-    
-    // Exakte trigonometrische Bounding-Box für CSS isometrische Projektion
-    // Z-Rotation: -45deg -> cos(45) ≈ 0.7071
-    // X-Rotation: 60deg -> cos(60) = 0.5
-    const cos45 = 0.7071;
-    const cos60 = 0.5;
-    
-    const boundingW = (gridW + gridH) * cos45;
-    const boundingH = (gridW + gridH) * cos45 * cos60;
-    
-    // Optimales ausnutzen des Platzes (90% Breite, 85% Höhe für Z-Pop Puffer)
-    const targetW = w * 0.90;
-    const targetH = h * 0.85;
-    
-    const scaleX = targetW / boundingW;
-    const scaleY = targetH / boundingH;
-    
-    // Minimaler Skalierungsfaktor um Box in Viewport einzupassen
-    const scale = Math.min(scaleX, scaleY, 4.0);
-    
-    this.gridBase.style.transform = `scale(${scale}) rotateX(60deg) rotateZ(-45deg)`;
   }
 
   initData(daysCount, employees) {
@@ -172,17 +145,15 @@ export class NeuralGraph {
     this.gridFloat.innerHTML = '';
     this.cells.clear();
 
-    const rows = Math.ceil(daysCount / this.columns);
-    this.gridFloat.style.gridTemplateColumns = `repeat(${this.columns}, ${this.cellSize}px)`;
-    this.gridFloat.style.gridTemplateRows = `repeat(${rows}, ${this.cellSize}px)`;
-    this.gridFloat.style.gap = `${this.cellGap}px`;
+    const cols = 7;
+    const rows = Math.ceil(daysCount / cols);
+    this.gridFloat.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    this.gridFloat.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+    this.gridFloat.style.gap = `4px`;
 
     for (let d = 1; d <= daysCount; d++) {
       const cell = document.createElement('div');
-      cell.className = 'ng-iso-cell';
-      
-      const shadow = document.createElement('div');
-      shadow.className = 'ng-iso-shadow';
+      cell.className = 'ng-flat-cell rest'; // Mit Ruhezustand-Transformation starten
       
       const dayLabel = document.createElement('div');
       dayLabel.className = 'ng-day-number';
@@ -202,14 +173,12 @@ export class NeuralGraph {
       dutyWrap.appendChild(dLabel);
       dutyWrap.appendChild(hgLabel);
       
-      cell.appendChild(shadow);
       cell.appendChild(dayLabel);
       cell.appendChild(dutyWrap);
       this.gridFloat.appendChild(cell);
       
-      this.cells.set(d, { el: cell, shadow, dLabel, hgLabel });
+      this.cells.set(d, { el: cell, dLabel, hgLabel });
     }
-    this.updateGridScale();
   }
 
   attachMiniMap(container) {
@@ -256,42 +225,71 @@ export class NeuralGraph {
 
   getAbbreviation(empId) {
     if (!empId) return '';
-    const parts = empId.split(' ');
+    const parts = String(empId).split(' ');
     const last = parts.length > 1 ? parts[parts.length - 1] : empId;
-    return last.substring(0, 2).toUpperCase();
+    return last.substring(0, 3).toUpperCase();
   }
 
   pulseCell(dayIdx, empId, isActive, isError = false, dutyType = "D") {
     const cellData = this.cells.get(dayIdx);
     if (!cellData) return;
     
-    const { el, shadow, dLabel, hgLabel } = cellData;
+    const { el, dLabel, hgLabel } = cellData;
 
-    if (empId) {
+    if (empId && empId !== "SWAP") {
       if (dutyType === "HG") {
         hgLabel.textContent = this.getAbbreviation(empId);
       } else {
         dLabel.textContent = this.getAbbreviation(empId);
       }
+    } else if (empId === "SWAP") {
+      if (dutyType === "HG") {
+        hgLabel.textContent = "SWP";
+      } else {
+        dLabel.textContent = "SWP";
+      }
     }
 
     if (isActive) {
-      const color = isError ? this.getPhaseColor(1) : this.getPhaseColor(0.8);
-      const shadowColor = isError ? this.getPhaseColor(0.5) : this.getPhaseColor(0.3);
+      const color = isError ? 'rgba(239, 68, 68, 0.2)' : this.getPhaseColor(0.2);
+      const borderColor = isError ? 'rgba(239, 68, 68, 0.8)' : this.getPhaseColor(0.8);
       
-      el.style.transform = isError ? 'translateZ(40px) scale(1.08)' : 'translateZ(25px)';
+      el.classList.remove('rest'); // Ruhezustand-Transformation entfernen
+
+      if (isError) {
+        el.classList.add('error');
+      } else {
+        el.classList.add('pulse');
+      }
+      
       el.style.background = color;
-      el.style.borderColor = color;
-      shadow.style.boxShadow = `0 15px 25px ${shadowColor}`;
-      if (dutyType === "HG" && hgLabel.textContent) hgLabel.style.color = '#ffffff';
-      if (dutyType === "D" && dLabel.textContent) dLabel.style.color = '#ffffff';
+      el.style.borderColor = borderColor;
+      if (dutyType === "HG" && hgLabel.textContent) {
+        hgLabel.style.color = '#ffffff';
+      }
+      if (dutyType === "D" && dLabel.textContent) {
+        dLabel.style.color = '#ffffff';
+      }
     } else {
-      el.style.transform = 'translateZ(0px)';
-      el.style.background = 'rgba(255, 255, 255, 0.04)';
-      el.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-      shadow.style.boxShadow = 'none';
-      if (dLabel.textContent) dLabel.style.color = '#EF4444'; 
-      if (hgLabel.textContent) hgLabel.style.color = '#0EA5E9';
+      el.classList.remove('pulse');
+      el.classList.remove('error');
+      
+      el.style.background = 'rgba(15, 23, 42, 0.8)';
+      el.style.borderColor = 'rgba(56, 189, 248, 0.15)';
+      
+      // Zurück zur Ruhezustand-Transformation
+      el.classList.add('rest');
+
+      if (dLabel.textContent && dLabel.textContent !== "SWP") {
+        dLabel.style.color = '#EF4444'; 
+      }
+      if (hgLabel.textContent && hgLabel.textContent !== "SWP") {
+        hgLabel.style.color = '#0EA5E9';
+      }
+      if (empId === "SWAP") {
+        if (dutyType === "HG") hgLabel.textContent = "";
+        else dLabel.textContent = "";
+      }
     }
   }
 
@@ -305,7 +303,7 @@ export class NeuralGraph {
   }
 
   triggerSwap(dayIdx, oldEmpId, newEmpId, dutyType = "D") {
-    this.pulseCell(dayIdx, newEmpId, true, false, dutyType);
+    this.pulseCell(dayIdx, "SWAP", true, false, dutyType);
     this.fireMiniMapPulse();
     
     setTimeout(() => {
@@ -327,23 +325,30 @@ export class NeuralGraph {
   }
 
   triggerError(dayIdx, empId, dutyType = "D") {
-    const oldPhase = this.phase;
+    if (this.phase !== 'error') {
+      this.basePhase = this.phase;
+    }
     this.phase = 'error';
     this.pulseCell(dayIdx, empId, true, true, dutyType);
     this.fireMiniMapPulse(true);
     
     setTimeout(() => {
-      this.phase = oldPhase;
+      if (this.phase === 'error') {
+        this.phase = this.basePhase || 'init';
+      }
       this.pulseCell(dayIdx, empId, false, false, dutyType);
     }, 300);
   }
 
   setPhase(phase) {
     this.phase = phase;
+    if (phase !== 'error') {
+      this.basePhase = phase;
+    }
   }
 
   triggerSuccess(finalAssignments) {
-    this.phase = 'success';
+    this.setPhase('success');
     
     if (finalAssignments) {
       for (const [emp, days] of Object.entries(finalAssignments)) {
@@ -351,8 +356,14 @@ export class NeuralGraph {
           const dayIdx = parseInt(dayStr, 10);
           const cellData = this.cells.get(dayIdx);
           if (cellData && data.duty) {
-            if (data.duty === "D") cellData.dLabel.textContent = this.getAbbreviation(emp);
-            if (data.duty === "HG") cellData.hgLabel.textContent = this.getAbbreviation(emp);
+            if (data.duty === "D") {
+               cellData.dLabel.textContent = this.getAbbreviation(emp);
+               cellData.dLabel.style.color = '#EF4444';
+            }
+            if (data.duty === "HG") {
+               cellData.hgLabel.textContent = this.getAbbreviation(emp);
+               cellData.hgLabel.style.color = '#0EA5E9';
+            }
           }
         }
       }
@@ -365,13 +376,16 @@ export class NeuralGraph {
       
       if (hasD || hasHG) {
         setTimeout(() => {
-          cellData.el.style.transform = 'translateZ(15px)';
-          cellData.el.style.background = this.getPhaseColor(0.8);
-          cellData.el.style.borderColor = this.getPhaseColor(1);
-          cellData.shadow.style.boxShadow = `0 10px 20px ${this.getPhaseColor(0.4)}`;
-          if (hasD) cellData.dLabel.style.color = '#ffffff';
-          if (hasHG) cellData.hgLabel.style.color = '#ffffff';
+          cellData.el.classList.remove('rest');
+          cellData.el.classList.add('pulse');
+          cellData.el.style.background = this.getPhaseColor(0.2);
+          cellData.el.style.borderColor = this.getPhaseColor(0.8);
         }, delay);
+        
+        setTimeout(() => {
+          cellData.el.classList.remove('pulse');
+          cellData.el.classList.add('rest');
+        }, delay + 600);
         delay += 25;
       }
     }
@@ -453,7 +467,12 @@ export class NeuralGraph {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
     }
-    if (this.container) this.container.innerHTML = '';
+    if (this.container) {
+      this.container.innerHTML = '';
+    }
+    if (this.miniMapCanvas && this.miniMapCanvas.parentElement) {
+      this.miniMapCanvas.parentElement.innerHTML = '';
+    }
     this.cells.clear();
     this.pulses = [];
   }

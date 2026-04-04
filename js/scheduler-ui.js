@@ -155,64 +155,115 @@ window.renderAutoPlanModal = function(renderToken = null) {
   }
 };
 
-window.startNeuralAnimation = function(canvas) {
+window.startNeuralAnimation = function(canvas, dim) {
   const ctx = canvas.getContext("2d");
-  let cw = canvas.width = canvas.offsetWidth;
-  let ch = canvas.height = canvas.offsetHeight;
+  const dpr = window.devicePixelRatio || 2;
+  let cw = canvas.width = canvas.offsetWidth * dpr;
+  let ch = canvas.height = canvas.offsetHeight * dpr;
+  ctx.scale(dpr, dpr);
+  cw /= dpr;
+  ch /= dpr;
   
-  const nodes = Array.from({length: 40}, () => ({
-    x: Math.random() * cw,
-    y: Math.random() * ch,
-    vx: (Math.random() - 0.5) * 1.5,
-    vy: (Math.random() - 0.5) * 1.5,
-    r: Math.random() * 1.5 + 0.5,
-    pulse: Math.random() * Math.PI * 2
-  }));
+  dim = dim || 31;
+  const cols = 7; 
+  const rows = Math.ceil(dim / cols); 
+
+  window.apAnimGridState = {
+    cells: Array.from({length: dim}, (_, i) => ({
+      day: i + 1,
+      empAbbr: "",
+      duty: null,    
+      pulse: 0
+    })),
+    scanDay: 0
+  };
 
   let animId;
   function draw() {
     ctx.clearRect(0, 0, cw, ch);
-    ctx.fillStyle = "rgba(4, 10, 24, 0.6)";
+    ctx.fillStyle = "#040A15"; 
     ctx.fillRect(0, 0, cw, ch);
     
-    for(let i = 0; i < nodes.length; i++) {
-      nodes[i].x += nodes[i].vx;
-      nodes[i].y += nodes[i].vy;
-      nodes[i].pulse += 0.05;
-      
-      if(nodes[i].x < 0 || nodes[i].x > cw) nodes[i].vx *= -1;
-      if(nodes[i].y < 0 || nodes[i].y > ch) nodes[i].vy *= -1;
-      
-      for(let j = i + 1; j < nodes.length; j++) {
-        const dx = nodes[i].x - nodes[j].x;
-        const dy = nodes[i].y - nodes[j].y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if(dist < 55) {
-          ctx.beginPath();
-          ctx.moveTo(nodes[i].x, nodes[i].y);
-          ctx.lineTo(nodes[j].x, nodes[j].y);
-          ctx.strokeStyle = `rgba(14, 165, 233, ${0.8 - (dist/55)})`;
-          ctx.lineWidth = 0.8;
-          ctx.stroke();
+    const padding = 6;
+    const gap = 3;
+    const availW = cw - padding * 2;
+    const availH = ch - padding * 2;
+    const cellW = (availW - gap * (cols - 1)) / cols;
+    const cellH = (availH - gap * (rows - 1)) / rows;
+    
+    for(let i = 0; i < dim; i++) {
+        const cell = window.apAnimGridState.cells[i];
+        if(!cell) continue;
+        
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const x = padding + col * (cellW + gap);
+        const y = padding + row * (cellH + gap);
+        
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 1;
+
+        if (cell.duty === "D") {
+            ctx.fillStyle = "rgba(220, 38, 38, 0.25)";
+            ctx.strokeStyle = "rgba(239, 68, 68, 0.6)";
+        } else if (cell.duty === "HG") {
+            ctx.fillStyle = "rgba(14, 165, 233, 0.25)";
+            ctx.strokeStyle = "rgba(56, 189, 248, 0.6)";
+        } else {
+            ctx.fillStyle = "rgba(15, 23, 42, 0.8)"; 
+            ctx.strokeStyle = "rgba(56, 189, 248, 0.15)";
         }
-      }
-      
-      const rad = nodes[i].r + Math.sin(nodes[i].pulse) * 0.5;
-      ctx.beginPath();
-      ctx.arc(nodes[i].x, nodes[i].y, Math.max(0.1, rad), 0, Math.PI*2);
-      ctx.fillStyle = "#38BDF8";
-      ctx.fill();
+        
+        if (cell.pulse > 0) {
+            const glow = cell.duty === "D" 
+                ? `rgba(239, 68, 68, ${cell.pulse})` 
+                : (cell.duty === "HG" ? `rgba(56, 189, 248, ${cell.pulse})` : `rgba(251, 191, 36, ${cell.pulse})`);
+            ctx.fillStyle = glow;
+            cell.pulse -= 0.05;
+        }
+
+        if (window.apAnimGridState.scanDay === cell.day && cell.pulse <= 0 && !cell.duty) {
+             ctx.fillStyle = "rgba(251, 191, 36, 0.35)";
+             ctx.strokeStyle = "rgba(251, 191, 36, 0.9)";
+        }
+        
+        ctx.beginPath();
+        if(ctx.roundRect) {
+            ctx.roundRect(x, y, cellW, cellH, 2);
+        } else {
+            ctx.rect(x, y, cellW, cellH);
+        }
+        ctx.fill();
+        ctx.stroke();
+        
+        if (cell.empAbbr || cell.pulse > 0.5) {
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 8px 'IBM Plex Mono', monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(cell.empAbbr || "...", x + cellW/2, y + cellH/2 + 0.5);
+        } else {
+            ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+            ctx.font = "7px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(cell.day, x + cellW/2, y + cellH/2 + 0.5);
+        }
     }
+    
     animId = requestAnimationFrame(draw);
   }
   draw();
-  return () => cancelAnimationFrame(animId);
+  return () => { cancelAnimationFrame(animId); window.apAnimGridState = null; };
 };
 
 window.renderProgressAndThenResult = async function(result) {
   const body = document.getElementById("ap-body");
   const applyBtn = document.getElementById("ap-apply");
   if (!body || !applyBtn) return;
+  
+  const { year: y, month: m } = state;
+  const currentDim = typeof daysInMonth === "function" ? daysInMonth(y, m) : 31;
   
   applyBtn.style.display = "none";
   body.style.height = "100%";
@@ -260,7 +311,7 @@ window.renderProgressAndThenResult = async function(result) {
   const canvas = document.getElementById("ap-hud-canvas");
   if (canvas) {
     if (apAnimCancel) apAnimCancel();
-    apAnimCancel = startNeuralAnimation(canvas);
+    apAnimCancel = startNeuralAnimation(canvas, currentDim);
   }
 
   const logContainer = document.getElementById("ap-term-body");
@@ -283,7 +334,40 @@ window.renderProgressAndThenResult = async function(result) {
         if (entry.msg.includes("HG")) hgCount++; else bdCount++;
     }
     if (entry.icon === "🔀" || entry.icon === "🔁" || entry.icon === "🧠") swapCount++;
-    
+
+    if (window.apAnimGridState) {
+        let dayScan = entry.dayIdx;
+        if (!dayScan) {
+            const mMatch = entry.msg.match(/Tag (\d+)/i);
+            if (mMatch) dayScan = parseInt(mMatch[1], 10);
+        }
+        if (dayScan && dayScan >= 1 && dayScan <= currentDim) {
+            window.apAnimGridState.scanDay = dayScan;
+            const cell = window.apAnimGridState.cells[dayScan - 1];
+            if (cell) {
+                if (entry.icon === "→" || entry.icon === "✓" || entry.msg.includes("Dienst")) {
+                    cell.pulse = 1;
+                    if (entry.msg.includes("HG") || (entry.phase && entry.phase.includes("hg"))) cell.duty = "HG";
+                    else cell.duty = "D"; 
+                    
+                    let empNm = entry.newEmpId;
+                    if (!empNm && entry.msg.includes("→")) {
+                        empNm = entry.msg.split("→")[1].trim();
+                    }
+                    if (empNm) {
+                        const pts = empNm.replace("Dr. ", "").replace("Prof. ", "").replace("Fr. ", "").replace("Hr. ", "").trim().split(" ");
+                        cell.empAbbr = pts[pts.length - 1].substring(0, 3).toUpperCase();
+                    }
+                } 
+                if (entry.icon === "🔀" || entry.icon === "🔁" || entry.icon === "🧠") {
+                    cell.pulse = 1;
+                    cell.empAbbr = "SWP";
+                    cell.duty = null;
+                }
+            }
+        }
+    }
+
     document.getElementById("ap-ls-bd").textContent = bdCount;
     document.getElementById("ap-ls-hg").textContent = hgCount;
     document.getElementById("ap-ls-swaps").textContent = swapCount;
