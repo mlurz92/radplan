@@ -1371,14 +1371,6 @@ export function renderProgressShell() {
         <div class="ap-neural-view" style="flex:1; position:relative; min-width:0; min-height:0;">
           <div id="ap-neural-container" style="position:absolute; top:0; left:0; width:100%; height:100%;"></div>
           <div class="ap-neural-vignette" style="pointer-events:none;"></div>
-          <div class="ap-neural-hud-layer" style="pointer-events:none;">
-             <div class="ap-neural-hud-item"><span class="ap-nhi-lbl">Topologie</span><span class="ap-nhi-val">Neural Constellation</span></div>
-             <div class="ap-neural-hud-item"><span class="ap-nhi-lbl">Status</span><span class="ap-nhi-val" id="ap-ng-status">COMPUTING</span></div>
-          </div>
-          <div class="ap-neural-stats" style="pointer-events:none;">
-             <span class="ap-neural-stat-pill">Visualizer Active</span>
-             <span class="ap-neural-stat-pill" style="color:#0EA5E9" id="ap-ng-phase-pill">INITIALIZING</span>
-          </div>
         </div>
 
         <div class="ap-terminal ap-terminal-deep" style="flex:1; display:flex; flex-direction:column; min-width:0; min-height:0;">
@@ -1401,7 +1393,6 @@ export function renderProgressShell() {
     neuralGraphInstance = new NeuralGraph(container);
     const daysCount = daysInMonth(state.year, state.month);
     neuralGraphInstance.initData(daysCount, planData.employees);
-    document.getElementById("ap-ng-status").textContent = `${daysCount} TAGE × ${planData.employees.length} MA`;
 
     const spectacleContainer = document.getElementById("ap-hud-spectacle-container");
     if (spectacleContainer) {
@@ -1490,36 +1481,25 @@ export async function streamProgressLogs(result) {
         }
       }
       
-      const phasePill = document.getElementById("ap-ng-phase-pill");
-      if (phasePill) {
-        if (entry.phase === "deep") {
-          if (i % 10 === 0) neuralGraphInstance.setPhase("deep");
-          phasePill.textContent = "DEEP OPTIMIZE";
-          phasePill.style.color = "#A855F7";
-          if (progTitle && progTitle.textContent !== "Deep-Search Optimierung") {
-            progTitle.textContent = "Deep-Search Optimierung";
-          }
-        } else if (entry.phase === "hg") {
-          if (i % 5 === 0) neuralGraphInstance.setPhase("hg");
-          phasePill.textContent = "HG BUNDLING";
-          phasePill.style.color = "#38BDF8";
-          if (progTitle && progTitle.textContent !== "Hintergrund-Allokation") {
-            progTitle.textContent = "Hintergrund-Allokation";
-          }
-        } else if (entry.phase === "greedy" || entry.phase === "bd_weekend" || entry.phase === "bd_workday") {
-          if (i % 5 === 0) neuralGraphInstance.setPhase("greedy");
-          phasePill.textContent = "GREEDY PASS";
-          phasePill.style.color = "#FBBF24";
-          if (progTitle && progTitle.textContent !== "Greedy-Heuristik Pass") {
-            progTitle.textContent = "Greedy-Heuristik Pass";
-          }
-        } else if (entry.phase === "init" || !entry.phase) {
-          if (i % 5 === 0) neuralGraphInstance.setPhase("init");
-          phasePill.textContent = "INITIALIZING";
-          phasePill.style.color = "#0EA5E9";
-          if (progTitle && progTitle.textContent !== "Constraint Analyse") {
-            progTitle.textContent = "Constraint Analyse";
-          }
+      if (entry.phase === "deep") {
+        if (i % 10 === 0) neuralGraphInstance.setPhase("deep");
+        if (progTitle && progTitle.textContent !== "Deep-Search Optimierung") {
+          progTitle.textContent = "Deep-Search Optimierung";
+        }
+      } else if (entry.phase === "hg") {
+        if (i % 5 === 0) neuralGraphInstance.setPhase("hg");
+        if (progTitle && progTitle.textContent !== "Hintergrund-Allokation") {
+          progTitle.textContent = "Hintergrund-Allokation";
+        }
+      } else if (entry.phase === "greedy" || entry.phase === "bd_weekend" || entry.phase === "bd_workday") {
+        if (i % 5 === 0) neuralGraphInstance.setPhase("greedy");
+        if (progTitle && progTitle.textContent !== "Greedy-Heuristik Pass") {
+          progTitle.textContent = "Greedy-Heuristik Pass";
+        }
+      } else if (entry.phase === "init" || !entry.phase) {
+        if (i % 5 === 0) neuralGraphInstance.setPhase("init");
+        if (progTitle && progTitle.textContent !== "Constraint Analyse") {
+          progTitle.textContent = "Constraint Analyse";
         }
       }
     }
@@ -1535,11 +1515,6 @@ export async function streamProgressLogs(result) {
 
   if (neuralGraphInstance) {
      neuralGraphInstance.triggerSuccess(result.assignments);
-     const phasePill = document.getElementById("ap-ng-phase-pill");
-     if (phasePill) {
-       phasePill.textContent = "CONVERGED";
-       phasePill.style.color = "#22C55E";
-     }
      if (progTitle) {
        progTitle.textContent = "Berechnung abgeschlossen";
      }

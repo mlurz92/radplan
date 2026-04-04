@@ -14,7 +14,7 @@ function injectStyles() {
       overflow: hidden;
       background: transparent;
       padding: 16px;
-      perspective: 1200px; /* Hinzugefügte Perspektive für 3D-Effekte */
+      perspective: 1000px;
     }
     .ng-matrix-grid {
       display: grid;
@@ -22,37 +22,35 @@ function injectStyles() {
       height: 100%;
       grid-auto-rows: 1fr;
       will-change: transform;
+      transform-style: preserve-3d;
       transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
     }
     .ng-flat-cell {
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid rgba(56, 189, 248, 0.15);
-      border-radius: 4px;
+      border-radius: 6px;
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      will-change: background-color, border-color, transform;
-      /* Räumliche Transformationen */
+      will-change: transform, background-color, box-shadow, border-color;
       transform-style: preserve-3d;
-      transition: all 0.2s ease-out, transform 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+      transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease;
       backface-visibility: hidden;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(56, 189, 248, 0.15);
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05), inset 0 -2px 4px rgba(0, 0, 0, 0.4), 0 4px 6px rgba(0, 0, 0, 0.2);
     }
-    /* Leichte Schrägstellung im Ruhezustand (um nicht "grade von vorne" zu schauen) */
     .ng-flat-cell.rest {
-       transform: rotateX(1deg) rotateY(-1deg);
+      transform: translateZ(0) rotateX(2deg) rotateY(-2deg);
     }
     .ng-flat-cell.pulse {
-      /* Erhöhte räumliche Transformationen */
-      transform: scale(1.08) rotateX(0deg) rotateY(2deg);
+      transform: translateZ(28px) scale(1.08) rotateX(0deg) rotateY(0deg);
       z-index: 10;
-      box-shadow: 0 5px 20px rgba(251, 191, 36, 0.4);
+      box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.25), inset 0 -2px 4px rgba(0, 0, 0, 0.2), 0 14px 28px rgba(0, 0, 0, 0.6), 0 0 18px var(--pulse-color, transparent);
     }
     .ng-flat-cell.error {
-      /* Räumliche Verkippung bei Fehler */
-      transform: scale(1.05) rotateX(8deg) rotateY(15deg);
-      box-shadow: 0 5px 20px rgba(239, 68, 68, 0.5);
+      transform: translateZ(12px) scale(1.02) rotateX(-8deg) rotateY(12deg);
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2), 0 8px 20px rgba(239, 68, 68, 0.3), 0 0 12px rgba(239, 68, 68, 0.4);
     }
     .ng-day-number {
       position: absolute;
@@ -64,7 +62,7 @@ function injectStyles() {
       color: rgba(255, 255, 255, 0.3);
       pointer-events: none;
       user-select: none;
-      transform: translateZ(1px); /* Text leicht hervorheben */
+      transform: translateZ(6px);
     }
     .ng-duty-wrap {
       display: flex;
@@ -74,7 +72,7 @@ function injectStyles() {
       gap: 2px;
       pointer-events: none;
       width: 100%;
-      transform: translateZ(10px); /* Inhalt nach vorne schieben */
+      transform: translateZ(14px);
     }
     .ng-emp-label {
       font-family: var(--font-mono, monospace);
@@ -89,7 +87,7 @@ function injectStyles() {
       min-height: 11px;
     }
     .ng-flat-cell.pulse .ng-emp-label {
-       text-shadow: 0 0 4px currentColor;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
     }
     .ng-emp-d {
       color: transparent;
@@ -149,11 +147,11 @@ export class NeuralGraph {
     const rows = Math.ceil(daysCount / cols);
     this.gridFloat.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
     this.gridFloat.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
-    this.gridFloat.style.gap = `4px`;
+    this.gridFloat.style.gap = `5px`;
 
     for (let d = 1; d <= daysCount; d++) {
       const cell = document.createElement('div');
-      cell.className = 'ng-flat-cell rest'; // Mit Ruhezustand-Transformation starten
+      cell.className = 'ng-flat-cell rest';
       
       const dayLabel = document.createElement('div');
       dayLabel.className = 'ng-day-number';
@@ -254,16 +252,18 @@ export class NeuralGraph {
       const color = isError ? 'rgba(239, 68, 68, 0.2)' : this.getPhaseColor(0.2);
       const borderColor = isError ? 'rgba(239, 68, 68, 0.8)' : this.getPhaseColor(0.8);
       
-      el.classList.remove('rest'); // Ruhezustand-Transformation entfernen
-
+      el.classList.remove('rest');
+      
       if (isError) {
         el.classList.add('error');
       } else {
         el.classList.add('pulse');
       }
       
+      el.style.setProperty('--pulse-color', borderColor);
       el.style.background = color;
       el.style.borderColor = borderColor;
+
       if (dutyType === "HG" && hgLabel.textContent) {
         hgLabel.style.color = '#ffffff';
       }
@@ -274,10 +274,10 @@ export class NeuralGraph {
       el.classList.remove('pulse');
       el.classList.remove('error');
       
+      el.style.setProperty('--pulse-color', 'transparent');
       el.style.background = 'rgba(15, 23, 42, 0.8)';
       el.style.borderColor = 'rgba(56, 189, 248, 0.15)';
       
-      // Zurück zur Ruhezustand-Transformation
       el.classList.add('rest');
 
       if (dLabel.textContent && dLabel.textContent !== "SWP") {
@@ -378,6 +378,7 @@ export class NeuralGraph {
         setTimeout(() => {
           cellData.el.classList.remove('rest');
           cellData.el.classList.add('pulse');
+          cellData.el.style.setProperty('--pulse-color', this.getPhaseColor(0.8));
           cellData.el.style.background = this.getPhaseColor(0.2);
           cellData.el.style.borderColor = this.getPhaseColor(0.8);
         }, delay);
@@ -411,6 +412,7 @@ export class NeuralGraph {
     const parent = this.miniMapCanvas.parentElement;
     const w = parent.clientWidth;
     const h = parent.clientHeight;
+    const pi2 = Math.PI * 2;
 
     ctx.fillStyle = '#040A15';
     ctx.fillRect(0, 0, w, h);
@@ -440,7 +442,7 @@ export class NeuralGraph {
         : (w - padX) - lineLen * p.progress;
 
       ctx.beginPath();
-      ctx.arc(x, lineY, 3, 0, Math.PI * 2);
+      ctx.arc(x, lineY, 3, 0, pi2);
       ctx.fillStyle = p.color;
       ctx.shadowColor = p.color;
       ctx.shadowBlur = 10;
@@ -449,8 +451,8 @@ export class NeuralGraph {
     }
 
     ctx.beginPath();
-    ctx.arc(padX, lineY, 4, 0, Math.PI * 2);
-    ctx.arc(w - padX, lineY, 4, 0, Math.PI * 2);
+    ctx.arc(padX, lineY, 4, 0, pi2);
+    ctx.arc(w - padX, lineY, 4, 0, pi2);
     ctx.fillStyle = '#0F172A';
     ctx.fill();
     ctx.lineWidth = 1.5;

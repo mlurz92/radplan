@@ -156,7 +156,7 @@ window.renderAutoPlanModal = function(renderToken = null) {
 };
 
 window.startNeuralAnimation = function(canvas, dim) {
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { alpha: false });
   const dpr = window.devicePixelRatio || 2;
   let cw = canvas.width = canvas.offsetWidth * dpr;
   let ch = canvas.height = canvas.offsetHeight * dpr;
@@ -178,18 +178,29 @@ window.startNeuralAnimation = function(canvas, dim) {
     scanDay: 0
   };
 
+  const padding = 6;
+  const gap = 4;
+  const availW = cw - padding * 2;
+  const availH = ch - padding * 2;
+  const cellW = (availW - gap * (cols - 1)) / cols;
+  const cellH = (availH - gap * (rows - 1)) / rows;
+
+  const gradD = ctx.createLinearGradient(0, 0, 0, cellH);
+  gradD.addColorStop(0, "rgba(220, 38, 38, 0.5)");
+  gradD.addColorStop(1, "rgba(153, 27, 27, 0.3)");
+
+  const gradHG = ctx.createLinearGradient(0, 0, 0, cellH);
+  gradHG.addColorStop(0, "rgba(14, 165, 233, 0.5)");
+  gradHG.addColorStop(1, "rgba(2, 132, 199, 0.3)");
+
+  const gradBase = ctx.createLinearGradient(0, 0, 0, cellH);
+  gradBase.addColorStop(0, "rgba(30, 41, 59, 0.85)");
+  gradBase.addColorStop(1, "rgba(15, 23, 42, 0.85)");
+
   let animId;
   function draw() {
-    ctx.clearRect(0, 0, cw, ch);
     ctx.fillStyle = "#040A15"; 
     ctx.fillRect(0, 0, cw, ch);
-    
-    const padding = 6;
-    const gap = 3;
-    const availW = cw - padding * 2;
-    const availH = ch - padding * 2;
-    const cellW = (availW - gap * (cols - 1)) / cols;
-    const cellH = (availH - gap * (rows - 1)) / rows;
     
     for(let i = 0; i < dim; i++) {
         const cell = window.apAnimGridState.cells[i];
@@ -200,42 +211,37 @@ window.startNeuralAnimation = function(canvas, dim) {
         const x = padding + col * (cellW + gap);
         const y = padding + row * (cellH + gap);
         
-        ctx.lineJoin = "round";
-        ctx.lineWidth = 1;
+        ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+        ctx.fillRect(x + 1.5, y + 1.5, cellW, cellH);
 
-        if (cell.duty === "D") {
-            ctx.fillStyle = "rgba(220, 38, 38, 0.25)";
-            ctx.strokeStyle = "rgba(239, 68, 68, 0.6)";
-        } else if (cell.duty === "HG") {
-            ctx.fillStyle = "rgba(14, 165, 233, 0.25)";
-            ctx.strokeStyle = "rgba(56, 189, 248, 0.6)";
-        } else {
-            ctx.fillStyle = "rgba(15, 23, 42, 0.8)"; 
-            ctx.strokeStyle = "rgba(56, 189, 248, 0.15)";
-        }
-        
+        if (cell.duty === "D") ctx.fillStyle = gradD;
+        else if (cell.duty === "HG") ctx.fillStyle = gradHG;
+        else ctx.fillStyle = gradBase;
+
         if (cell.pulse > 0) {
-            const glow = cell.duty === "D" 
+            const pCol = cell.duty === "D" 
                 ? `rgba(239, 68, 68, ${cell.pulse})` 
                 : (cell.duty === "HG" ? `rgba(56, 189, 248, ${cell.pulse})` : `rgba(251, 191, 36, ${cell.pulse})`);
-            ctx.fillStyle = glow;
-            cell.pulse -= 0.05;
+            ctx.fillStyle = pCol;
+            cell.pulse -= 0.06;
         }
 
         if (window.apAnimGridState.scanDay === cell.day && cell.pulse <= 0 && !cell.duty) {
              ctx.fillStyle = "rgba(251, 191, 36, 0.35)";
-             ctx.strokeStyle = "rgba(251, 191, 36, 0.9)";
         }
         
-        ctx.beginPath();
-        if(ctx.roundRect) {
-            ctx.roundRect(x, y, cellW, cellH, 2);
-        } else {
-            ctx.rect(x, y, cellW, cellH);
-        }
-        ctx.fill();
-        ctx.stroke();
+        ctx.fillRect(x, y, cellW, cellH);
         
+        ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.fillRect(x, y, cellW, 1.5);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+        ctx.fillRect(x, y, 1.5, cellH);
+        
+        ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+        ctx.fillRect(x, y + cellH - 1.5, cellW, 1.5);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+        ctx.fillRect(x + cellW - 1.5, y, 1.5, cellH);
+
         if (cell.empAbbr || cell.pulse > 0.5) {
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 8px 'IBM Plex Mono', monospace";
