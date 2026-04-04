@@ -67,7 +67,7 @@ export async function onRequest(context) {
         const existingData = JSON.parse(existingRaw);
         const serverTimestamp = parseInt(existingData.lastModified, 10) || 0;
         
-        if (clientTimestamp > 0 && clientTimestamp < serverTimestamp) {
+        if (serverTimestamp > 0 && clientTimestamp !== serverTimestamp) {
           return new Response(JSON.stringify({ error: "Conflict", latestData: existingData }), {
             status: 409,
             headers: {
