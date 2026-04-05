@@ -1,117 +1,122 @@
-# RadPlan — Klinik für Radiologie & Nuklearmedizin
-## Intelligente Dienst- und Einsatzplanung v3.0
-
-RadPlan ist eine hochspezialisierte Web-Anwendung zur automatisierten und manuellen Dienstplanung für radiologische Kliniken. Sie kombiniert ein responsives, premium-orientiertes User-Interface (UI) mit einem fortschrittlichen, regelbasierten heuristischen Algorithmus zur fairen Verteilung von Diensten unter Berücksichtigung komplexer klinischer Anforderungen.
-
----
-
-## 1. Systemübersicht & Designphilosophie
-
-RadPlan wurde nach dem **Glassmorphism-Design-Prinzip** entwickelt. Die Benutzeroberfläche ist darauf ausgelegt, maximale Informationsdichte bei gleichzeitig hoher Ästhetik zu bieten.
-
-### UI/UX-Kernfeatures:
-*   **Smart-Hybrid-Scrolling:** 
-    *   Horizontaler Bildlauf für das Kalender-Raster.
-    *   Automatisches Umschalten auf vertikalen Bildlauf, sobald sich der Mauszeiger über der Mitarbeiterspalte befindet.
-    *   Explizite vertikale Steuerung im Raster durch Halten der `Shift`-Taste.
-*   **Adaptive Viewport-Synchronisation:** Die Anwendung berechnet die verfügbare Höhe (`--app-vh`) dynamisch bei jeder Fenstergrößenänderung, um den Viewport unabhängig von Browser-Symbolleisten oder DevTools-Docks optimal auszunutzen.
-*   **Visuelle Hierarchie:** 
-    *   Wochenenden und Feiertage sind farblich (Blautöne/Violett) hervorgehoben.
-    *   Der aktuelle Tag wird durch eine pulsierende Animation markiert.
-    *   Einsatzorte (CT, MRT, US) und Status (Urlaub, Krank, FZA) nutzen ein konsistentes Farbschema für sofortige Erfassbarkeit.
+# Systemarchitektur & Technische Dokumentation: RadPlan
+**Zustand:** Vollständig integrierte Single-Page-Application (PWA).
+**Fokus:** Datengetriebenes Dienstplanmanagement, algorithmische Allokation (Neural Scheduler), responsive Visualisierung.
 
 ---
 
-## 2. Datenmodell & Entitäten
+## 1. Architektonischer Befund (Core & State Management)
 
-### 2.1 Mitarbeiter-Meta-Daten (`EMP_META`)
-Jeder Mitarbeiter ist mit spezifischen Rollen und Attributen hinterlegt:
-*   **CA (Chefarzt):** Prof. Schäfer (vom Regeldienst befreit).
-*   **LOA (Leitender Oberarzt):** Dr. Lurz (spezifische Aufgaben in der MRT/KV-Radiologie).
-*   **OA/OÄ (Oberärzte):** Dr. Polednia (Kinderradiologie), Fr. Dalitz (Mammographie), Dr. Becker (CT).
-*   **FA/FÄ (Fachärzte):** Dr. Martin.
-*   **AA/AÄ (Assistenzärzte):** Hr. El Houba, Fr. Licenji, Hr. Torki, Hr. Sebastian.
+**Technologischer Stack:** Vanilla JavaScript (ES6 Module), HTML5, CSS3. Keine externen UI-Frameworks (Ausnahme: GSAP für Animationen).
+**State Management:** Zentralisiertes, reaktives State-Objekt (`state.js`). Datenpersistenz via `localStorage` (Key: `radplan_v3`).
+**Synchronisation:** Local-First-Ansatz mit asynchroner Server-Synchronisation (`/api`). Konfliktresolution via `lastModified`-Zeitstempel. Expliziter Force-Sync überschreibt lokale Entwürfe. Auto-Save-Debouncing (120ms).
+**Datenmodellierung (`model.js`, `constants.js`):**
+* Monatsbasierte Schlüssel (`YYYY-M`).
+* **Struktur:** `DATA[monthKey] = { employees: [], assignments: {}, rbn: {} }`.
+* **Stammdaten (`EMP_META`):** Hierarchische Klassifizierung (CA, LOA, OA, FA, AA) mit Definition von Vertretungen und spezifischen Einsatzbereichen.
+* **Kodierung:**
+    * **Arbeitsplätze:** MR, CT, US, AN, MA, KUS, W, T.
+    * **Status:** F (Frei), U (Urlaub), ZU, SU, FZA, K (Krank), KK, §15c, WB.
+    * **Dienste:** D (Bereitschaftsdienst), HG (Hintergrunddienst).
+* **Feiertagslogik:** Dynamische Berechnung der sächsischen Feiertage inkl. variabler Feiertage (Ostern, Pfingsten, Buß- und Bettag) via Gaußscher Osterformel.
 
-### 2.2 Diensttypen & Codes
-*   **Einsatzorte (`WORKPLACES`):** MR (MRT), CT, US (Sonographie), AN (Angiographie), MA (Mammo), KUS (Ki-US), W (Wermsdorf), T (Teleradiologie).
-*   **Dienste (`DUTIES`):**
-    *   **D (Bereitschaftsdienst / BD):** Präsenzdienst vor Ort.
-    *   **HG (Hintergrunddienst):** Hintergrundrufbereitschaft (nur Fachärzte).
-*   **Abwesenheiten (`ABSENCES`):** U (Urlaub), ZU (Zusatzurlaub), SU (Sonderurlaub), FZA (Freizeitausgleich), K (Krank), KK (Kind Krank), §15c, WB (Weiterbildung).
+## 2. Benutzeroberfläche & Interaktionsdesign (Views & UI)
 
----
+**Designsprache:** Glassmorphism-Elemente, klinisch-präzise Typographie (IBM Plex Mono/Sans), farbkodierte Entitäten (D = Rot, HG = Blau, Positionen differenziert).
+**Responsive Layout (`render.js`):**
+* **Desktop:** Matrix-Tabelle. Dynamische Sticky-Headers.
+* **Mobile (< 600px):** Transformation in Listenansicht (`mobile-day-card`). Touch-optimierte Bottom-Navigation. Berücksichtigung von `visualViewport` für korrekte Tastatur-Insets.
+**Komponenten:**
+* **Context-Menu (`contextmenu.js`):** Rechtsklick-Aktionsmenü für MA-Zeilen (Profil, Löschen, Kaskadierendes Löschen).
+* **Editor-Modal:** Mehrfachauswahl für Arbeitsplätze, exklusive Statusauswahl. Warnsystem bei Dienstkonflikten (z.B. Folgetag ist Urlaub).
+* **Employee Dashboard:** Analytische Auswertung (KPIs, Jahreskalender, Monatsverlauf). Dynamische Team-Analytics (Rolling 12M, Quartal) mit Filterung nach Rollen. Abdeckungsraten-Berechnung.
+* **Abteilungsübersicht:** Aggregierte Matrix für Monat und Jahr. Visualisierung der Modalitätenabdeckung (MR/CT) prozentual.
+* **Neural Graph (`neuralgraph.js`):** 3D-Matrix-Visualisierung (Canvas/CSS3D) der Algorithmus-Zyklen. Darstellung von Swaps (🔀) und Zuweisungen in Echtzeit inkl. Minimap.
 
-## 3. Der „Neural“ Autoplan-Algorithmus
+## 3. Workflow-Logik & Planungsmodus (Controller)
 
-Der Kern von RadPlan ist ein mehrphasiger heuristischer Planungsalgorithmus (`autoplan.js`), der darauf optimiert ist, ein globales Minimum an „Unfairness“ zu finden.
-
-### 3.1 Die Gewichtungs-Logik (Fairness-Scoring)
-Jeder potenzielle Dienst wird mit einem Score bewertet. Ein hoher Score bedeutet hohe Eignung.
-*   **Zielerfüllung (+5000 pro fehlendem Dienst):** Priorisiert Personen, die ihr monatliches Soll noch nicht erreicht haben.
-*   **Wünsche (+220 / +500):** Explizite Wünsche (BD Wunsch / HG Wunsch) werden stark priorisiert.
-*   **Wochenend-Spreizung (-1000 bis -15000):** Starke Abzüge bei Verletzung des Puffer-Abstands zwischen Wochenenddiensten.
-*   **Historieneffekt:** Einbeziehung der Vormonate, um langfristige Gerechtigkeit (z.B. Feiertagsdienste über Jahre hinweg) sicherzustellen.
-
-### 3.2 Die harten Regeln (Constraints)
-Der Algorithmus verwirft Kandidaten sofort (`-Infinity`), wenn:
-1.  **Dienst-Abstand:** Keine zwei Dienste (D/D oder D/HG) an aufeinanderfolgenden Tagen (Ausnahme: Bestimmte HG-Kopplungen).
-2.  **Sabbat-Regel:** Nach einem BD folgt zwingend ein Ruhetag (Code `F`).
-3.  **Abwesenheit:** Kein Dienst bei Urlaub, Krankheit oder gesetztem FZA.
-4.  **Qualifikation:** Nur Fachärzte (FA) dürfen Hintergrunddienst (HG) leisten.
-5.  **Spezialregel Dr. Polednia:** Keine Dienste an Tagen mit Kinderradiologie-Verpflichtungen (Mo, Mi, Fr).
-6.  **CT-Leitungskonflikt:** Dr. Becker und Dr. Martin dürfen nicht gleichzeitig abwesend oder im Dienst-Ausgleich sein, um die CT-Supervision zu gewährleisten.
-7.  **Mammographie-Konflikt:** Fr. Dalitz darf keinen HG leisten, wenn bestimmte Assistenzärzte (El Houba/Sebastian) im BD sind (Supervisions-Spezialisierung).
-
-### 3.3 Der Planungs-Zyklus (Phasen)
-1.  **Initialization:** Analyse der Historie und Initialisierung der Zielwerte.
-2.  **Weekend BD:** Verteilung der wertvollsten Dienste (Freitag/Samstag/Sonntag/Feiertag).
-3.  **Workday BD:** Auffüllen der Werktage.
-4.  **HG-Gekoppelt (Intelligente Kopplung):**
-    *   Ein Facharzt im Samstags-BD übernimmt automatisch den Sonntags-HG.
-    *   Ein Facharzt im Freitags-BD übernimmt oft den Freitags-HG (Reduktion der beteiligten Personen am Wochenende).
-5.  **HG-Assign:** Verteilung der verbleibenden HG-Dienste durch Fairness-Maximierung.
-6.  **Deep Moves (Optimierung):** In bis zu 25 Zyklen werden bestehende Dienste zwischen berechtigten Personen getauscht, um den globalen Spread (Abweichung vom Durchschnitt) weiter zu minimieren.
+**Zwei-Phasen-Konzept:**
+* **Hauptplan:** Live-Daten, sofortige Persistierung.
+* **Planungsmodus:** Isolierte Sandbox (Deep Copy der `DATA`).
+* **History-Management:** Stack-basiertes Undo/Redo (Strg+Z / Strg+Y). Status-Tracking via `planSessions`.
+* **Wunsch-System:** Integration von `BD_WISH`, `HG_WISH` und `NO_DUTY`. Berücksichtigung primär im Planungsmodus.
+* **Automatisierte Nachbereitung:** Obligate Generierung von "F" (Frei) am Folgetag eines Bereitschaftsdienstes (`ensurePostBDFreiDays`).
 
 ---
 
-## 4. Spezial-Logiken im Detail
+## 4. Algorithmische Evaluierung: RadPlan Neural Scheduler (`autoplan.js`)
 
-### 4.1 Die Samstags-Kompensation (Dr. Becker)
-Aufgrund gesetzlicher Ruhezeiten und klinischer Supervision wird bei einem Samstags-BD von Dr. Becker automatisch geprüft, ob der folgende Montag als FZA blockiert werden kann. Falls der Montag bereits durch Urlaub anderer Fachärzte blockiert ist, generiert das System eine **Kritische Warnung**, anstatt den Plan fälschlicherweise als „perfekt“ zu markieren.
+**Zweck:** Vollautomatisierte, heuristikbasierte und fair-balancierte Dienstallokation.
+**Architektur:** Multi-Zyklus-Optimierung bestehend aus Constraint-Analyse, Greedy-Zuweisung, Hintergrund-Kopplung und Deep-Search-Metaheuristiken.
 
-### 4.2 RD Neurorad (Spezial-Zeile)
-Die Zeile „RD Neurorad“ ist eine virtuelle Zeile am Ende der Tabelle. Sie dient der Dokumentation von Fremdleistungen oder spezifischen Neuroradiologie-Zuweisungen. Sie nimmt nicht am Autoplan teil, bleibt aber beim vertikalen Scrollen als Anker am Ende der Liste bestehen.
+### 4.1 Harte Restriktionen (Hard Constraints - Penalty: ∞)
+* **Befreiungen:** Definition exkludierter MA (z.B. Prof. Schäfer).
+* **Abwesenheiten:** Ausschluss bei Urlaub (U, ZU, SU), Krankheit (K, KK), Weiterbildung (WB) oder FZA.
+* **Dienst-Kontinuität:** Verbot von D-D (Folgetag-Sperre). Verbot von Direktdiensten (HG-HG an Folgetagen), es sei denn explizit als Wochenend-Kopplung erlaubt.
+* **Urlaubs-Sperre:** Kein D-Dienst, wenn der Folgetag Urlaub ist.
+* **Wunsch-Sperre:** Berücksichtigung von `NO_DUTY`.
+* **Rollen-Sperre:** Samstags-D ausschließlich durch Fachärzte (FÄ). HG ausschließlich durch FÄ. Dr. Polednia-Sperre für So, Di, Do.
+* **Klinische Sonderkonflikte:**
+    * **CT-Leitung:** Dr. Becker und Dr. Martin dürfen nicht zeitgleich ausfallen. (Wenn einer Urlaub hat, darf der andere keinen BD machen, der einen F-Tag erzwingt).
+    * **Mammographie:** Fr. Dalitz übernimmt keinen HG an So/Mo, wenn Hr. Torki/Sebastian den BD haben (vermeidet Ausfall der Mamma-Sprechstunde).
+* **Block-Restriktionen:** Ostern/Pfingsten-Regel (Wer Ostern arbeitet, ist Pfingsten gesperrt und vice versa, inklusive monatsübergreifender Prüfung).
 
-### 4.3 F-Tage-Automatik
-Das System erkennt automatisch erforderliche Ruhetage nach Bereitschaftsdiensten. Diese werden als temporäre „Auto-F“ markiert. Wenn ein Dienst manuell verschoben wird, „wandert“ der Ruhetag intelligent mit oder löscht sich selbst, falls er nicht mehr benötigt wird.
+### 4.2 Scoring-Modell: Bereitschaftsdienst (D)
+Initialer Base-Score: **100**. Subtraktion bei Verstößen, Addition bei positiven Parametern.
+* **Target-Fulfillment:** Abweichung vom Soll (Standard: 4, spez. MA: 3). Defizit bringt Bonus (+5000/Dienst), Überschuss massiven Malus (-50000).
+* **Wunscherfüllung:** `BD_WISH` generiert **+220** Punkte.
+* **Urlaubsvorbereitung:** BD am Donnerstag vor Urlaubswoche generiert **+150** Punkte.
+* **Wochenend-Balancierung:**
+    * Ziel: `TARGET_WEEKEND_DUTY` (1.0).
+    * Abweichung wird bestraft (Delta × 220).
+    * Überschreiten des `RELAXED_WEEKEND_DUTY_LIMIT` (1.5) ergibt harten Penalty (**-1000** pro Dienst).
+    * Aufeinanderfolgende Wochenenden (Consecutive WE) bestraft mit **-1500**.
+    * Historischer Ausgleich: Abweichung vom Durchschnitt der historischen WE-Dienste (-5 pro Dienst).
+* **Samstags-Priorität (FÄ):**
+    * Doppel-Samstage bestraft (**-25000**).
+    * Erster Samstag generiert Bonus (**+5000**).
+    * Abweichung vom FÄ-Durchschnitt ergibt Malus (-1500).
+* **Distanz-Wahrung:** Distanz < 4 Tage ergibt Malus (Delta × 250).
+* **D-F-D-F Vermeidung:** Weicher Penalty (**-500**) für zersplitterte Einsatzmuster.
+* **Feiertags-Ausgleich:** Historisches Defizit an Feiertagsdiensten gibt Bonus (+6 pro historischem Defizit).
+* **Deterministischer Jitter:** Pseudo-Zufall via CharCode zur Vermeidung von Endlosschleifen (+0.0 bis +0.9 Punkte).
+
+### 4.3 Scoring-Modell: Hintergrunddienst (HG)
+Initialer Base-Score: **100**.
+* **Proportionale Balance:** Idealer HG-Wert wird gekoppelt an BD-Aktivität berechnet `IdealHG = DurchschnittHG + (DurchschnittBD - AktuellerBD) * 1.0`. Abweichungen bestraft (**-10000** pro Abweichung).
+* **Wunscherfüllung:** `HG_WISH` ergibt **+500**.
+* **Urlaubs-Folgetag:** HG direkt vor Urlaub bestraft (**-100**).
+* **Wochenend-Regeln:** Analog zu BD (Zielerreichung, Maxima-Sperre, Consecutive-WE).
+* **Distanz:** Distanz < 3 Tage wird stark bestraft (**-8000**).
+* **Adjazenz:** Vermeidung von HG-HG an aufeinanderfolgenden Tagen (**-25000**), außer bei systemischen Kopplungen.
+
+### 4.4 Ausführungs-Phasen des Algorithmus
+1.  **Phase 1 (Init):** Laden historischer Daten. Auto-F Reparatur bestehender Dienste. Evaluierung Ostern/Pfingsten.
+2.  **Phase 2 (WE/Hol BD):** Greedy-Allokation der Wochenend/Feiertags-BDs nach höchstem Score. Fallback auf gelockerte Regeln bei `null` Kandidaten. Spezialregel Dr. Becker: Samstags-Dienst erzwingt automatisierten FZA am Folgewerktag (inkl. Kollisionsprüfung mit anderen FÄ).
+3.  **Phase 3 (Workday BD):** Greedy-Allokation der verbleibenden Werktags-BDs.
+4.  **Phase 4 (HG-Bundling):** Harte Kopplung von Diensten zur Effizienzsteigerung.
+    * *Freitags-Regel:* Hat ein AA am Fr. BD, erhält der FA des Sa.-BD den HG für Fr.
+    * *Samstags-Regel:* FA mit Sa.-BD erhält zwingend den So.-HG.
+    * *Feiertags-Regel:* AA hat Vor-Feiertags-BD -> FA des Feiertags-BD erhält Vor-Feiertags-HG.
+5.  **Phase 5 (HG-Assign):** Greedy-Verteilung der restlichen HG-Dienste.
+6.  **Phase 6 (Optimization Cycles):** Bis zu 25 Zyklen Metaheuristik.
+    * `BD_MAX_PASSES` (80): Swap-Versuche für BD. Evaluierung gegen `computeBDObjective()`.
+    * `HG_MAX_PASSES` (120): Swap-Versuche für HG. Evaluierung gegen `computeHGObjective()`.
+    * `DEEP_MAX_PASSES` (150): Kreuz-Optimierung und Move-Evaluierung gegen `computeGlobalObjective()`.
+7.  **Phase 7 (Coverage Repair):** Zwangsbesetzung von Lücken (ignoriert weiche Constraints), falls Optimierung fehlschlägt.
+
+### 4.5 Objektiv-Funktionen (Global Fitness)
+* **Coverage Penalty:** Fehlender Dienst (+25000 D, +18000 HG). Doppelbesetzung (+100000).
+* **BD-Objective:** Bestraft Target-Defizite exponentiell (Diff² × 25000). Bestraft Spread. Bestraft Distanz < 3 (+15000). Becker-Samstag Penalty (+40000).
+* **HG-Objective:** Bestraft Abweichung vom Ideal exponentiell (Diff² × 25000). Bestraft HG-Ballung (Dichte > 1 in 3 Tagen: +12000). Bestraft HG für AA vs FA Disbalancen.
+
+### 4.6 Ergebnis-Evaluation & Neural Fitness Index (NFI)
+* Basis 100.0.
+* **Abzüge:** Lücken BD (-15.0), Lücken HG (-10.0), BD-Spread > 1 (-2.5 pro Punkt), HG-Spread > 1 (-1.5), WE-Spread > 1 (-2.0), Rechenkosten/Deep-Moves (-0.005 pro Move).
+* **Bonus:** Wunscherfüllung (+5.0 * Quote).
+* Rückgabe eines strukturierten Report-Objekts inkl. Telemetrie, Logs und Warnings (Kritische Warnung z.B. bei FZA-Kollision Dr. Becker).
 
 ---
 
-## 5. Technische Architektur
+## 5. Beurteilung
 
-### 5.1 State Management (`state.js`)
-Die Anwendung nutzt ein zentrales reaktives State-Objekt. Alle Änderungen an `planData` lösen über `render.js` ein effizientes UI-Update aus. 
-
-### 5.2 Persistenz
-*   **LocalStorage:** Primärer Speicher ist der Browser (`radplan_v3`).
-*   **Backup/Export:** Pläne können als JSON exportiert und importiert werden, um Versionsstände lokal zu sichern.
-
-### 5.3 Rendering-Pipeline
-Das System nutzt kein schwerfälliges Framework wie React, sondern eine hochperformante **Vanilla-JS DOM-Diffing-Strategy**:
-1.  Berechnung des virtuellen Grids.
-2.  Batch-Update der Tabellenzellen.
-3.  Asynchrone Animation der Fortschrittsbalken im Neural-Scheduler via **GSAP**.
-
----
-
-## 6. Glossar der Entscheidungsschritte
-
-| Schritt | Aktion | Ziel |
-| :--- | :--- | :--- |
-| **Pre-Check** | Suche nach fixierten Diensten | Respektierung manueller Vorgaben |
-| **History-Sync** | Abgleich mit den letzten 6 Monaten | Vermeidung von "Dienst-Pechsträhnen" |
-| **Gap-Analysis** | Prüfung der Abstände | Minimierung von Überlastung |
-| **Deep-Swap** | Probetäusche von Diensten | Finden des globalen Fairness-Optimums |
-
----
-*RadPlan — Entwickelt für höchste Präzision in der medizinischen Ressourcenplanung.*
+Die Applikation implementiert eine hochkomplexe, heuristische Dienstplanungs-Engine innerhalb einer autarken, Browser-basierten PWA. Der Algorithmus (`autoplan.js`) demonstriert eine exzellente Abstraktion klinischer Restriktionen (z.B. Mammographie-Sperren, CT-Leitungskonflikte, §15c-Berücksichtigung) in ein mathematisches Scoring-Modell. Die strikte Trennung von Model (`DATA`), State (`planSessions`) und View (`render.js`), gepaart mit einer reaktiven 3D-Visualisierung (`neuralgraph.js`), sichert eine professionelle, echtzeitfähige und ausfallsichere Betriebsplanung ohne externe Server-Abhängigkeiten im Kernprozess. Explizite Negativbefunde (z.B. fehlende Dienste, Regelbrüche) werden transparent im NFI abgebildet und erzwingen eine menschliche Re-Evaluation.
