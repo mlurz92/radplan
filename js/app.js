@@ -1407,17 +1407,17 @@ export function renderProgressShell() {
         </div>
       </div>
 
-      <div class="ap-engine-main" style="flex:1; min-height:0; display:flex; gap:10px;">
-        <div class="ap-neural-view" style="flex:1; position:relative; min-width:0; min-height:0;">
+      <div class="ap-engine-main" style="flex:1; min-height:0; display:flex; gap:16px;">
+        <div class="ap-neural-view">
           <div id="ap-neural-container" style="position:absolute; top:0; left:0; width:100%; height:100%;"></div>
           <div class="ap-neural-vignette" style="pointer-events:none;"></div>
         </div>
 
-        <div class="ap-terminal ap-terminal-deep" style="flex:1; display:flex; flex-direction:column; min-width:0; min-height:0;">
-          <div class="ap-term-header" style="flex-shrink:0;">
+        <div class="ap-terminal ap-terminal-deep">
+          <div class="ap-term-header">
             <span class="ap-term-title">Trace Console</span>
           </div>
-          <div class="ap-term-body" id="ap-term-body" style="flex:1; overflow-y:auto; min-height:0;"></div>
+          <div class="ap-term-body" id="ap-term-body"></div>
         </div>
       </div>
     </div>

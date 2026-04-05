@@ -13,8 +13,8 @@ function injectStyles() {
       justify-content: center;
       overflow: hidden;
       background: transparent;
-      padding: 16px;
-      perspective: 1000px;
+      padding: 24px;
+      perspective: 1200px;
     }
     .ng-matrix-grid {
       display: grid;
@@ -23,77 +23,117 @@ function injectStyles() {
       grid-auto-rows: 1fr;
       will-change: transform;
       transform-style: preserve-3d;
-      transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+      transition: transform 0.8s cubic-bezier(0.23, 1, 0.32, 1);
     }
     .ng-flat-cell {
-      border-radius: 6px;
+      border-radius: 10px;
       position: relative;
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 
+        0 4px 6px rgba(0, 0, 0, 0.3),
+        inset 0 1px 1px rgba(255, 255, 255, 0.05);
       display: flex;
-      align-items: center;
-      justify-content: center;
+      flex-direction: column;
       overflow: hidden;
       will-change: transform, background-color, box-shadow, border-color;
       transform-style: preserve-3d;
-      transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease;
+      transition: 
+        transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+        background-color 0.3s ease, 
+        box-shadow 0.3s ease, 
+        border-color 0.3s ease;
       backface-visibility: hidden;
-      background: rgba(15, 23, 42, 0.8);
-      border: 1px solid rgba(56, 189, 248, 0.15);
-      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05), inset 0 -2px 4px rgba(0, 0, 0, 0.4), 0 4px 6px rgba(0, 0, 0, 0.2);
     }
     .ng-flat-cell.rest {
-      transform: translateZ(0) rotateX(2deg) rotateY(-2deg);
+      transform: translateZ(0) rotateX(4deg) rotateY(-4deg);
     }
     .ng-flat-cell.pulse {
-      transform: translateZ(28px) scale(1.08) rotateX(0deg) rotateY(0deg);
-      z-index: 10;
-      box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.25), inset 0 -2px 4px rgba(0, 0, 0, 0.2), 0 14px 28px rgba(0, 0, 0, 0.6), 0 0 18px var(--pulse-color, transparent);
+      transform: translateZ(40px) scale(1.05) rotateX(0deg) rotateY(0deg);
+      z-index: 50;
+      background: rgba(15, 23, 42, 0.7);
+      border-color: var(--pulse-color, rgba(56, 189, 248, 0.4));
+      box-shadow: 
+        0 15px 35px rgba(0, 0, 0, 0.5),
+        0 0 20px var(--pulse-color, transparent);
     }
     .ng-flat-cell.error {
-      transform: translateZ(12px) scale(1.02) rotateX(-8deg) rotateY(12deg);
-      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2), 0 8px 20px rgba(239, 68, 68, 0.3), 0 0 12px rgba(239, 68, 68, 0.4);
+      transform: translateZ(20px) rotateX(-10deg) rotateY(15deg);
+      background: rgba(127, 29, 29, 0.4);
+      border-color: #ef4444;
+      box-shadow: 0 10px 25px rgba(239, 68, 68, 0.3);
     }
     .ng-day-number {
       position: absolute;
-      top: 4px;
-      left: 6px;
+      top: 6px;
+      left: 8px;
       font-family: var(--font-mono, monospace);
-      font-size: 10px;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.3);
+      font-size: 11px;
+      font-weight: 800;
+      color: rgba(255, 255, 255, 0.2);
       pointer-events: none;
-      user-select: none;
-      transform: translateZ(6px);
+      z-index: 5;
     }
-    .ng-duty-wrap {
+    .ng-slots-container {
+      flex: 1;
       display: flex;
       flex-direction: column;
+      padding: 4px;
+      gap: 4px;
+      margin-top: 18px;
+    }
+    .ng-slot {
+      flex: 1;
+      position: relative;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      display: flex;
       align-items: center;
       justify-content: center;
-      gap: 2px;
-      pointer-events: none;
-      width: 100%;
-      transform: translateZ(14px);
+      transition: all 0.3s ease;
+      overflow: hidden;
     }
-    .ng-emp-label {
+    .ng-slot::before {
+      content: attr(data-label);
+      position: absolute;
+      left: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: var(--font-mono, monospace);
+      font-size: 8px;
+      font-weight: 900;
+      color: rgba(255, 255, 255, 0.1);
+      letter-spacing: 0.1em;
+    }
+    .ng-slot.active-d {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.3);
+      box-shadow: inset 0 0 10px rgba(239, 68, 68, 0.1);
+    }
+    .ng-slot.active-hg {
+      background: rgba(14, 165, 233, 0.15);
+      border-color: rgba(14, 165, 233, 0.3);
+      box-shadow: inset 0 0 10px rgba(14, 165, 233, 0.1);
+    }
+    .ng-slot-emp {
       font-family: var(--font-mono, monospace);
       font-size: 11px;
       font-weight: 800;
       color: transparent;
-      transition: color 0.2s, text-shadow 0.2s;
-      user-select: none;
-      letter-spacing: 0.05em;
-      line-height: 1;
       text-align: center;
-      min-height: 11px;
+      letter-spacing: 0.02em;
+      transition: all 0.3s ease;
+      transform: translateZ(5px);
     }
-    .ng-flat-cell.pulse .ng-emp-label {
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+    .ng-slot.has-val .ng-slot-emp {
+      color: #fff;
+      text-shadow: 0 0 8px currentColor;
     }
-    .ng-emp-d {
-      color: transparent;
-    }
-    .ng-emp-hg {
-      color: transparent;
+    .ng-slot.is-pulsing {
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 0 15px var(--pulse-color);
     }
   `;
   document.head.appendChild(style);
@@ -147,7 +187,7 @@ export class NeuralGraph {
     const rows = Math.ceil(daysCount / cols);
     this.gridFloat.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
     this.gridFloat.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
-    this.gridFloat.style.gap = `5px`;
+    this.gridFloat.style.gap = `8px`;
 
     for (let d = 1; d <= daysCount; d++) {
       const cell = document.createElement('div');
@@ -157,25 +197,35 @@ export class NeuralGraph {
       dayLabel.className = 'ng-day-number';
       dayLabel.textContent = d;
 
-      const dutyWrap = document.createElement('div');
-      dutyWrap.className = 'ng-duty-wrap';
+      const slotsContainer = document.createElement('div');
+      slotsContainer.className = 'ng-slots-container';
 
-      const dLabel = document.createElement('div');
-      dLabel.className = 'ng-emp-label ng-emp-d';
-      dLabel.textContent = ''; 
+      const dSlot = document.createElement('div');
+      dSlot.className = 'ng-slot slot-d';
+      dSlot.setAttribute('data-label', 'D');
+      const dEmp = document.createElement('span');
+      dEmp.className = 'ng-slot-emp';
+      dSlot.appendChild(dEmp);
 
-      const hgLabel = document.createElement('div');
-      hgLabel.className = 'ng-emp-label ng-emp-hg';
-      hgLabel.textContent = ''; 
+      const hgSlot = document.createElement('div');
+      hgSlot.className = 'ng-slot slot-hg';
+      hgSlot.setAttribute('data-label', 'HG');
+      const hgEmp = document.createElement('span');
+      hgEmp.className = 'ng-slot-emp';
+      hgSlot.appendChild(hgEmp);
       
-      dutyWrap.appendChild(dLabel);
-      dutyWrap.appendChild(hgLabel);
+      slotsContainer.appendChild(dSlot);
+      slotsContainer.appendChild(hgSlot);
       
       cell.appendChild(dayLabel);
-      cell.appendChild(dutyWrap);
+      cell.appendChild(slotsContainer);
       this.gridFloat.appendChild(cell);
       
-      this.cells.set(d, { el: cell, dLabel, hgLabel });
+      this.cells.set(d, { 
+        el: cell, 
+        dSlot, dEmp, 
+        hgSlot, hgEmp 
+      });
     }
   }
 
@@ -223,23 +273,19 @@ export class NeuralGraph {
 
   getAbbreviation(empId) {
     if (!empId) return '';
-    // Strip academic titles and honorifics
     const stripped = String(empId)
-      .replace(/^(Herr|Frau|Hr\.|Fr\.|Dr\.\s*(med\.\s*)?|Prof\.\s*(Dr\.\s*(med\.\s*)?)?|PD\s+Dr\.\s*(med\.\s*)?|Dipl\.\s*\w+\.\s*)/gi, '')
+      .replace(/^(Herr|Frau|Hr\.|Fr\.|Dr\.\s*(med\.\s*)?|Prof\.\s*(Dr\.\s*(med\.\s*)?|med\.\s*)?|PD\s+Dr\.\s*(med\.\s*)?|Dipl\.\s*\w+\.\s*)/gi, '')
       .trim();
     const parts = stripped.split(/\s+/);
     if (parts.length <= 1) {
       return stripped.replace(/\s/g, '').substring(0, 3).toUpperCase();
     }
-    // Check if any word starts a surname prefix
     const surnamePrefixes = ['el','al','van','von','de','le','la','di','lo','del','dal','bin','ben','abu'];
     const firstPartLower = parts[0].toLowerCase();
     
     if (surnamePrefixes.includes(firstPartLower)) {
-      // El Houba case
       return parts.join('').substring(0, 3).toUpperCase();
     }
-    // Last word is usually the surname: Markus M. Lurz -> Lurz
     const surname = parts[parts.length - 1];
     return surname.substring(0, 3).toUpperCase();
   }
@@ -248,63 +294,51 @@ export class NeuralGraph {
     const cellData = this.cells.get(dayIdx);
     if (!cellData) return;
     
-    const { el, dLabel, hgLabel } = cellData;
+    const { el, dSlot, dEmp, hgSlot, hgEmp } = cellData;
+    const targetSlot = dutyType === "HG" ? hgSlot : dSlot;
+    const targetEmp = dutyType === "HG" ? hgEmp : dEmp;
 
     if (empId && empId !== "SWAP") {
-      if (dutyType === "HG") {
-        hgLabel.textContent = this.getAbbreviation(empId);
-      } else {
-        dLabel.textContent = this.getAbbreviation(empId);
-      }
+      targetEmp.textContent = this.getAbbreviation(empId);
+      targetSlot.classList.add('has-val');
     } else if (empId === "SWAP") {
-      if (dutyType === "HG") {
-        hgLabel.textContent = "SWP";
-      } else {
-        dLabel.textContent = "SWP";
-      }
+      targetEmp.textContent = "SWP";
+      targetSlot.classList.add('has-val');
     }
 
     if (isActive) {
-      const color = isError ? 'rgba(239, 68, 68, 0.2)' : this.getPhaseColor(0.2);
-      const borderColor = isError ? 'rgba(239, 68, 68, 0.8)' : this.getPhaseColor(0.8);
+      const color = isError ? 'rgba(239, 68, 68, 0.4)' : this.getPhaseColor(0.4);
+      const borderColor = isError ? 'rgba(239, 68, 68, 0.9)' : this.getPhaseColor(0.9);
       
       el.classList.remove('rest');
-      
-      if (isError) {
-        el.classList.add('error');
-      } else {
-        el.classList.add('pulse');
-      }
+      el.classList.add(isError ? 'error' : 'pulse');
       
       el.style.setProperty('--pulse-color', borderColor);
-      el.style.background = color;
-      el.style.borderColor = borderColor;
+      targetSlot.classList.add('is-pulsing');
+      targetSlot.style.setProperty('--pulse-color', borderColor);
 
-      if (dutyType === "HG" && hgLabel.textContent) {
-        hgLabel.style.color = '#ffffff';
-      }
-      if (dutyType === "D" && dLabel.textContent) {
-        dLabel.style.color = '#ffffff';
+      if (dutyType === "HG") {
+        targetSlot.classList.add('active-hg');
+        targetEmp.style.color = '#fff';
+      } else {
+        targetSlot.classList.add('active-d');
+        targetEmp.style.color = '#fff';
       }
     } else {
-      el.classList.remove('pulse');
-      el.classList.remove('error');
-      
-      el.style.setProperty('--pulse-color', 'transparent');
-      el.style.background = 'rgba(15, 23, 42, 0.8)';
-      el.style.borderColor = 'rgba(56, 189, 248, 0.15)';
-      
+      el.classList.remove('pulse', 'error');
       el.classList.add('rest');
+      
+      targetSlot.classList.remove('is-pulsing', 'active-hg', 'active-d');
+      
+      if (dutyType === "HG") {
+        targetEmp.style.color = targetSlot.classList.contains('has-val') ? '#0EA5E9' : 'transparent';
+      } else {
+        targetEmp.style.color = targetSlot.classList.contains('has-val') ? '#EF4444' : 'transparent';
+      }
 
-      if (dLabel.textContent && dLabel.textContent !== "SWP") {
-        dLabel.style.color = '#EF4444'; 
-      }
-      if (hgLabel.textContent && hgLabel.textContent !== "SWP") {
-        hgLabel.style.color = '#0EA5E9';
-      }
       if (empId === "SWAP") {
-        if (dutyType === "HG") hgLabel.textContent = "";
-        else dLabel.textContent = "";
+        targetEmp.textContent = "";
+        targetSlot.classList.remove('has-val');
       }
     }
   }
@@ -313,7 +347,7 @@ export class NeuralGraph {
     this.pulses.push({
       progress: 0,
       color: isError ? 'rgba(239, 68, 68, 1)' : this.getPhaseColor(1),
-      speed: 0.04 + Math.random() * 0.04,
+      speed: 0.05 + Math.random() * 0.05,
       direction: Math.random() > 0.5 ? 1 : -1
     });
   }
@@ -326,7 +360,7 @@ export class NeuralGraph {
       if (this.phase !== 'success') {
         this.pulseCell(dayIdx, newEmpId, false, false, dutyType);
       }
-    }, 400);
+    }, 450);
   }
 
   triggerAssignment(dayIdx, empId, dutyType = "D") {
@@ -337,7 +371,7 @@ export class NeuralGraph {
       if (this.phase !== 'success') {
         this.pulseCell(dayIdx, empId, false, false, dutyType);
       }
-    }, 400);
+    }, 450);
   }
 
   triggerError(dayIdx, empId, dutyType = "D") {
@@ -353,7 +387,7 @@ export class NeuralGraph {
         this.phase = this.basePhase || 'init';
       }
       this.pulseCell(dayIdx, empId, false, false, dutyType);
-    }, 300);
+    }, 350);
   }
 
   setPhase(phase) {
@@ -373,12 +407,14 @@ export class NeuralGraph {
           const cellData = this.cells.get(dayIdx);
           if (cellData && data.duty) {
             if (data.duty === "D") {
-               cellData.dLabel.textContent = this.getAbbreviation(emp);
-               cellData.dLabel.style.color = '#EF4444';
+               cellData.dEmp.textContent = this.getAbbreviation(emp);
+               cellData.dSlot.classList.add('has-val');
+               cellData.dEmp.style.color = '#EF4444';
             }
             if (data.duty === "HG") {
-               cellData.hgLabel.textContent = this.getAbbreviation(emp);
-               cellData.hgLabel.style.color = '#0EA5E9';
+               cellData.hgEmp.textContent = this.getAbbreviation(emp);
+               cellData.hgSlot.classList.add('has-val');
+               cellData.hgEmp.style.color = '#0EA5E9';
             }
           }
         }
@@ -387,28 +423,23 @@ export class NeuralGraph {
 
     let delay = 0;
     for (const [dayIdx, cellData] of this.cells.entries()) {
-      const hasD = cellData.dLabel.textContent !== '';
-      const hasHG = cellData.hgLabel.textContent !== '';
-      
-      if (hasD || hasHG) {
+      if (cellData.dSlot.classList.contains('has-val') || cellData.hgSlot.classList.contains('has-val')) {
         setTimeout(() => {
           cellData.el.classList.remove('rest');
           cellData.el.classList.add('pulse');
-          cellData.el.style.setProperty('--pulse-color', this.getPhaseColor(0.8));
-          cellData.el.style.background = this.getPhaseColor(0.2);
-          cellData.el.style.borderColor = this.getPhaseColor(0.8);
+          cellData.el.style.setProperty('--pulse-color', this.getPhaseColor(0.9));
         }, delay);
         
         setTimeout(() => {
           cellData.el.classList.remove('pulse');
           cellData.el.classList.add('rest');
-        }, delay + 600);
-        delay += 25;
+        }, delay + 700);
+        delay += 20;
       }
     }
     
-    for (let p = 0; p < 15; p++) {
-      setTimeout(() => this.fireMiniMapPulse(), p * 60);
+    for (let p = 0; p < 20; p++) {
+      setTimeout(() => this.fireMiniMapPulse(), p * 50);
     }
   }
 
@@ -461,7 +492,7 @@ export class NeuralGraph {
       ctx.arc(x, lineY, 3, 0, pi2);
       ctx.fillStyle = p.color;
       ctx.shadowColor = p.color;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.fill();
       ctx.shadowBlur = 0;
     }
@@ -469,10 +500,10 @@ export class NeuralGraph {
     ctx.beginPath();
     ctx.arc(padX, lineY, 4, 0, pi2);
     ctx.arc(w - padX, lineY, 4, 0, pi2);
-    ctx.fillStyle = '#0F172A';
+    ctx.fillStyle = '#10172A';
     ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = this.getPhaseColor(0.8);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = this.getPhaseColor(0.9);
     ctx.stroke();
   }
 
