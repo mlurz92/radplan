@@ -336,13 +336,22 @@ main {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 12px;
+  padding: 12px 12px 0 12px; /* Remove bottom padding to maximize viewport height utilization */
+}
+
+/* UI Polish: Row highlighting style */
+.tr-hover {
+  background: rgba(14,165,233,.04) !important;
+  box-shadow: inset 0 0 0 1px rgba(14,165,233,.1);
+}
+.tr-hover .td-name {
+  background: rgba(15,30,50,.98) !important;
 }
 
 #grid-wrapper {
   width: max-content;
   max-width: 100%;
-  flex: 0 1 auto;
+  flex: 1;
   min-height: 0;
   margin: 0 auto;
   overflow: auto;

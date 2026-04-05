@@ -94,7 +94,12 @@ export function getViewportWidth() {
 }
 
 export function getViewportHeight() {
-  return window.visualViewport?.height || window.innerHeight || document.documentElement?.clientHeight || 0;
+  const vv = window.visualViewport?.height;
+  const dw = document.documentElement?.clientHeight;
+  const ww = window.innerHeight;
+  // Prioritize stable dimensions on desktop, but allow visualViewport for mobile/keyboard overlays
+  const vals = [vv, dw, ww].filter(v => Number.isFinite(v) && v > 0);
+  return vals.length ? Math.min(...vals) : 0;
 }
 
 function syncViewportCssVars() {
@@ -116,6 +121,12 @@ function syncViewportCssVars() {
   const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator?.standalone === true;
   document.body.classList.toggle("is-standalone", !!standalone);
 }
+
+// Ensure the layout syncs on every relevant event
+window.addEventListener("resize", syncViewportCssVars);
+window.visualViewport?.addEventListener("resize", syncViewportCssVars);
+syncViewportCssVars(); // Immediate initial sync
+
 
 export function updateModalLayout(target) {
   const overlay = typeof target === "string" ? document.getElementById(target) : target;
@@ -420,8 +431,11 @@ export function renderTbody(y, m, dim, hols, md) {
     tbody.appendChild(tr);
     return;
   }
+
+  // Use the original sequence from data (filter only to avoid collisions)
+  const employeesToRender = md.employees.filter(e => e !== RBN_ROW_LABEL && e !== RBN_ROW_KEY);
   
-  md.employees.forEach((emp) => {
+  employeesToRender.forEach((emp) => {
     const meta = getEmpMeta(emp);
     const pc = posColor(meta.position);
     
@@ -516,6 +530,11 @@ export function renderTbody(y, m, dim, hols, md) {
       });
       tr.appendChild(tdEl);
     }
+    
+    // UI Polish: Row highlighting
+    tr.addEventListener('mouseenter', () => tr.classList.add('tr-hover'));
+    tr.addEventListener('mouseleave', () => tr.classList.remove('tr-hover'));
+    
     tbody.appendChild(tr);
   });
   
@@ -561,6 +580,11 @@ export function renderTbody(y, m, dim, hols, md) {
       });
       tr.appendChild(tdEl);
     }
+    
+    // UI Polish: Row highlighting for RBN
+    tr.addEventListener('mouseenter', () => tr.classList.add('tr-hover'));
+    tr.addEventListener('mouseleave', () => tr.classList.remove('tr-hover'));
+    
     tbody.appendChild(tr);
   }
 }

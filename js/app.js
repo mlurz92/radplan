@@ -2210,10 +2210,21 @@ export function wireEvents() {
   const gridWrapper = document.getElementById("grid-wrapper");
   if (gridWrapper) {
     gridWrapper.addEventListener("wheel", (e) => { 
-      if (e.deltaY !== 0 && Math.abs(e.deltaX) < 10) { 
-        e.preventDefault(); 
-        gridWrapper.scrollLeft += e.deltaY; 
-      } 
+      // Handle wheel events explicitly for predictable UX
+      const isEmployeeCol = e.target.closest('.td-name, .th-corner');
+      const scrollingVertical = e.shiftKey || isEmployeeCol;
+      
+      // Use the maximum delta to support high-res mice and trackpads
+      const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      
+      if (delta !== 0) {
+        e.preventDefault();
+        if (scrollingVertical) {
+          gridWrapper.scrollTop += delta;
+        } else {
+          gridWrapper.scrollLeft += delta;
+        }
+      }
     }, { passive: false });
   }
   
