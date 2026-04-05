@@ -82,7 +82,16 @@ html, body {
   min-height: var(--app-vh);
   overflow: hidden;
   touch-action: manipulation;
-  scroll-behavior: smooth;
+  scrollbar-color: rgba(148,163,184,.4) transparent;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+::selection {
+  background: rgba(14,165,233,.25);
+  color: inherit;
 }
 
 body {
@@ -105,7 +114,6 @@ body::before {
     radial-gradient(ellipse 60% 50% at 85% 80%, rgba(99,102,241,.06) 0%, transparent 50%),
     radial-gradient(ellipse 70% 40% at 50% 50%, rgba(6,13,22,.9) 0%, transparent 100%),
     linear-gradient(160deg, #060D16 0%, #0A1525 40%, #0F1D32 100%);
-  will-change: transform;
   pointer-events: none;
 }
 
@@ -125,7 +133,14 @@ button {
 }
 
 button:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
+}
+
+/* Keyboard-only focus ring — invisible on mouse click */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 

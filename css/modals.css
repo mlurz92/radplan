@@ -15,6 +15,7 @@
   overflow: auto;
   overscroll-behavior: contain;
   contain: strict;
+  transition: opacity .25s ease, backdrop-filter .25s ease;
 }
 
 .modal {
@@ -113,13 +114,17 @@
   flex-shrink: 0;
   margin-top: -2px;
   margin-right: -4px;
-  will-change: transform;
 }
 
 .modal-x:hover {
   color: var(--white);
   background: rgba(255,255,255,.08);
   transform: scale(1.1);
+}
+
+.modal-x:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .modal-x:active {

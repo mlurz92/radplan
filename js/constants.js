@@ -390,5 +390,5 @@ export function empInitials(name) {
   return name.slice(0, 2).toUpperCase();
 }
 
-export const MOBILE_BREAKPOINT = 768;
+export const MOBILE_BREAKPOINT = 600;
 export const TOUCH_DEVICE_RE = /iPhone|iPad|iPod|Android/i;

@@ -167,7 +167,7 @@ export function refreshResponsiveLayout(options = {}) {
   const width = getViewportWidth();
   const coarsePointer = window.matchMedia ? window.matchMedia("(pointer: coarse)").matches : false;
   const touchLike = coarsePointer || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  const nextMobile = width <= MOBILE_BREAKPOINT || (touchLike && width <= 820);
+  const nextMobile = width <= MOBILE_BREAKPOINT;
   
   const changed = nextMobile !== IS_MOBILE;
   setIsMobile(nextMobile);

@@ -86,7 +86,7 @@
 }
 
 .mbtn:active {
-  transform: scale(.94);
+  transform: scale(.96);
 }
 
 .mbtn-ghost {
@@ -306,7 +306,7 @@ body.plan-mode-active #btn-plan {
   flex-shrink: 0;
   animation: planPulse 2s ease-in-out infinite;
   box-shadow: 0 0 6px rgba(252,211,77,.6);
-  transform: translateZ(0);
+  will-change: transform, opacity;
 }
 
 @keyframes planPulse {
@@ -677,7 +677,10 @@ body.plan-mode-active #btn-plan {
   padding: 6px 10px;
   border-radius: 6px;
   font-size: 11px;
-  white-space: nowrap;
+  max-width: 260px;
+  white-space: normal;
+  word-wrap: break-word;
+  line-height: 1.4;
   opacity: 0;
   pointer-events: none;
   transition: all .2s;
@@ -697,14 +700,14 @@ body.plan-mode-active #btn-plan {
   .hbtn { padding: 6px 8px; }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 600px) {
   .plan-btn { padding: 6px 10px; font-size: 11px; }
   .plan-btn span:not(svg):not(.plan-btn-icon) { display: none; }
   .plan-hist-btn { padding: 6px 10px; font-size: 10px; }
   .plan-hist-btn span { display: none; }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 600px) {
   .plan-badge { padding: 4px 10px 4px 8px; font-size: 9px; }
   .plan-btn-auto { font-size: 10px !important; padding: 6px 10px !important; }
 }
@@ -714,14 +717,14 @@ body.is-mobile #toast {
   bottom: calc(var(--mnav-h) + 14px) !important;
   right: auto !important;
   left: 50% !important;
-  transform: translateX(-50%) !important;
+  transform: translateX(-50%) translateY(15px) !important;
   max-width: 88vw !important;
   text-align: center !important;
   white-space: nowrap;
 }
 
 body.is-mobile #toast.visible {
-  transform: translateX(-50%) !important;
+  transform: translateX(-50%) translateY(0) !important;
   opacity: 1;
 }
 
