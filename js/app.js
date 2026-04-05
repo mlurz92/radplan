@@ -808,6 +808,46 @@ export function confirmRemoveEmployee(name, refreshList = false) {
   }
 }
 
+export function confirmRemoveEmployeeFuture(name) {
+  const { year: y, month: m } = state;
+  if (confirm(`„${name}" ab ${MONTHS[m]} ${y} dauerhaft (auch aus allen Folgemonaten) entfernen?\n\nACHTUNG: Dies löscht den Mitarbeiter und alle seine Dienste unwiderruflich aus der Datenbank für die Zukunft.`)) {
+    // 1. Current month removal
+    removeEmployee(y, m, name);
+
+    // 2. Clear from DATA for all future months
+    const currentKey = monthKey(y, m);
+    Object.keys(DATA).forEach(key => {
+      if (key > currentKey) {
+        const [ty, tmStr] = key.split('-');
+        const tyNum = parseInt(ty, 10);
+        const tmNum = parseInt(tmStr, 10) - 1; // back to 0-indexed
+        removeEmployee(tyNum, tmNum, name);
+      }
+    });
+
+    // 3. Clear from active Plan-Sessions if applicable
+    if (planMode && planSessions) {
+      Object.keys(planSessions).forEach(key => {
+        if (key >= currentKey && planSessions[key]) {
+          const session = planSessions[key];
+          if (session.employees) {
+            session.employees = session.employees.filter(e => e !== name);
+          }
+          if (session.assignments && session.assignments[name]) {
+            delete session.assignments[name];
+          }
+          if (session.wishes && session.wishes[name]) {
+            delete session.wishes[name];
+          }
+        }
+      });
+    }
+
+    render();
+    showToast(`„${name}" kaskadierend entfernt`);
+  }
+}
+
 export function openMobileDay(day) {
   const { year: y, month: m } = state;
   const hols = getSaxonyHolidaysCached(y);

@@ -65,6 +65,7 @@ import {
 } from './app.js';
 
 import { autoPlanResult } from './autoplan.js';
+import { contextMenu } from './contextmenu.js';
 
 const originalFetch = window.fetch;
 window.fetch = async function(...args) {
@@ -458,17 +459,34 @@ export function renderTbody(y, m, dim, hols, md) {
           <circle cx="12" cy="7" r="4"/>
         </svg>
       </span>
-      <button class="emp-del">
-        <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M1 1l7 7M8 1L1 8"/>
-        </svg>
-      </button>
     `;
     tdN.innerHTML = tdNHtml;
     
-    tdN.querySelector(".emp-del").addEventListener("click", (e) => { 
-      e.stopPropagation(); 
-      import('./app.js').then(module => module.confirmRemoveEmployee(emp));
+    // Modern Context Menu on Right Click (Secondary Click)
+    tdN.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      contextMenu.show(e.clientX, e.clientY, [
+        { 
+          label: "Profil öffnen", 
+          icon: '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+          action: () => openProfileModal(emp)
+        },
+        { type: "divider" },
+        { 
+          label: "Aus Monat entfernen", 
+          sub: `${MONTHS[m]} ${y}`,
+          danger: true,
+          icon: '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>',
+          action: () => import('./app.js').then(module => module.confirmRemoveEmployee(emp))
+        },
+        { 
+          label: "Ab hier dauerhaft entfernen", 
+          sub: `Folgende Monate inkl.`,
+          danger: true,
+          icon: '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/><path d="M21 7l-5-5m0 0l-5 5m5-5v18"/></svg>',
+          action: () => import('./app.js').then(module => module.confirmRemoveEmployeeFuture(emp))
+        }
+      ], tdN);
     });
     
     tdN.addEventListener("click", () => openProfileModal(emp));

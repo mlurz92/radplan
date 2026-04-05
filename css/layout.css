@@ -511,17 +511,18 @@ main {
   width: var(--name-w);
   min-width: var(--name-w);
   height: var(--row-h);
-  background: rgba(255,255,255,.95);
-  backdrop-filter: blur(6px);
-  border-right: 1px solid rgba(226,232,240,.4);
-  border-bottom: 1px solid rgba(226,232,240,.4);
-  padding: 0 8px 0 11px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  border-right: 1px solid rgba(226, 232, 240, 0.5);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+  padding: 0 10px 0 12px;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   cursor: pointer;
-  transition: background .15s, border-right-color .15s;
-  box-shadow: 2px 0 8px rgba(0,0,0,.03);
+  transition: all 0.2s ease;
+  user-select: none;
+  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.04);
 }
 
 tr:hover .td-name {
@@ -564,46 +565,27 @@ tr:hover .emp-pos-tag {
 }
 
 .emp-profile-icon {
-  opacity: 0;
   flex-shrink: 0;
-  color: var(--accent);
-  pointer-events: none;
-  transition: opacity .12s;
-  display: flex;
-  align-items: center;
-}
-
-tr:hover .emp-profile-icon {
-  opacity: .65;
-}
-
-.emp-del {
-  opacity: 0;
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  background: none;
-  border: none;
-  color: var(--gray-400);
-  border-radius: var(--radius-xs);
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity .2s, background .15s, color .15s, transform 0.15s;
+  color: var(--gray-400);
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-tr:hover .emp-del {
+tr:hover .emp-profile-icon {
   opacity: 1;
+  transform: scale(1);
 }
 
-.emp-del:hover {
-  color: var(--red);
-  background: var(--red-bg);
-  transform: scale(1.1);
-}
-
-.emp-del:active {
-  transform: scale(0.9);
+.emp-profile-icon:hover {
+  color: var(--blue-600);
+  background: rgba(14, 165, 233, 0.1);
+  border-radius: 50%;
 }
 
 .td-cell {

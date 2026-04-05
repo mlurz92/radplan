@@ -223,9 +223,25 @@ export class NeuralGraph {
 
   getAbbreviation(empId) {
     if (!empId) return '';
-    const parts = String(empId).split(' ');
-    const last = parts.length > 1 ? parts[parts.length - 1] : empId;
-    return last.substring(0, 3).toUpperCase();
+    // Strip academic titles and honorifics
+    const stripped = String(empId)
+      .replace(/^(Herr|Frau|Hr\.|Fr\.|Dr\.\s*(med\.\s*)?|Prof\.\s*(Dr\.\s*(med\.\s*)?)?|PD\s+Dr\.\s*(med\.\s*)?|Dipl\.\s*\w+\.\s*)/gi, '')
+      .trim();
+    const parts = stripped.split(/\s+/);
+    if (parts.length <= 1) {
+      return stripped.replace(/\s/g, '').substring(0, 3).toUpperCase();
+    }
+    // Check if any word starts a surname prefix
+    const surnamePrefixes = ['el','al','van','von','de','le','la','di','lo','del','dal','bin','ben','abu'];
+    const firstPartLower = parts[0].toLowerCase();
+    
+    if (surnamePrefixes.includes(firstPartLower)) {
+      // El Houba case
+      return parts.join('').substring(0, 3).toUpperCase();
+    }
+    // Last word is usually the surname: Markus M. Lurz -> Lurz
+    const surname = parts[parts.length - 1];
+    return surname.substring(0, 3).toUpperCase();
   }
 
   pulseCell(dayIdx, empId, isActive, isError = false, dutyType = "D") {
