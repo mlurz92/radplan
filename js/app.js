@@ -1205,10 +1205,12 @@ export async function renderAutoPlanModal(renderToken = null) {
   }
 
   if (localApViewMode === "config") {
-    body.style.height = "auto";
-    body.style.maxHeight = "none";
-    body.style.overflowY = "auto";
-    body.style.display = "block";
+    body.style.display = "flex";
+    body.style.flexDirection = "column";
+    body.style.height = "100%";
+    body.style.maxHeight = "100%";
+    body.style.padding = "0";
+    body.style.overflow = "hidden";
     applyBtn.style.display = "none";
     
     const hist = await collectHistoricalDutyStatsAsync(y, m);
@@ -1217,50 +1219,31 @@ export async function renderAutoPlanModal(renderToken = null) {
       return;
     }
     
+    const totalTarget = dutyEmps.reduce((s, e) => s + (localAutoPlanTargets[e] ?? defaultBDTarget(e)), 0);
+    const dayCount = daysInMonth(y, m);
+    
     let html = `
-      <div class="ap-config-intro">
-        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;color:#F59E0B">
-          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-          <path d="M2 17l10 5 10-5"/>
-          <path d="M2 12l10 5 10-5"/>
-        </svg>
-        <span>BD-Ziele anpassen.</span>
-      </div>
-    `;
-    
-    if (DUTY_EXEMPT.length) {
-      html += `
-        <div class="ap-exempt-note">
-          <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          <span>Befreit: <strong>${DUTY_EXEMPT.join(", ")}</strong></span>
+      <div class="ap-config-container">
+        <div class="ap-config-header">
+          <div class="ap-hud-block">
+            <span class="ap-hud-kicker" style="color:var(--gray-500)">Parameter-Konfiguration</span>
+            <div class="ap-hud-title" style="color:var(--gray-800); font-size:16px;">BD-Ziele & Lastverteilung</div>
+          </div>
+          
+          <div class="ap-config-summary">
+            <div class="ap-summary-item">
+              <span class="ap-summary-label">Tage im Monat</span>
+              <span class="ap-summary-value" style="color:var(--gray-700)">${dayCount}</span>
+            </div>
+            <div class="ap-ls-sep" style="height:24px; margin:0 4px;"></div>
+            <div class="ap-summary-item">
+              <span class="ap-summary-label">Σ Ziel-Stimmen</span>
+              <span class="ap-summary-value" id="ap-total-target">${totalTarget}</span>
+            </div>
+          </div>
         </div>
-      `;
-    }
-    
-    html += `
-      <div class="ap-sect-hd">
-        <span class="ap-sect-badge" style="background:#EF4444;color:#fff">D</span>
-        BD-Ziele
-      </div>
-    `;
-    
-    html += `
-      <div class="ap-table-wrap">
-        <table class="ap-table">
-          <thead>
-            <tr>
-              <th class="ap-th-name">Mitarbeitende</th>
-              <th class="ap-th">Position</th>
-              <th class="ap-th">Hist. BD</th>
-              <th class="ap-th">Hist. Sa-D</th>
-              <th class="ap-th ap-th-target">Ziel BD</th>
-            </tr>
-          </thead>
-          <tbody>
+
+        <div class="ap-config-list">
     `;
     
     dutyEmps.forEach((e) => {
@@ -1270,53 +1253,69 @@ export async function renderAutoPlanModal(renderToken = null) {
       const target = localAutoPlanTargets[e] ?? defaultBDTarget(e);
       
       html += `
-        <tr>
-          <td class="ap-td-name" style="border-left:3px solid ${pc.border}">
-            <span>${e}</span>
-            <span class="ap-pos" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span>
-          </td>
-          <td class="ap-td ap-td-num" style="font-size:10px;color:var(--gray-500)">${meta.posLabel}</td>
-          <td class="ap-td ap-td-num" style="color:var(--gray-500)">${h.bd}</td>
-          <td class="ap-td ap-td-num" style="color:var(--gray-500)">${h.satBd}</td>
-          <td class="ap-td ap-td-num">
-            <input type="number" class="ap-target-input" data-emp="${e}" value="${target}" min="0" max="10" step="1">
-          </td>
-        </tr>
+        <div class="ap-emp-card">
+          <div class="ap-card-top">
+            <div class="ap-card-name-group">
+              <span class="ap-card-name">${e}</span>
+              <span class="ap-card-pos" style="color:${pc.border}">${meta.posLabel}</span>
+            </div>
+            <div class="ap-input-stepper">
+              <button type="button" class="ap-step-btn minus" data-emp="${e}">−</button>
+              <input type="number" class="ap-card-input" data-emp="${e}" value="${target}" min="0" max="10" step="1" readonly>
+              <button type="button" class="ap-step-btn plus" data-emp="${e}">+</button>
+            </div>
+          </div>
+          
+          <div class="ap-card-stats">
+            <div class="ap-card-stat" title="Historische BD im aktuellen Jahr">
+              <span class="ap-stat-label">Hist. BD</span>
+              <span class="ap-stat-val">${h.bd}</span>
+            </div>
+            <div class="ap-card-stat" title="Historische Samstags-BD">
+              <span class="ap-stat-label">Sa-BD</span>
+              <span class="ap-stat-val">${h.satBd}</span>
+            </div>
+          </div>
+        </div>
       `;
     });
     
-    const totalTarget = dutyEmps.reduce((s, e) => s + (localAutoPlanTargets[e] ?? defaultBDTarget(e)), 0);
-    
     html += `
-          </tbody>
-          <tfoot>
-            <tr class="ap-total-row">
-              <td class="ap-td-name" colspan="4" style="font-weight:700;color:var(--gray-700);padding-left:12px">Σ Gesamt-Ziel</td>
-              <td class="ap-td ap-td-num" style="font-weight:800" id="ap-total-target">${totalTarget}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    `;
-    
-    html += `
-      <div class="ap-config-actions">
-        <button type="button" class="mbtn mbtn-ghost" id="ap-reset-defaults">Standard</button>
-        <button type="button" class="mbtn" id="ap-compute" style="background:linear-gradient(135deg,#F59E0B,#D97706);color:#451a03;font-weight:700;cursor:pointer;-webkit-appearance:none">Berechnen</button>
+        </div>
+
+        <div class="ap-config-footer">
+          <div style="flex:1; display:flex; gap:8px;">
+            <button type="button" class="mbtn mbtn-ghost" id="ap-reset-defaults" style="font-size:11px; padding:6px 12px;">Standardwerte</button>
+          </div>
+          <button type="button" class="ap-compute-btn" id="ap-compute">
+            <svg class="ap-compute-icon" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 0l2.83-2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48 0l2.83 2.83"/>
+            </svg>
+            Berechnen
+          </button>
+        </div>
       </div>
     `;
     
     body.innerHTML = html;
     
-    body.querySelectorAll(".ap-target-input").forEach((inp) => {
-      inp.addEventListener("change", () => {
-        localAutoPlanTargets[inp.dataset.emp] = Math.max(0, Math.min(10, parseInt(inp.value, 10) || 0));
-        inp.value = localAutoPlanTargets[inp.dataset.emp];
-        const tot = dutyEmps.reduce((s, e) => s + (localAutoPlanTargets[e] ?? 0), 0);
-        const totEl = document.getElementById("ap-total-target");
-        if (totEl) {
-          totEl.textContent = tot;
-        }
+    const updateTotal = () => {
+      const tot = dutyEmps.reduce((s, e) => s + (localAutoPlanTargets[e] ?? 0), 0);
+      const totEl = document.getElementById("ap-total-target");
+      if (totEl) totEl.textContent = tot;
+    };
+
+    body.querySelectorAll(".ap-step-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const emp = btn.dataset.emp;
+        const isPlus = btn.classList.contains("plus");
+        const current = localAutoPlanTargets[emp] ?? defaultBDTarget(emp);
+        const next = isPlus ? Math.min(10, current + 1) : Math.max(0, current - 1);
+        
+        localAutoPlanTargets[emp] = next;
+        const input = body.querySelector(`.ap-card-input[data-emp="${emp}"]`);
+        if (input) input.value = next;
+        updateTotal();
       });
     });
     
@@ -1324,13 +1323,10 @@ export async function renderAutoPlanModal(renderToken = null) {
       dutyEmps.forEach((e) => { 
         localAutoPlanTargets[e] = defaultBDTarget(e); 
       });
-      body.querySelectorAll(".ap-target-input").forEach((inp) => { 
+      body.querySelectorAll(".ap-card-input").forEach((inp) => { 
         inp.value = localAutoPlanTargets[inp.dataset.emp]; 
       });
-      const totEl = document.getElementById("ap-total-target");
-      if (totEl) {
-        totEl.textContent = dutyEmps.reduce((s, e) => s + localAutoPlanTargets[e], 0);
-      }
+      updateTotal();
     });
       
     const computeBtn = document.getElementById("ap-compute");
