@@ -453,13 +453,40 @@ export function redoPlan() {
   render();
 }
 
-export function openEditor(emp, day) {
+export function openEditor(emp, day, options = {}) {
   const { year: y, month: m } = state;
+  const { ctrlKey = false } = options;
   const isRbnRow = emp === RBN_ROW_KEY;
+  
+  if (ctrlKey && !isRbnRow) {
+    if (state.multiEdit.emp !== emp) {
+      state.multiEdit.emp = emp;
+      state.multiEdit.days = [];
+    }
+    const idx = state.multiEdit.days.indexOf(day);
+    if (idx >= 0) {
+      state.multiEdit.days.splice(idx, 1);
+    } else {
+      state.multiEdit.days.push(day);
+      state.multiEdit.days.sort((a, b) => a - b);
+    }
+    render();
+    showToast(state.multiEdit.days.length ? `${state.multiEdit.days.length} Tage für ${emp} markiert` : "Mehrfachauswahl aufgehoben");
+    return;
+  }
+
+  const selectedDays = state.multiEdit.emp === emp && state.multiEdit.days.length
+    ? [...state.multiEdit.days]
+    : [day];
+  if (!selectedDays.includes(day)) {
+    selectedDays.push(day);
+    selectedDays.sort((a, b) => a - b);
+  }
+
   const cell = isRbnRow ? { assignment: getRbnValue(y, m, day) || null, duty: null } : getCell(y, m, emp, day);
   const hols = getSaxonyHolidaysCached(y);
   
-  state.edit = { emp, day, isRbnRow };
+  state.edit = { emp, day, isRbnRow, days: selectedDays };
   let wp = [];
   let st = null;
   
@@ -489,7 +516,8 @@ export function openEditor(emp, day) {
   
   const edSub = document.getElementById("ed-sub");
   if (edSub) {
-    edSub.textContent = `${DOW_LONG[wd]}, ${day}. ${MONTHS[m]} ${y}${holNm ? " · " + holNm : ""}`;
+    const selectionText = selectedDays.length > 1 ? ` · ${selectedDays.length} Tage ausgewählt` : "";
+    edSub.textContent = `${DOW_LONG[wd]}, ${day}. ${MONTHS[m]} ${y}${holNm ? " · " + holNm : ""}${selectionText}`;
   }
   
   const dtlEl = document.getElementById("ed-day-label");
@@ -757,6 +785,7 @@ export function refreshEditorChips() {
 export function saveEditor() {
   const { year: y, month: m } = state;
   const { emp, day, isRbnRow } = state.edit;
+  const days = Array.isArray(state.edit.days) && state.edit.days.length ? state.edit.days : [day];
   
   if (isRbnRow) {
     if (planMode) recordPlanHistory();
@@ -772,26 +801,36 @@ export function saveEditor() {
   
   if (planMode) recordPlanHistory();
   
-  setCell(y, m, emp, day, {
-    assignment: assignment || null,
-    duty: duty || null,
-  });
-  
-  if (duty === "D") {
-    const next = nextCalendarDay(y, m, day);
-    const ex = getCell(next.y, next.m, emp, next.d);
-    if (!ex.assignment) {
-      setCell(next.y, next.m, emp, next.d, {
-        assignment: "F",
-        duty: ex.duty || null,
-      });
-      showToast("F automatisch gesetzt");
+  let autoFCount = 0;
+  days.forEach((targetDay) => {
+    setCell(y, m, emp, targetDay, {
+      assignment: assignment || null,
+      duty: duty || null,
+    });
+    
+    if (duty === "D") {
+      const next = nextCalendarDay(y, m, targetDay);
+      const ex = getCell(next.y, next.m, emp, next.d);
+      if (!ex.assignment) {
+        setCell(next.y, next.m, emp, next.d, {
+          assignment: "F",
+          duty: ex.duty || null,
+        });
+        autoFCount++;
+      }
     }
-  }
+  });
   
   if (planMode) recordPlanHistory();
   
   hideOverlay("modal-editor");
+  state.multiEdit = { emp: null, days: [] };
+  if (autoFCount > 0) {
+    showToast(`F automatisch gesetzt (${autoFCount}x)`);
+  }
+  if (days.length > 1) {
+    showToast(`${days.length} Tage gespeichert`);
+  }
   render();
 }
 

@@ -25,6 +25,10 @@ export let state = {
     month: new Date().getMonth() 
   },
   profileEmp: null,
+  multiEdit: {
+    emp: null,
+    days: [],
+  },
 };
 
 export let deptTab = "month";
