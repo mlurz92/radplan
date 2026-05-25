@@ -67,6 +67,25 @@ import {
 import { autoPlanResult } from './autoplan.js';
 import { contextMenu } from './contextmenu.js';
 
+const dragSelectionState = {
+  active: false,
+  emp: null,
+  justDragged: false,
+  touched: new Set(),
+};
+
+function applyDragSelection(emp, day) {
+  if (!emp || !Number.isFinite(day) || emp === RBN_ROW_KEY) return;
+  if (state.multiEdit.emp !== emp) {
+    state.multiEdit.emp = emp;
+    state.multiEdit.days = [];
+  }
+  if (!state.multiEdit.days.includes(day)) {
+    state.multiEdit.days.push(day);
+    state.multiEdit.days.sort((a, b) => a - b);
+  }
+}
+
 const originalFetch = window.fetch;
 window.fetch = async function(...args) {
   const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
@@ -520,6 +539,8 @@ export function renderTbody(y, m, dim, hols, md) {
       if (isAutoFRest) cls += " auto-f-rest";
       
       tdEl.className = cls;
+      tdEl.dataset.emp = emp;
+      tdEl.dataset.day = String(d);
       tdEl.tabIndex = 0;
       
       if (cell.assignment && !isAutoFRest) {
@@ -539,13 +560,22 @@ export function renderTbody(y, m, dim, hols, md) {
       innerHtml += `</div>`;
       tdEl.innerHTML = innerHtml;
       
-      tdEl.addEventListener("click", () => openEditor(emp, d));
+      tdEl.addEventListener("click", (e) => {
+        if (dragSelectionState.justDragged) {
+          dragSelectionState.justDragged = false;
+          return;
+        }
+        openEditor(emp, d, { ctrlKey: e.ctrlKey || e.metaKey });
+      });
       tdEl.addEventListener("keydown", (e) => { 
         if (e.key === "Enter" || e.key === " ") { 
           e.preventDefault(); 
           openEditor(emp, d); 
         } 
       });
+      if (state.multiEdit?.emp === emp && Array.isArray(state.multiEdit.days) && state.multiEdit.days.includes(d)) {
+        tdEl.classList.add("multi-selected");
+      }
       tr.appendChild(tdEl);
     }
     
@@ -582,6 +612,8 @@ export function renderTbody(y, m, dim, hols, md) {
       if (fri) cls += " is-fri";
       
       tdEl.className = cls;
+      tdEl.dataset.emp = RBN_ROW_KEY;
+      tdEl.dataset.day = String(d);
       tdEl.tabIndex = 0;
       tdEl.innerHTML = `
         <div class="cell-inner">
@@ -589,7 +621,7 @@ export function renderTbody(y, m, dim, hols, md) {
         </div>
       `;
       
-      tdEl.addEventListener("click", () => openEditor(RBN_ROW_KEY, d));
+      tdEl.addEventListener("click", (e) => openEditor(RBN_ROW_KEY, d, { ctrlKey: e.ctrlKey || e.metaKey }));
       tdEl.addEventListener("keydown", (e) => { 
         if (e.key === "Enter" || e.key === " ") { 
           e.preventDefault(); 
@@ -665,6 +697,39 @@ export function renderTfoot(y, m, dim, md) {
     tfoot.appendChild(tr);
   });
 }
+
+document.addEventListener("mousedown", (e) => {
+  const cell = e.target.closest?.("#plan-tbody .td-cell");
+  if (!cell) return;
+  const emp = cell.dataset.emp;
+  const day = parseInt(cell.dataset.day || "", 10);
+  if (!emp || !Number.isFinite(day) || emp === RBN_ROW_KEY) return;
+  dragSelectionState.active = true;
+  dragSelectionState.emp = emp;
+  dragSelectionState.touched = new Set([day]);
+  applyDragSelection(emp, day);
+  render();
+});
+
+document.addEventListener("mouseover", (e) => {
+  if (!dragSelectionState.active) return;
+  const cell = e.target.closest?.("#plan-tbody .td-cell");
+  if (!cell) return;
+  const emp = cell.dataset.emp;
+  const day = parseInt(cell.dataset.day || "", 10);
+  if (emp !== dragSelectionState.emp || !Number.isFinite(day)) return;
+  if (dragSelectionState.touched.has(day)) return;
+  dragSelectionState.touched.add(day);
+  applyDragSelection(emp, day);
+  dragSelectionState.justDragged = true;
+  render();
+});
+
+document.addEventListener("mouseup", () => {
+  dragSelectionState.active = false;
+  dragSelectionState.emp = null;
+  dragSelectionState.touched = new Set();
+});
 
 export function renderMobileView() {
   const { year: y, month: m } = state;
