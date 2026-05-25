@@ -539,13 +539,16 @@ export function renderTbody(y, m, dim, hols, md) {
       innerHtml += `</div>`;
       tdEl.innerHTML = innerHtml;
       
-      tdEl.addEventListener("click", () => openEditor(emp, d));
+      tdEl.addEventListener("click", (e) => openEditor(emp, d, { ctrlKey: e.ctrlKey || e.metaKey }));
       tdEl.addEventListener("keydown", (e) => { 
         if (e.key === "Enter" || e.key === " ") { 
           e.preventDefault(); 
           openEditor(emp, d); 
         } 
       });
+      if (state.multiEdit?.emp === emp && Array.isArray(state.multiEdit.days) && state.multiEdit.days.includes(d)) {
+        tdEl.classList.add("multi-selected");
+      }
       tr.appendChild(tdEl);
     }
     
@@ -589,7 +592,7 @@ export function renderTbody(y, m, dim, hols, md) {
         </div>
       `;
       
-      tdEl.addEventListener("click", () => openEditor(RBN_ROW_KEY, d));
+      tdEl.addEventListener("click", (e) => openEditor(RBN_ROW_KEY, d, { ctrlKey: e.ctrlKey || e.metaKey }));
       tdEl.addEventListener("keydown", (e) => { 
         if (e.key === "Enter" || e.key === " ") { 
           e.preventDefault(); 
