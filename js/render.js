@@ -74,6 +74,13 @@ const dragSelectionState = {
   touched: new Set(),
 };
 
+function resetDragSelectionState() {
+  dragSelectionState.active = false;
+  dragSelectionState.emp = null;
+  dragSelectionState.touched = new Set();
+  document.body.classList.remove("is-drag-selecting");
+}
+
 function applyDragSelection(emp, day) {
   if (!emp || !Number.isFinite(day) || emp === RBN_ROW_KEY) return;
   if (state.multiEdit.emp !== emp) {
@@ -699,6 +706,7 @@ export function renderTfoot(y, m, dim, md) {
 }
 
 document.addEventListener("mousedown", (e) => {
+  if (e.button !== 0) return;
   const cell = e.target.closest?.("#plan-tbody .td-cell");
   if (!cell) return;
   const emp = cell.dataset.emp;
@@ -708,8 +716,8 @@ document.addEventListener("mousedown", (e) => {
   dragSelectionState.justDragged = false;
   dragSelectionState.emp = emp;
   dragSelectionState.touched = new Set([day]);
+  document.body.classList.add("is-drag-selecting");
   applyDragSelection(emp, day);
-  render();
 });
 
 document.addEventListener("mouseover", (e) => {
@@ -727,9 +735,11 @@ document.addEventListener("mouseover", (e) => {
 });
 
 document.addEventListener("mouseup", () => {
-  dragSelectionState.active = false;
-  dragSelectionState.emp = null;
-  dragSelectionState.touched = new Set();
+  resetDragSelectionState();
+});
+
+window.addEventListener("blur", () => {
+  resetDragSelectionState();
 });
 
 export function renderMobileView() {

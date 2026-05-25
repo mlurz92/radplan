@@ -126,6 +126,11 @@ body.is-mobile * {
   -webkit-tap-highlight-color: transparent;
 }
 
+body.is-drag-selecting {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 button {
   cursor: pointer;
   font-family: inherit;
