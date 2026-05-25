@@ -825,11 +825,11 @@ export function saveEditor() {
   
   hideOverlay("modal-editor");
   state.multiEdit = { emp: null, days: [] };
-  if (autoFCount > 0) {
-    showToast(`F automatisch gesetzt (${autoFCount}x)`);
-  }
   if (days.length > 1) {
-    showToast(`${days.length} Tage gespeichert`);
+    const fSuffix = autoFCount > 0 ? ` (inkl. ${autoFCount}x F automatisch)` : "";
+    showToast(`${days.length} Tage gespeichert${fSuffix}`);
+  } else if (autoFCount > 0) {
+    showToast("F automatisch gesetzt");
   }
   render();
 }
