@@ -705,6 +705,7 @@ document.addEventListener("mousedown", (e) => {
   const day = parseInt(cell.dataset.day || "", 10);
   if (!emp || !Number.isFinite(day) || emp === RBN_ROW_KEY) return;
   dragSelectionState.active = true;
+  dragSelectionState.justDragged = false;
   dragSelectionState.emp = emp;
   dragSelectionState.touched = new Set([day]);
   applyDragSelection(emp, day);
