@@ -3,7 +3,7 @@ import { STORAGE_KEY, normalizeMonthDataShape } from './constants.js';
 export let DATA = {};
 
 export let state = {
-  year: 2026,
+  year: new Date().getFullYear(),
   month: new Date().getMonth(),
   edit: null,
   ed: { 
@@ -20,9 +20,9 @@ export let state = {
     customStart: null,
     customEnd: null,
   },
-  periodDraft: { 
-    year: 2026, 
-    month: new Date().getMonth() 
+  periodDraft: {
+    year: new Date().getFullYear(),
+    month: new Date().getMonth()
   },
   profileEmp: null,
   multiEdit: {

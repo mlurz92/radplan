@@ -57,11 +57,14 @@ import {
   removeEmployee
 } from './model.js';
 
-import { 
-  openEditor, 
+import {
+  openEditor,
   getWish,
   isPeriodFlyoutOpen,
-  syncPeriodControls
+  syncPeriodControls,
+  quickToggleWorkplace,
+  quickToggleDuty,
+  quickClearCell
 } from './app.js';
 
 import { autoPlanResult } from './autoplan.js';
@@ -92,26 +95,6 @@ function applyDragSelection(emp, day) {
     state.multiEdit.days.sort((a, b) => a - b);
   }
 }
-
-const originalFetch = window.fetch;
-window.fetch = async function(...args) {
-  const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
-  if (url.includes('/api?action=save')) {
-    showToast("🔄 Speichere Daten...");
-    return new Response(JSON.stringify({ success: true }), { 
-      status: 200, 
-      statusText: "OK",
-      headers: { 'Content-Type': 'application/json' }
-    });
-  } else if (url.includes('/api?action=load')) {
-    return new Response(JSON.stringify({ error: "Lokaler Cache aktiv" }), { 
-      status: 400, 
-      statusText: "Bad Request",
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-  return originalFetch.apply(this, args);
-};
 
 export function getViewportWidth() {
   const vv = window.visualViewport?.width;
@@ -280,6 +263,117 @@ export function refreshOpenContextPanels() {
   }
 }
 
+export function focusCellAfterRender(emp, day) {
+  requestAnimationFrame(() => {
+    const tbody = document.getElementById('plan-tbody');
+    if (!tbody) return;
+    const cells = tbody.querySelectorAll('.td-cell');
+    for (const cell of cells) {
+      if (cell.dataset.emp === emp && parseInt(cell.dataset.day, 10) === day) {
+        cell.focus({ preventScroll: true });
+        break;
+      }
+    }
+  });
+}
+
+function focusAdjacentCell(currentCell, rowDelta, colDelta) {
+  if (colDelta !== 0) {
+    const targetDay = parseInt(currentCell.dataset.day, 10) + colDelta;
+    const row = currentCell.closest('tr');
+    if (!row) return;
+    const allCells = row.querySelectorAll('.td-cell');
+    for (const c of allCells) {
+      if (parseInt(c.dataset.day, 10) === targetDay) {
+        c.focus({ preventScroll: false });
+        return;
+      }
+    }
+  }
+  if (rowDelta !== 0) {
+    const day = parseInt(currentCell.dataset.day, 10);
+    const currentRow = currentCell.closest('tr');
+    if (!currentRow) return;
+    let targetRow = rowDelta > 0
+      ? currentRow.nextElementSibling
+      : currentRow.previousElementSibling;
+    while (targetRow && targetRow.classList.contains('tr-rbn')) {
+      targetRow = rowDelta > 0
+        ? targetRow.nextElementSibling
+        : targetRow.previousElementSibling;
+    }
+    if (!targetRow) return;
+    const allCells = targetRow.querySelectorAll('.td-cell');
+    for (const c of allCells) {
+      if (parseInt(c.dataset.day, 10) === day) {
+        c.focus({ preventScroll: false });
+        return;
+      }
+    }
+  }
+}
+
+function handleGridKeydown(e) {
+  if (IS_MOBILE) return;
+  const cell = e.target.closest?.('#plan-tbody .td-cell');
+  if (!cell) return;
+  const emp = cell.dataset.emp;
+  const day = parseInt(cell.dataset.day || '', 10);
+  if (!emp || !Number.isFinite(day)) return;
+  if (emp === RBN_ROW_KEY) return;
+
+  const noMod = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
+
+  if (noMod && e.key === 'ArrowRight') { e.preventDefault(); focusAdjacentCell(cell, 0, 1); return; }
+  if (noMod && e.key === 'ArrowLeft')  { e.preventDefault(); focusAdjacentCell(cell, 0, -1); return; }
+  if (noMod && e.key === 'ArrowDown')  { e.preventDefault(); focusAdjacentCell(cell, 1, 0); return; }
+  if (noMod && e.key === 'ArrowUp')    { e.preventDefault(); focusAdjacentCell(cell, -1, 0); return; }
+
+  if (noMod && e.key >= '1' && e.key <= '8') {
+    e.preventDefault();
+    const idx = parseInt(e.key, 10) - 1;
+    const wp = WORKPLACES[idx];
+    if (wp) quickToggleWorkplace(emp, day, wp.code);
+    return;
+  }
+
+  if (noMod && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); quickToggleDuty(emp, day, 'D'); return; }
+  if (noMod && (e.key === 'h' || e.key === 'H')) { e.preventDefault(); quickToggleDuty(emp, day, 'HG'); return; }
+
+  if (noMod && (e.key === 'Delete' || e.key === 'Backspace')) {
+    e.preventDefault();
+    quickClearCell(emp, day);
+    return;
+  }
+
+  if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    openEditor(emp, day);
+    return;
+  }
+}
+
+export function initGridKeyboardHandlers() {
+  const table = document.getElementById('plan-table');
+  if (!table) return;
+
+  table.addEventListener('keydown', handleGridKeydown);
+
+  table.addEventListener('focusin', (e) => {
+    if (e.target.closest?.('#plan-tbody .td-cell')) {
+      document.body.classList.add('grid-cell-focused');
+    }
+  });
+
+  table.addEventListener('focusout', () => {
+    setTimeout(() => {
+      if (!document.activeElement?.closest?.('#plan-tbody .td-cell')) {
+        document.body.classList.remove('grid-cell-focused');
+      }
+    }, 50);
+  });
+}
+
 export function render() {
   const { year: y, month: m } = state;
   const hols = getSaxonyHolidaysCached(y);
@@ -322,7 +416,7 @@ export function render() {
   }
   
   renderStatsBar(y, m, dim, md);
-  renderThead(y, m, dim, hols);
+  renderThead(y, m, dim, hols, md);
   renderTbody(y, m, dim, hols, md);
   renderTfoot(y, m, dim, md);
   updateOpenModalLayouts();
@@ -397,7 +491,7 @@ export function renderStatsBar(y, m, dim, md) {
   }
 }
 
-export function renderThead(y, m, dim, hols) {
+export function renderThead(y, m, dim, hols, md) {
   const thead = document.getElementById("plan-thead");
   thead.innerHTML = "";
   
@@ -424,13 +518,37 @@ export function renderThead(y, m, dim, hols) {
     
     const hn = hols[dateKey(y, m, d)] || "";
     const th = document.createElement("th");
-    
+
     let cls = "th-day ";
     cls += hol ? "hol" : we ? "we" : "wd";
     if (isT) cls += " today";
     if (fri) cls += " is-fri";
-    
+
     th.className = cls;
+
+    const hasEmps = md.employees.length > 0;
+    const dCount  = hasEmps ? dayCodeCount(y, m, d, "D")  : 0;
+    const hgCount = hasEmps ? dayCodeCount(y, m, d, "HG") : 0;
+
+    let stripeColor = "transparent";
+    if (hasEmps) {
+      const bothCovered = dCount > 0 && hgCount > 0;
+      const oneCovered  = (dCount > 0) !== (hgCount > 0);
+      if (bothCovered) {
+        stripeColor = "#22C55E";
+      } else if (oneCovered) {
+        stripeColor = "#F59E0B";
+      } else {
+        stripeColor = (we || hol) ? "rgba(249,115,22,0.55)" : "#EF4444";
+      }
+    }
+
+    if (hasEmps) {
+      const dLabel  = dCount  > 0 ? `${dCount}× besetzt` : "fehlt";
+      const hgLabel = hgCount > 0 ? `${hgCount}× besetzt` : "fehlt";
+      th.title = `${d}. ${MONTHS[m]} · D: ${dLabel} · HG: ${hgLabel}`;
+    }
+
     th.innerHTML = `
       <div class="th-day-inner">
         <span class="d-kw">${showKW ? "KW" + kw : ""}</span>
@@ -438,6 +556,7 @@ export function renderThead(y, m, dim, hols) {
         <span class="d-dow">${DOW_ABBR[wd]}</span>
         ${hn ? `<span class="d-hol">${hn}</span>` : ""}
       </div>
+      <div class="day-status-stripe" style="background:${stripeColor}" aria-hidden="true"></div>
     `;
     tr.appendChild(th);
   }
