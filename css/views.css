@@ -1746,11 +1746,11 @@ body.is-mobile .mcd {
 .abs-cell:hover { opacity: .75; }
 
 .abs-cell.abs-we {
-  background-color: rgba(0,0,0,.025) !important;
+  background-color: rgba(0,0,0,.025);
 }
 
 .abs-cell.abs-hol {
-  background-color: rgba(251,191,36,.1) !important;
+  background-color: rgba(251,191,36,.1);
 }
 
 .abs-cell.abs-today {
