@@ -1845,7 +1845,8 @@ body.is-mobile .overlay#modal-profile,
 body.is-mobile .overlay#modal-emps,
 body.is-mobile .overlay#modal-import,
 body.is-mobile .overlay#modal-ap-report,
-body.is-mobile .overlay#modal-score-info {
+body.is-mobile .overlay#modal-score-info,
+body.is-mobile .overlay#modal-wish-console {
   align-items: flex-end !important;
   padding: 0 !important;
 }
@@ -1857,7 +1858,8 @@ body.is-mobile .overlay#modal-profile .modal,
 body.is-mobile .overlay#modal-emps .modal,
 body.is-mobile .overlay#modal-import .modal,
 body.is-mobile .overlay#modal-ap-report .modal,
-body.is-mobile .overlay#modal-score-info .modal {
+body.is-mobile .overlay#modal-score-info .modal,
+body.is-mobile .overlay#modal-wish-console .modal {
   border-radius: 20px 20px 0 0 !important;
   max-width: 100% !important;
   width: 100% !important;

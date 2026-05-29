@@ -1,57 +1,64 @@
-import { 
-  WORKPLACES, 
-  STATUSES, 
-  CODE_MAP, 
-  MONTHS, 
-  MONTHS_SHORT, 
-  DOW_ABBR, 
-  DOW_LONG, 
-  VACATION_CODES, 
+import {
+  WORKPLACES,
+  STATUSES,
+  CODE_MAP,
+  MONTHS,
+  MONTHS_SHORT,
+  DOW_ABBR,
+  DOW_LONG,
+  VACATION_CODES,
+  ABSENCE_CODES,
+  WISH_TYPES,
   WISH_MAP,
   RBN_ROW_KEY,
   RBN_ROW_LABEL,
-  isFacharzt, 
-  isAssistenzarzt, 
-  getEmpMeta, 
-  posColor, 
-  getSaxonyHolidaysCached, 
-  dateKey, 
-  daysInMonth, 
-  weekday, 
-  isWeekend, 
-  isFriday, 
-  isHoliday, 
+  isFacharzt,
+  isAssistenzarzt,
+  getEmpMeta,
+  posColor,
+  getSaxonyHolidaysCached,
+  dateKey,
+  monthKey,
+  pad2,
+  daysInMonth,
+  weekday,
+  isWeekend,
+  isFriday,
+  isHoliday,
   isWorkday,
-  isTodayCol, 
-  isoWeekNumber, 
-  cellColor, 
-  empInitials, 
+  isTodayCol,
+  isoWeekNumber,
+  cellColor,
+  empInitials,
   MOBILE_BREAKPOINT,
   isRbnMonthVisible,
   formatRbnDisplay
 } from './constants.js';
 
-import { 
-  state, 
-  planMode, 
-  IS_MOBILE, 
-  TOD_Y, 
-  TOD_M, 
+import {
+  state,
+  DATA,
+  planMode,
+  planData,
+  IS_MOBILE,
+  TOD_Y,
+  TOD_M,
   TOD_D,
   deptTab,
   setIsMobile
 } from './state.js';
 
-import { 
-  getMonthData, 
-  getCell, 
-  getRbnValue, 
-  dayCodeCount, 
-  buildProfileStats, 
-  buildYearlyStats, 
-  getEmployeesForYear, 
-  getRoleFilterBuckets, 
-  getEmployeeYearCardMetrics, 
+import {
+  getMonthData,
+  getMonthDataRaw,
+  getCell,
+  getRbnValue,
+  dayCodeCount,
+  buildProfileStats,
+  buildYearlyStats,
+  getEmployeesForYear,
+  getRoleFilterBuckets,
+  getEmployeeYearCardMetrics,
   matchRoleFilter,
   addEmployee,
   removeEmployee
@@ -1551,6 +1558,8 @@ export function renderDeptContent() {
   const { year: y, month: m } = state;
   if (deptTab === "month") {
     renderDeptMonth(y, m);
+  } else if (deptTab === "matrix") {
+    renderDeptAbsenceMatrix(y);
   } else {
     renderDeptYear(y);
   }
@@ -2437,4 +2446,362 @@ export function renderEmployeeDetailDashboard(emp, year) {
       document.getElementById('emp-add-btn')?.click();
     }
   });
+}
+
+/* ============================================================
+   ABWESENHEITSMATRIX
+   ============================================================ */
+
+export function renderDeptAbsenceMatrix(year) {
+  const body = document.getElementById("dept-body");
+  if (!body) return;
+
+  const contextLine = document.getElementById("dept-context-line");
+  if (contextLine) contextLine.textContent = `Abwesenheitsmatrix ${year}`;
+
+  const allEmps = getEmployeesForYear(year);
+  if (!allEmps.length) {
+    body.innerHTML = `<div class="dept-empty"><p>Keine Daten für ${year}</p></div>`;
+    return;
+  }
+
+  const hols = getSaxonyHolidaysCached(year);
+  const dimByMonth = Array.from({ length: 12 }, (_, m) => daysInMonth(year, m));
+  const totalDays = dimByMonth.reduce((a, b) => a + b, 0);
+
+  /* ── Legend ── */
+  const legendHtml = `
+    <div class="abs-legend">
+      <span class="abs-leg-item"><span class="abs-leg-swatch" style="background:#7C3AED"></span>Urlaub (U / ZU / SU / §15c)</span>
+      <span class="abs-leg-item"><span class="abs-leg-swatch" style="background:#EF4444"></span>Krank (K)</span>
+      <span class="abs-leg-item"><span class="abs-leg-swatch" style="background:#F87171"></span>Kind krank (KK)</span>
+      <span class="abs-leg-item"><span class="abs-leg-swatch" style="background:#6366F1"></span>FZA</span>
+      <span class="abs-leg-item"><span class="abs-leg-swatch" style="background:#D97706"></span>Weiterbildung (WB)</span>
+      <span class="abs-leg-item"><span class="abs-leg-swatch" style="background:rgba(148,163,184,0.5)"></span>Frei (F)</span>
+      <span class="abs-leg-item"><span class="abs-leg-swatch" style="background:rgba(34,197,94,0.5)"></span>Aktiv / Arbeitsplatz</span>
+      <span class="abs-leg-item"><span class="abs-leg-duty-dot" style="background:#ea580c"></span>D-Dienst</span>
+      <span class="abs-leg-item"><span class="abs-leg-duty-dot" style="background:#0284c7"></span>HG-Dienst</span>
+    </div>`;
+
+  /* ── Month header row ── */
+  let monthHdHtml = `<div class="abs-mhd-corner"></div>`;
+  for (let m = 0; m < 12; m++) {
+    monthHdHtml += `<div class="abs-month-hd" style="grid-column:span ${dimByMonth[m]}">${MONTHS_SHORT[m]}</div>`;
+  }
+
+  /* ── Day sub-header row ── */
+  let dayHdHtml = `<div class="abs-dhd-corner"></div>`;
+  for (let m = 0; m < 12; m++) {
+    const dim = dimByMonth[m];
+    for (let d = 1; d <= dim; d++) {
+      const dow = weekday(year, m, d);
+      const isWe  = dow === 0 || dow === 6;
+      const isHol = isHoliday(year, m, d, hols);
+      const isToday = isTodayCol(year, m, d, TOD_Y, TOD_M, TOD_D);
+      /* show number on 1st of month or Mondays */
+      const showNum = d === 1 || dow === 1;
+      const cls = `abs-day-hd${isWe ? " abs-we-hd" : ""}${isHol ? " abs-hol-hd" : ""}${isToday ? " abs-today-hd" : ""}`;
+      dayHdHtml += `<div class="${cls}" title="${DOW_ABBR[dow]} ${d}.${pad2(m + 1)}.">${showNum ? d : ""}</div>`;
+    }
+  }
+
+  /* ── Employee rows ── */
+  let rowsHtml = "";
+  for (const emp of allEmps) {
+    const meta = getEmpMeta(emp);
+    const pc   = posColor(meta.position);
+
+    /* name cell */
+    rowsHtml += `<div class="abs-name-cell" style="border-left:3px solid ${pc.border}" title="${meta.fullName}">
+      <span class="abs-emp-name">${emp}</span>
+      ${meta.position !== "—" ? `<span class="abs-pos-tag" style="background:${pc.bg};color:${pc.fg};border-color:${pc.border}">${meta.position}</span>` : ""}
+    </div>`;
+
+    for (let m = 0; m < 12; m++) {
+      const dim = dimByMonth[m];
+      const mk  = monthKey(year, m);
+      const md  = DATA[mk];
+      const empInMonth = !!(md && md.employees && md.employees.includes(emp));
+
+      for (let d = 1; d <= dim; d++) {
+        const dow       = weekday(year, m, d);
+        const isWe      = dow === 0 || dow === 6;
+        const isHol     = isHoliday(year, m, d, hols);
+        const isToday   = isTodayCol(year, m, d, TOD_Y, TOD_M, TOD_D);
+        const isMonthEnd = d === dim;
+
+        if (!empInMonth) {
+          const cls = `abs-cell abs-no-data${isWe ? " abs-we" : ""}${isHol ? " abs-hol" : ""}${isToday ? " abs-today" : ""}${isMonthEnd ? " abs-month-end" : ""}`;
+          rowsHtml += `<div class="${cls}"></div>`;
+          continue;
+        }
+
+        const cell = (md.assignments && md.assignments[emp] && md.assignments[emp][d]) || {};
+        const asgn = cell.assignment || "";
+        const duty = cell.duty || null;
+
+        /* determine background color */
+        let bg = "";
+        let tipParts = [`${DOW_ABBR[dow]} ${d}.${pad2(m + 1)}.${year}`];
+
+        if (asgn) {
+          const first = asgn.split("/")[0].trim();
+          if (first === "U" || first === "ZU" || first === "SU") {
+            bg = first === "U" ? "#7C3AED" : first === "ZU" ? "#6D28D9" : "#5B21B6";
+            tipParts.push(CODE_MAP[first]?.label || first);
+          } else if (first === "§15c") {
+            bg = "#4C1D95";
+            tipParts.push("§15c");
+          } else if (first === "K") {
+            bg = "#EF4444"; tipParts.push("Krank");
+          } else if (first === "KK") {
+            bg = "#F87171"; tipParts.push("Kind krank");
+          } else if (first === "FZA") {
+            bg = "#6366F1"; tipParts.push("FZA");
+          } else if (first === "WB") {
+            bg = "#D97706"; tipParts.push("Weiterbildung");
+          } else if (first === "F") {
+            bg = (!isWe && !isHol) ? "rgba(148,163,184,0.35)" : "";
+            tipParts.push("Frei");
+          } else {
+            /* workplace assigned */
+            bg = "rgba(34,197,94,0.4)";
+            tipParts.push(asgn);
+          }
+        }
+
+        if (duty === "D")  tipParts.push("D-Dienst");
+        if (duty === "HG") tipParts.push("HG-Dienst");
+
+        const dutyClass = duty === "D"  ? " abs-duty-d-dot"
+                        : duty === "HG" ? " abs-duty-hg-dot"
+                        : "";
+
+        const cls = `abs-cell${isWe ? " abs-we" : ""}${isHol ? " abs-hol" : ""}${isToday ? " abs-today" : ""}${isMonthEnd ? " abs-month-end" : ""}${dutyClass}`;
+        rowsHtml += `<div class="${cls}" ${bg ? `style="background:${bg}"` : ""} title="${tipParts.join(" · ")}"></div>`;
+      }
+    }
+  }
+
+  body.innerHTML = `
+    <div class="abs-matrix-wrap">
+      ${legendHtml}
+      <div class="abs-matrix-scroll">
+        <div class="abs-matrix-grid" style="--abs-days:${totalDays}">
+          ${monthHdHtml}
+          ${dayHdHtml}
+          ${rowsHtml}
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ============================================================
+   WUNSCH-AGGREGAT-KONSOLE
+   ============================================================ */
+
+export function renderWishConsole() {
+  const body     = document.getElementById("wc-body");
+  const subtitle = document.getElementById("wc-subtitle");
+  if (!body) return;
+
+  if (!planMode || !planData) {
+    body.innerHTML = `<div class="wc-empty">Wunsch-Aggregat ist nur im Planungsmodus verfügbar.</div>`;
+    if (subtitle) subtitle.textContent = "";
+    return;
+  }
+
+  const { year: y, month: m } = state;
+  const employees   = planData.employees || [];
+  const wishes      = planData.wishes    || {};
+  const assignments = planData.assignments || {};
+  const dim  = daysInMonth(y, m);
+  const hols = getSaxonyHolidaysCached(y);
+
+  if (subtitle) subtitle.textContent = `${MONTHS[m]} ${y} · ${employees.length} Mitarbeitende`;
+
+  if (!employees.length) {
+    body.innerHTML = `<div class="wc-empty">Keine Mitarbeitenden für diesen Monat eingetragen.</div>`;
+    return;
+  }
+
+  /* ── Per-day wish counts ── */
+  const dayWish = {};
+  for (let d = 1; d <= dim; d++) dayWish[d] = { NO_DUTY: 0, BD_WISH: 0, HG_WISH: 0 };
+
+  for (const emp of employees) {
+    const ew = wishes[emp] || {};
+    for (const [ds, wc] of Object.entries(ew)) {
+      const d = parseInt(ds, 10);
+      if (d >= 1 && d <= dim) dayWish[d][wc] = (dayWish[d][wc] || 0) + 1;
+    }
+  }
+
+  /* ── Fulfillment per employee ── */
+  const fulfillment = {};
+  for (const emp of employees) {
+    const ew = wishes[emp] || {};
+    const ea = assignments[emp] || {};
+    let total = 0, fulfilled = 0;
+    for (const [ds, wc] of Object.entries(ew)) {
+      const d = parseInt(ds, 10);
+      if (d < 1 || d > dim) continue;
+      total++;
+      const duty = ea[d]?.duty || null;
+      if (wc === "NO_DUTY" && !duty) fulfilled++;
+      else if (wc === "BD_WISH" && duty === "D")  fulfilled++;
+      else if (wc === "HG_WISH" && duty === "HG") fulfilled++;
+    }
+    fulfillment[emp] = { total, fulfilled };
+  }
+
+  /* ── Global stats ── */
+  const totalWishes    = Object.values(fulfillment).reduce((s, e) => s + e.total,     0);
+  const totalFulfilled = Object.values(fulfillment).reduce((s, e) => s + e.fulfilled, 0);
+  const fulfillRate    = totalWishes > 0 ? Math.round((totalFulfilled / totalWishes) * 100) : null;
+  const threshold      = Math.max(3, Math.ceil(employees.length * 0.4));
+
+  /* ── Conflicts: days with ≥ threshold NO_DUTY wishes ── */
+  const conflicts = [];
+  for (let d = 1; d <= dim; d++) {
+    const nd = dayWish[d].NO_DUTY;
+    if (nd >= threshold) conflicts.push({ d, noduty: nd });
+  }
+
+  const rateColor = fulfillRate === null ? "#94a3b8"
+                  : fulfillRate >= 80 ? "#16a34a"
+                  : fulfillRate >= 50 ? "#d97706"
+                  : "#dc2626";
+
+  const statsHtml = `
+    <div class="wc-stats">
+      <div class="wc-stat">
+        <span class="wc-stat-val">${totalWishes}</span>
+        <span class="wc-stat-lbl">Wünsche gesamt</span>
+      </div>
+      <div class="wc-stat">
+        <span class="wc-stat-val" style="color:#16a34a">${totalFulfilled}</span>
+        <span class="wc-stat-lbl">Erfüllt</span>
+      </div>
+      <div class="wc-stat">
+        <span class="wc-stat-val" style="color:${rateColor}">${fulfillRate !== null ? fulfillRate + "%" : "—"}</span>
+        <span class="wc-stat-lbl">Erfüllungsquote</span>
+      </div>
+      <div class="wc-stat">
+        <span class="wc-stat-val" style="color:${conflicts.length > 0 ? "#dc2626" : "#16a34a"}">${conflicts.length}</span>
+        <span class="wc-stat-lbl">Konflikttage</span>
+      </div>
+    </div>`;
+
+  /* ── Day header row ── */
+  let dayHdHtml = `<div class="wc-corner"></div>`;
+  for (let d = 1; d <= dim; d++) {
+    const dow     = weekday(y, m, d);
+    const isWe    = dow === 0 || dow === 6;
+    const isHol   = isHoliday(y, m, d, hols);
+    const isToday = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
+    const hasConflict = dayWish[d].NO_DUTY >= threshold;
+    const totalForDay = dayWish[d].NO_DUTY + dayWish[d].BD_WISH + dayWish[d].HG_WISH;
+
+    let tipParts = [`${DOW_ABBR[dow]} ${d}.`];
+    if (dayWish[d].NO_DUTY) tipParts.push(`${dayWish[d].NO_DUTY}× Kein-D`);
+    if (dayWish[d].BD_WISH) tipParts.push(`${dayWish[d].BD_WISH}× D-Wunsch`);
+    if (dayWish[d].HG_WISH) tipParts.push(`${dayWish[d].HG_WISH}× HG-Wunsch`);
+
+    const numEl = isToday
+      ? `<span class="wc-day-num wc-today-num">${d}</span>`
+      : `<span class="wc-day-num">${d}</span>`;
+    const cntEl = totalForDay > 0
+      ? `<span class="wc-day-count">${totalForDay}</span>`
+      : "";
+
+    const cls = `wc-day-hd${isWe ? " wc-we" : ""}${isHol ? " wc-hol" : ""}${hasConflict ? " wc-conflict-day" : ""}${isToday ? " wc-today" : ""}`;
+    dayHdHtml += `<div class="${cls}" title="${tipParts.join(" · ")}">${numEl}${cntEl}</div>`;
+  }
+
+  /* ── Employee rows ── */
+  let rowsHtml = "";
+  for (const emp of employees) {
+    const meta = getEmpMeta(emp);
+    const pc   = posColor(meta.position);
+    const ew   = wishes[emp]      || {};
+    const ea   = assignments[emp] || {};
+    const { total, fulfilled } = fulfillment[emp];
+    const empRate = total > 0 ? Math.round((fulfilled / total) * 100) : null;
+    const empRateColor = empRate === null ? "#94a3b8"
+                       : empRate >= 80 ? "#16a34a"
+                       : empRate >= 50 ? "#d97706"
+                       : "#dc2626";
+
+    let cells = `<div class="wc-emp-col" style="border-left:3px solid ${pc.border}" title="${meta.fullName}">
+      <span class="wc-emp-name">${emp}</span>
+      ${empRate !== null ? `<span class="wc-emp-rate" style="color:${empRateColor}">${empRate}%</span>` : ""}
+    </div>`;
+
+    for (let d = 1; d <= dim; d++) {
+      const dow     = weekday(y, m, d);
+      const isWe    = dow === 0 || dow === 6;
+      const isHol   = isHoliday(y, m, d, hols);
+      const isToday = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
+      const wishCode = ew[d] || null;
+      const duty     = ea[d]?.duty || null;
+
+      /* fulfillment check */
+      let isFulfilled = null;
+      if (wishCode !== null) {
+        if (wishCode === "NO_DUTY") isFulfilled = !duty;
+        else if (wishCode === "BD_WISH") isFulfilled = duty === "D";
+        else if (wishCode === "HG_WISH") isFulfilled = duty === "HG";
+      }
+
+      const wishMeta = wishCode ? WISH_MAP[wishCode] : null;
+      const iconEl   = wishMeta
+        ? `<span class="wc-wish-icon" style="color:${wishMeta.fg};background:${wishMeta.bg}" title="${wishMeta.label}">${wishMeta.icon}</span>`
+        : "";
+      const fulfillEl = isFulfilled !== null
+        ? (isFulfilled
+            ? `<span class="wc-fulfill-ok" title="Wunsch erfüllt">✓</span>`
+            : `<span class="wc-fulfill-no" title="Wunsch nicht erfüllt">✗</span>`)
+        : "";
+
+      const cls = `wc-cell${isWe ? " wc-we" : ""}${isHol ? " wc-hol" : ""}${isToday ? " wc-today" : ""}${wishCode ? " wc-has-wish" : ""}`;
+      cells += `<div class="${cls}">${iconEl}${fulfillEl}</div>`;
+    }
+
+    rowsHtml += `<div class="wc-row">${cells}</div>`;
+  }
+
+  /* ── Conflicts section ── */
+  const conflictsHtml = conflicts.length > 0 ? `
+    <div class="wc-conflicts">
+      <h3 class="wc-section-title">⚠ Konflikttage (≥${threshold} Kein-D-Wünsche)</h3>
+      <div class="wc-conflict-list">
+        ${conflicts.map(({ d, noduty }) => {
+          const dow = weekday(y, m, d);
+          return `<div class="wc-conflict-item">
+            <span class="wc-conflict-date">${DOW_ABBR[dow]}, ${d}. ${MONTHS_SHORT[m]}</span>
+            <span class="wc-conflict-detail">${noduty} Mitarbeitende mit Kein-D-Wunsch</span>
+          </div>`;
+        }).join("")}
+      </div>
+    </div>` : "";
+
+  /* ── Legend ── */
+  const legendHtml = `
+    <div class="wc-legend">
+      ${WISH_TYPES.map(wt =>
+        `<span class="wc-leg-item"><span class="wc-wish-icon" style="color:${wt.fg};background:${wt.bg}">${wt.icon}</span>${wt.label}</span>`
+      ).join("")}
+      <span class="wc-leg-item"><span class="wc-fulfill-ok">✓</span>Wunsch erfüllt</span>
+      <span class="wc-leg-item"><span class="wc-fulfill-no">✗</span>Wunsch nicht erfüllt</span>
+      ${conflicts.length > 0 ? `<span class="wc-leg-item wc-leg-conflict">⚠ Konflikttag (≥${threshold} Kein-D)</span>` : ""}
+    </div>`;
+
+  body.innerHTML = statsHtml + `
+    <div class="wc-matrix-scroll">
+      <div class="wc-matrix-grid" style="--wc-days:${dim}">
+        <div class="wc-day-header-row">${dayHdHtml}</div>
+        ${rowsHtml}
+      </div>
+    </div>` + conflictsHtml + legendHtml;
 }

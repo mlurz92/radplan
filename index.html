@@ -171,6 +171,21 @@
     </div>
 
     <div class="plan-bar-right">
+      <button type="button" class="plan-btn plan-btn-wishes" id="btn-plan-wishes" title="Wunsch-Aggregat-Konsole — alle Mitarbeiterwünsche für den aktuellen Monat im Überblick" aria-label="Wünsche anzeigen">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+        <span>Wünsche</span>
+      </button>
+
+      <button type="button" class="plan-btn plan-btn-reset" id="btn-plan-reset" title="Planungsdaten dieses Monats auf den aktuellen Hauptplan zurücksetzen — alle nicht gespeicherten Änderungen werden verworfen" aria-label="Auf Hauptdaten zurücksetzen">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+          <path d="M3 3v5h5"/>
+        </svg>
+        <span>Hauptdaten</span>
+      </button>
+
       <button type="button" class="plan-btn plan-btn-auto" id="btn-plan-auto" title="Automatische Diensteinteilung nach fairen Kriterien berechnen" aria-label="Auto-Planung starten">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 2L2 7l10 5 10-5-10-5z"/>
@@ -529,6 +544,7 @@
           <div class="dept-tabs" role="tablist">
             <button type="button" class="dept-tab active" id="dept-tab-month" role="tab" aria-selected="true">Aktueller Monat</button>
             <button type="button" class="dept-tab" id="dept-tab-year" role="tab" aria-selected="false">Jahresübersicht</button>
+            <button type="button" class="dept-tab" id="dept-tab-matrix" role="tab" aria-selected="false">Abwesenheitsmatrix</button>
           </div>
         </div>
       </div>
@@ -597,6 +613,22 @@
       <div class="modal-bd" id="score-info-body" style="background:#0F172A; color:#E2E8F0; padding:20px;"></div>
       <div class="modal-ft" style="background:#0F172A; border-top: 1px solid rgba(255,255,255,0.1);">
         <button type="button" class="mbtn mbtn-ghost" data-close="modal-score-info" style="color:#E2E8F0; border-color:rgba(255,255,255,0.2);">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-wish-console" role="dialog" aria-modal="true" aria-labelledby="wc-title" hidden style="display:none">
+    <div class="modal modal-wish-console">
+      <div class="modal-hd wc-modal-hd">
+        <div>
+          <div class="modal-hd-title" id="wc-title">Wunsch-Aggregat</div>
+          <div class="modal-hd-sub" id="wc-subtitle"></div>
+        </div>
+        <button type="button" class="modal-x" data-close="modal-wish-console" aria-label="Wunsch-Konsole schließen">✕</button>
+      </div>
+      <div class="modal-bd" id="wc-body"></div>
+      <div class="modal-ft">
+        <button type="button" class="mbtn mbtn-ghost" data-close="modal-wish-console">Schließen</button>
       </div>
     </div>
   </div>

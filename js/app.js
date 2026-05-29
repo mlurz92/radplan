@@ -83,8 +83,10 @@ import {
   hideOverlay,
   showToast,
   renderDeptContent,
+  renderDeptAbsenceMatrix,
   renderEmployeeDashboard,
   openProfileModal,
+  renderWishConsole,
   refreshOpenContextPanels,
   updateOpenModalLayouts,
   refreshResponsiveLayout,
@@ -368,6 +370,32 @@ export function abortPlanChanges() {
   persistPlanSessionRefs();
   render();
   showToast("Zurückgesetzt");
+}
+
+export function resetPlanToMainData() {
+  if (!planMode || !planData) return;
+
+  const mk = monthKey(state.year, state.month);
+  const mainMd = DATA[mk];
+
+  if (!mainMd) {
+    showToast("Keine Hauptdaten für diesen Monat verfügbar");
+    return;
+  }
+
+  if (!confirm(
+    `Planungsdaten für ${MONTHS[state.month]} ${state.year} auf den aktuellen Hauptplan zurücksetzen?\n\n` +
+    `Alle nicht gespeicherten Planungsänderungen für diesen Monat werden verworfen.\n` +
+    `Wünsche und gespeicherte Entwürfe anderer Monate bleiben unberührt.`
+  )) return;
+
+  planData.assignments = cloneData(mainMd.assignments || {});
+  planData.rbn = cloneData(mainMd.rbn || {});
+
+  recordPlanHistory();
+  persistPlanSessionRefs();
+  render();
+  showToast("Auf Hauptdaten zurückgesetzt");
 }
 
 export function savePlanDraft() {
@@ -2198,6 +2226,11 @@ export function wireEvents() {
   document.getElementById("btn-plan-undo")?.addEventListener("click", undoPlan);
   document.getElementById("btn-plan-redo")?.addEventListener("click", redoPlan);
   document.getElementById("btn-plan-auto")?.addEventListener("click", openAutoPlanModal);
+  document.getElementById("btn-plan-reset")?.addEventListener("click", resetPlanToMainData);
+  document.getElementById("btn-plan-wishes")?.addEventListener("click", () => {
+    renderWishConsole();
+    showOverlay("modal-wish-console");
+  });
   document.getElementById("ap-apply")?.addEventListener("click", applyAutoPlan);
   
   document.getElementById("ed-save")?.addEventListener("click", () => {
@@ -2243,6 +2276,13 @@ export function wireEvents() {
     setDeptTab("year");
     document.querySelectorAll(".dept-tab").forEach((t) => t.classList.remove("active"));
     document.getElementById("dept-tab-year")?.classList.add("active");
+    renderDeptContent();
+  });
+
+  document.getElementById("dept-tab-matrix")?.addEventListener("click", () => {
+    setDeptTab("matrix");
+    document.querySelectorAll(".dept-tab").forEach((t) => t.classList.remove("active"));
+    document.getElementById("dept-tab-matrix")?.classList.add("active");
     renderDeptContent();
   });
   

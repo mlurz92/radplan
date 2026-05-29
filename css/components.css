@@ -779,3 +779,39 @@ body.is-mobile .plan-hist-btn span {
 body.is-mobile .plan-btn-auto span {
   display: inline !important;
 }
+/* ── Plan bar: Wünsche button ── */
+.plan-btn-wishes {
+  background: rgba(124,58,237,.16);
+  border: 1px solid rgba(124,58,237,.35);
+  color: #c4b5fd;
+}
+
+.plan-btn-wishes:hover {
+  background: rgba(124,58,237,.28);
+  border-color: rgba(124,58,237,.55);
+  color: #ddd6fe;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(124,58,237,.25);
+}
+
+.plan-btn-wishes:active { transform: scale(0.96); box-shadow: none; }
+
+/* ── Plan bar: Hauptdaten-Reset button ── */
+.plan-btn-reset {
+  background: rgba(251,146,60,.12);
+  border: 1px solid rgba(251,146,60,.3);
+  color: #fdba74;
+}
+
+.plan-btn-reset:hover {
+  background: rgba(251,146,60,.22);
+  border-color: rgba(251,146,60,.5);
+  color: #fed7aa;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(251,146,60,.2);
+}
+
+.plan-btn-reset:active { transform: scale(0.96); box-shadow: none; }
+
+body.is-mobile .plan-btn-wishes,
+body.is-mobile .plan-btn-reset { padding: 7px 11px !important; font-size: 11px !important; }
