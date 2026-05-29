@@ -389,6 +389,7 @@ export function resetPlanToMainData() {
     `Wünsche und gespeicherte Entwürfe anderer Monate bleiben unberührt.`
   )) return;
 
+  planData.employees = [...(mainMd.employees || [])];
   planData.assignments = cloneData(mainMd.assignments || {});
   planData.rbn = cloneData(mainMd.rbn || {});
 

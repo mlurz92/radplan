@@ -2563,7 +2563,7 @@ export function renderDeptAbsenceMatrix(year) {
           } else if (first === "F") {
             bg = (!isWe && !isHol) ? "rgba(148,163,184,0.35)" : "";
             tipParts.push("Frei");
-          } else {
+          } else if (first) {
             /* workplace assigned */
             bg = "rgba(34,197,94,0.4)";
             tipParts.push(asgn);
