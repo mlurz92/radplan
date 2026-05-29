@@ -1086,3 +1086,83 @@ body.is-mobile .plan-bar-center {
   .th-corner-inner { height: 48px; font-size: 8px; }
   .plan-bar-month { display: none; }
 }
+
+/* ═══════════════════════════════════════════════════
+   Day Status Stripe (Feature 3)
+═══════════════════════════════════════════════════ */
+.day-status-stripe {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  pointer-events: none;
+  transition: background-color 0.3s ease;
+  border-radius: 1px 1px 0 0;
+}
+
+/* ═══════════════════════════════════════════════════
+   Keyboard Grid Navigation – Hint Bar (Feature 1)
+═══════════════════════════════════════════════════ */
+#grid-kbd-hint {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  height: 26px;
+  background: rgba(14,165,233,.05);
+  border-top: 1px solid rgba(14,165,233,.12);
+  font-size: 10px;
+  color: rgba(255,255,255,.4);
+  font-family: var(--font-mono);
+  flex-wrap: nowrap;
+  overflow: hidden;
+  flex-shrink: 0;
+  user-select: none;
+  letter-spacing: .01em;
+}
+
+body.grid-cell-focused #grid-kbd-hint {
+  display: flex;
+}
+
+body.is-mobile #grid-kbd-hint {
+  display: none !important;
+}
+
+body.plan-mode-active #grid-kbd-hint {
+  background: rgba(245,158,11,.05);
+  border-top-color: rgba(245,158,11,.15);
+}
+
+.kbd-hint-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.kbd-hint-sep {
+  color: rgba(255,255,255,.18);
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+.kbd-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 14px;
+  padding: 0 3px;
+  background: rgba(255,255,255,.09);
+  border: 1px solid rgba(255,255,255,.14);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  font-size: 8.5px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: rgba(255,255,255,.65);
+  line-height: 1;
+  letter-spacing: 0;
+}

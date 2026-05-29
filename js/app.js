@@ -90,7 +90,9 @@ import {
   refreshResponsiveLayout,
   queueResponsiveRefresh,
   scrollToToday as doScrollToToday,
-  openScoreInfoModal
+  openScoreInfoModal,
+  focusCellAfterRender,
+  initGridKeyboardHandlers
 } from './render.js';
 
 import {
@@ -855,11 +857,12 @@ export function confirmRemoveEmployeeFuture(name) {
 
     // 2. Clear from DATA for all future months
     const currentKey = monthKey(y, m);
+    const [cY, cM] = currentKey.split('-').map(Number);
     Object.keys(DATA).forEach(key => {
-      if (key > currentKey) {
-        const [ty, tmStr] = key.split('-');
-        const tyNum = parseInt(ty, 10);
-        const tmNum = parseInt(tmStr, 10) - 1; // back to 0-indexed
+      const parts = key.split('-');
+      const tyNum = parseInt(parts[0], 10);
+      const tmNum = parseInt(parts[1], 10);
+      if (tyNum > cY || (tyNum === cY && tmNum > cM)) {
         removeEmployee(tyNum, tmNum, name);
       }
     });
@@ -1934,6 +1937,81 @@ export function applyAutoPlan() {
   localAutoPlanResult = null;
 }
 
+export function quickToggleWorkplace(emp, day, wpCode) {
+  const { year: y, month: m } = state;
+  const cell = getCell(y, m, emp, day);
+
+  const existingParts = (cell.assignment || "").split("/").map(x => x.trim()).filter(Boolean);
+  const hasStatus = existingParts.some(p => STATUSES.find(s => s.code === p));
+  if (hasStatus) {
+    showToast("Status aktiv — Editor öffnen zum Bearbeiten");
+    return;
+  }
+
+  const existingWPs = existingParts.filter(p => WORKPLACES.find(w => w.code === p));
+  const newWPs = existingWPs.includes(wpCode)
+    ? existingWPs.filter(w => w !== wpCode)
+    : [...existingWPs, wpCode];
+
+  const newAssignment = newWPs.length ? newWPs.join("/") : null;
+
+  if (planMode) recordPlanHistory();
+  setCell(y, m, emp, day, { assignment: newAssignment, duty: cell.duty || null });
+  if (planMode) recordPlanHistory();
+
+  const wp = WORKPLACES.find(w => w.code === wpCode);
+  showToast(newWPs.includes(wpCode)
+    ? `${wp?.label || wpCode} gesetzt`
+    : `${wp?.label || wpCode} entfernt`);
+  render();
+  focusCellAfterRender(emp, day);
+}
+
+export function quickToggleDuty(emp, day, dutyCode) {
+  const { year: y, month: m } = state;
+  const cell = getCell(y, m, emp, day);
+
+  const owner = dutyOwner(y, m, day, dutyCode);
+  if (owner && owner !== emp) {
+    showToast(`${dutyCode} bereits vergeben an: ${owner}`);
+    return;
+  }
+
+  const newDuty = cell.duty === dutyCode ? null : dutyCode;
+
+  if (planMode) recordPlanHistory();
+  setCell(y, m, emp, day, { assignment: cell.assignment || null, duty: newDuty });
+
+  if (newDuty === "D") {
+    const next = nextCalendarDay(y, m, day);
+    const ex = getCell(next.y, next.m, emp, next.d);
+    if (!ex.assignment) {
+      setCell(next.y, next.m, emp, next.d, { assignment: "F", duty: ex.duty || null });
+      showToast("Bereitschaftsdienst gesetzt · F automatisch für Folgetag");
+    } else {
+      showToast("Bereitschaftsdienst gesetzt");
+    }
+  } else if (newDuty === "HG") {
+    showToast("Hintergrunddienst gesetzt");
+  } else {
+    showToast(`${dutyCode === "HG" ? "HG" : "BD"} entfernt`);
+  }
+
+  if (planMode) recordPlanHistory();
+  render();
+  focusCellAfterRender(emp, day);
+}
+
+export function quickClearCell(emp, day) {
+  const { year: y, month: m } = state;
+  if (planMode) recordPlanHistory();
+  clearCell(y, m, emp, day);
+  if (planMode) recordPlanHistory();
+  showToast("Eintrag gelöscht");
+  render();
+  focusCellAfterRender(emp, day);
+}
+
 export function wireEvents() {
   document.getElementById("btn-prev")?.addEventListener("click", () => changeMonth(-1));
   document.getElementById("btn-next")?.addEventListener("click", () => changeMonth(1));
@@ -2129,15 +2207,23 @@ export function wireEvents() {
   document.getElementById("ed-cancel")?.addEventListener("click", () => hideOverlay("modal-editor"));
   
   document.getElementById("ed-clear")?.addEventListener("click", () => {
+    const { year: y, month: m } = state;
+    const { emp, day, isRbnRow } = state.edit || {};
+    const days = Array.isArray(state.edit?.days) && state.edit.days.length
+      ? state.edit.days
+      : (day ? [day] : []);
+
     if (planMode) recordPlanHistory();
-    
-    if (state.edit?.isRbnRow) {
-      setRbnValue(state.year, state.month, state.edit.day, "");
+
+    if (isRbnRow) {
+      setRbnValue(y, m, day, "");
     } else {
-      clearCell(state.year, state.month, state.edit.emp, state.edit.day);
+      days.forEach(targetDay => clearCell(y, m, emp, targetDay));
     }
-    
+
     if (planMode) recordPlanHistory();
+
+    state.multiEdit = { emp: null, days: [] };
     hideOverlay("modal-editor");
     render();
   });
@@ -2304,7 +2390,8 @@ export function wireEvents() {
   }
   
   initDragDrop();
-  
+  initGridKeyboardHandlers();
+
   const apReportBtn = document.getElementById("ap-report-btn");
   if (apReportBtn) {
     apReportBtn.addEventListener("click", renderReportModal);
