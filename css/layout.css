@@ -27,11 +27,9 @@
   pointer-events: none;
 }
 
-body.is-mobile #app-header {
+body.is-mobile.is-standalone #app-header {
   height: calc(var(--header-h) + var(--safe-top));
   padding-top: var(--safe-top);
-  padding-left: var(--safe-left);
-  padding-right: var(--safe-right);
 }
 
 .brand {
@@ -932,14 +930,11 @@ body.is-mobile #stats-bar {
 body.is-mobile .mobile-view {
   display: flex !important;
   min-height: 0;
-  padding: var(--safe-top) var(--safe-right) calc(var(--safe-bottom) + var(--kb-inset)) var(--safe-left);
 }
 
 body.is-mobile .mobile-nav {
   display: flex !important;
   bottom: max(0px, var(--kb-inset));
-  padding-left: var(--safe-left);
-  padding-right: var(--safe-right);
 }
 
 body.is-mobile #app-header .header-actions {
@@ -988,7 +983,7 @@ body.is-mobile .plan-bar-center {
     --header-h: 48px;
     --name-w: 140px;
     --cell-w: 40px;
-    --row-h: clamp(44px, 4.5dvh, 50px);
+    --row-h: clamp(36px, 4.5vh, 50px);
     --overlay-pad: 12px;
   }
   .brand-text { display: none; }
@@ -1018,7 +1013,7 @@ body.is-mobile .plan-bar-center {
     --header-h: 44px;
     --name-w: 110px;
     --cell-w: 36px;
-    --row-h: clamp(44px, 4.5dvh, 44px);
+    --row-h: clamp(32px, 4.5vh, 44px);
     --foot-h: 26px;
     --overlay-pad: 10px;
   }
@@ -1170,46 +1165,4 @@ body.plan-mode-active #grid-kbd-hint {
   color: rgba(255,255,255,.65);
   line-height: 1;
   letter-spacing: 0;
-}
-
-/* ===== iPhone 14 Pro Max Portrait Optimizations ===== */
-@media only screen and (min-width: 430px) and (orientation: portrait) and (max-height: 950px) {
-  .mobile-nav {
-    height: calc(60px + var(--safe-bottom));
-    padding-bottom: var(--safe-bottom);
-    padding-left: max(12px, var(--safe-left));
-    padding-right: max(12px, var(--safe-right));
-  }
-
-  .mnav-btn {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  .mnav-plan-icon {
-    width: 48px;
-    height: 36px;
-  }
-
-  .mobile-day-card {
-    min-height: 44px;
-    padding: 12px 14px;
-  }
-
-  .mobile-day-list {
-    padding-left: max(12px, var(--safe-left));
-    padding-right: max(12px, var(--safe-right));
-  }
-}
-
-/* ===== iPhone 14 Pro Max Landscape Optimizations ===== */
-@media only screen and (min-width: 932px) and (orientation: landscape) {
-  #grid-wrapper {
-    padding-left: calc(8px + var(--safe-left));
-    padding-right: calc(8px + var(--safe-right));
-  }
-
-  .mobile-nav {
-    height: calc(54px + var(--safe-bottom));
-  }
 }

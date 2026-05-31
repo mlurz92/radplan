@@ -37,13 +37,6 @@ export class ContextMenu {
     this.activeTarget = target;
     this.render(items);
     
-    // Get safe area insets from CSS variables
-    const root = document.documentElement;
-    const safeTop = parseInt(getComputedStyle(root).getPropertyValue('--safe-top').replace('px', ''), 10) || 0;
-    const safeRight = parseInt(getComputedStyle(root).getPropertyValue('--safe-right').replace('px', ''), 10) || 0;
-    const safeBottom = parseInt(getComputedStyle(root).getPropertyValue('--safe-bottom').replace('px', ''), 10) || 0;
-    const safeLeft = parseInt(getComputedStyle(root).getPropertyValue('--safe-left').replace('px', ''), 10) || 0;
-    
     // Position
     const menuWidth = 200; // estimated
     const menuHeight = items.length * 35; // estimated
@@ -51,31 +44,10 @@ export class ContextMenu {
     let left = x;
     let top = y;
     
-    // Ensure position is within safe area horizontally
-    if (left < safeLeft) {
-      left = safeLeft;
+    // Boundary check
+    if (x + menuWidth > window.innerWidth) {
+      left = x - menuWidth;
     }
-    if (left + menuWidth > window.innerWidth - safeRight) {
-      left = window.innerWidth - safeRight - menuWidth;
-    }
-    
-    // Ensure position is within safe area vertically
-    if (top < safeTop) {
-      top = safeTop;
-    }
-    if (top + menuHeight > window.innerHeight - safeBottom) {
-      top = window.innerHeight - safeBottom - menuHeight;
-    }
-    
-    this.el.style.left = `${left}px`;
-    this.el.style.top = `${top}px`;
-    
-    // Animate in
-    requestAnimationFrame(() => {
-      this.el.classList.add('visible');
-      this.visible = true;
-    });
-  }
     if (y + menuHeight > window.innerHeight) {
       top = y - menuHeight;
     }

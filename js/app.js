@@ -2480,28 +2480,15 @@ export async function init() {
     showToast("Netzwerkfehler beim Speichern");
   });
 
-   setInterval(async () => {
-     if (document.visibilityState === "visible") {
-       const updated = await syncWithServer();
-       if (updated) {
-         ensurePostBDFreiDays();
-       }
-     }
-   }, 30000);
-
-   // Register service worker for PWA functionality
-   if ('serviceWorker' in navigator) {
-     window.addEventListener('load', () => {
-       navigator.serviceWorker.register('/sw.js')
-         .then((registration) => {
-           console.log('ServiceWorker registration successful with scope: ', registration.scope);
-         })
-         .catch((error) => {
-           console.log('ServiceWorker registration failed: ', error);
-         });
-     });
-   }
- }
+  setInterval(async () => {
+    if (document.visibilityState === "visible") {
+      const updated = await syncWithServer();
+      if (updated) {
+        ensurePostBDFreiDays();
+      }
+    }
+  }, 30000);
+}
 
 document.addEventListener("DOMContentLoaded", init);
 

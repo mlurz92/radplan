@@ -12,7 +12,6 @@
   padding-left: max(var(--overlay-pad), var(--safe-left));
   padding-right: max(var(--overlay-pad), var(--safe-right));
   padding-top: max(var(--overlay-pad), var(--safe-top));
-  padding-bottom: max(var(--overlay-pad), var(--safe-bottom), var(--kb-inset)) !important;
   overflow: auto;
   overscroll-behavior: contain;
   contain: strict;

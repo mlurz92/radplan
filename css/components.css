@@ -617,8 +617,8 @@ body.plan-mode-active #btn-plan {
 
 #toast {
   position: fixed;
-  bottom: calc(24px + var(--safe-bottom));
-  right: calc(24px + var(--safe-right));
+  bottom: 24px;
+  right: 24px;
   background: rgba(15,23,42,.85);
   backdrop-filter: blur(var(--glass-blur-lg));
   -webkit-backdrop-filter: blur(var(--glass-blur-lg));
