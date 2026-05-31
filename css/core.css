@@ -78,11 +78,15 @@
 }
 
 html, body {
-  height: var(--app-vh);
-  min-height: var(--app-vh);
+  height: 100%; /* Fallback */
+  height: 100dvh;
+  min-height: 100dvh;
   overflow: hidden;
   touch-action: manipulation;
   scrollbar-color: rgba(148,163,184,.4) transparent;
+  overscroll-behavior: none;
+  position: fixed; /* Prevents global scroll bouncing completely on iOS */
+  width: 100%;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -95,12 +99,13 @@ html, body {
 }
 
 body {
-  font-family: var(--font-sans);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-sans);
   background: var(--navy-900);
   color: var(--gray-800);
   display: flex;
   flex-direction: column;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
@@ -126,6 +131,14 @@ body.is-mobile * {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Base Active states for buttons to simulate native touch feedback */
+@media (pointer: coarse) {
+  button:active, .nav-btn:active, .td-cell:active, .mbtn:active {
+    transform: scale(0.96);
+    transition: transform 0.1s cubic-bezier(0.2, 0, 0, 1);
+  }
+}
+
 body.is-drag-selecting {
   user-select: none;
   -webkit-user-select: none;
@@ -141,7 +154,7 @@ button:active {
   transform: scale(0.96);
 }
 
-/* Keyboard-only focus ring — invisible on mouse click */
+/* Keyboard-only focus ring â€” invisible on mouse click */
 :focus { outline: none; }
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -178,4 +191,42 @@ body.is-mobile .overlay {
 /* Rigorous modal sizing */
 .modal {
   max-height: min(var(--modal-max-height, calc(100dvh - (2 * var(--overlay-pad)))), calc(100dvh - (2 * var(--overlay-pad)))) !important;
+}
+
+/* ===== iPhone 14 Pro Max Safe Area & Touch Target Extensions ===== */
+
+/* Touch target standards for accessibility (WCAG 2.5.5) */
+@media (pointer: coarse) {
+  :root {
+    --touch-target-min: 44px;
+    --touch-target-comfortable: 48px;
+  }
+}
+
+/* iOS Safari standalone height fix - Use dvh for modern PWA but keep fallback */
+body.is-mobile.is-standalone {
+  height: 100dvh;
+  min-height: 100dvh;
+}
+
+@supports (height: -webkit-fill-available) {
+  body.is-mobile.is-standalone {
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+}
+
+/* Safe area background extension für PWA standalone */
+@supports (padding: env(safe-area-inset-bottom)) {
+  body.is-mobile.is-standalone .mobile-nav::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-bottom);
+    background: rgba(10,21,37,.9);
+    pointer-events: none;
+    z-index: -1;
+  }
 }

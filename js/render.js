@@ -103,6 +103,7 @@ export function getViewportWidth() {
   return Math.min(...[vv, dw, ww].filter((v) => Number.isFinite(v) && v > 0));
 }
 
+
 export function getViewportHeight() {
   const vv = window.visualViewport?.height;
   const dw = document.documentElement?.clientHeight;
@@ -112,19 +113,11 @@ export function getViewportHeight() {
   return vals.length ? Math.min(...vals) : 0;
 }
 
+// Sync viewport CSS variables for responsive layout
 function syncViewportCssVars() {
-  const root = document.documentElement;
-  if (!root) return;
-
-  const viewportW = getViewportWidth();
   const viewportH = getViewportHeight();
-  const vv = window.visualViewport;
-
-  const keyboardInset = vv
-    ? Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)))
-    : 0;
-
-  root.style.setProperty("--app-vw", `${Math.max(320, Math.round(viewportW || 0))}px`);
+  const keyboardInset = window.visualViewport?.height ? window.innerHeight - window.visualViewport.height : 0;
+  const root = document.documentElement;
   root.style.setProperty("--app-vh", `${Math.max(320, Math.round(viewportH || 0))}px`);
   root.style.setProperty("--kb-inset", `${keyboardInset}px`);
 
@@ -132,10 +125,31 @@ function syncViewportCssVars() {
   document.body.classList.toggle("is-standalone", !!standalone);
 }
 
-// Ensure the layout syncs on every relevant event
+// iOS Standalone PWA height fix - prevents 100dvh bug on iPhone 14 Pro Max
+function fixIOSStandaloneHeight() {
+  const isStandalone = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  
+  if (isStandalone && isIOS) {
+    // Set CSS variable for accurate viewport height
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty("--vh", `${vh}px`);
+    
+    // Apply to body for full height elements
+    document.body.style.height = `${window.innerHeight}px`;
+    document.body.style.minHeight = `${window.innerHeight}px`;
+  }
+}
+
+// Listen for resize events including keyboard
 window.addEventListener("resize", syncViewportCssVars);
 window.visualViewport?.addEventListener("resize", syncViewportCssVars);
-syncViewportCssVars(); // Immediate initial sync
+window.visualViewport?.addEventListener("scroll", syncViewportCssVars);
+
+// Fix iOS standalone height on initial load and resize
+syncViewportCssVars();
+fixIOSStandaloneHeight();
+window.addEventListener("resize", fixIOSStandaloneHeight);
 
 
 export function updateModalLayout(target) {
@@ -151,7 +165,7 @@ export function updateModalLayout(target) {
   const mobileSheet = document.body.classList.contains("is-mobile") && 
                       overlay.id !== "modal-mobile-menu" && 
                       overlay.id !== "modal-mobile-day";
-                      
+  
   const pad = mobileSheet ? 0 : Math.max(10, Math.min(24, viewportW * 0.024));
   const availableH = Math.max(280, Math.floor(viewportH - pad * 2));
   
@@ -225,21 +239,21 @@ export function scrollToToday() {
     showToast(`Heute liegt in ${MONTHS[TOD_M]} ${TOD_Y}`);
     return;
   }
-
+  
   const mobileTodayCard = document.querySelector(".mobile-day-card.mdc-today");
   if (mobileTodayCard) {
     mobileTodayCard.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
     return;
   }
-
+  
   const todayCol = document.querySelector("#plan-thead th.today");
   const todayCell = document.querySelector("#plan-tbody td.today-col");
   const gridWrapper = document.getElementById("grid-wrapper");
-
+  
   if (todayCell) {
     todayCell.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
   }
-
+  
   if (gridWrapper && todayCol) {
     const targetX = todayCol.offsetLeft - Math.max(0, (gridWrapper.clientWidth - todayCol.offsetWidth) / 2);
     gridWrapper.scrollTo({ left: Math.max(0, targetX), behavior: "smooth" });
@@ -2438,3 +2452,7 @@ export function renderEmployeeDetailDashboard(emp, year) {
     }
   });
 }
+
+
+
+
