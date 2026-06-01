@@ -295,7 +295,7 @@ function _renderFairness(year, container) {
             const d = perEmp[emp];
             const vals = d.months.map(mon => !mon.hasData ? null : (isHG ? mon.hg : mon.bd));
             const total = isHG ? d.totalHG : d.totalBD;
-            const totalMean = means.reduce((a, b) => a + b, 0);
+            const totalMean = means.reduce((sum, mVal, mIdx) => sum + (d.months[mIdx].hasData ? mVal : 0), 0);
             const devNum = parseFloat((total - totalMean).toFixed(1));
             const devCol = devNum > 0.5 ? '#C2410C' : devNum < -0.5 ? '#0369A1' : '#15803D';
             const meta = getEmpMeta(emp);
