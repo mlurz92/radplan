@@ -2142,6 +2142,14 @@ export function wireEvents() {
     showOverlay("modal-yearplan");
   });
 
+  const commentTa = document.getElementById("ed-comment-ta");
+  const commentCount = document.getElementById("ed-comment-count");
+  if (commentTa && commentCount) {
+    commentTa.addEventListener("input", () => {
+      commentCount.textContent = `${commentTa.value.length}/200`;
+    });
+  }
+
   document.getElementById("btn-export")?.addEventListener("click", () => {
     doExport();
   });
