@@ -686,7 +686,7 @@ export function renderTbody(y, m, dim, hols, md) {
         innerHtml += `<span class="cell-wish wish-${wishCode}">${icon}</span>`;
       }
       if (cellComment) {
-        const escapedComment = cellComment.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const escapedComment = cellComment.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         innerHtml += `<span class="cell-comment-dot" title="${escapedComment}" aria-label="Notiz: ${escapedComment}"></span>`;
       }
       innerHtml += `</div>`;
