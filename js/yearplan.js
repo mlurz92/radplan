@@ -166,7 +166,7 @@ function _renderGrid(year, container) {
         ? `<span class="yp-cell-bd" style="color:${heat.fg}">${mon.bd}<span class="yp-cell-bd-lbl">D</span></span>`
         : `<span class="yp-dash">—</span>`;
 
-      const title = `${emp} · ${MONTHS[m]} ${year}: ${mon.bd}× D${d.isFa ? ', ' + mon.hg + '× HG' : ''}`;
+      const title = `${emp} · ${MONTHS[m]} ${year}: ${mon.bd}× D${d.isFa ? ', ' + mon.hg + '× HG' : ''}`.replace(/"/g, '&quot;');
 
       return `<td class="yp-td-cell${isNow ? ' yp-td-now' : ''}"
                   style="background:${heat.bg}"
