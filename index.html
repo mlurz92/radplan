@@ -327,17 +327,29 @@
         <button type="button" class="modal-x" data-close="modal-profile" aria-label="Profil schließen">✕</button>
       </div>
       <div class="pm-body" id="pm-body">
+        <div class="pm-today-status" id="pm-today-status" style="display:none" aria-live="polite"></div>
         <div class="pm-sect-hd">Monatsübersicht</div>
         <div class="kpi-grid" id="pm-kpi" role="list" aria-label="Kennzahlen aktueller Monat"></div>
         <div class="pm-sect-hd" id="pm-wp-hd">Arbeitsplatz-Verteilung</div>
-        <div id="pm-wp-chart" class="dist-chart" aria-label="Arbeitsplatz-Statistik aktueller Monat"></div>
-        <div class="pm-sect-hd" id="pm-st-hd">Status-Übersicht</div>
+        <div class="pm-dist-layout" id="pm-dist-layout">
+          <div id="pm-wp-chart" class="dist-chart" aria-label="Arbeitsplatz-Statistik aktueller Monat"></div>
+          <div class="pm-donut-wrap" id="pm-donut-wrap" aria-hidden="true">
+            <canvas id="pm-donut-canvas" width="140" height="140"></canvas>
+          </div>
+        </div>
+        <div class="pm-sect-hd" id="pm-st-hd">Abwesenheiten &amp; Status</div>
         <div id="pm-st-chart" class="dist-chart" aria-label="Status-Statistik aktueller Monat"></div>
         <div class="pm-sect-hd" id="pm-duty-hd">Dienste &amp; Hintergrund</div>
         <div id="pm-duty-detail" class="duty-detail-area" aria-label="Dienstdetails aktueller Monat"></div>
+        <div class="pm-sect-hd">Jahresverlauf &amp; Trend</div>
+        <div class="pm-trend-wrap" aria-label="Monatlicher Aktivitätsverlauf">
+          <canvas id="pm-trend-canvas" height="120" aria-hidden="true"></canvas>
+        </div>
+        <div class="pm-sect-hd">Dienste nach Wochentag</div>
+        <div id="pm-duty-dow" class="pm-dow-grid" aria-label="Dienstverteilung nach Wochentag"></div>
         <div class="pm-sect-hd">
           Monatskalender
-          <span class="pm-sect-hint">— Klick auf einen Tag öffnet den Editor</span>
+          <span class="pm-sect-hint">— Klick auf einen Werktag öffnet den Editor</span>
         </div>
         <div id="pm-cal" aria-label="Monatskalender"></div>
         <div class="pm-sect-hd">Jahresauswertung</div>
@@ -469,6 +481,7 @@
               <button type="button" class="empdash-view-btn active" id="emp-view-months" data-view="months" role="tab" aria-selected="true">Monatsverlauf</button>
               <button type="button" class="empdash-view-btn" id="emp-view-calendar" data-view="calendar" role="tab" aria-selected="false">Jahreskalender</button>
               <button type="button" class="empdash-view-btn" id="emp-view-admin" data-view="admin" role="tab" aria-selected="false">Verwaltung</button>
+              <button type="button" class="empdash-view-btn" id="emp-view-analyse" data-view="analyse" role="tab" aria-selected="false">Analyse</button>
             </div>
           </div>
           <div class="empdash-detail-panel" id="emp-detail-panel" role="tabpanel" aria-live="polite"></div>
@@ -603,6 +616,7 @@
 
   <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
