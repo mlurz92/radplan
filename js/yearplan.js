@@ -127,7 +127,7 @@ function _renderGrid(year, container) {
     const isNow = year === TOD_Y && m === TOD_M;
     const isPast = year < TOD_Y || (year === TOD_Y && m < TOD_M);
     const isFuture = !isNow && !isPast;
-    return `<th class="yp-th-month${isNow ? ' yp-th-now' : ''}${isFuture ? ' yp-th-future' : ''}">${mo}</th>`;
+    return `<th class="yp-th-month${isNow ? ' yp-th-now' : ''}${isFuture ? ' yp-th-future' : ''}" data-month="${m}">${mo}</th>`;
   }).join('');
 
   const meanRow = MONTHS_SHORT.map((_, m) => {
