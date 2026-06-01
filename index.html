@@ -73,6 +73,19 @@
 
       <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
 
+      <button type="button" class="hbtn hbtn-ghost" id="btn-yearplan" title="Jahresplaner — Fairness-Übersicht, Kurven und Projektion">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="18" rx="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+          <path d="M8 14l2 2 4-4"/>
+        </svg>
+        <span class="hbtn-lbl">Jahresplan</span>
+      </button>
+
+      <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
+
       <button type="button" class="hbtn hbtn-ghost" id="btn-export" title="Alle Daten als JSON exportieren (Strg+S)">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -407,6 +420,26 @@
           <span class="sect-hint">— nur im Planungsmodus, für Auto-Planung</span>
         </div>
         <div class="chip-row" id="ed-wish" role="group" aria-label="Dienstwunsch auswählen" style="display:none"></div>
+
+        <div id="ed-comment-section">
+          <div class="sect-hd">
+            Notiz
+            <span class="sect-hint">— tagesgebundene Freitext-Anmerkung, wird im Dienstplan als Punkt angezeigt</span>
+          </div>
+          <textarea
+            id="ed-comment-ta"
+            class="ed-comment-ta"
+            placeholder="Anmerkung zum Tag eingeben (z.&thinsp;B. Vertretung, Fortbildung, Besonderheit)…"
+            rows="2"
+            maxlength="200"
+            aria-label="Tagesnotiz"
+            spellcheck="true"
+          ></textarea>
+          <div class="ed-comment-meta">
+            <span class="ed-comment-hint">Max. 200 Zeichen · Wird beim Speichern übernommen</span>
+            <span class="ed-comment-count" id="ed-comment-count" aria-live="polite">0/200</span>
+          </div>
+        </div>
       </div>
       <div class="modal-ft">
         <button type="button" class="mbtn mbtn-danger"  id="ed-clear"  title="Eintrag vollständig löschen">
@@ -615,6 +648,69 @@
   </div>
 
   <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- ══ Jahresplaner Modal ═══════════════════════════════════════════════════ -->
+  <div class="overlay" id="modal-yearplan" role="dialog" aria-modal="true" aria-labelledby="yp-title" hidden style="display:none">
+    <div class="modal modal-yearplan">
+
+      <div class="modal-hd yp-modal-hd">
+        <div class="yp-hd-left">
+          <div class="modal-hd-title" id="yp-title">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:-2px;margin-right:7px" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="18" rx="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+              <path d="M8 14l2 2 4-4"/>
+            </svg>
+            Jahresplaner
+          </div>
+          <div class="modal-hd-sub">Jahres-Gitter · Fairness-Analyse · Projektion</div>
+        </div>
+
+        <nav class="yp-year-nav" aria-label="Jahresnavigation">
+          <button type="button" class="yp-year-btn" id="yp-prev-year" aria-label="Vorheriges Jahr">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span class="yp-year-label" id="yp-year-label" aria-live="polite">2026</span>
+          <button type="button" class="yp-year-btn" id="yp-next-year" aria-label="Nächstes Jahr">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </nav>
+
+        <button type="button" class="modal-x" data-close="modal-yearplan" aria-label="Jahresplaner schließen">✕</button>
+      </div>
+
+      <div class="yp-tabs" role="tablist" aria-label="Jahresplaner-Ansichten">
+        <button type="button" class="yp-tab active" data-tab="grid" role="tab" aria-selected="true">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+          </svg>
+          Jahres-Gitter
+        </button>
+        <button type="button" class="yp-tab" data-tab="fairness" role="tab" aria-selected="false">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          Fairness-Analyse
+        </button>
+        <button type="button" class="yp-tab" data-tab="projection" role="tab" aria-selected="false">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          Jahresprojektion
+        </button>
+      </div>
+
+      <div class="yp-body" id="yp-body" role="tabpanel" aria-live="polite"></div>
+
+      <div class="modal-ft">
+        <button type="button" class="mbtn mbtn-ghost" data-close="modal-yearplan">Schließen</button>
+      </div>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>

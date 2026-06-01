@@ -505,6 +505,32 @@ export function matchRoleFilter(emp, role) {
   return true;
 }
 
+export function getComment(y, m, emp, day) {
+  const k = monthKey(y, m);
+  return DATA[k]?.comments?.[emp]?.[day] || "";
+}
+
+export function setComment(y, m, emp, day, text) {
+  const k = monthKey(y, m);
+  if (!DATA[k]) return;
+  if (!DATA[k].comments) DATA[k].comments = {};
+
+  const trimmed = (text || "").trim();
+  if (trimmed) {
+    if (!DATA[k].comments[emp]) DATA[k].comments[emp] = {};
+    DATA[k].comments[emp][day] = trimmed;
+  } else {
+    if (DATA[k].comments[emp]) {
+      delete DATA[k].comments[emp][day];
+      if (!Object.keys(DATA[k].comments[emp]).length) {
+        delete DATA[k].comments[emp];
+      }
+    }
+  }
+
+  saveToStorage();
+}
+
 export function cloneData(obj) {
   return JSON.parse(JSON.stringify(obj));
 }

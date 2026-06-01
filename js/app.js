@@ -74,7 +74,9 @@ import {
   hasAnyPlanChanges,
   loadPlanSessionForState,
   addEmployee,
-  removeEmployee
+  removeEmployee,
+  getComment,
+  setComment
 } from './model.js';
 
 import {
@@ -106,6 +108,7 @@ import {
 } from './autoplan.js';
 
 import { NeuralGraph } from './neuralgraph.js';
+import { openYearPlan, setupYearPlanModal, renderYearPlanContent, setYearPlanYear, cleanupYearPlan } from './yearplan.js';
 
 let localAutoPlanResult = null;
 let localAutoPlanTargets = {};
@@ -547,6 +550,21 @@ export function openEditor(emp, day, options = {}) {
     if (planBadge) planBadge.style.display = "none";
   }
   
+  // Kommentar laden
+  const commentTa = document.getElementById("ed-comment-ta");
+  const commentCount = document.getElementById("ed-comment-count");
+  const commentSection = document.getElementById("ed-comment-section");
+  if (commentSection) commentSection.style.display = isRbnRow ? "none" : "";
+  if (commentTa) {
+    commentTa.value = isRbnRow ? "" : (getComment(y, m, emp, day) || "");
+    if (commentCount) commentCount.textContent = `${commentTa.value.length}/200`;
+    commentTa.removeEventListener("input", commentTa._ypCountHandler);
+    commentTa._ypCountHandler = () => {
+      if (commentCount) commentCount.textContent = `${commentTa.value.length}/200`;
+    };
+    commentTa.addEventListener("input", commentTa._ypCountHandler);
+  }
+
   refreshEditorChips();
   showOverlay("modal-editor");
 }
@@ -824,7 +842,15 @@ export function saveEditor() {
   });
   
   if (planMode) recordPlanHistory();
-  
+
+  // Kommentar speichern (nur für den primären Tag, nicht für alle Multi-Edit-Tage)
+  if (!isRbnRow) {
+    const commentTa = document.getElementById("ed-comment-ta");
+    if (commentTa) {
+      setComment(y, m, emp, day, commentTa.value);
+    }
+  }
+
   hideOverlay("modal-editor");
   state.multiEdit = { emp: null, days: [] };
   if (days.length > 1) {
@@ -2110,6 +2136,20 @@ export function wireEvents() {
     closePeriodFlyout();
   });
   
+  document.getElementById("btn-yearplan")?.addEventListener("click", () => {
+    openYearPlan(state.year);
+    renderYearPlanContent();
+    showOverlay("modal-yearplan");
+  });
+
+  const commentTa = document.getElementById("ed-comment-ta");
+  const commentCount = document.getElementById("ed-comment-count");
+  if (commentTa && commentCount) {
+    commentTa.addEventListener("input", () => {
+      commentCount.textContent = `${commentTa.value.length}/200`;
+    });
+  }
+
   document.getElementById("btn-export")?.addEventListener("click", () => {
     doExport();
   });
@@ -2259,9 +2299,9 @@ export function wireEvents() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       [
-        "modal-editor", "modal-emps", "modal-import", "modal-profile", "modal-dept", 
-        "modal-autoplan", "modal-ap-report", "modal-mobile-menu", "modal-mobile-day", 
-        "modal-score-info"
+        "modal-editor", "modal-emps", "modal-import", "modal-profile", "modal-dept",
+        "modal-yearplan", "modal-autoplan", "modal-ap-report", "modal-mobile-menu",
+        "modal-mobile-day", "modal-score-info"
       ].forEach((id) => {
         const el = document.getElementById(id);
         if (el && !el.hasAttribute("hidden")) hideOverlay(id);
@@ -2418,6 +2458,28 @@ export async function init() {
   populatePeriodMonthSelect();
   syncPeriodControls();
   wireEvents();
+  setupYearPlanModal();
+
+  // Jahresplan-Navigation: Klick auf Gitterzelle springt zum Monat
+  window.addEventListener('radplan-navigate', (e) => {
+    const { year, month } = e.detail || {};
+    if (Number.isFinite(year) && Number.isFinite(month)) {
+      hideOverlay('modal-yearplan');
+      setTimeout(() => switchPeriod(year, month), 180);
+    }
+  });
+
+  // Jahresplan aufräumen wenn Modal geschlossen wird
+  const ypModal = document.getElementById('modal-yearplan');
+  if (ypModal) {
+    new MutationObserver(mutations => {
+      mutations.forEach(mut => {
+        if (mut.attributeName === 'hidden' && ypModal.hasAttribute('hidden')) {
+          cleanupYearPlan();
+        }
+      });
+    }).observe(ypModal, { attributes: true });
+  }
   
   refreshResponsiveLayout({ forceRender: true });
 

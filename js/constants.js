@@ -307,6 +307,7 @@ export function normalizeMonthDataShape(md) {
   if (!Array.isArray(md.employees)) md.employees = [];
   if (!md.assignments || typeof md.assignments !== "object") md.assignments = {};
   if (!md.rbn || typeof md.rbn !== "object") md.rbn = {};
+  if (!md.comments || typeof md.comments !== "object") md.comments = {};
 }
 
 export const weekday = (y, m, d) => new Date(y, m, d).getDay();

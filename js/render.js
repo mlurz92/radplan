@@ -42,19 +42,20 @@ import {
   setIsMobile
 } from './state.js';
 
-import { 
-  getMonthData, 
-  getCell, 
-  getRbnValue, 
-  dayCodeCount, 
-  buildProfileStats, 
-  buildYearlyStats, 
-  getEmployeesForYear, 
-  getRoleFilterBuckets, 
-  getEmployeeYearCardMetrics, 
+import {
+  getMonthData,
+  getCell,
+  getRbnValue,
+  dayCodeCount,
+  buildProfileStats,
+  buildYearlyStats,
+  getEmployeesForYear,
+  getRoleFilterBuckets,
+  getEmployeeYearCardMetrics,
   matchRoleFilter,
   addEmployee,
-  removeEmployee
+  removeEmployee,
+  getComment
 } from './model.js';
 
 import {
@@ -673,6 +674,7 @@ export function renderTbody(y, m, dim, hols, md) {
         tdEl.style.backgroundColor = bg;
       }
       
+      const cellComment = getComment(y, m, emp, d);
       let innerHtml = `<div class="cell-inner">`;
       innerHtml += `<span class="cell-assign" style="color:${isAutoFRest ? "rgba(71,85,105,0.35)" : fg}">${cell.assignment || ""}</span>`;
       if (cell.duty) {
@@ -682,6 +684,10 @@ export function renderTbody(y, m, dim, hols, md) {
         const wishCode = getWish(emp, d);
         const icon = WISH_MAP[wishCode]?.icon || "";
         innerHtml += `<span class="cell-wish wish-${wishCode}">${icon}</span>`;
+      }
+      if (cellComment) {
+        const escapedComment = cellComment.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        innerHtml += `<span class="cell-comment-dot" title="${escapedComment}" aria-label="Notiz: ${escapedComment}"></span>`;
       }
       innerHtml += `</div>`;
       tdEl.innerHTML = innerHtml;
