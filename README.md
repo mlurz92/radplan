@@ -1,196 +1,202 @@
-# RadPlan – Leitstellen-taugliche Dienst- und Arbeitsplatzplanung für die Radiologie
-
-## 1. Produktvision und Philosophie
-
-**RadPlan** ist eine hochspezialisierte, klinisch ausgerichtete Progressive Web App (PWA), die exklusiv für die komplexen Anforderungen der Dienst- und Arbeitsplatzplanung in der Klinik für Radiologie und Nuklearmedizin (Klinikum St. Georg) entwickelt wurde.
-
-Ähnlich der fundamentalen radiologischen Regel, bei der **rechts und links aus Patientensicht stets vertauscht sind**, invertiert RadPlan traditionelle Softwareparadigmen: Statt den Anwender an eine starre Systemlogik anzupassen, ordnet sich das System vollständig dem flüssigen Denk- und Arbeitsprozess des Planenden unter. Die Anwendung kombiniert **kompromisslose Performance**, **tiefgreifende Automatisierung** und eine **nahtlose User Experience**, um die Diskrepanz zwischen starrer Kalenderführung und hochdynamischem Klinikalltag aufzulösen.
-
-Die Applikation ermöglicht die minutenschnelle, konfliktfreie und gerechte Zuweisung von **Arbeitsplätzen** (z. B. MRT, CT, Sonographie), **Diensten** (Bereitschaft, Hintergrund) und **Abwesenheiten**.
+Hier ist die extrem detaillierte, vollständig tiefgreifende und strukturierte `README.md` für **RadPlan**, die exakt auf dem aktuellen Code-Stand basiert und jeden noch so kleinen Aspekt der Architektur, der UI/UX-Designsprache und der Domänenlogik beleuchtet.
 
 ---
 
-## 2. Design-Philosophie: Warm Minimalism & Quiet Luxury
+# ☢️ RadPlan — Systemarchitektur & Vollständige Dokumentation
 
-Das Interface von RadPlan bricht bewusst mit dem oft sterilen, tabellarischen Look klassischer Krankenhaussoftware. Die UI- und UX-Architektur basiert auf den Prinzipien des **Warm Minimalism** und **Quiet Luxury**:
+**RadPlan** ist eine hochmoderne, vollständig responsive und intelligente Web-Applikation zur digitalen Dienstplanung in der Klinik für Radiologie & Nuklearmedizin. Sie vereint ein exzellentes, auf Usability getrimmtes UI (Glassmorphism, Dark Mode) mit einem extrem leistungsstarken algorithmischen Backend (**RadPlan Neural Scheduler**), um Dienstpläne fair, regelkonform und automatisiert zu erstellen.
 
-* **Visuelle Tiefe durch Glassmorphismus:** Statt massiver Farbblöcke nutzt das Layout transluzente Ebenen (`backdrop-filter: blur(16px)`), softe Verlaufsschatten (`--shadow-glow`) und akzentuierte Rahmen (`rgba(255,255,255,.08)`). Dies schafft räumliche Tiefe, ohne zu überladen.
-* **Fokus durch Reduktion:** Die Farbpalette basiert auf eleganten, dunklen Navy-Tönen (`#060D16` bis `#1E3A5F`), die bei langen Planungs-Sessions die Augen schonen. Statuscodes, Arbeitsplätze und Dienste werden durch harmonisch abgestimmte, subtil leuchtende Badges kodiert.
-* **Flüssige Kinetik:** Alle Zustandsübergänge, Hover-Effekte und Modals nutzen physikalisch basierte Animationskurven (`cubic-bezier(0.34, 1.2, 0.64, 1)`), wodurch Interaktionen organisch, schwerelos und extrem reaktionsschnell wirken.
+Die Architektur basiert auf modernem **Vanilla JavaScript (ES6 Modules)**, verzichtet auf schwerfällige Frameworks und erreicht dadurch eine rasante Performance und Zero-Lag-Interaktionen.
 
 ---
 
-## 3. Systemarchitektur & Technologiestack
+## 1. 🎨 UI, UX & Design-Philosophie
 
-Die Architektur ist konsequent auf Ausfallsicherheit, Offline-Fähigkeit und Latenzfreiheit getrimmt.
+Die Benutzeroberfläche von RadPlan ist so gestaltet, dass sie auf großen Desktop-Monitoren maximale Übersicht bietet, auf mobilen Geräten (Smartphones, Tablets) aber zu einer App-nativen Erfahrung transformiert wird.
 
-### 3.1 Local-First & Progressive Web App (PWA)
+### 1.1 Visuelle Identität (Glassmorphism & Deep Dark Mode)
 
-Die Applikation speichert den gesamten Datenbestand (`DATA`) primär im lokalen `localStorage` (`radplan_v3`). Dies garantiert Ladezeiten von null Millisekunden. Ein in `manifest.json` und Meta-Tags definiertes Standalone-Verhalten ermöglicht die nahtlose Installation als App auf iOS- und Android-Geräten.
-
-### 3.2 Asynchrone Cloudflare KV-Synchronisation
-
-Im Hintergrund synchronisiert die Applikation (`functions/api.js`) den Zustand über eine Cloudflare Worker-Instanz mit einem **Cloudflare KV-Store** (`RADPLAN_KV`).
-
-* **Optimistic UI:** Lokale Änderungen werden sofort gerendert, während der Sync-Prozess asynchron abläuft.
-* **Conflict Resolution (HTTP 409):** Ein ausgeklügeltes Token- und Zeitstempel-System (`lastModified`) erkennt parallele Schreibzugriffe. Bei einem Konflikt wird der Client gewarnt und optional mit dem jüngsten Server-Snapshot überschrieben.
-
----
-
-## 4. Datenmodell & Zustandsverwaltung (State Management)
-
-Das Datenmodell in `js/model.js` und `js/state.js` ist streng normalisiert und auf Zeitreihen-Effizienz optimiert.
-
-* **`DATA` Container:** Organisiert in Monats-Schlüsseln (Format `YYYY-M`).
-* `employees`: Ein Array der aktiven Mitarbeiter im spezifischen Monat.
-* `assignments`: Ein tiefes Objekt-Mapping (`assignments[emp][day]`), das Zuweisungen (`assignment`) und Dienste (`duty`) speichert.
-* `rbn`: Ein separates Objekt für die Zuweisungen der Regionale Bereitschaftspraxis Neuroradiologie.
-* `wishes`: Individuelle Mitarbeiterwünsche (`NO_DUTY`, `BD_WISH`, `HG_WISH`).
-
-
-* **Reactive State:** Das `state`-Objekt verwaltet flüchtige UI-Zustände wie das geöffnete Editor-Modal (`state.edit`), Dashboad-Filter, Zeitraum-Entwürfe (`periodDraft`) und die aktuelle **Mehrtagesselektion** (`multiEdit`).
-
----
-
-## 5. Kernfunktionen & Module im Detail
-
-### 5.1 Die interaktive Monatsmatrix (Grid)
-
-Das Herzstück der Anwendung. Eine horizontal scrollbare, hochverdichtete Matrix (`#plan-table`), die den gesamten Monat abbildet.
-
-* **Informationshierarchie:** Zellen zeigen Arbeitsplätze in Kurzform. Dienste werden als kompakte Overlay-Badges (z. B. rotes D, blaues HG) in den Ecken der Zelle dargestellt.
-* **Tageskontext:** Spaltenköpfe markieren Wochenenden (gedimmt), Feiertage (amber), Freitage (abgesetzter Rahmen) und heben den **heutigen Tag** durch einen leuchtenden, blauen Glow-Effekt prominent hervor.
-* **Dynamische Coverage-Indikation:** Ein subtiler Streifen am unteren Rand der Datums-Header visualisiert die Dienstabdeckung (`#22C55E` für komplett, `#F59E0B` für partiell, `#EF4444` für kritisch unbesetzt).
-* **RBN-Zeile:** Eine spezielle, visuell abgesetzte Zeile für die externe Neuroradiologie-Dienstbesetzung.
-
-### 5.2 Der Zell-Editor & Mehrtagesbearbeitung
-
-Ein Aufruf des Editors (Klick oder `Enter` auf eine Zelle) öffnet ein zentriertes Modal zur tiefen Bearbeitung.
-
-* **Chip-UI:** Arbeitsplätze (MRT, CT, US etc.) lassen sich als Mehrfachauswahl kombinieren (z. B. `MR/CT`). Statuscodes (Urlaub, FZA, Krank) sind exklusiv und löschen automatisch die Arbeitsplätze.
-* **Kollisionsprüfung:** Das Modal warnt live, wenn ein Dienst (`D`/`HG`) an diesem Tag bereits von einem Kollegen besetzt ist oder wenn der Folgetag ein Urlaubstag ist.
-* **Multi-Select (Batch-Editing):** Durch Halten von **STRG/CMD** oder Klicken und Ziehen der Maus können mehrere Tage **einer Person** markiert werden. Der Editor wendet Änderungen dann gleichzeitig auf alle markierten Zellen an (inklusive automatischer F-Tag-Berechnung).
-
-### 5.3 Tastatursteuerung & Power-User-Features
-
-RadPlan ist für maximale Klick-Reduktion ausgelegt. Innerhalb des Grids (`grid-kbd-hint`) gilt:
-
-* **Pfeiltasten:** Nahtlose Navigation durch die Zellen, auch über Zeilengrenzen hinweg.
-* **Tasten 1–8:** Direktes Toggeln der Arbeitsplätze (1=MRT, 2=CT, etc.).
-* **D / H:** Direktes Setzen von Bereitschafts- (D) oder Hintergrunddiensten (H).
-* **Delete / Backspace:** Sofortiges Leeren der fokussierten Zelle.
-* **Alt + Links/Rechts:** Schneller Monatswechsel.
-
-### 5.4 Zeitraumsteuerung (Period Flyout)
-
-Ein responsives Flyout-Menü (`period-flyout`) erlaubt das völlig freie Springen zwischen Monaten und Jahren. Diese Steuerung bleibt stateful: Sie kann auch genutzt werden, wenn gerade ein Dashboard-Modal geöffnet ist, wodurch historische Vergleiche massiv beschleunigt werden.
-
-### 5.5 Planungsmodus (Sandbox-Umgebung)
-
-Über einen Klick auf "Planung" betritt der Anwender eine **sichere Sandbox**.
-
-* **Isolierter State:** Alle Änderungen werden in einem separaten Session-Storage (`radplan_v3_plan_...`) gespeichert. Der Live-Datenstand bleibt unberührt.
-* **Visuelles Feedback:** Eine bernsteinfarbene (`amber`) Header-Leiste, leuchtende Badges und warme Zell-Highlights verdeutlichen den Entwurfsstatus.
-* **Historie:** Eine unbegrenzte Undo/Redo-Kette (`STRG+Z` / `STRG+Y`) erlaubt das angstfreie Experimentieren mit Dienstfolgen.
-* **Wunscherfassung:** Nur im Planungsmodus lassen sich explizite Mitarbeiterwünsche (z. B. `BD_WISH`, `NO_DUTY`) hinterlegen.
-
-### 5.6 Dashboard- und Analyse-Ebenen
-
-Die Anwendung berechnet Metriken in Echtzeit und visualisiert diese auf verschiedenen Granularitätsebenen:
-
-* **Stats-Bar (Header):** Permanente Live-Übersicht über die Summen aller Codes (z. B. Anzahl `K`, `U`, `FZA`, `D`) des aktuell geladenen Monats.
-* **Abteilungs-Dashboard:** Zeigt die Gesamt-Abdeckung (`Coverage`), Urlaubsquoten und Unterdeckungen. Die Ansicht kann auf das gesamte Jahr umgeschaltet werden, um saisonale Schwankungen und "Aktiv-Tage" des Teams zu analysieren.
-* **Mitarbeiter-Liste:** Eine filterbare Übersicht (CA, OA, FA, AA) mit kompakten KPI-Karten für jeden Mitarbeiter. Zeigt Soll/Ist-Zustände und Fehltage.
-* **Profil-Modal:** Das ultimative Detail-Werkzeug pro Mitarbeiter.
-* **KPI-Karten:** Werktage, Urlaubsanspruch, D/HG-Summen mit Trend-Indikatoren (▲/▼) im Vergleich zum Vormonat.
-* **Donut-Charts & Bar-Charts:** Grafische Verteilung der Arbeitsplätze (z. B. 60% MRT, 40% CT) via Chart.js.
-* **Day-of-Week-Analyse (DOW):** Balkendiagramme, die aufschlüsseln, an welchen Wochentagen der Mitarbeiter historisch am häufigsten gearbeitet oder Dienst geleistet hat.
-* **Jahrestrend:** Ein kombiniertes Linien- und Balkendiagramm, das die Belastung (Aktive Tage, D, HG, Urlaub) über alle 12 Monate visualisiert.
+* **Farbpalette:** Die Anwendung nutzt ein tiefes "Navy"-Farbschema (`--navy-900` bis `--navy-400`) als Hintergrund, gepaart mit einem dynamischen Hintergrund-Gradienten (Mesh-Gradient mit dezenten Akzenten in Cyan und Indigo).
+* **Materialien:** Nahezu alle UI-Elemente (Header, Modals, Flyouts) nutzen **Glassmorphism** (`backdrop-filter: blur(16px)` bis `24px` und transparente weiße/dunkle Layer mit zarten Rändern). Dies verleiht der App räumliche Tiefe und Eleganz.
+* **Typografie:** Die App verwendet **IBM Plex Sans** für weiche, gut lesbare Texte und **IBM Plex Mono** für Daten, Arbeitsplatz-Codes, Metriken und Tabellen (ermöglicht perfekte vertikale Ausrichtung durch Tabular Nums).
+* **Farbcodierung (Tags & Badges):** * Arbeitsplätze und Status haben strikt zugeordnete, konsistente Farben (z.B. `MR` in Blau (`#DBEAFE`), `CT` in Orange (`#FFEDD5`), Urlaub `U` in Violett, Krank `K` in Rot).
+* Bereitschaftsdienst (`D`) ist immer in Warn-Rot (`#EF4444`) und Hintergrunddienst (`HG`) in Hellblau (`#0EA5E9`) gehalten.
 
 
 
-### 5.7 Mobile Optimierung
+### 1.2 UX-Mikrointeraktionen & "Der perfekte Touch"
 
-RadPlan liefert auf Smartphones eine radikal angepasste UX (`css/mobile-optimization.css`).
+* **Feedback & Animationen:** Jeder Klick, jede Hover-Aktion und jede Modal-Öffnung ist durch GSAP oder flüssige CSS-Transitions (`cubic-bezier(0.34, 1.2, 0.64, 1)`) animiert. Buttons skalieren bei Klick ("Active-State", `scale(0.96)`).
+* **Kontextmenü (Right-Click):** Ein völlig custom-gebautes Kontextmenü (`contextmenu.js`) überschreibt den Standard-Rechtsklick auf Mitarbeiternamen in der Tabelle. Es erscheint animiert direkt am Mauszeiger und bietet Shortcuts zum Öffnen des Profils oder zum Löschen des Mitarbeiters.
+* **Toast-Notifications:** Ein schwebendes Feedback-System (unten rechts auf Desktop, mittig über der Nav-Bar auf Mobile), das Aktionen (Speichern, Löschen, Server-Sync) mit feinen Einblendungs-Animationen quittiert.
+* **Hover-States der Tabelle:** Hovert man über eine Tabellenzeile, ändert sich die Hintergrundfarbe subtil, der linke Rand-Indikator leuchtet stärker auf, und das Mitarbeiter-Profil-Icon wird sanft eingeblendet.
+* **Grid Keyboard Navigation:** Eine unsichtbare Power-User-Funktion. Mit Pfeiltasten kann im Grid navigiert werden. Drückt man Ziffern `1-8`, wird sofort ein Arbeitsplatz zugeteilt, `D`/`H` toggeln die Dienste, `Entf` löscht die Zelle. Eine kleine Hint-Bar unten (`#grid-kbd-hint`) zeigt dies elegant an.
 
-* **Listen-Ansicht:** Das komplexe Grid wird in eine scrollbare, kartenbasierte Tagesliste transformiert.
-* **Bottom Navigation:** Für ergonomische Daumen-Erreichbarkeit.
-* **Slide-Up Modals:** Dialoge öffnen sich als flüssige Bottom-Sheets, die den Safe-Area-Inset (`env(safe-area-inset-bottom)`) moderner Smartphones (z. B. iPhone 14 Pro) präzise respektieren.
+### 1.3 Responsives Verhalten & Mobile App-Feeling
+
+* Die Applikation registriert die Viewport-Breite (Breakpoint bei `600px`).
+* **Mobile Switch:** Unter 600px verschwindet die komplexe Grid-Tabelle vollständig. Stattdessen wird eine vertikale, kartenbasierte scrollbare Liste (`mobile-day-list`) gerendert.
+* **Bottom Navigation:** Eine native App-ähnliche Bottom-Bar (Mitarbeitende, Planung, Menü) ersetzt den Top-Header-Aktionsbereich. Die CSS-Variable `--safe-bottom` (`env(safe-area-inset-bottom)`) sorgt dafür, dass auf iPhones keine Überlappung mit der Home-Indikator-Linie stattfindet.
+* **Mobile Sheet Modals:** Auf Mobile öffnen sich Modals (z.B. Tagesdetails) von unten als "Bottom Sheets" mit abgerundeten oberen Ecken und Slide-Up-Animation.
 
 ---
 
-## 6. AutoPlan: Der Neural Scheduler (v3.2)
+## 2. 🧠 RadPlan Neural Scheduler (AutoPlan-Algorithmus)
 
-Das Meisterstück der Automatisierung liegt in `js/autoplan.js`. Der **Neural Scheduler** ist ein hochkomplexes Optimierungssystem, das eine mathematisch perfekte Verteilung der Dienste generiert.
+Das absolute Herzstück der Anwendung, lokalisiert in `autoplan.js`. Dieser Algorithmus teilt die Dienste (`D` und `HG`) automatisch für einen ganzen Monat ein. Er ist kein simples Randomisierungs-Skript, sondern ein hochkomplexer, Constraint-basierter heuristischer Solver.
 
-### 6.1 Die 15-Phasen-Optimierungspipeline
+### 2.1 Constraint-Analyse & Metadaten
 
-Das System operiert nicht linear, sondern in massiv iterativen Zyklen, um das globale Optimum zu finden:
+Der Algorithmus lädt zunächst alle historischen Daten des aktuellen Jahres (`collectHistoricalDutyStats`), um die bisherige Arbeitslast (Werktags-Dienste, Samstags-Dienste, Feiertagsdienste) jedes Arztes exakt zu kennen.
 
-1. **Initialisierung & Datenaggregation:** Laden historischer Daten. Auffüllen zwingend erforderlicher `F`-Tage nach manuell vorfixierten Bereitschaftsdiensten.
-2. **Konstruktive Phase (Greedy):** Erstverteilung der BDs an Wochenenden/Feiertagen, danach Werktage. Es greifen harte K.O.-Kriterien.
-3. **Deterministisches Bundling:** Feste Verknüpfungen werden geschmiedet (z. B. übernimmt der Wochenend-FA zwingend den HG des Assistenzarztes am Freitag).
-4. **HG-Rhythmisierung:** Verteilung der Hintergrunddienste unter strikter Berücksichtigung des Anti-Clusterings (Vermeidung von HG-Blöcken in einem 7-Tage-Fenster).
-5. **Multi-Swap-Optimierung:** * **80 BD-Swaps:** Verfeinerung der Gerechtigkeit zwischen den Kandidaten.
-* **120 HG-Swaps:** Aufbrechen lokaler Ungerechtigkeiten.
-* **150 Deep-Optimize-Swaps:** Systemweite, rollenübergreifende Tauschvorgänge zur Behebung komplexer Interdependenzen.
+* **Harte Constraints (Penaltys = -Infinity):**
+* Ist der Arzt an dem Tag im Urlaub/Krank/Abwesend?
+* Hat der Arzt bereits Dienste an den direkten Vor- oder Folgetagen?
+* Regelverletzungen: Ein AA darf keinen Samstag-BD machen. Ein "befreiter" Arzt (`DUTY_EXEMPT`) macht gar keine Dienste.
+* Spezifische Konflikte: *Mammographie-Konflikt* (Bestimmte Oberärztin darf keinen HG machen, wenn spezifische AAs BD haben). *CT-Leadership-Konflikt* (Dr. Becker / Dr. Martin dürfen sich nicht überschneiden).
 
 
-6. **Coverage-Repair & Validierung:** Notfall-Schließung verbleibender Lücken und finale Integritätsprüfung (strikte Exklusivität von max. 1 Dienst/Tag).
-
-### 6.2 Detaillierter Constraint Catalog
-
-Der Algorithmus navigiert durch ein Minenfeld aus Regeln. Verstöße werden durch gewaltige Strafen in der **Global Objective Function** abgewertet.
-
-* **K.O.-Kriterien:** Urlaubs-Integrität, Wünsche (`NO_DUTY`), Dienst-Exklusivität, Qualifikationssperren (nur FA am Wochenende).
-* **Ruhezeiten:** Verbot von D-D Ketten. Zwingender F-Tag nach jedem BD.
-* **Klinische Interdependenzen (Die Speziallogiken):**
-* *Dr. Polednia:* Sperre für BD und AA-HG an Sonntagen, Dienstagen und Donnerstagen wegen zwingender Kinder-Ultraschall-Untersuchungen am Folgetag.
-* *Fr. Dalitz:* Darf sonntags und montags keinen HG übernehmen, wenn Hr. Torki/Sebastian BD haben (Vermeidung von Befundungsstaus vor der Mammographie).
-* *CT-Leitung:* Dr. Becker und Dr. Martin dürfen niemals gleichzeitig abwesend (Urlaub/FZA) sein. Der Algorithmus plant BDs und die resultierenden F-Tage proaktiv um diese Regel herum.
-* *Dr. Becker:* Darf samstags nur als absolute "Ultima Ratio" eingeplant werden. Falls es unvermeidbar ist, zwingt das System einen `FZA`-Tag auf den nächsten regulären Werktag.
+* **Weiche Constraints (Scoring-System):**
+* Dienst-Wünsche (`BD_WISH`, `HG_WISH`) geben massive Pluspunkte.
+* Streuung (Jeder sollte exakt seine "Target"-Anzahl an Diensten bekommen).
+* Wochenend-Limit (Normalerweise 1 Wochenende pro Monat, wird bestraft, wenn überschritten).
+* Dienst-F-Dienst-F (DFDF) wird weich bestraft, um Erschöpfung zu vermeiden.
 
 
 
-### 6.3 Die Objective Function & Das Scoring-Modell
+### 2.2 Der 7-Phasen-Ablauf
 
-Der Algorithmus bewertet jeden Zustand. Lücken im Dienstplan strafen mit +25.000 Punkten, Abweichungen vom Monatsziel eskalieren quadratisch, und illegale Dienstfolgen schlagen mit bis zu +100.000 Punkten zu Buche. Gleichzeitig werden Wünsche (+220), faire Feiertags-Alternanz (+6) und Donnerstags-Dienste vor dem Urlaub (+150) incentiviert.
+1. **Phase 1 & 2 (Wochenend- & Werktags-BD):** Zuerst werden die kritischen, schwer zu besetzenden Feiertage/Wochenenden für den Bereitschaftsdienst (`D`) mit den besten "Scores" besetzt. Danach folgen die Werktage.
+2. **Phase 3 (Auto-F & FZA-Kompensation):** Folgt auf einen `D` automatisch der Folgetag, wird dieser fest als `F` (Frei) markiert. *Sonderlogik:* Hat Dr. Becker einen Samstags-BD, sucht der Algorithmus den nächsten freien Werktag und bucht automatisiert einen `FZA` (Freizeitausgleich) ein!
+3. **Phase 4 (HG-Wochenend-Kopplung):** Hier wird "Teamwork" simuliert. Macht ein AA am Freitag BD, zwingt der Algorithmus den FA, der am Samstag BD macht, den Freitags-HG zu übernehmen.
+4. **Phase 5 (HG-Verteilung):** Verteilung der restlichen HG-Dienste primär an die Fach- und Oberärzte, unter Berücksichtigung der "Ideal-HG"-Formel (welche die BD-Last gegenrechnet).
+5. **Phase 6 (Deep-Search Multi-Zyklus-Optimierung):** Der Algorithmus durchläuft bis zu 25 Metaheuristik-Zyklen. In jedem Zyklus versucht er, einen Tag mit einem anderen Arzt zu "swappen" (`tryImproveDay`). Wird die *globale* Penalty dadurch geringer, wird der Swap behalten (Greedy-Descent-Ansatz).
+6. **Phase 7 (Coverage Repair):** Finden sich keine perfekten Ärzte, lockert der Algorithmus in einer Eskalationsstufe harte Regeln (z.B. den 3-Tages-Mindestabstand), um offene Lücken (Gaps) als Ultima Ratio zu füllen. Erzeugt entsprechende Warnungen (`KRITISCH`).
 
-### 6.4 Neural Fitness Index (NFI) & 3D-Visualisierung
+### 2.3 Visualisierung (Neural Graph) & NFI
 
-Das finale Ergebnis wird als **Neural Fitness Index (0.0 bis 100.0)** ausgegeben. Er setzt sich aus BD-Abdeckung (36%), HG-Abdeckung (24%), BD/HG-Gerechtigkeit, Wochenend-Fairness und Wunscherfüllung zusammen.
+Während der Algorithmus in Millisekunden läuft, drosselt RadPlan absichtlich die Anzeige (`await sleep`) und startet in `neuralgraph.js` eine beeindruckende 3D-Matrix (mit CSS 3D-Transforms `perspective`, `translateZ`, `rotateX/Y`).
 
-Während der Berechnung (`requestAnimationFrame`) erzeugt `neuralgraph.js` eine spektakuläre, rotierende 3D-CSS-Matrix (`transform: translateZ(40px) rotateX(...)`), die den komplexen Suchraum und die Tauschvorgänge ("Orbital Core Animation") live visualisiert.
+* Man sieht live, wie Matrix-Zellen pulsieren (Rot für D, Blau für HG), wie bei "Deep-Swaps" Knoten überschrieben werden und Fehler (`KRITISCH`) rot glühen.
+* Ein **Mini-Map Canvas** zeichnet die Berechnungs-Pulsschläge in Echtzeit auf ein Radar.
+* **Score & Abschlussbericht:** Das Resultat gipfelt im **Neural Fitness Index (NFI)** (max. 100.0). Dieser wird in einem eigenen `modal-score-info` inklusive Formel-Breakdown (Lücken × Gewichtung, Spread, Erfüllte Wünsche, Berechnungs-Penalty) visualisiert.
 
 ---
 
-## 7. Dateistruktur & Modul-Zusammenhänge im Detail
+## 3. 💾 Architektur & State Management
 
-Die Codebase ist strikt modular in Vanilla JavaScript (ES6 Modules) aufgebaut, um Build-Steps zu vermeiden und maximale Browser-Performance zu garantieren.
+RadPlan verzichtet auf Redux oder Zustand, nutzt stattdessen ein dediziertes und hochperformantes File-Modul (`state.js` & `model.js`).
 
-* **`index.html`**: Das semantische Rückgrat. Beherbergt die App-Shell, alle Modals (Editor, Profil, AutoPlan, Dashboard), die Dropzones für den Import und die SVG-Ikonographie.
-* **`js/constants.js`**: Das Herz des statischen Datenmodells. Enthält die Definitionen aller `WORKPLACES`, `STATUSES`, die Personal-Stammdaten (`EMP_META` inkl. Rollen, FTE, Tags) sowie fundamentale Hilfsfunktionen für Feiertagsberechnungen (`getSaxonyHolidaysCached`) und Kalender-Mathematik.
-* **`js/state.js`**: Der zentrale Memory-Store. Verwaltet `DATA`, den `planMode`-Zustand, das Session-Handling, die Undo/Redo-Historie und die kritische `syncWithServer`-Funktion für den Cloudflare KV-Austausch.
-* **`js/model.js`**: Die Business-Logik-Schicht. Kapselt alle Getter und Setter für die Zellen (`getCell`, `setCell`), berechnet Aggregationen (`dayCodeCount`), validiert Post-BD-Ruhetage (`ensurePostBDFreiDays`) und kompiliert die massiven Datenobjekte für die Dashboard-Metriken (`buildProfileStats`, `buildYearlyStats`).
-* **`js/render.js`**: Die View-Engine. Reagiert auf State-Changes und zeichnet die Monatsmatrix (`renderTbody`), die mobilen Listen (`renderMobileDayList`), injiziert die Chart.js-Graphen im Profil-Modal und steuert die Responsive-Breakpoints (`syncViewportCssVars`). Übernimmt auch die Drag-Selektionslogik im Grid.
-* **`js/app.js`**: Der Controller. Bindet Event-Listener, verknüpft Tastatur-Shortcuts mit Aktionen (`handleGridKeydown`), steuert das Öffnen und Speichern des Editors (`openEditor`, `saveEditor`) und wickelt den File-Upload/JSON-Import ab.
-* **`js/autoplan.js`**: Beherbergt den kompletten **Neural Scheduler**. Beinhaltet alle in Abschnitt 6 beschriebenen Constraints, die `computeAutoPlan`-Schleife und die Score-Evaluations-Metriken.
-* **`js/neuralgraph.js`**: Eine isolierte, hochperformante Animations-Klasse. Generiert das 3D-Grid für den AutoPlan-Ladebildschirm mithilfe von CSS3-Hardwarebeschleunigung.
-* **`js/contextmenu.js`**: Implementiert ein unaufdringliches, abfangendes Rechtsklick-Menü mit Glassmorphism-Effekten für administrative Zeilenaktionen.
-* **`functions/api.js`**: Ein schlanker, robuster Cloudflare Worker (Node.js/V8 Umgebung), der die REST-Schnittstelle (GET/POST) zum `RADPLAN_KV` Backend bereitstellt und Konfliktauflösungen via `lastModified`-Timestamps orchestriert.
-* **`css/*`**: Eine modulare CSS-Architektur (`core.css`, `layout.css`, `components.css`, `views.css`, `modals.css`, `mobile-optimization.css`), die tiefen Gebrauch von CSS-Variablen macht, um das konsistente "Warm Minimalism"-Theming zu gewährleisten.
+### 3.1 Datenmodell (`DATA`)
+
+Die zentrale Struktur ist ein Dictionary, dessen Keys der Year-Month-String sind (z.B. `2026-4` für Mai 2026).
+Jeder Monatsknoten (`md`) enthält:
+
+* `employees`: Array von Strings (z.B. `["Dr. Lurz", "Fr. Dalitz"]`).
+* `assignments`: Ein tiefes Objekt `[empName][dayNumber] = { assignment: "MR/CT", duty: "D" }`.
+* `rbn`: Ein separates Objekt für die "RD Neurorad"-Zeile (externe Teleradiologie-Zuordnung), unabhängig von den internen Mitarbeitern.
+
+### 3.2 Planungsmodus (Die Sandbox)
+
+Die App besitzt einen echten **Planungsmodus** (aktivierbar über den Button im Header).
+
+* Ist er aktiv, wird die `DATA`-Struktur geklont und in `planData` geladen.
+* Es erscheint die gelbe `plan-bar` mit Warnblinklicht. Alles, was hier passiert, hat keinen Einfluss auf die Live-Daten.
+* Das System führt einen kompletten **History-Stack** mit. Über Undo (Strg+Z) und Redo (Strg+Y) können Zuweisungen vor/zurück gespult werden.
+* Erst bei Klick auf "Übernehmen" (`applyPlanToMain()`) wird der Entwurf gemergt.
+
+### 3.3 Persistenz & Server-Sync
+
+* Jede Änderung speichert debounce-gesteuert (`saveTimeout`, 120ms) den Zustand im lokalen `localStorage` (Offline-Fähigkeit).
+* Gleichzeitig feuert die App per `fetch` ein POST an einen `/api`-Endpunkt. Es wird ein simples, aber effektives Concurrency-Modell gefahren (`serverLastModified`). Schreibt ein Kollege auf einem anderen Rechner zeitgleich einen Dienst, triggert der 409 Conflict den `radplan-sync-conflict` Event und lädt die neuesten Daten hart nach.
+* Ein Heartbeat pollt alle 30 Sekunden im Hintergrund die API nach neuen Daten.
 
 ---
 
-## 8. Export, Import & Sicherheit
+## 4. 🗂️ Modul- & Dateibeschreibung im Detail
 
-Das System bietet vollständige Datensouveränität.
+Die Anwendung ist streng modular nach Verantwortlichkeiten getrennt.
 
-* Über den **Export-Button** (Strg+S) wird der komplette `DATA`-Baum inklusive aller gespeicherten Monats-Entwürfe des Planungsmodus sofort als lokales JSON-File generiert.
-* Der **Import** unterstützt Drag & Drop auf eine interaktive Dropzone (`#import-dropzone`). Fehleingaben werden abgefangen, valides JSON direkt gemergt. Die Daten verlassen zu keinem Zeitpunkt den Browser, es sei denn, der Cloud-Sync ist aktiv geschaltet.
+### 📄 `index.html`
+
+Das strukturelle Rückgrat. Beherbergt keine Inline-Scripts.
+
+* Deklariert sämtliche Modals (`modal-editor`, `modal-profile`, `modal-emps`, `modal-dept`, `modal-autoplan`, `modal-ap-report`, `modal-score-info`) unsichtbar im DOM.
+* Baut das semantische Gerüst für das Haupt-Grid (`#grid-wrapper` -> `table`).
+* Inkludiert Chart.js (für die Analytics) und GSAP (für erweiterte Animationen).
+
+### 📄 `js/constants.js`
+
+Das Herz des statischen Wissens.
+
+* **Arbeitsplätze & Status:** Definiert Arrays (`WORKPLACES`, `STATUSES`) inklusive Farb-Codes (Hex) für Badges. `CODE_MAP` macht diese O(1) zugreifbar.
+* **Personal-Metadaten (`EMP_META`):** Speichert die exakte Hirarchie der Klinik. Wer ist "Leitender Oberarzt", welche Telefonnummer (z.B. "4002"), welche Spezialisierung, wer ist wessen Stellvertreter.
+* **Kalender-Mathematik:** Komplexe Datumsfunktionen: Feiertagsberechnung in Sachsen (`getSaxonyHolidays`, abhängig vom berechneten Osterdatum `easterDate`), Kalenderwochen-Ermittlung nach ISO 8601 (`isoWeekNumber`), Wochentagsabfragen.
+
+### 📄 `js/state.js`
+
+Globale Zustandsverwaltung.
+
+* Hält `DATA`, `planMode`, `planSessions`.
+* Besitzt den Sync-Zyklus (`flushSaveToServer`, `loadFromStorage`, `forceSyncWithServer`).
+* Verwaltet App-Zustände wie das `multiEdit`-Objekt (Wenn User per Strg-Klick mehrere Tage für einen Mitarbeiter im Editor markieren).
+
+### 📄 `js/model.js`
+
+Der Daten-Mutator.
+
+* Behandelt ausschließlich Lese- und Schreibzugriffe auf `DATA`.
+* Garantierte Integrität: `ensurePostBDFreiDays()` läuft nach jedem Sync und prüft, ob nach einem `D`-Dienst am Folgetag ein `F` (Frei) eingetragen ist. Wenn nicht, wird es kaskadierend hinzugefügt.
+* Bietet `buildProfileStats` und `buildYearlyStats`, um Arrays und Dictionaries aufzubereiten, die später von `render.js` in Diagramme gepresst werden.
+
+### 📄 `js/render.js`
+
+Die Render-Engine (Vanilla DOM Manipulation).
+
+* **Main Grid (`renderThead`, `renderTbody`, `renderTfoot`):** Baut iterativ über `createElement` und `innerHTML` das riesige DOM auf. Zuweisung von Farbcodes, Tooltips und Event-Listenern für Editor-Aufrufe.
+* **Mobile Switch (`refreshResponsiveLayout`):** Kontrolliert über CSS-Variablen-Injektion (`--app-vw`, `--app-vh`) das exakte Viewport-Resizing. Rendered bei Mobile-Breakpoint das völlig andere DOM (`renderMobileDayList`).
+* **Das Mitarbeiter-Profil (`openProfileModal`):** Liest die Statistik aus `model.js` und baut ein gigantisches Modal. Hier werden **Chart.js Instanzen** geladen: Ein Donut-Chart (für Arbeitsplatz-Verteilung), ein Bar-Chart (für Status), und ein komplexer Line/Bar-Hybrid (`pm-trend-canvas`) über den Jahresverlauf.
+* **Abteilungsübersicht (`renderDeptContent`):** Eine hochkonzentrierte Tabelle, die die Coverage (Prozentuale Abdeckung) der Arbeitsplätze für das gesamte Team zeigt.
+
+### 📄 `js/app.js`
+
+Der Controller / Event-Orchestrator.
+
+* Verdrahtet alle UI-Events (`wireEvents`).
+* Handhabt die "Period Flyout" Logik (Wechsel des angezeigten Jahres/Monats ohne Page-Reload).
+* Der Editor (`openEditor`, `saveEditor`): Steuert das UI des Zell-Editors. Erzeugt Chips für Multi-Select (z.B. MR + CT), überwacht Blockaden (Duty an andere Person vergeben), erlaubt Wunsch-Eintragungen.
+* **Drag & Drop Import/Export:** Exportiert `DATA` als `.json`. Lässt den User per Drag&Drop JSON-Files in das `modal-import` ziehen (`handleDroppedFile`), verifiziert die Struktur und überschreibt das Backend.
+
+### 📄 `js/autoplan.js`
+
+Der Solver (bereits unter Punkt 2 detailliert beschrieben). Beeindruckend hier: Das ausgeklügelte `ruleTelemetryBucket` und das detaillierte Logging-Array, das erzeugt wird, um dem User am Ende im Report genau zu sagen, *warum* jemand an Tag X den Dienst Y bekommen hat (z.B. "Donnerstags-Dienst vor Urlaub priorisiert").
+
+### 📄 `js/neuralgraph.js`
+
+Visuelle Eye-Candy-Komponente. Generiert ein dynamisches CSS-3D Grid im Code und steuert CSS-Klassen (`pulse`, `error`, `rest`), um die Berechnungssimulation von `autoplan.js` darzustellen. Beinhaltet einen dedizierten HTML5-Canvas (`miniMapCtx`) für die Zeichnung von "Impuls-Punkten".
+
+### 📄 `js/contextmenu.js`
+
+Eine winzige, aber feine Klasse. Reagiert auf Rechtsklick, berechnet die Fenster-Kollision (`x + menuWidth > window.innerWidth`), und platziert ein absolut positioniertes, blur-hinterlegtes Menü über dem DOM.
+
+### 🎨 Die CSS-Struktur
+
+* **`core.css`:** Reset, Typografie, CSS-Variables (Tokens für Shadow, Radius, Colors). Hier liegt der komplexe `body::before` Mesh-Gradient. Definiert auch die globalen Modifier (`.is-mobile`, `.is-drag-selecting`).
+* **`layout.css`:** Die Kernstruktur des Grids. Beinhaltet das komplexe "Sticky-Header"-Verhalten (`position: sticky`), zentriert die Tabelle in `#grid-wrapper` und stylt die filigranen Scrollbars (`::-webkit-scrollbar`). Enthält alle Mobile-Media-Queries.
+* **`components.css`:** Kapselung der wiederverwendbaren UI-Elemente. Alle Buttons (`.mbtn`, `.hbtn`), Toast-Benachrichtigung, Drag&Drop-Zonen, Badges, Modals (`.modal`), Tooltips (`[data-tooltip]::after`) und deren Keyframe-Animationen (`@keyframes planPulse`).
 
 ---
 
-## 9. Fazit
+## 5. 💡 Besondere Domänenlogik (Die "lächerlich kleinen Aspekte")
 
-RadPlan ist mehr als eine simple Tabelle – es ist ein reaktives Expertensystem. Durch die konsequente Auslagerung von Prüflogiken an den **Neural Scheduler**, das blitzschnelle **Multi-Day-Batch-Editing** und die tiefgehende **Visualisierung historischer Dienstlasten** wird die Dienstplanung in der Radiologie von einer fehleranfälligen Administrationsaufgabe zu einem strategischen, beinahe schwerelosen Prozess transformiert. Die strikte Anwendung klinischer Regeln kombiniert mit "Quiet Luxury" UI-Elementen sorgt für maximale Handlungsfreiheit bei absoluter Systemstabilität.
+Was diese App so einzigartig macht, ist ihr Domänen-Wissen, das tief im Code verankert ist:
+
+1. **D-F-D-F Regel:** Die App verabscheut es, einen Arzt "Dienst - Frei - Dienst - Frei" machen zu lassen, und bestraft diese Kombination im Algorithmus.
+2. **Dr. Beckers Samstags-Kompensation:** Hat `Dr. Becker` samstags einen Bereitschaftsdienst, wird nicht nur ein normaler F-Tag generiert, sondern die App sucht im Code nach dem *nächsten verfügbaren Werktag*, prüft, ob eine andere Oberärztin in der Zeit Urlaub hat, und wenn nicht, bucht sie automatisch den Code `FZA` in den Live-Kalender.
+3. **RD Neurorad (`RBN_ROW_KEY`):** Es gibt eine spezielle Zeile unter den Mitarbeitern, die nicht den Standard-Regeln gehorcht. Sie hat ein eigenes `DATA.rbn`-Objekt, andere Auswahlmöglichkeiten im Editor (bestimmte Namen wie "Prof. Schob (NRAD)") und ist farblich als "Externe Zeile" (Cyan-Blau) hervorgehoben.
+4. **Drag-Selection:** User können auf dem Desktop mit gedrückter linker Maustaste über das Grid "wischen", um sofort mehrere Zellen für den Editor zu markieren. Der Hintergrund färbt sich dabei sofort orange ("Multi-Selected").
+5. **Kind Krank / §15c:** Selbst feinste Abwesenheitsgründe aus dem Tarifvertrag/Personalwesen (`§15c` - Pflege naher Angehöriger) sind als Status-Codes hinterlegt und fließen korrekt in die "Total-Workdays" und "Coverage" Berechnungen ein.
+
+---
+
+*(Ende der Dokumentation)*
