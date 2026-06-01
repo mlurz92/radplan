@@ -752,6 +752,27 @@ tr:hover .emp-profile-icon {
   color: #0369A1;
 }
 
+/* Inline comment indicator dot — top-right corner of grid cell */
+.cell-comment-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #F59E0B;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.25);
+  pointer-events: none;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+/* Show tooltip on cell hover when comment dot is present */
+.td-cell:hover .cell-comment-dot {
+  background: #FBBF24;
+  box-shadow: 0 0 0 2px rgba(251,191,36,.35);
+}
+
 .tr-stat.tr-stat-first .td-stat-lbl,
 .tr-stat.tr-stat-first .td-stat-val {
   border-top: 1px solid rgba(203,213,225,.5);
