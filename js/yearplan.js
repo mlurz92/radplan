@@ -9,7 +9,7 @@ import {
   getEmpMeta, posColor
 } from './constants.js';
 
-import { DATA, state, TOD_Y, TOD_M } from './state.js';
+import { DATA, state, planMode, planData, TOD_Y, TOD_M } from './state.js';
 import { buildProfileStats, getEmployeesForYear } from './model.js';
 import { isDutyExempt } from './autoplan.js';
 
