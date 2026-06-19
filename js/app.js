@@ -29,7 +29,8 @@ import {
   cellColor,
   empInitials,
   getRbnOptionsForDate,
-  formatRbnDisplay
+  formatRbnDisplay,
+  isEmployeeActiveInMonth
 } from './constants.js';
 
 import {
@@ -2448,7 +2449,7 @@ export async function init() {
       employees: [
         "Prof. Schäfer", "Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Fr. Thaler", 
         "Dr. Becker", "Dr. Martin", "Hr. El Houba", "Fr. Licenji", "Hr. Torki", "Hr. Sebastian"
-      ],
+      ].filter((emp) => isEmployeeActiveInMonth(emp, state.year, state.month)),
       assignments: {}, 
       rbn: {},
     };

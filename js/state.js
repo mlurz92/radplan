@@ -1,4 +1,4 @@
-import { STORAGE_KEY, normalizeMonthDataShape } from './constants.js';
+import { STORAGE_KEY, normalizeMonthDataShape, reconcileEmployeesForMonth } from './constants.js';
 
 export let DATA = {};
 
@@ -90,9 +90,15 @@ function applyServerSnapshot(serverData) {
   Object.assign(DATA, newMain);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
 
-  Object.values(DATA).forEach((md) => {
+  let snapshotChanged = false;
+  Object.entries(DATA).forEach(([key, md]) => {
     normalizeMonthDataShape(md);
+    const [yearPart, monthPart] = key.split("-");
+    snapshotChanged = reconcileEmployeesForMonth(md, parseInt(yearPart, 10), parseInt(monthPart, 10)) || snapshotChanged;
   });
+  if (snapshotChanged) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
+  }
 
   replaceLocalPlans(serverData.plans || {});
 }
@@ -206,9 +212,25 @@ export async function loadFromStorage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
   }
   
-  Object.values(DATA).forEach((md) => {
-    normalizeMonthDataShape(md);
+  if (loadedFromServer) {
+    return;
+  }
+
+  let loadedDataChanged = false;
+  Object.entries(DATA).forEach(([key, md]) => {
+    const parts = key.split("-");
+    if (parts.length === 2) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      if (!isNaN(y) && !isNaN(m)) {
+        normalizeMonthDataShape(md);
+        loadedDataChanged = reconcileEmployeesForMonth(md, y, m) || loadedDataChanged;
+      }
+    }
   });
+  if (loadedDataChanged) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
+  }
 }
 
 export function saveToStorage() {
