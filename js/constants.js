@@ -37,9 +37,53 @@ export const RBN_OPTIONS = [
   "Dr. Schüngel (NRAD)",
   "Fr. Dalitz (RAD)",
   "Fr. Thaler (RAD)",
+  "Dr. Martin (RAD)",
+  "Hr. El Houba (RAD)",
 ];
 
 export const RBN_THALER_LAST_MONTH = { year: 2026, month: 2 };
+
+export const EMPLOYEE_DEPARTURES = {
+  "Hr. Torki": { year: 2026, month: 6, reason: "gekündigt" },
+};
+
+export function isEmployeeActiveInMonth(name, y, m) {
+  const departure = EMPLOYEE_DEPARTURES[name];
+  if (!departure) return true;
+  return y < departure.year || (y === departure.year && m < departure.month);
+}
+
+export function reconcileEmployeesForMonth(md, y, m) {
+  if (!md || typeof md !== "object") return false;
+
+  let changed = false;
+
+  if (Array.isArray(md.employees)) {
+    const activeEmployees = md.employees.filter((emp) => isEmployeeActiveInMonth(emp, y, m));
+    changed = activeEmployees.length !== md.employees.length;
+    md.employees = activeEmployees;
+  }
+
+  if (md.assignments && typeof md.assignments === "object") {
+    Object.keys(md.assignments).forEach((emp) => {
+      if (!isEmployeeActiveInMonth(emp, y, m)) {
+        delete md.assignments[emp];
+        changed = true;
+      }
+    });
+  }
+
+  if (md.comments && typeof md.comments === "object") {
+    Object.keys(md.comments).forEach((emp) => {
+      if (!isEmployeeActiveInMonth(emp, y, m)) {
+        delete md.comments[emp];
+        changed = true;
+      }
+    });
+  }
+
+  return changed;
+}
 
 export function formatRbnDisplay(name) {
   if (!name) return "";
