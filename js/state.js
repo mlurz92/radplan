@@ -212,11 +212,21 @@ export async function loadFromStorage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
   }
   
+  if (loadedFromServer) {
+    return;
+  }
+
   let loadedDataChanged = false;
   Object.entries(DATA).forEach(([key, md]) => {
-    normalizeMonthDataShape(md);
-    const [yearPart, monthPart] = key.split("-");
-    loadedDataChanged = reconcileEmployeesForMonth(md, parseInt(yearPart, 10), parseInt(monthPart, 10)) || loadedDataChanged;
+    const parts = key.split("-");
+    if (parts.length === 2) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      if (!isNaN(y) && !isNaN(m)) {
+        normalizeMonthDataShape(md);
+        loadedDataChanged = reconcileEmployeesForMonth(md, y, m) || loadedDataChanged;
+      }
+    }
   });
   if (loadedDataChanged) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
