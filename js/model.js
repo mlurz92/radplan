@@ -8,6 +8,8 @@ import {
   daysInMonth,
   nextCalendarDay,
   normalizeMonthDataShape,
+  reconcileEmployeesForMonth,
+  isEmployeeActiveInMonth,
   isWorkday,
   getSaxonyHolidaysCached,
   getEmpMeta
@@ -36,13 +38,16 @@ export function getMonthDataRaw(y, m) {
   if (!DATA[k]) {
     const prev = DATA[prevMK(y, m)];
     DATA[k] = {
-      employees: prev && prev.employees ? [...prev.employees] : [],
+      employees: prev && prev.employees ? prev.employees.filter((emp) => isEmployeeActiveInMonth(emp, y, m)) : [],
       assignments: {},
       rbn: {}
     };
   }
   
   normalizeMonthDataShape(DATA[k]);
+  if (reconcileEmployeesForMonth(DATA[k], y, m)) {
+    saveToStorage();
+  }
   return DATA[k];
 }
 
@@ -187,6 +192,10 @@ export function setRbnValue(y, m, day, value) {
 export function addEmployee(y, m, name) {
   const md = getMonthData(y, m);
   
+  if (!isEmployeeActiveInMonth(name, y, m)) {
+    return;
+  }
+
   if (!md.employees.includes(name)) {
     md.employees.push(name);
   }
@@ -428,17 +437,27 @@ export function getEmployeesForYear(year) {
     if (!key.startsWith(`${year}-`) || !md?.employees) {
       return;
     }
-    md.employees.forEach((emp) => emps.add(emp));
+    const [, monthPart] = key.split("-");
+    const m = parseInt(monthPart, 10);
+    md.employees.forEach((emp) => {
+      if (isEmployeeActiveInMonth(emp, year, m)) emps.add(emp);
+    });
   });
   
-  getMonthDataRaw(year, state.month).employees.forEach((emp) => emps.add(emp));
+  getMonthDataRaw(year, state.month).employees.forEach((emp) => {
+    if (isEmployeeActiveInMonth(emp, year, state.month)) emps.add(emp);
+  });
   
   if (planMode) {
     Object.keys(planSessions).forEach((key) => {
       if (!key.startsWith(`${year}-`)) {
         return;
       }
-      planSessions[key].employees.forEach((emp) => emps.add(emp));
+      const [, monthPart] = key.split("-");
+      const m = parseInt(monthPart, 10);
+      planSessions[key].employees.forEach((emp) => {
+        if (isEmployeeActiveInMonth(emp, year, m)) emps.add(emp);
+      });
     });
   }
   
@@ -573,6 +592,8 @@ export function createPlanSession(y, m) {
         wishes: {},
       };
       
+  normalizeMonthDataShape(source);
+  reconcileEmployeesForMonth(source, y, m);
   const sourceRbn = cloneData(source.rbn || {});
   
   return {
