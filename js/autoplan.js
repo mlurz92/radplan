@@ -470,7 +470,7 @@ export function computeGridConflicts(y, m) {
         }
       }
 
-      if (hasCTLeadershipConflict(y, m, emp, d, assignments)) {
+      if (cell.duty === "D" && hasCTLeadershipConflict(y, m, emp, d, assignments)) {
         flag(emp, d, "CT-Leitungskonflikt: Vertretung am Folgetag abwesend");
       }
       if (cell.duty === "D" && hasDalitzMammographyConflict(y, m, emp, d, "D", assignments)) {

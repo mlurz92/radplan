@@ -79,6 +79,13 @@
   --navy-800-rgb: 10,21,37;
   --navy-900-rgb: 6,13,22;
   --gray-900-rgb: 15,23,42;
+
+  /* --glass-light-bg/-border are deliberately a light-tinted surface in BOTH
+     themes (a frosted panel raised above the canvas). --ink-strong tracks the
+     canvas (white in dark mode) and would sit near-white-on-near-white on top
+     of it, so content placed on a --glass-light-* surface must use this fixed,
+     always-dark token instead. */
+  --ink-on-glass-light: #0F172A;
 }
 
 [data-theme="light"] {

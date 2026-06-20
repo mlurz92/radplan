@@ -1212,6 +1212,7 @@ Die Anwendung unterstützt u. a.:
 - Tooltips liefern Zusatzinformationen, inklusive Klartext-Konfliktgründen bei konfliktbehafteten Zellen.
 - Mobile Touch-Ziele sind größer und klarer getrennt.
 - Animationen (View Transitions, Swipe-Federung) respektieren `prefers-reduced-motion: reduce` und entfallen in diesem Fall vollständig, ohne die jeweilige Funktion einzuschränken.
+- Oberflächen, die bewusst immer hell/lichtdurchflutet wirken sollen (das desktopseitige Schnellauswahl-Popover beim Zuweisen eines Arbeitsplatzes über `.cqp-wp`/`.cqp-duty`, sowie das mobile radiale Schnellmenü über `.radial-center`/`.radial-item`), nutzen dafür das feste Token `--ink-on-glass-light` statt des themenabhängigen `--ink-strong`. Letzteres kippt im Dunkelmodus auf Weiß und hätte auf der bewusst hellen Glasfläche zu kaum lesbarem Weiß-auf-Weiß geführt; das feste, immer dunkle Token stellt unabhängig vom aktiven Theme einen verlässlichen Kontrast sicher.
 
 ---
 
@@ -1355,6 +1356,7 @@ Geprüft werden u. a.:
 - der CT-Leitungskonflikt für das betroffene Mitarbeitendenpaar, ausschließlich an Werktagen,
 - der Mammographie-Konflikt für das betroffene Mitarbeitendenpaar, ausschließlich an Sonn- und Montagen,
 - Abwesenheits- und Urlaubserkennung,
+- `computeGridConflicts` (die Grid-Scan-Funktion hinter den [Inline-Konfliktwarnungen](#inline-konfliktwarnungen-im-grid)): insbesondere, dass der CT-Leitungskonflikt dort ausschließlich an Tagen mit tatsächlich gesetztem Bereitschaftsdienst (`D`) markiert wird und nicht — wie ein früherer Regressionsfehler es tat — an jedem beliebigen Tag des Leitungspaars, sobald nur die Partnerin oder der Partner am Folgetag abwesend ist,
 - diverse kleinere reine Hilfsfunktionen (Fairness-Spread, Dienstschlüssel-Bildung, Mittelwertberechnung).
 
 Bewusst **nicht** unit-getestet ist die große, zustandsbehaftete Orchestrierungsfunktion `computeAutoPlan` selbst, da ein sinnvoller Test dafür ein aufwändiges Mocken von Planungsmodus, Plandaten und DOM erfordern würde; stattdessen konzentrieren sich die Tests auf die darunterliegenden, reinen Regelfunktionen, die die fachliche Korrektheit tatsächlich tragen.
