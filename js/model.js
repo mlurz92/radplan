@@ -239,6 +239,17 @@ export function dayCodeCount(y, m, day, code) {
   }).length;
 }
 
+export function dayPresentCount(y, m, day) {
+  const md = getMonthData(y, m);
+
+  return md.employees.filter((e) => {
+    const assignment = md.assignments[e]?.[day]?.assignment || "";
+    if (!assignment) return true;
+    const parts = assignment.split("/").map((x) => x.trim());
+    return !parts.some((c) => ABSENCE_CODES.includes(c));
+  }).length;
+}
+
 export function buildProfileStats(y, m, emp) {
   const hols = getSaxonyHolidaysCached(y);
   const dim = daysInMonth(y, m);

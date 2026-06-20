@@ -47,6 +47,7 @@ import {
   getCell,
   getRbnValue,
   dayCodeCount,
+  dayPresentCount,
   buildProfileStats,
   buildYearlyStats,
   getEmployeesForYear,
@@ -781,47 +782,52 @@ export function renderTfoot(y, m, dim, md) {
     { code: "CT", label: "CT", meta: CODE_MAP["CT"] },
     { code: "D", label: "Bereitschaftsdienst", meta: null },
     { code: "HG", label: "Hintergrunddienst", meta: null },
+    { code: "PRESENT", label: "Mitarbeitende anwesend", meta: null },
   ];
-  
+
   rows.forEach(({ code, label, meta }, rowIdx) => {
     const isD = code === "D";
     const isHG = code === "HG";
-    
-    const bg = isD ? "#EF4444" : isHG ? "#0EA5E9" : meta.bg;
-    const fg = isD || isHG ? "#fff" : meta.fg;
-    
+    const isPresent = code === "PRESENT";
+
+    const bg = isD ? "#EF4444" : isHG ? "#0EA5E9" : isPresent ? "#22C55E" : meta.bg;
+    const fg = isD || isHG || isPresent ? "#fff" : meta.fg;
+
     const tr = document.createElement("tr");
-    tr.className = "tr-stat" + (rowIdx === 0 ? " tr-stat-first" : "");
-    
+    tr.className = "tr-stat" + (rowIdx === 0 ? " tr-stat-first" : "") + (isPresent ? " tr-stat-present" : "");
+
     const tdL = document.createElement("td");
     tdL.className = "td-stat-lbl";
     tdL.innerHTML = `
-      <span class="stat-lbl-badge" style="background:${bg};color:${fg}">${code}</span>
+      <span class="stat-lbl-badge" style="background:${bg};color:${fg}">${isPresent ? "Σ" : code}</span>
       <span class="stat-lbl-text">${label}</span>
     `;
     tr.appendChild(tdL);
-    
+
     for (let d = 1; d <= dim; d++) {
-      const val = dayCodeCount(y, m, d, code);
+      const val = isPresent ? dayPresentCount(y, m, d) : dayCodeCount(y, m, d, code);
       const we = isWeekend(y, m, d);
       const hol = isHoliday(y, m, d, hols);
       const fri = isFriday(y, m, d);
       const isT = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
-      
+
       const td = document.createElement("td");
       let cls = "td-stat-val";
-      
-      if (we || hol) {
+
+      if (isPresent) {
+        if (we || hol) cls += " dim";
+        else cls += " nz";
+      } else if (we || hol) {
         cls += " dim";
       } else if ((isD || isHG) && val > 1) {
         cls += " warn";
       } else if (val > 0) {
         cls += " nz";
       }
-      
+
       if (isT) cls += " today-col";
       if (fri) cls += " is-fri";
-      
+
       td.className = cls;
       td.textContent = val > 0 ? val : "";
       tr.appendChild(td);
