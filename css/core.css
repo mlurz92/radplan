@@ -78,6 +78,7 @@
   --ink-strong: #FFFFFF;
   --navy-800-rgb: 10,21,37;
   --navy-900-rgb: 6,13,22;
+  --navy-700-rgb: 15,29,50;
   --gray-900-rgb: 15,23,42;
 
   /* --glass-light-bg/-border are deliberately a light-tinted surface in BOTH
@@ -116,6 +117,7 @@
   --ink-strong: #0F172A;
   --navy-800-rgb: 236,231,220;
   --navy-900-rgb: 244,241,234;
+  --navy-700-rgb: 226,220,204;
   --gray-900-rgb: 15,23,42;
 }
 
