@@ -1082,10 +1082,73 @@ export function confirmRemoveEmployeeFuture(name) {
   }
 }
 
+function bindMobileDaySwipe(day, dim) {
+  const sheet = document.querySelector("#modal-mobile-day .modal");
+  if (!sheet) return;
+  sheet.dataset.mdaySwipeDay = String(day);
+  sheet.dataset.mdaySwipeDim = String(dim);
+  if (sheet.dataset.mdaySwipeBound) return;
+  sheet.dataset.mdaySwipeBound = "1";
+
+  let startX = 0;
+  let startY = 0;
+  let pointerId = null;
+  let swiping = false;
+
+  sheet.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse") return;
+    if (e.target.closest(".mday-editable")) return;
+    startX = e.clientX;
+    startY = e.clientY;
+    pointerId = e.pointerId;
+    swiping = false;
+  });
+
+  sheet.addEventListener("pointermove", (e) => {
+    if (pointerId === null || e.pointerId !== pointerId) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (!swiping && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      swiping = true;
+    }
+    if (swiping) {
+      sheet.style.transition = "none";
+      sheet.style.transform = `translateX(${dx * 0.3}px)`;
+    }
+  });
+
+  const finishSwipe = (e) => {
+    if (pointerId === null || e.pointerId !== pointerId) return;
+    pointerId = null;
+    sheet.style.transition = "transform .25s cubic-bezier(.34,1.2,.64,1)";
+    sheet.style.transform = "";
+    setTimeout(() => { sheet.style.transition = ""; }, 260);
+    if (!swiping) return;
+    swiping = false;
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) < 60) return;
+    const curDay = parseInt(sheet.dataset.mdaySwipeDay || "0", 10);
+    const curDim = parseInt(sheet.dataset.mdaySwipeDim || "0", 10);
+    const nextDay = dx < 0 ? curDay + 1 : curDay - 1;
+    if (nextDay < 1 || nextDay > curDim) return;
+    openMobileDay(nextDay);
+  };
+
+  sheet.addEventListener("pointerup", finishSwipe);
+  sheet.addEventListener("pointercancel", () => {
+    pointerId = null;
+    swiping = false;
+    sheet.style.transition = "transform .25s cubic-bezier(.34,1.2,.64,1)";
+    sheet.style.transform = "";
+    setTimeout(() => { sheet.style.transition = ""; }, 260);
+  });
+}
+
 export function openMobileDay(day) {
   const { year: y, month: m } = state;
   const hols = getSaxonyHolidaysCached(y);
   const md = getMonthData(y, m);
+  const dim = daysInMonth(y, m);
   const wd = weekday(y, m, day);
   const hol = isHoliday(y, m, day, hols);
   const holName = hols[dateKey(y, m, day)] || "";
@@ -1189,7 +1252,9 @@ export function openMobileDay(day) {
   });
   
   bodyEl.innerHTML = bodyHtml;
-  
+
+  bindMobileDaySwipe(day, dim);
+
   bodyEl.querySelectorAll(".mday-editable[data-emp]").forEach(row => {
     let startX = 0;
     let startY = 0;
