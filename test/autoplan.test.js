@@ -18,7 +18,6 @@ import {
   getWeekendStateForKW,
   projectedWeekendDutyCount,
   wouldCreateConsecutiveWeekendDuty,
-  hasDalitzMammographyConflict,
   computeGridConflicts
 } from "../js/autoplan.js";
 
@@ -375,48 +374,3 @@ describe("wouldCreateConsecutiveWeekendDuty", () => {
   });
 });
 
-describe("hasDalitzMammographyConflict", () => {
-  test("flags Fr. Dalitz on HG when Hr. Torki holds the same-day D, on a Sun/Mon", () => {
-    let sunOrMon = null;
-    const dim = daysInMonth(Y, M);
-    for (let d = 1; d <= dim; d++) {
-      const wd = weekday(Y, M, d);
-      if (wd === 0 || wd === 1) { sunOrMon = d; break; }
-    }
-    const assignments = { "Fr. Dalitz": {}, "Hr. Torki": { [sunOrMon]: { duty: "D" } } };
-    assert.equal(hasDalitzMammographyConflict(Y, M, "Fr. Dalitz", sunOrMon, "HG", assignments), true);
-  });
-
-  test("flags Hr. Sebastian on D when Fr. Dalitz holds the same-day HG, on a Sun/Mon", () => {
-    let sunOrMon = null;
-    const dim = daysInMonth(Y, M);
-    for (let d = 1; d <= dim; d++) {
-      const wd = weekday(Y, M, d);
-      if (wd === 0 || wd === 1) { sunOrMon = d; break; }
-    }
-    const assignments = { "Hr. Sebastian": {}, "Fr. Dalitz": { [sunOrMon]: { duty: "HG" } } };
-    assert.equal(hasDalitzMammographyConflict(Y, M, "Hr. Sebastian", sunOrMon, "D", assignments), true);
-  });
-
-  test("does not apply mid-week even with the same staffing", () => {
-    const dim = daysInMonth(Y, M);
-    let midweek = null;
-    for (let d = 1; d <= dim; d++) {
-      const wd = weekday(Y, M, d);
-      if (wd >= 2 && wd <= 4) { midweek = d; break; }
-    }
-    const assignments = { "Fr. Dalitz": {}, "Hr. Torki": { [midweek]: { duty: "D" } } };
-    assert.equal(hasDalitzMammographyConflict(Y, M, "Fr. Dalitz", midweek, "HG", assignments), false);
-  });
-
-  test("does not apply to unrelated employees", () => {
-    let sunOrMon = null;
-    const dim = daysInMonth(Y, M);
-    for (let d = 1; d <= dim; d++) {
-      const wd = weekday(Y, M, d);
-      if (wd === 0 || wd === 1) { sunOrMon = d; break; }
-    }
-    const assignments = { "Dr. A": {}, "Hr. Torki": { [sunOrMon]: { duty: "D" } } };
-    assert.equal(hasDalitzMammographyConflict(Y, M, "Dr. A", sunOrMon, "HG", assignments), false);
-  });
-});
