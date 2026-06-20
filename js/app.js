@@ -2853,9 +2853,16 @@ export async function init() {
     showToast("Daten im Hintergrund aktualisiert");
   });
 
-  window.addEventListener("radplan-sync-conflict", () => {
+  window.addEventListener("radplan-sync-conflict", (e) => {
     render();
-    showToast("Speicher-Konflikt: Aktuellster Server-Stand geladen");
+    const stats = e.detail || {};
+    if (stats.conflicts > 0) {
+      showToast(`Speicher-Konflikt: ${stats.conflicts} Feld(er) kollidierten, lokaler Stand übernommen`);
+    } else if (stats.localWins > 0 || stats.serverWins > 0) {
+      showToast(`Speicher-Konflikt automatisch zusammengeführt (${stats.localWins} lokal, ${stats.serverWins} vom Server)`);
+    } else {
+      showToast("Speicher-Konflikt: Aktuellster Server-Stand geladen");
+    }
   });
 
   window.addEventListener("radplan-save-start", () => {

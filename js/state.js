@@ -1,4 +1,4 @@
-import { STORAGE_KEY, normalizeMonthDataShape, reconcileEmployeesForMonth } from './constants.js';
+import { STORAGE_KEY, normalizeMonthDataShape, reconcileEmployeesForMonth, monthKey } from './constants.js';
 
 export let DATA = {};
 
@@ -52,6 +52,52 @@ let saveTimeout = null;
 let saveInFlight = false;
 let saveQueuedWhileInFlight = false;
 let saveRequestToken = 0;
+let lastSyncedSnapshot = null;
+
+function isPlainObject(v) {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
+function deepEqual(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+// Field-level 3-way merge (base = last known server state, local = our unsaved
+// edits, server = the state we just lost the 409 race against). Recurses into
+// plain-object trees (month -> employee -> day -> cell) so only the individual
+// fields that genuinely changed on both sides since `base` are treated as
+// conflicts; everything else is merged automatically without data loss.
+function mergeThreeWay(base, local, server, stats) {
+  if (deepEqual(local, server)) return local;
+  if (deepEqual(local, base)) {
+    stats.serverWins++;
+    return server;
+  }
+  if (deepEqual(server, base)) {
+    stats.localWins++;
+    return local;
+  }
+
+  if (isPlainObject(base) && isPlainObject(local) && isPlainObject(server)) {
+    const keys = new Set([...Object.keys(base), ...Object.keys(local), ...Object.keys(server)]);
+    const out = {};
+    keys.forEach((k) => {
+      out[k] = mergeThreeWay(base[k], local[k], server[k], stats);
+    });
+    return out;
+  }
+
+  stats.conflicts++;
+  return local;
+}
+
+function mergePlanDrafts(localPlans, serverPlans, activeKey) {
+  const merged = { ...(serverPlans || {}) };
+  if (activeKey && localPlans[activeKey]) {
+    merged[activeKey] = localPlans[activeKey];
+  }
+  return merged;
+}
 
 function collectLocalPlans() {
   const plans = {};
@@ -101,6 +147,7 @@ function applyServerSnapshot(serverData) {
   }
 
   replaceLocalPlans(serverData.plans || {});
+  lastSyncedSnapshot = JSON.parse(JSON.stringify(DATA));
 }
 
 async function flushSaveToServer() {
@@ -141,9 +188,29 @@ async function flushSaveToServer() {
     if (res.status === 409) {
       const conflictData = await res.json();
       if (conflictData.latestData) {
-        applyServerSnapshot(conflictData.latestData);
+        const serverMain = conflictData.latestData.main || conflictData.latestData;
+        const base = lastSyncedSnapshot || {};
+        const stats = { conflicts: 0, localWins: 0, serverWins: 0 };
+        const mergedMain = mergeThreeWay(base, DATA, serverMain, stats);
+
+        Object.keys(DATA).forEach((k) => delete DATA[k]);
+        Object.assign(DATA, mergedMain);
+        Object.values(DATA).forEach((md) => normalizeMonthDataShape(md));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
+
+        const activeKey = planMode ? monthKey(state.year, state.month) : null;
+        const mergedPlans = mergePlanDrafts(collectLocalPlans(), conflictData.latestData.plans || {}, activeKey);
+        replaceLocalPlans(mergedPlans);
+
+        serverLastModified = parseInt(conflictData.latestData.lastModified, 10) || 0;
         serverFetchSuccessful = true;
-        window.dispatchEvent(new CustomEvent("radplan-sync-conflict"));
+        lastSyncedSnapshot = JSON.parse(JSON.stringify(DATA));
+
+        window.dispatchEvent(new CustomEvent("radplan-sync-conflict", { detail: stats }));
+
+        if (stats.localWins > 0 || stats.conflicts > 0) {
+          flushSaveToServer();
+        }
       }
       return;
     }
@@ -159,6 +226,7 @@ async function flushSaveToServer() {
       serverLastModified = parseInt(resData.lastModified, 10) || 0;
       serverFetchSuccessful = true;
     }
+    lastSyncedSnapshot = JSON.parse(JSON.stringify(DATA));
 
     if (requestToken === saveRequestToken) {
       window.dispatchEvent(new CustomEvent("radplan-save-success"));
