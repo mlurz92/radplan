@@ -452,6 +452,7 @@ Der mobile Wechsel von der Rastertabelle zur Tagesliste erfolgt sowohl CSS-seiti
 - `@media (pointer: coarse)` (`mobile-optimization.css`, nicht in `index.html` eingebunden) — erzwingt eine Mindestgröße von 44×44 Pixel für Bedienelemente.
 - `@media (prefers-reduced-motion: no-preference)` (`core.css`) — aktiviert sanftes Scroll-Verhalten nur, wenn keine reduzierte Bewegungspräferenz vorliegt.
 - `@media (prefers-reduced-motion: reduce)` (`core.css`, `modals.css`) — deaktiviert View-Transition- und Modal-Animationen vollständig.
+- `@media (prefers-contrast: more)` (`core.css`) — verstärkt für Nutzer mit erhöhter Kontrastpräferenz die feinen Rasterlinien (Tages- und Zeilentrenner) der Planungstabelle und verdickt den Tastatur-Fokusring. Da farbcodierte Zellen stets zusätzlich ihr Textkürzel (CT, MR, …) tragen, hängt die Bedeutung nie allein von der Farbe ab.
 
 ### 9.3 Mobile Bedienkonzepte
 
