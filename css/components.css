@@ -586,7 +586,7 @@ body.plan-mode-active #btn-plan {
 }
 
 .dropzone.drag-over .dz-main {
-  color: var(--navy-600);
+  color: var(--gray-800);
 }
 
 .dropzone.has-file .dz-main {
