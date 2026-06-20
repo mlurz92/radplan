@@ -62,6 +62,8 @@ import {
 import {
   openEditor,
   getWish,
+  isPinned,
+  togglePinned,
   isPeriodFlyoutOpen,
   syncPeriodControls,
   quickToggleWorkplace,
@@ -665,7 +667,8 @@ export function renderTbody(y, m, dim, hols, md) {
       if (fri) cls += " is-fri";
       if (emptyWd) cls += " empty-wd";
       if (isAutoFRest) cls += " auto-f-rest";
-      
+      if (planMode && isPinned(emp, d)) cls += " pinned";
+
       tdEl.className = cls;
       tdEl.dataset.emp = emp;
       tdEl.dataset.day = String(d);
@@ -686,6 +689,10 @@ export function renderTbody(y, m, dim, hols, md) {
         const icon = WISH_MAP[wishCode]?.icon || "";
         innerHtml += `<span class="cell-wish wish-${wishCode}">${icon}</span>`;
       }
+      const cellPinned = planMode && isPinned(emp, d);
+      if (cellPinned) {
+        innerHtml += `<span class="cell-pin" title="Für Auto-Plan fixiert">📌</span>`;
+      }
       if (cellComment) {
         const escapedComment = cellComment.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         innerHtml += `<span class="cell-comment-dot" title="${escapedComment}" aria-label="Notiz: ${escapedComment}"></span>`;
@@ -700,12 +707,26 @@ export function renderTbody(y, m, dim, hols, md) {
         }
         openEditor(emp, d, { ctrlKey: e.ctrlKey || e.metaKey });
       });
-      tdEl.addEventListener("keydown", (e) => { 
-        if (e.key === "Enter" || e.key === " ") { 
-          e.preventDefault(); 
-          openEditor(emp, d); 
-        } 
+      tdEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openEditor(emp, d);
+        }
       });
+      if (planMode) {
+        tdEl.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          const pinnedNow = isPinned(emp, d);
+          contextMenu.show(e.clientX, e.clientY, [
+            {
+              label: pinnedNow ? "Fixierung aufheben" : "Für Auto-Plan fixieren",
+              sub: pinnedNow ? "Solver darf diese Zelle wieder ändern" : "Solver lässt diese Zelle unverändert",
+              icon: '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 17v5M9 10.76a2 2 0 0 1 1.11-1.79l1.78-.9a2 2 0 0 1 1.78 0l1.78.9A2 2 0 0 1 17.56 11l.3 4.94a1 1 0 0 1-1 1.06H7.14a1 1 0 0 1-1-1.06L9 10.76Z"/></svg>',
+              action: () => togglePinned(emp, d)
+            }
+          ], tdEl);
+        });
+      }
       if (state.multiEdit?.emp === emp && Array.isArray(state.multiEdit.days) && state.multiEdit.days.includes(d)) {
         tdEl.classList.add("multi-selected");
       }

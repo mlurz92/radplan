@@ -420,6 +420,7 @@ export function savePlanDraft() {
         assignments: planData.assignments,
         rbn: planData.rbn || {},
         wishes: planData.wishes || {},
+        pins: planData.pins || {},
       })
     );
     
@@ -816,7 +817,32 @@ export function refreshEditorChips() {
       if (wishHd) wishHd.style.display = "none";
     }
   }
-  
+
+  const pinC = document.getElementById("ed-pin");
+  const pinHd = document.getElementById("ed-pin-hd");
+  if (pinC) {
+    if (planMode) {
+      pinC.style.display = "flex";
+      if (pinHd) pinHd.style.display = "";
+
+      pinC.innerHTML = "";
+      const on = isPinned(emp, day);
+      const chip = document.createElement("div");
+      chip.className = `chip-wish${on ? " wish-on" : ""}`;
+      chip.style.cssText = on ? `background:#D97706;color:#fff;border-color:#D97706` : `background:#FEF3C7;color:#92400E;border-color:#FDE68A`;
+      chip.innerHTML = `<span class="wish-icon">📌</span>${on ? "Fixiert — Solver ändert diese Zelle nicht" : "Für Auto-Plan fixieren"}`;
+      chip.addEventListener("click", () => {
+        setPinned(emp, day, !isPinned(emp, day));
+        refreshEditorChips();
+        render();
+      });
+      pinC.appendChild(chip);
+    } else {
+      pinC.style.display = "none";
+      if (pinHd) pinHd.style.display = "none";
+    }
+  }
+
   const pv = state.ed.st || (state.ed.wp.length ? state.ed.wp.join("/") : "");
   const edPreviewVal = document.getElementById("ed-preview-val");
   if (edPreviewVal) {
@@ -937,6 +963,9 @@ export function confirmRemoveEmployeeFuture(name) {
           }
           if (session.wishes && session.wishes[name]) {
             delete session.wishes[name];
+          }
+          if (session.pins && session.pins[name]) {
+            delete session.pins[name];
           }
         }
       });

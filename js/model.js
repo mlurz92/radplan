@@ -601,6 +601,7 @@ export function createPlanSession(y, m) {
         assignments: cloneData(getMonthDataRaw(y, m).assignments || {}),
         rbn: cloneData(getMonthDataRaw(y, m).rbn || {}),
         wishes: {},
+        pins: {},
       };
       
   normalizeMonthDataShape(source);
@@ -613,6 +614,7 @@ export function createPlanSession(y, m) {
     assignments: cloneData(source.assignments || {}),
     rbn: sourceRbn,
     wishes: cloneData(source.wishes || {}),
+    pins: cloneData(source.pins || {}),
     baseline: {
       assignments: cloneData(source.assignments || {}),
       rbn: cloneData(sourceRbn),

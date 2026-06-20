@@ -466,6 +466,7 @@ export async function computeAutoPlan(customTargets) {
   const dim = daysInMonth(y, m);
   const emps = [...planData.employees];
   const wishes = planData.wishes || {};
+  const pins = planData.pins || {};
   const result = JSON.parse(JSON.stringify(planData.assignments));
   const externalAssignments = {};
   const log = [];
@@ -494,11 +495,23 @@ export async function computeAutoPlan(customTargets) {
     return emps.some(e => a[e]?.[d]?.duty === "HG"); 
   }
 
+  const pinnedEmptyKeys = new Set();
+
+  function isPinned(emp, d) {
+    return !!pins[emp]?.[d];
+  }
+
+  function isPinnedEmpty(emp, d) {
+    return pinnedEmptyKeys.has(dutyKey(emp, d));
+  }
+
   emps.forEach((emp) => {
     for (let d = 1; d <= dim; d++) {
       const duty = planData.assignments?.[emp]?.[d]?.duty;
       if (duty) {
         fixedDutyKeys.add(`${duty}:${dutyKey(emp, d)}`);
+      } else if (isPinned(emp, d)) {
+        pinnedEmptyKeys.add(dutyKey(emp, d));
       }
     }
   });
@@ -753,12 +766,13 @@ export async function computeAutoPlan(customTargets) {
     
     if (isDutyExempt(emp) || bdTarget[emp] === 0) return false;
     if (isAbsentOnDay(y, m, emp, d, assignments)) return false;
-    
+    if (isPinnedEmpty(emp, d)) return false;
+
     const existingDuty = assignments[emp]?.[d]?.duty;
     if (existingDuty && !(ignoreExistingDuty && existingDuty === "D")) return false;
-    
+
     if (wishes[emp]?.[d] === "NO_DUTY") return false;
-    
+
     const wd = weekday(y, m, d);
     if (wd === 6 && !isFacharzt(emp)) return false;
     if (emp === "Dr. Polednia" && (wd === 0 || wd === 2 || wd === 4)) return false;
@@ -1147,7 +1161,7 @@ export async function computeAutoPlan(customTargets) {
 
   function assignBundledHG(emp, d, bindReason, options) {
     options = options || {};
-    if (isDayHGTasked(d) || !isFacharzt(emp) || isDutyExempt(emp) || wishes[emp]?.[d] === "NO_DUTY" || isAbsentOnDay(y, m, emp, d, result) || result[emp]?.[d]?.duty || hasHolidayBlockConflict(emp, d)) {
+    if (isDayHGTasked(d) || !isFacharzt(emp) || isDutyExempt(emp) || wishes[emp]?.[d] === "NO_DUTY" || isAbsentOnDay(y, m, emp, d, result) || result[emp]?.[d]?.duty || hasHolidayBlockConflict(emp, d) || isPinnedEmpty(emp, d)) {
       return false;
     }
     const wd = weekday(y, m, d);
@@ -1180,10 +1194,11 @@ export async function computeAutoPlan(customTargets) {
     
     if (isDutyExempt(emp) || !isFacharzt(emp)) return false;
     if (isAbsentOnDay(y, m, emp, d, assignments)) return false;
-    
+    if (isPinnedEmpty(emp, d)) return false;
+
     const existingDuty = assignments[emp]?.[d]?.duty;
     if (existingDuty && !(ignoreExistingDuty && existingDuty === "HG")) return false;
-    
+
     if (wishes[emp]?.[d] === "NO_DUTY") return false;
     if (hasDalitzMammographyConflict(y, m, emp, d, "HG", assignments)) return false;
     
@@ -1648,6 +1663,7 @@ export async function computeAutoPlan(customTargets) {
             if (isDutyExempt(e) || bdTarget[e] === 0) return false;
             if (isAbsentOnDay(y, m, e, d, result)) return false;
             if (result[e]?.[d]?.duty) return false;
+            if (isPinnedEmpty(e, d)) return false;
             if (wishes[e]?.[d] === "NO_DUTY") return false;
             if (wd === 6 && !isFacharzt(e)) return false;
             if (e === "Dr. Polednia" && (wd === 0 || wd === 2 || wd === 4)) return false;
@@ -1678,6 +1694,7 @@ export async function computeAutoPlan(customTargets) {
             if (isDutyExempt(e)) return false;
             if (isAbsentOnDay(y, m, e, d, result)) return false;
             if (result[e]?.[d]?.duty) return false;
+            if (isPinnedEmpty(e, d)) return false;
             if (wishes[e]?.[d] === "NO_DUTY") return false;
             if (hasDalitzMammographyConflict(y, m, e, d, "HG", result)) return false;
             return true;
@@ -1849,7 +1866,13 @@ export async function computeAutoPlan(customTargets) {
   if (bdRelaxedCount > 0 || hgRelaxedCount > 0) {
     summary.infos.push(`Harte Abstandsregeln wurden bei ${bdRelaxedCount} BD / ${hgRelaxedCount} HG weich gelockert, um die Vollbesetzung zu sichern.`);
   }
-  
+
+  const pinnedCellCount = emps.reduce((sum, e) => sum + (pins[e] ? Object.keys(pins[e]).filter((d) => pins[e][d]).length : 0), 0);
+  if (pinnedCellCount > 0) {
+    summary.infos.push(`${pinnedCellCount} Zelle(n) waren vom Nutzer fixiert (📌) und wurden vom Solver garantiert nicht verändert.`);
+  }
+
+
   const dutyCoverageMisses = Array.from({ length: dim }, (_, idx) => idx + 1).filter((day) => !emps.some((emp) => result[emp]?.[day]?.duty === "D")).length;
   const hgCoverageMisses = Array.from({ length: dim }, (_, idx) => idx + 1).filter((day) => !emps.some((emp) => result[emp]?.[day]?.duty === "HG")).length;
   

@@ -773,6 +773,23 @@ tr:hover .emp-profile-icon {
   box-shadow: 0 0 0 2px rgba(251,191,36,.35);
 }
 
+/* Pin indicator — marks a cell as fixed/excluded from the Auto-Plan solver */
+.cell-pin {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  font-size: 7px;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 2;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.35));
+}
+
+.td-cell.pinned {
+  outline: 1.5px dashed rgba(245,158,11,.65);
+  outline-offset: -1.5px;
+}
+
 .tr-stat.tr-stat-first .td-stat-lbl,
 .tr-stat.tr-stat-first .td-stat-val {
   border-top: 1px solid rgba(203,213,225,.5);
