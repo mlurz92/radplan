@@ -17,7 +17,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 14px rgba(0,0,0,.3), inset 0 1px 0 rgba(var(--ink-rgb),.2);
+  box-shadow: 0 4px 14px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.2);
 }
 
 .pm-meta-row {
@@ -134,7 +134,7 @@
   position: absolute;
   inset: 0;
   border-radius: var(--radius);
-  background: linear-gradient(135deg, rgba(var(--ink-rgb),.8), transparent);
+  background: linear-gradient(135deg, rgba(255,255,255,.8), transparent);
   pointer-events: none;
 }
 
@@ -1179,7 +1179,7 @@
   gap: 1px;
   padding: 5px 10px;
   border-radius: 8px;
-  background: rgba(var(--ink-rgb),.8);
+  background: rgba(255,255,255,.8);
   border: 1px solid rgba(226,232,240,.6);
   flex-shrink: 0;
   min-width: 44px;
@@ -1254,7 +1254,7 @@ body.is-mobile.plan-mode-active .mobile-day-list {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(var(--ink-rgb),.96);
+  background: rgba(255,255,255,.96);
   border-radius: 12px;
   padding: 10px 12px 10px 10px;
   margin-bottom: 5px;

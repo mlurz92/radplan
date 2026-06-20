@@ -68,7 +68,8 @@ import {
   syncPeriodControls,
   quickToggleWorkplace,
   quickToggleDuty,
-  quickClearCell
+  quickClearCell,
+  quickSetStatus
 } from './app.js';
 
 import { autoPlanResult } from './autoplan.js';
@@ -354,6 +355,251 @@ function handleGridKeydown(e) {
     e.preventDefault();
     openEditor(emp, day);
     return;
+  }
+}
+
+// --- Desktop: floating quick-action popover anchored to the focused cell ---
+
+let quickPopover = { el: null, emp: null, day: null, anchorEl: null, outsideHandler: null, keyHandler: null };
+
+export function closeCellQuickPopover() {
+  if (!quickPopover.el) return;
+  quickPopover.el.remove();
+  if (quickPopover.outsideHandler) document.removeEventListener('pointerdown', quickPopover.outsideHandler, true);
+  if (quickPopover.keyHandler) document.removeEventListener('keydown', quickPopover.keyHandler, true);
+  quickPopover = { el: null, emp: null, day: null, anchorEl: null, outsideHandler: null, keyHandler: null };
+  document.body.classList.remove('cell-popover-open');
+}
+
+function buildQuickPopoverHtml(emp, day) {
+  const { year: y, month: m } = state;
+  const cell = getCell(y, m, emp, day);
+  const parts = (cell.assignment || "").split("/").map(x => x.trim()).filter(Boolean);
+
+  const wpHtml = WORKPLACES.map(wp => {
+    const active = parts.includes(wp.code);
+    return `<button type="button" class="cqp-wp${active ? " active" : ""}" data-wp="${wp.code}" style="${active ? `background:${wp.bg};color:${wp.fg};border-color:${wp.bg};` : ""}" title="${wp.label}">${wp.code}</button>`;
+  }).join("");
+
+  return `
+    <div class="cell-quick-popover-inner">
+      <div class="cqp-row cqp-wps">${wpHtml}</div>
+      <div class="cqp-row cqp-duties">
+        <button type="button" class="cqp-duty badge-D${cell.duty === "D" ? " active" : ""}" data-duty="D" title="Bereitschaftsdienst">D</button>
+        <button type="button" class="cqp-duty badge-HG${cell.duty === "HG" ? " active" : ""}" data-duty="HG" title="Hintergrunddienst">HG</button>
+        <button type="button" class="cqp-clear" data-action="clear" title="Zelle löschen">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
+      </div>
+      <button type="button" class="cqp-more" data-action="more">Vollständig bearbeiten…</button>
+    </div>
+  `;
+}
+
+function positionQuickPopover() {
+  if (!quickPopover.el || !quickPopover.anchorEl) return;
+  const rect = quickPopover.anchorEl.getBoundingClientRect();
+  const el = quickPopover.el;
+  const margin = 8;
+  el.style.visibility = 'hidden';
+  el.style.left = '0px';
+  el.style.top = '0px';
+  const pw = el.offsetWidth;
+  const ph = el.offsetHeight;
+  let left = rect.left + rect.width / 2 - pw / 2;
+  left = Math.max(margin, Math.min(left, window.innerWidth - pw - margin));
+  let top = rect.bottom + 6;
+  let above = false;
+  if (top + ph > window.innerHeight - margin) {
+    top = rect.top - ph - 6;
+    above = true;
+    if (top < margin) top = margin;
+  }
+  el.classList.toggle('cqp-above', above);
+  el.style.left = `${left}px`;
+  el.style.top = `${top}px`;
+  el.style.visibility = '';
+}
+
+export function showCellQuickPopover(emp, day, anchorEl) {
+  if (IS_MOBILE || !anchorEl || emp === RBN_ROW_KEY) return;
+  closeCellQuickPopover();
+
+  const el = document.createElement('div');
+  el.className = 'cell-quick-popover';
+  el.innerHTML = buildQuickPopoverHtml(emp, day);
+  document.body.appendChild(el);
+
+  el.querySelectorAll('.cqp-wp').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      quickToggleWorkplace(emp, day, btn.dataset.wp);
+    });
+  });
+  el.querySelectorAll('.cqp-duty').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      quickToggleDuty(emp, day, btn.dataset.duty);
+    });
+  });
+  el.querySelector('.cqp-clear')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    quickClearCell(emp, day);
+  });
+  el.querySelector('.cqp-more')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeCellQuickPopover();
+    openEditor(emp, day);
+  });
+
+  quickPopover.el = el;
+  quickPopover.emp = emp;
+  quickPopover.day = day;
+  quickPopover.anchorEl = anchorEl;
+
+  positionQuickPopover();
+  requestAnimationFrame(() => el.classList.add('cqp-visible'));
+
+  quickPopover.outsideHandler = (e) => {
+    if (quickPopover.el && !quickPopover.el.contains(e.target) && e.target !== quickPopover.anchorEl) {
+      closeCellQuickPopover();
+    }
+  };
+  quickPopover.keyHandler = (e) => {
+    if (e.key === 'Escape') {
+      const anchor = quickPopover.anchorEl;
+      closeCellQuickPopover();
+      anchor?.focus({ preventScroll: true });
+    }
+  };
+  document.addEventListener('pointerdown', quickPopover.outsideHandler, true);
+  document.addEventListener('keydown', quickPopover.keyHandler, true);
+
+  document.body.classList.add('cell-popover-open');
+}
+
+// --- Mobile: radial quick-action menu with tap-to-open / swipe-to-select ---
+
+const RADIAL_QUICK_ACTIONS = [
+  { id: 'CT', kind: 'wp', code: 'CT', label: 'CT' },
+  { id: 'MR', kind: 'wp', code: 'MR', label: 'MR' },
+  { id: 'D', kind: 'duty', code: 'D', label: 'D' },
+  { id: 'HG', kind: 'duty', code: 'HG', label: 'HG' },
+  { id: 'F', kind: 'status', code: 'F', label: 'Frei' },
+  { id: 'clear', kind: 'clear', label: 'Löschen' },
+  { id: 'more', kind: 'more', label: 'Mehr…' },
+];
+
+let radialMenuState = { el: null, emp: null, day: null, sectors: [], activeIndex: -1 };
+
+function radialOutsideHandler(e) {
+  if (radialMenuState.el && !radialMenuState.el.contains(e.target)) {
+    closeRadialQuickMenu();
+  }
+}
+
+export function closeRadialQuickMenu() {
+  if (!radialMenuState.el) return;
+  radialMenuState.el.remove();
+  document.removeEventListener('pointerdown', radialOutsideHandler, true);
+  radialMenuState = { el: null, emp: null, day: null, sectors: [], activeIndex: -1 };
+  document.body.classList.remove('radial-menu-open');
+}
+
+function runRadialAction(emp, day, action) {
+  switch (action.kind) {
+    case 'wp': quickToggleWorkplace(emp, day, action.code); break;
+    case 'duty': quickToggleDuty(emp, day, action.code); break;
+    case 'status': quickSetStatus(emp, day, action.code); break;
+    case 'clear': quickClearCell(emp, day); break;
+    case 'more': openEditor(emp, day); return;
+  }
+
+  const mdayOverlay = document.getElementById('modal-mobile-day');
+  if (mdayOverlay && !mdayOverlay.hasAttribute('hidden')) {
+    import('./app.js').then((mod) => mod.openMobileDay(day));
+  }
+}
+
+export function openRadialQuickMenu(emp, day, x, y) {
+  closeRadialQuickMenu();
+
+  const n = RADIAL_QUICK_ACTIONS.length;
+  const radius = 92;
+  const sectors = RADIAL_QUICK_ACTIONS.map((action, i) => {
+    const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
+    return { ...action, angle, x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+  });
+
+  const margin = 110;
+  const cx = Math.max(margin, Math.min(x, window.innerWidth - margin));
+  const cy = Math.max(margin, Math.min(y, window.innerHeight - margin));
+
+  const el = document.createElement('div');
+  el.className = 'radial-quick-menu';
+  el.style.left = `${cx}px`;
+  el.style.top = `${cy}px`;
+
+  const itemsHtml = sectors.map((s, i) => `
+    <button type="button" class="radial-item" data-idx="${i}" style="transform: translate(${s.x}px, ${s.y}px);">
+      <span class="radial-item-label">${s.label}</span>
+    </button>
+  `).join('');
+
+  el.innerHTML = `
+    <div class="radial-center"><span class="radial-center-emp">${emp}</span></div>
+    ${itemsHtml}
+  `;
+
+  document.body.appendChild(el);
+  document.body.classList.add('radial-menu-open');
+  requestAnimationFrame(() => el.classList.add('radial-visible'));
+
+  radialMenuState = { el, emp, day, sectors, activeIndex: -1 };
+
+  el.querySelectorAll('.radial-item').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx, 10);
+      const action = RADIAL_QUICK_ACTIONS[idx];
+      closeRadialQuickMenu();
+      runRadialAction(emp, day, action);
+    });
+  });
+
+  setTimeout(() => document.addEventListener('pointerdown', radialOutsideHandler, true), 0);
+}
+
+export function updateRadialHover(clientX, clientY) {
+  if (!radialMenuState.el) return;
+  const rect = radialMenuState.el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const dx = clientX - cx;
+  const dy = clientY - cy;
+  const dist = Math.hypot(dx, dy);
+  let idx = -1;
+  if (dist > 28) {
+    let angle = Math.atan2(dy, dx) + Math.PI / 2;
+    if (angle < 0) angle += 2 * Math.PI;
+    const n = radialMenuState.sectors.length;
+    idx = Math.round(angle / (2 * Math.PI / n)) % n;
+  }
+  radialMenuState.activeIndex = idx;
+  radialMenuState.el.querySelectorAll('.radial-item').forEach((btn, i) => {
+    btn.classList.toggle('radial-hover', i === idx);
+  });
+}
+
+export function releaseRadialMenu(clientX, clientY) {
+  updateRadialHover(clientX, clientY);
+  const idx = radialMenuState.activeIndex;
+  const emp = radialMenuState.emp;
+  const day = radialMenuState.day;
+  if (idx >= 0) {
+    const action = RADIAL_QUICK_ACTIONS[idx];
+    closeRadialQuickMenu();
+    runRadialAction(emp, day, action);
   }
 }
 
@@ -705,7 +951,17 @@ export function renderTbody(y, m, dim, hols, md) {
           dragSelectionState.justDragged = false;
           return;
         }
-        openEditor(emp, d, { ctrlKey: e.ctrlKey || e.metaKey });
+        if (e.ctrlKey || e.metaKey) {
+          closeCellQuickPopover();
+          openEditor(emp, d, { ctrlKey: true });
+        }
+      });
+      tdEl.addEventListener("dblclick", () => {
+        closeCellQuickPopover();
+        openEditor(emp, d);
+      });
+      tdEl.addEventListener("focus", () => {
+        if (!IS_MOBILE) showCellQuickPopover(emp, d, tdEl);
       });
       tdEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -1705,7 +1961,8 @@ export function openProfileModal(empName) {
 export function showOverlay(id) {
   const el = document.getElementById(id);
   if (!el) return;
-  
+
+  closeCellQuickPopover();
   el.removeAttribute("hidden");
   el.style.display = "flex";
   

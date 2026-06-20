@@ -95,7 +95,10 @@ import {
   scrollToToday as doScrollToToday,
   openScoreInfoModal,
   focusCellAfterRender,
-  initGridKeyboardHandlers
+  initGridKeyboardHandlers,
+  openRadialQuickMenu,
+  updateRadialHover,
+  releaseRadialMenu
 } from './render.js';
 
 import {
@@ -1128,10 +1131,45 @@ export function openMobileDay(day) {
   bodyEl.innerHTML = bodyHtml;
   
   bodyEl.querySelectorAll(".mday-editable[data-emp]").forEach(row => {
-    row.addEventListener("click", () => {
-      const emp = row.dataset.emp;
-      hideOverlay("modal-mobile-day");
-      setTimeout(() => openEditor(emp, day), 200);
+    let startX = 0;
+    let startY = 0;
+    let pointerId = null;
+    let menuOpened = false;
+
+    row.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      startX = e.clientX;
+      startY = e.clientY;
+      pointerId = e.pointerId;
+      menuOpened = false;
+      row.setPointerCapture?.(e.pointerId);
+    });
+
+    row.addEventListener("pointermove", (e) => {
+      if (pointerId === null || e.pointerId !== pointerId) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (!menuOpened && Math.hypot(dx, dy) > 10) {
+        menuOpened = true;
+        openRadialQuickMenu(row.dataset.emp, day, startX, startY);
+      }
+      if (menuOpened) {
+        updateRadialHover(e.clientX, e.clientY);
+      }
+    });
+
+    row.addEventListener("pointerup", (e) => {
+      if (pointerId === null || e.pointerId !== pointerId) return;
+      if (menuOpened) {
+        releaseRadialMenu(e.clientX, e.clientY);
+      } else {
+        openRadialQuickMenu(row.dataset.emp, day, e.clientX, e.clientY);
+      }
+      pointerId = null;
+    });
+
+    row.addEventListener("pointercancel", () => {
+      pointerId = null;
     });
   });
   
@@ -2137,6 +2175,22 @@ export function quickClearCell(emp, day) {
   clearCell(y, m, emp, day);
   if (planMode) recordPlanHistory();
   showToast("Eintrag gelöscht");
+  render();
+  focusCellAfterRender(emp, day);
+}
+
+export function quickSetStatus(emp, day, statusCode) {
+  const { year: y, month: m } = state;
+  const cell = getCell(y, m, emp, day);
+  const isActive = cell.assignment === statusCode;
+  const newAssignment = isActive ? null : statusCode;
+
+  if (planMode) recordPlanHistory();
+  setCell(y, m, emp, day, { assignment: newAssignment, duty: cell.duty || null });
+  if (planMode) recordPlanHistory();
+
+  const st = STATUSES.find(s => s.code === statusCode);
+  showToast(isActive ? `${st?.label || statusCode} entfernt` : `${st?.label || statusCode} gesetzt`);
   render();
   focusCellAfterRender(emp, day);
 }

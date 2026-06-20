@@ -361,13 +361,13 @@ main {
   margin: 0 auto;
   overflow: auto;
   position: relative;
-  background: rgba(var(--ink-rgb),.94);
+  background: rgba(255,255,255,.94);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   -webkit-overflow-scrolling: touch;
   border-radius: var(--radius-lg);
   padding: 8px;
-  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(var(--ink-rgb),.2);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(15,23,42,.06);
   contain: paint layout;
   overscroll-behavior: contain;
 }
