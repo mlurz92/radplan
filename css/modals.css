@@ -1471,6 +1471,71 @@
   border: 1px solid rgba(14,165,233,0.3);
 }
 
+.ap-report-why-btn {
+  margin-left: auto;
+  font-size: 9.5px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: #7DD3FC;
+  background: rgba(14,165,233,0.1);
+  border: 1px solid rgba(14,165,233,0.25);
+  border-radius: 10px;
+  padding: 2px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ap-report-why-btn:hover {
+  background: rgba(14,165,233,0.2);
+}
+
+.ap-report-alts {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: rgba(var(--gray-900-rgb),0.4);
+  border: 1px solid rgba(var(--ink-rgb),0.07);
+  border-radius: var(--radius-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ap-report-alts-lbl {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #64748B;
+  margin-bottom: 2px;
+}
+
+.ap-report-alt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+}
+
+.ap-report-alt-emp {
+  font-weight: 600;
+  color: #CBD5E1;
+  min-width: 110px;
+}
+
+.ap-report-alt-score {
+  font-family: var(--font-mono);
+  color: #94A3B8;
+  flex-shrink: 0;
+}
+
+.ap-report-alt-tags {
+  color: #64748B;
+  font-size: 9.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .score-dashboard {
   display: flex;
   flex-direction: column;

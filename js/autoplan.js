@@ -1055,7 +1055,7 @@ export async function computeAutoPlan(customTargets) {
         }
       }
       
-      report.push({ day: d, emp: chosen.emp, duty: "D", reason: reason, tags: chosen.tags });
+      report.push({ day: d, emp: chosen.emp, duty: "D", reason: reason, tags: chosen.tags, alternatives: candidates.slice(1, 4).map((c) => ({ emp: c.emp, score: Math.round(c.score), tags: c.tags })) });
       log.push({ phase: "bd_weekend", icon: "→", msg: `Tag ${d}. → ${chosen.emp}`, dayIdx: d, newEmpId: chosen.emp, pct: 22 + Math.round((i / Math.max(1, weBDs.length)) * 18) });
     }
   }
@@ -1088,7 +1088,7 @@ export async function computeAutoPlan(customTargets) {
       currentBD[chosen.emp]++;
       updateAutoF(chosen.emp, d);
       
-      report.push({ day: d, emp: chosen.emp, duty: "D", reason: `Bester Score (${Math.round(chosen.score)}).`, tags: chosen.tags });
+      report.push({ day: d, emp: chosen.emp, duty: "D", reason: `Bester Score (${Math.round(chosen.score)}).`, tags: chosen.tags, alternatives: candidates.slice(1, 4).map((c) => ({ emp: c.emp, score: Math.round(c.score), tags: c.tags })) });
       log.push({ phase: "bd_workday", icon: "→", msg: `Tag ${d}. → ${chosen.emp}`, dayIdx: d, newEmpId: chosen.emp, pct: 42 + Math.round((i / Math.max(1, nonWeBDs.length)) * 18) });
     }
   }
@@ -1599,7 +1599,7 @@ export async function computeAutoPlan(customTargets) {
         const chosen = candidates[0];
         setDutyAssignment(chosen.emp, d, "HG");
         rebuildCurrentCounters();
-        report.push({ day: d, emp: chosen.emp, duty: "HG", reason: "Gleichmäßige Verteilung.", tags: chosen.tags });
+        report.push({ day: d, emp: chosen.emp, duty: "HG", reason: "Gleichmäßige Verteilung.", tags: chosen.tags, alternatives: candidates.slice(1, 4).map((c) => ({ emp: c.emp, score: Math.round(c.score), tags: c.tags })) });
         log.push({ phase: "hg", icon: "→", msg: `HG Tag ${d}. → ${chosen.emp}`, dayIdx: d, newEmpId: chosen.emp, pct: cyclePct });
       }
     }

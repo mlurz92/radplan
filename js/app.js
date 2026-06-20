@@ -2107,6 +2107,8 @@ export function renderReportModal() {
     const dName = DOW_LONG[wd];
     const holNm = hols[dateKey(y, m, item.day)] || "";
     
+    const hasAlternatives = Array.isArray(item.alternatives) && item.alternatives.length > 0;
+
     const itemEl = document.createElement("div");
     itemEl.className = "ap-report-item";
     itemEl.innerHTML = `
@@ -2114,15 +2116,34 @@ export function renderReportModal() {
         <span class="ap-report-date">${dName}, ${item.day}. ${MONTHS_SHORT[m]} ${holNm ? "(" + holNm + ")" : ""}</span>
         <span class="ap-report-duty ${item.duty}">${item.duty}</span>
         <span class="ap-report-emp">${item.emp}</span>
+        ${hasAlternatives ? `<button type="button" class="ap-report-why-btn">Warum ${item.emp}?</button>` : ""}
       </div>
       <div class="ap-report-body">${item.reason}</div>
       <div class="ap-report-tags">
         ${item.tags.map(t => `<span class="ap-report-tag">${t}</span>`).join("")}
       </div>
+      ${hasAlternatives ? `
+        <div class="ap-report-alts" hidden>
+          <div class="ap-report-alts-lbl">Nächstbeste Alternativen (verworfen):</div>
+          ${item.alternatives.map((a) => `
+            <div class="ap-report-alt-row">
+              <span class="ap-report-alt-emp">${a.emp}</span>
+              <span class="ap-report-alt-score">Score ${a.score}</span>
+              <span class="ap-report-alt-tags">${a.tags.join(" · ") || "—"}</span>
+            </div>
+          `).join("")}
+        </div>
+      ` : ""}
     `;
+
+    itemEl.querySelector(".ap-report-why-btn")?.addEventListener("click", () => {
+      const alts = itemEl.querySelector(".ap-report-alts");
+      if (alts) alts.hidden = !alts.hidden;
+    });
+
     list.appendChild(itemEl);
   });
-  
+
   body.appendChild(list);
   showOverlay("modal-ap-report");
 }
