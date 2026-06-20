@@ -491,12 +491,12 @@ main {
 
 .th-day.wd {
   background: rgba(22,42,70,.85);
-  color: rgba(var(--ink-rgb),.9);
+  color: rgba(255,255,255,.92);
 }
 
 .th-day.we {
   background: rgba(30,42,60,.8);
-  color: var(--gray-400);
+  color: rgba(255,255,255,.62);
 }
 
 .th-day.hol {
