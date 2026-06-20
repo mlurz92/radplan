@@ -1,7 +1,7 @@
 import { MONTHS } from './constants.js';
 import { state } from './state.js';
 import { getEmployeesForYear } from './model.js';
-import { showOverlay, hideOverlay, openProfileModal } from './render.js';
+import { showOverlay, hideOverlay, openProfileModal } from './render-modals.js';
 import { switchPeriod, toggleTheme, toggleDensity } from './app.js';
 
 const OVERLAY_ID = "modal-command-palette";

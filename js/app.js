@@ -82,24 +82,28 @@ import {
 
 import {
   render,
-  showOverlay,
-  hideOverlay,
-  showToast,
-  renderDeptContent,
-  renderEmployeeDashboard,
-  openProfileModal,
   refreshOpenContextPanels,
   updateOpenModalLayouts,
   refreshResponsiveLayout,
   queueResponsiveRefresh,
   scrollToToday as doScrollToToday,
-  openScoreInfoModal,
   focusCellAfterRender,
   initGridKeyboardHandlers,
   openRadialQuickMenu,
   updateRadialHover,
   releaseRadialMenu
-} from './render.js';
+} from './render-grid.js';
+
+import {
+  showOverlay,
+  hideOverlay,
+  showToast,
+  openProfileModal,
+  openScoreInfoModal
+} from './render-modals.js';
+
+import { renderDeptContent } from './render-dept.js';
+import { renderEmployeeDashboard } from './render-employee-dashboard.js';
 
 import {
   computeAutoPlan,
