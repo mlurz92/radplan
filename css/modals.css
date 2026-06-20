@@ -19,7 +19,9 @@
 }
 
 .modal {
-  background: rgba(255,255,255,.92);
+  /* .98 (was .92): keeps the frosted feel while lifting muted sublabel text
+     (gray-500) clear of WCAG AA on the modal surface in the dark theme. */
+  background: rgba(255,255,255,.98);
   backdrop-filter: blur(var(--glass-blur-lg));
   -webkit-backdrop-filter: blur(var(--glass-blur-lg));
   border-radius: var(--radius-xl);
@@ -253,7 +255,7 @@
   font-weight: 700;
   letter-spacing: .1em;
   text-transform: uppercase;
-  color: var(--gray-400);
+  color: var(--gray-500);
   margin: 18px 0 9px;
   display: flex;
   align-items: center;
@@ -279,7 +281,7 @@
   font-weight: 400;
   text-transform: none;
   letter-spacing: 0;
-  color: var(--gray-400);
+  color: var(--gray-500);
 }
 
 .ed-step {
@@ -315,7 +317,7 @@
   justify-content: center;
   border-radius: 50%;
   background: var(--accent);
-  color: #fff;
+  color: #042231;
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 800;
@@ -497,7 +499,7 @@
 .ap-weight-chip.is-active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: #042231;
 }
 
 .ap-config-list {
@@ -1453,7 +1455,7 @@
   text-transform: uppercase;
   letter-spacing: .06em;
   background: var(--accent);
-  color: #fff;
+  color: #042231;
   border-radius: 999px;
   padding: 1px 7px;
 }
@@ -1770,7 +1772,7 @@
 .score-dash-desc {
   font-size: 13.5px;
   line-height: 1.55;
-  color: var(--gray-400);
+  color: var(--gray-500);
 }
 
 .score-dash-desc strong {
@@ -1857,7 +1859,7 @@
 .score-card-hint {
   font-size: 11px;
   line-height: 1.45;
-  color: var(--gray-400);
+  color: var(--gray-500);
 }
 
 .score-reasoning-list {
@@ -2372,7 +2374,7 @@ body.is-mobile #modal-mobile-menu .modal-bd {
   justify-content: center;
   height: 200px;
   font-size: 13px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-style: italic;
 }
 
@@ -2411,7 +2413,7 @@ body.is-mobile #modal-mobile-menu .modal-bd {
 
 .yp-legend-hint {
   font-size: 10.5px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-style: italic;
 }
 
@@ -2549,7 +2551,7 @@ body.is-mobile #modal-mobile-menu .modal-bd {
   font-family: var(--font-mono);
   font-size: 9px;
   font-weight: 700;
-  color: var(--gray-400);
+  color: var(--gray-500);
   letter-spacing: 0.05em;
 }
 
@@ -2557,7 +2559,7 @@ body.is-mobile #modal-mobile-menu .modal-bd {
   text-align: center;
   font-size: 10px;
   font-family: var(--font-mono);
-  color: var(--gray-400);
+  color: var(--gray-500);
   padding: 6px 4px;
 }
 
@@ -2889,14 +2891,15 @@ body.is-mobile #modal-mobile-menu .modal-bd {
   font-size: 12px;
   font-weight: 700;
   color: #fff;
-  background: var(--accent);
+  /* Deeper blue for AA-compliant white text (see empdash-export-btn). */
+  background: #0369A1;
   border: none;
   border-radius: 8px;
   padding: 8px 12px;
   cursor: pointer;
   transition: background .2s, transform .15s;
 }
-.yp-eval-export:hover { background: #0B8FCF; }
+.yp-eval-export:hover { background: #075985; }
 .yp-eval-export:active { transform: scale(.96); }
 
 .yp-eval-hint {
@@ -2954,7 +2957,7 @@ body.is-mobile #modal-mobile-menu .modal-bd {
 }
 .yp-ev-num { color: var(--gray-700); }
 .yp-ev-strong { font-weight: 800; color: var(--gray-900); }
-.yp-eval-empty { padding: 28px !important; color: var(--gray-400) !important; font-family: var(--font-sans) !important; }
+.yp-eval-empty { padding: 28px !important; color: var(--gray-500) !important; font-family: var(--font-sans) !important; }
 
 /* ══ PROJEKTION-TAB ══════════════════════════════════════════════════════════ */
 
@@ -3028,7 +3031,7 @@ body.is-mobile #modal-mobile-menu .modal-bd {
 
 .yp-ptd-proj { font-weight: 700; font-size: 13px; }
 .yp-ptd-dev  { font-weight: 700; }
-.yp-ptd-sub  { color: var(--gray-400); font-size: 10px; }
+.yp-ptd-sub  { color: var(--gray-500); font-size: 10px; }
 
 .yp-ptd-prog {
   min-width: 120px;
@@ -3095,7 +3098,7 @@ body.is-mobile #modal-mobile-menu .modal-bd {
 }
 
 .ed-comment-ta::placeholder {
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-style: italic;
 }
 
@@ -3109,14 +3112,14 @@ body.is-mobile #modal-mobile-menu .modal-bd {
 
 .ed-comment-hint {
   font-size: 10px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-style: italic;
 }
 
 .ed-comment-count {
   font-size: 10px;
   font-family: var(--font-mono);
-  color: var(--gray-400);
+  color: var(--gray-500);
   white-space: nowrap;
 }
 

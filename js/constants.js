@@ -329,7 +329,7 @@ export function posColor(pos) {
     AA: { bg: "#F1F5F9", fg: "#475569", border: "#94A3B8" },
     AÄ: { bg: "#F1F5F9", fg: "#475569", border: "#94A3B8" },
   };
-  return m[pos] || { bg: "#F1F5F9", fg: "#6B7280", border: "#CBD5E1" };
+  return m[pos] || { bg: "#F1F5F9", fg: "#475569", border: "#CBD5E1" };
 }
 
 export const pad2 = (n) => String(n).padStart(2, "0");

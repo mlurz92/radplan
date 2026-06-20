@@ -85,7 +85,7 @@
   font-weight: 700;
   letter-spacing: .1em;
   text-transform: uppercase;
-  color: var(--gray-400);
+  color: var(--gray-500);
   margin: 26px 0 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--gray-150);
@@ -104,7 +104,7 @@
   font-weight: 400;
   text-transform: none;
   letter-spacing: 0;
-  color: var(--gray-400);
+  color: var(--gray-500);
   margin-left: 4px;
 }
 
@@ -162,7 +162,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .1em;
-  color: var(--gray-400);
+  color: var(--gray-500);
 }
 
 .kpi-value {
@@ -194,7 +194,7 @@
 
 .kpi-sub {
   font-size: 10.5px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   line-height: 1.4;
   margin-top: 4px;
 }
@@ -261,7 +261,7 @@
 
 .dist-pct {
   font-size: 11px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   text-align: right;
 }
 
@@ -336,7 +336,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .06em;
-  color: var(--gray-400);
+  color: var(--gray-500);
   padding: 4px 0 8px;
 }
 
@@ -475,13 +475,13 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .08em;
-  color: var(--gray-400);
+  color: var(--gray-500);
   white-space: nowrap;
 }
 
 .yr-kpi-detail {
   font-size: 9.5px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-family: var(--font-mono);
   margin-top: 2px;
 }
@@ -600,7 +600,7 @@
 
 .yr-no-data-msg {
   font-size: 13px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-style: italic;
   padding: 14px 0 6px;
 }
@@ -679,13 +679,13 @@
   justify-content: center;
   gap: 12px;
   padding: 56px 24px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   text-align: center;
 }
 
 .dept-empty svg { opacity: .3; }
 .dept-empty p { font-size: 14px; font-weight: 500; color: var(--gray-500); }
-.dept-empty-hint { font-size: 12px; color: var(--gray-400); font-style: italic; }
+.dept-empty-hint { font-size: 12px; color: var(--gray-500); font-style: italic; }
 
 .dept-cov-strip {
   display: flex;
@@ -712,7 +712,7 @@
 
 .dept-cov-meta:last-of-type { border-right: none; }
 .dept-cov-meta-val { font-family: var(--font-mono); font-size: 28px; font-weight: 700; color: var(--gray-800); line-height: 1; }
-.dept-cov-meta-lbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--gray-400); }
+.dept-cov-meta-lbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--gray-500); }
 
 .dept-cov-bars {
   flex: 1;
@@ -751,7 +751,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .08em;
-  color: var(--gray-500);
+  color: var(--gray-600);
   text-align: center;
   white-space: nowrap;
 }
@@ -829,7 +829,7 @@
 .dept-yr-kpi:last-child { border-right: none; }
 .dept-yr-kpi:hover { background: var(--gray-100); }
 .dept-yr-kpi-val { font-family: var(--font-mono); font-size: 24px; font-weight: 700; line-height: 1; color: var(--gray-800); }
-.dept-yr-kpi-lbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--gray-400); }
+.dept-yr-kpi-lbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--gray-500); }
 
 .period-flyout {
   position: fixed;
@@ -1079,14 +1079,16 @@
   font-size: 12px;
   font-weight: 700;
   color: #fff;
-  background: var(--accent);
+  /* #0369A1 (not --accent #0EA5E9): white text on the light accent only reaches
+     2.77:1; the deeper blue clears WCAG AA (5.9:1). */
+  background: #0369A1;
   border: none;
   border-radius: 8px;
   padding: 8px 12px;
   cursor: pointer;
   transition: background .2s, transform .15s;
 }
-.empdash-export-btn:hover { background: #0B8FCF; }
+.empdash-export-btn:hover { background: #075985; }
 .empdash-export-btn:active { transform: scale(.96); }
 
 .empdash-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
@@ -1177,7 +1179,7 @@
 .empdash-mini-chip.vac { background: #EDE9FE; color: #5B21B6; }
 .empdash-mini-chip.sick { background: #FEE2E2; color: #991B1B; }
 
-.empdash-mini-empty { color: var(--gray-400); font-size: 12px; }
+.empdash-mini-empty { color: var(--gray-500); font-size: 12px; }
 
 .empdash-admin-layout { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 16px; }
 .empdash-admin-card { border: 1px solid var(--gray-200); border-radius: 16px; padding: 14px; background: linear-gradient(180deg,#fff,#F8FAFC); display: grid; gap: 12px; }
@@ -1197,12 +1199,12 @@
 .emp-avatar { width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .02em; }
 .emp-row-info { display: flex; flex-direction: column; min-width: 0; }
 .emp-row-name { font-size: 13px; font-weight: 500; color: var(--gray-800); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.emp-row-meta { font-size: 10px; color: var(--gray-400); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
-.emp-row-del { background: none; border: none; color: var(--gray-400); padding: 6px 10px; border-radius: var(--radius-xs); transition: all .2s; display: flex; align-items: center; flex-shrink: 0; }
+.emp-row-meta { font-size: 10px; color: var(--gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.emp-row-del { background: none; border: none; color: var(--gray-500); padding: 6px 10px; border-radius: var(--radius-xs); transition: all .2s; display: flex; align-items: center; flex-shrink: 0; }
 .emp-row-del:hover { color: var(--red); background: var(--red-bg); transform: scale(1.1); }
 .emp-row-del:active { transform: scale(0.9); }
 
-.emp-none { color: var(--gray-400); font-size: 12px; font-style: italic; padding: 16px; text-align: center; }
+.emp-none { color: var(--gray-500); font-size: 12px; font-style: italic; padding: 16px; text-align: center; }
 .emp-add-row { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--gray-150); }
 
 .mobile-month-summary {
@@ -1694,7 +1696,7 @@ body.is-mobile .mcd {
 
 .kpi-ytd {
   font-size: 10px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   margin-top: 5px;
   padding-top: 5px;
   border-top: 1px solid var(--gray-150);
@@ -1855,7 +1857,7 @@ body.is-mobile .mcd {
 /* Empty state hint */
 .pm-empty-hint {
   font-size: 12px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-style: italic;
   padding: 8px 4px;
 }
@@ -1863,7 +1865,7 @@ body.is-mobile .mcd {
 /* Duty count in group label */
 .duty-group-count {
   font-size: 10px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   font-weight: 400;
   margin-left: 2px;
 }
@@ -1892,7 +1894,7 @@ body.is-mobile .mcd {
 
 .empdash-card-area {
   font-size: 10px;
-  color: var(--gray-400);
+  color: var(--gray-500);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
