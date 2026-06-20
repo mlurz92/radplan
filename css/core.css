@@ -1,10 +1,10 @@
 :root {
-  --navy-900: #060D16;
-  --navy-800: #0A1525;
-  --navy-700: #0F1D32;
-  --navy-600: #162A46;
-  --navy-500: #1E3A5F;
-  --navy-400: #2A5080;
+  --navy-900: #0B131F;
+  --navy-800: #111C2E;
+  --navy-700: #18283F;
+  --navy-600: #1F3554;
+  --navy-500: #274468;
+  --navy-400: #345484;
   --steel: #3674A8;
   --accent: #0EA5E9;
   --accent-lt: #67D4FF;
@@ -87,6 +87,16 @@
      of it, so content placed on a --glass-light-* surface must use this fixed,
      always-dark token instead. */
   --ink-on-glass-light: #0F172A;
+
+  /* Semantic, theme-aware text tiers — always legible on the app canvas because
+     they derive from --ink-rgb (white in dark, slate in light) at fixed alphas.
+     Prefer these over the fixed --gray-* scale for body/secondary/muted text
+     that sits on the themed canvas (the gray scale stays correct for fixed
+     light surfaces such as the dept/year tables). */
+  --text-1: var(--ink-strong);
+  --text-2: rgba(var(--ink-rgb),.74);
+  --text-3: rgba(var(--ink-rgb),.55);
+  --text-faint: rgba(var(--ink-rgb),.40);
 }
 
 [data-theme="light"] {

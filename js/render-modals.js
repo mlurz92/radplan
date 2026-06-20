@@ -812,10 +812,17 @@ export function openScoreInfoModal(resultData = autoPlanResult) {
 
 let toastTimer = null;
 
-export function showToast(msg) {
+export function showToast(msg, type) {
   const el = document.getElementById("toast");
   if (!el) return;
-  
+
+  // Auto-classify by message wording when no explicit type is given, so
+  // failure messages get a warning treatment without touching call sites.
+  if (!type) {
+    type = /fehler|fehlgeschlagen|konnte nicht|ungültig|nicht möglich/i.test(msg) ? "error" : "success";
+  }
+  el.dataset.type = type;
+
   el.textContent = msg;
   el.classList.remove("visible");
   
