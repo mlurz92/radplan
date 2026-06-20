@@ -668,6 +668,9 @@ export function openEditor(emp, day, options = {}) {
   const commentCount = document.getElementById("ed-comment-count");
   const commentSection = document.getElementById("ed-comment-section");
   if (commentSection) commentSection.style.display = isRbnRow ? "none" : "";
+  if (commentSection?.parentElement?.classList.contains("ed-step")) {
+    commentSection.parentElement.style.display = isRbnRow ? "none" : "";
+  }
   if (commentTa) {
     commentTa.value = isRbnRow ? "" : (getComment(y, m, emp, day) || "");
     if (commentCount) commentCount.textContent = `${commentTa.value.length}/200`;
@@ -704,6 +707,9 @@ export function refreshEditorChips() {
     if (wpHint) wpHint.textContent = "— Mehrfachauswahl möglich, z. B. MR/CT";
     if (stSection) stSection.style.display = "";
     if (dutySection) dutySection.style.display = "";
+    if (dutySection?.parentElement?.classList.contains("ed-step")) {
+      dutySection.parentElement.style.display = "";
+    }
   }
   
   const wpC = document.getElementById("ed-wp");
@@ -793,6 +799,12 @@ export function refreshEditorChips() {
     const wishHd = document.getElementById("ed-wish-hd");
     if (wishC) wishC.style.display = "none";
     if (wishHd) wishHd.style.display = "none";
+
+    const planStep = document.getElementById("ed-plan-step");
+    if (planStep) planStep.style.display = "none";
+    if (dutySection?.parentElement?.classList.contains("ed-step")) {
+      dutySection.parentElement.style.display = "none";
+    }
     return;
   }
   
@@ -870,13 +882,16 @@ export function refreshEditorChips() {
     }
   }
   
+  const planStep = document.getElementById("ed-plan-step");
+  if (planStep) planStep.style.display = planMode ? "" : "none";
+
   const wishC = document.getElementById("ed-wish");
   if (wishC) {
     if (planMode) {
       wishC.style.display = "flex";
       const wishHd = document.getElementById("ed-wish-hd");
       if (wishHd) wishHd.style.display = "";
-      
+
       wishC.innerHTML = "";
       const currentWish = getWish(emp, day);
       
