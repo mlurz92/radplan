@@ -34,6 +34,11 @@ function staticCommands() {
     },
     {
       group: "Funktionen",
+      label: "Monatsplan drucken / als PDF speichern",
+      run: () => document.getElementById("btn-print")?.click()
+    },
+    {
+      group: "Funktionen",
       label: "Planungsmodus starten",
       run: () => document.getElementById("btn-plan")?.click()
     },

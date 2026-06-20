@@ -1,0 +1,118 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRINT STYLESHEET — Monatsplan als Aushang / PDF
+   Nur aktiv für @media print (siehe <link media="print"> in index.html).
+   Reduziert die Ansicht auf den reinen Dienstplan-Raster: alle Chrome-,
+   Modal-, Navigations- und Interaktionselemente werden ausgeblendet,
+   Theme-Variablen werden durch feste Druckfarben ersetzt.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media print {
+  html, body {
+    background: #fff !important;
+    color: #0F172A !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  #app-header,
+  #plan-bar,
+  #stats-bar,
+  #period-flyout,
+  #grid-kbd-hint,
+  .overlay,
+  #mobile-nav,
+  #mobile-day-list,
+  #toast,
+  .cell-quick-popover,
+  #rp-context-menu {
+    display: none !important;
+  }
+
+  main {
+    display: block !important;
+  }
+
+  #print-header {
+    display: block !important;
+    margin: 0 0 14px;
+    padding: 0 0 10px;
+    border-bottom: 2px solid #0F172A;
+  }
+
+  #print-header-title {
+    font-family: var(--font-sans, sans-serif);
+    font-size: 18px;
+    font-weight: 700;
+    color: #0F172A;
+  }
+
+  #print-header-period {
+    font-family: var(--font-mono, monospace);
+    font-size: 14px;
+    font-weight: 600;
+    color: #0F172A;
+    margin-top: 2px;
+  }
+
+  #print-header-meta {
+    font-size: 10px;
+    color: #475569;
+    margin-top: 4px;
+  }
+
+  #grid-wrapper {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: #fff !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  #plan-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 9px !important;
+  }
+
+  #plan-table th,
+  #plan-table td {
+    border: 1px solid #CBD5E1 !important;
+    color: #0F172A !important;
+    padding: 2px 3px !important;
+  }
+
+  #plan-table thead th,
+  #plan-table .td-name,
+  #plan-table tfoot td {
+    background: #F1F5F9 !important;
+    color: #0F172A !important;
+    font-weight: 700;
+  }
+
+  .day-status-stripe,
+  .kbd-hint-group,
+  .cell-conflict-flag {
+    display: none !important;
+  }
+
+  #print-footer {
+    display: block !important;
+    margin-top: 10px;
+    font-size: 8.5px;
+    color: #64748B;
+    text-align: right;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+}
+
+#print-header,
+#print-footer {
+  display: none;
+}

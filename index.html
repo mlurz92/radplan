@@ -33,6 +33,7 @@
   <link rel="stylesheet" href="css/modals.css">
   <link rel="stylesheet" href="css/views.css">
   <link rel="stylesheet" href="css/contextmenu.css">
+  <link rel="stylesheet" href="css/print.css" media="print">
 </head>
 <body>
 
@@ -134,6 +135,15 @@
           <line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
         <span class="hbtn-lbl">Export</span>
+      </button>
+
+      <button type="button" class="hbtn hbtn-ghost" id="btn-print" title="Monatsplan drucken / als PDF speichern (Strg+P)">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="6 9 6 2 18 2 18 9"/>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <rect x="6" y="14" width="12" height="8"/>
+        </svg>
+        <span class="hbtn-lbl">Drucken</span>
       </button>
 
       <button type="button" class="hbtn hbtn-ghost" id="btn-import" title="Daten aus JSON-Datei importieren">
@@ -271,6 +281,11 @@
   <div id="stats-bar" role="status" aria-label="Monatsstatistik" aria-live="polite"></div>
 
   <main>
+    <div id="print-header" aria-hidden="true">
+      <div id="print-header-title">RadPlan — Dienstplan</div>
+      <div id="print-header-period"></div>
+      <div id="print-header-meta"></div>
+    </div>
     <div id="grid-wrapper" role="region" aria-label="Dienstplan-Tabelle">
       <table id="plan-table" role="grid" aria-label="Monatlicher Dienstplan">
         <thead id="plan-thead"></thead>

@@ -1226,6 +1226,18 @@ export function openMobileDay(day) {
   showOverlay("modal-mobile-day");
 }
 
+export function printPlan() {
+  const { year, month } = state;
+  const titleEl = document.getElementById("print-header-period");
+  if (titleEl) titleEl.textContent = `${MONTHS[month]} ${year}`;
+  const metaEl = document.getElementById("print-header-meta");
+  if (metaEl) {
+    metaEl.textContent = `Gedruckt am ${new Date().toLocaleDateString("de-DE")}${planMode ? " · Planungsentwurf" : ""}`;
+  }
+  document.title = `RadPlan — ${MONTHS[month]} ${year}`;
+  window.print();
+}
+
 export function doExport() {
   const plans = {};
   for (let i = 0; i < localStorage.length; i++) {
@@ -2363,7 +2375,11 @@ export function wireEvents() {
   document.getElementById("btn-export")?.addEventListener("click", () => {
     doExport();
   });
-  
+
+  document.getElementById("btn-print")?.addEventListener("click", () => {
+    printPlan();
+  });
+
   document.getElementById("btn-import")?.addEventListener("click", () => {
     openImportModal();
   });
