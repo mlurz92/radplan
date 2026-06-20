@@ -335,6 +335,36 @@ export function toggleWish(emp, day, wishCode) {
   }
 }
 
+export function isPinned(emp, day) {
+  if (!planMode || !planData?.pins) {
+    return false;
+  }
+  return !!planData.pins[emp]?.[day];
+}
+
+export function setPinned(emp, day, val) {
+  if (!planMode || !planData) {
+    return;
+  }
+  if (!planData.pins) {
+    planData.pins = {};
+  }
+  if (val) {
+    if (!planData.pins[emp]) {
+      planData.pins[emp] = {};
+    }
+    planData.pins[emp][day] = true;
+  } else if (planData.pins[emp]) {
+    delete planData.pins[emp][day];
+  }
+}
+
+export function togglePinned(emp, day) {
+  setPinned(emp, day, !isPinned(emp, day));
+  render();
+  showToast(isPinned(emp, day) ? `Zelle fixiert: ${emp}, Tag ${day}` : `Fixierung aufgehoben: ${emp}, Tag ${day}`);
+}
+
 export function closePlanMode() {
   persistPlanSessionRefs();
   if (hasAnyPlanChanges()) {
