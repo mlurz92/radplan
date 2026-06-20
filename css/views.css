@@ -562,7 +562,7 @@
 
 .yr-row-current .yr-td-month {
   font-weight: 700;
-  color: var(--navy-600);
+  color: var(--gray-800);
 }
 
 .yr-row-empty .yr-td-month {
@@ -1096,7 +1096,7 @@
   .empdash-team-kpis { grid-template-columns: 1fr; }
   .empdash-custom-range input { min-height: 40px; }
 }
-.empdash-view-btn.active { background: var(--navy-700); color: #fff; border-color: var(--navy-700); }
+.empdash-view-btn.active { background: var(--gray-800); color: #fff; border-color: var(--gray-800); }
 
 .empdash-detail-panel { background: #fff; border: 1px solid var(--gray-200); border-radius: 18px; padding: 16px; box-shadow: var(--shadow-sm); min-height: 180px; }
 .empdash-detail-profile-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
