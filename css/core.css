@@ -222,3 +222,38 @@ body.is-mobile .overlay {
 .modal {
   max-height: min(var(--modal-max-height, calc(100dvh - (2 * var(--overlay-pad)))), calc(100dvh - (2 * var(--overlay-pad)))) !important;
 }
+
+/* --- VIEW TRANSITIONS: month/year navigation choreography --- */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: .32s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html[data-vt-direction="forward"]::view-transition-old(root) { animation-name: vt-slide-out-left; }
+html[data-vt-direction="forward"]::view-transition-new(root) { animation-name: vt-slide-in-right; }
+html[data-vt-direction="backward"]::view-transition-old(root) { animation-name: vt-slide-out-right; }
+html[data-vt-direction="backward"]::view-transition-new(root) { animation-name: vt-slide-in-left; }
+
+@keyframes vt-slide-out-left { to { transform: translateX(-2.5%); opacity: 0; } }
+@keyframes vt-slide-in-right { from { transform: translateX(2.5%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes vt-slide-out-right { to { transform: translateX(2.5%); opacity: 0; } }
+@keyframes vt-slide-in-left { from { transform: translateX(-2.5%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* Theme toggle: circular reveal expanding from the click origin, driven via
+   the Web Animations API in viewtransition.js. The default UA cross-fade is
+   disabled here so the growing clip-path is the only visible effect. */
+html[data-vt-theme] ::view-transition-old(root),
+html[data-vt-theme] ::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

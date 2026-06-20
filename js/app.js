@@ -119,6 +119,7 @@ import {
 import { NeuralGraph } from './neuralgraph.js';
 import { openYearPlan, setupYearPlanModal, renderYearPlanContent, setYearPlanYear, cleanupYearPlan } from './yearplan.js';
 import { initCommandPalette } from './commandpalette.js';
+import { withViewTransition, withThemeViewTransition } from './viewtransition.js';
 
 let localAutoPlanResult = null;
 let localAutoPlanTargets = {};
@@ -154,8 +155,10 @@ export function setTheme(theme, persist = true) {
   }
 }
 
-export function toggleTheme() {
-  setTheme(getTheme() === "light" ? "dark" : "light");
+export function toggleTheme(originEvent) {
+  withThemeViewTransition(() => {
+    setTheme(getTheme() === "light" ? "dark" : "light");
+  }, originEvent);
 }
 
 export function initTheme() {
@@ -288,36 +291,36 @@ export function shiftMonth(delta) {
 }
 
 export function switchPeriod(targetYear, targetMonth, options = {}) {
-  const { closeFlyout = true } = options;
-  
+  const { closeFlyout = true, direction = null } = options;
+
   if (closeFlyout) {
     closePeriodFlyout();
   }
-  
+
   if (planMode) {
     persistPlanSessionRefs();
   }
-  
+
   state.year = targetYear;
   state.month = targetMonth;
   state.periodDraft = { year: targetYear, month: targetMonth };
-  
+
   if (planMode) {
     loadPlanSessionForState(targetYear, targetMonth);
   }
-  
+
   syncPeriodControls();
   refreshOpenContextPanels();
-  render();
+  withViewTransition(() => render(), direction);
 }
 
 export function changeMonth(delta) {
   const next = shiftMonth(delta);
-  switchPeriod(next.year, next.month);
+  switchPeriod(next.year, next.month, { direction: delta > 0 ? "forward" : "backward" });
 }
 
 export function changeYear(delta) {
-  switchPeriod(state.year + delta, state.month);
+  switchPeriod(state.year + delta, state.month, { direction: delta > 0 ? "forward" : "backward" });
 }
 
 export function applyPeriodDraft() {
@@ -2365,7 +2368,7 @@ export function wireEvents() {
   document.getElementById("btn-prev")?.addEventListener("click", () => changeMonth(-1));
   document.getElementById("btn-next")?.addEventListener("click", () => changeMonth(1));
   document.getElementById("btn-today")?.addEventListener("click", handleTodayClick);
-  document.getElementById("btn-theme")?.addEventListener("click", toggleTheme);
+  document.getElementById("btn-theme")?.addEventListener("click", (e) => toggleTheme(e));
   document.getElementById("btn-density")?.addEventListener("click", toggleDensity);
   initCommandPalette();
 
