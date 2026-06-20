@@ -113,6 +113,7 @@ import {
 
 import { NeuralGraph } from './neuralgraph.js';
 import { openYearPlan, setupYearPlanModal, renderYearPlanContent, setYearPlanYear, cleanupYearPlan } from './yearplan.js';
+import { initCommandPalette } from './commandpalette.js';
 
 let localAutoPlanResult = null;
 let localAutoPlanTargets = {};
@@ -2235,6 +2236,7 @@ export function wireEvents() {
   document.getElementById("btn-today")?.addEventListener("click", handleTodayClick);
   document.getElementById("btn-theme")?.addEventListener("click", toggleTheme);
   document.getElementById("btn-density")?.addEventListener("click", toggleDensity);
+  initCommandPalette();
 
   document.getElementById("btn-employees")?.addEventListener("click", () => {
     const { year: y } = state;
@@ -2494,7 +2496,7 @@ export function wireEvents() {
       [
         "modal-editor", "modal-emps", "modal-import", "modal-profile", "modal-dept",
         "modal-yearplan", "modal-autoplan", "modal-ap-report", "modal-mobile-menu",
-        "modal-mobile-day", "modal-score-info"
+        "modal-mobile-day", "modal-score-info", "modal-command-palette"
       ].forEach((id) => {
         const el = document.getElementById(id);
         if (el && !el.hasAttribute("hidden")) hideOverlay(id);

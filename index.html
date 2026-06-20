@@ -75,6 +75,12 @@
 
       <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
 
+      <button type="button" id="btn-cmdk" title="Befehlspalette öffnen (Strg/Cmd+K)" aria-label="Befehlspalette öffnen">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      </button>
+
+      <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
+
       <button type="button" id="btn-today" title="Zum heutigen Tag" aria-label="Zum heutigen Monat springen">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <rect x="3" y="4" width="18" height="18" rx="2"/>
@@ -685,6 +691,17 @@
       <div class="modal-ft" style="background:#0F172A; border-top: 1px solid rgba(255,255,255,0.1);">
         <button type="button" class="mbtn mbtn-ghost" data-close="modal-score-info" style="color:#E2E8F0; border-color:rgba(255,255,255,0.2);">Schließen</button>
       </div>
+    </div>
+  </div>
+
+  <div class="overlay overlay-palette" id="modal-command-palette" role="dialog" aria-modal="true" aria-label="Befehlspalette" hidden style="display:none">
+    <div class="modal modal-command-palette">
+      <div class="cmdk-input-row">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="text" id="cmdk-input" class="cmdk-input" placeholder="Mitarbeitende, Monat oder Funktion suchen…" autocomplete="off" spellcheck="false" aria-label="Befehl oder Suchbegriff eingeben">
+        <kbd class="cmdk-esc">Esc</kbd>
+      </div>
+      <div class="cmdk-results" id="cmdk-results" role="listbox" aria-label="Ergebnisse"></div>
     </div>
   </div>
 
