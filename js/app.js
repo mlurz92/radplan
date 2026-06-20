@@ -108,7 +108,8 @@ import {
   TARGET_WEEKEND_DUTY,
   RELAXED_WEEKEND_DUTY_LIMIT,
   isDutyExempt,
-  DUTY_EXEMPT
+  DUTY_EXEMPT,
+  AUTO_PLAN_WEIGHT_PROFILES
 } from './autoplan.js';
 
 import { NeuralGraph } from './neuralgraph.js';
@@ -121,6 +122,8 @@ let localApViewMode = "config";
 let localAutoPlanConfigRenderToken = 0;
 let localApAnimationId = null;
 let neuralGraphInstance = null;
+let localWeightProfile = "standard";
+let localAutoPlanAlternatives = {};
 
 const THEME_STORAGE_KEY = "radplan_v3_theme";
 
@@ -1425,7 +1428,8 @@ export function openAutoPlanModal() {
       localAutoPlanTargets[e] = defaultBDTarget(e);
     });
   }
-  
+
+  localAutoPlanAlternatives = {};
   localApViewMode = "config";
   showOverlay("modal-autoplan");
   
@@ -1514,9 +1518,18 @@ export async function renderAutoPlanModal(renderToken = null) {
           </div>
         </div>
 
+        <div class="ap-weight-row" id="ap-weight-row">
+          <span class="ap-weight-row-lbl">Gewichtung</span>
+          <div class="ap-weight-chips">
+            ${Object.values(AUTO_PLAN_WEIGHT_PROFILES).map((p) => `
+              <button type="button" class="ap-weight-chip${p.key === localWeightProfile ? " is-active" : ""}" data-profile="${p.key}" title="${p.hint}">${p.label}</button>
+            `).join("")}
+          </div>
+        </div>
+
         <div class="ap-config-list">
     `;
-    
+
     dutyEmps.forEach((e) => {
       const meta = getEmpMeta(e);
       const pc = posColor(meta.position);
@@ -1590,6 +1603,15 @@ export async function renderAutoPlanModal(renderToken = null) {
       });
     });
     
+    body.querySelectorAll(".ap-weight-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        localWeightProfile = chip.dataset.profile;
+        body.querySelectorAll(".ap-weight-chip").forEach((c) => {
+          c.classList.toggle("is-active", c.dataset.profile === localWeightProfile);
+        });
+      });
+    });
+
     document.getElementById("ap-reset-defaults")?.addEventListener("click", () => {
       dutyEmps.forEach((e) => { 
         localAutoPlanTargets[e] = defaultBDTarget(e); 
@@ -1608,14 +1630,22 @@ export async function renderAutoPlanModal(renderToken = null) {
         
         requestAnimationFrame(() => {
           setTimeout(async () => {
-            const result = await computeAutoPlan(localAutoPlanTargets);
-            if (!result) { 
-              showToast("Fehler bei der Berechnung"); 
+            const result = await computeAutoPlan(localAutoPlanTargets, localWeightProfile);
+            if (!result) {
+              showToast("Fehler bei der Berechnung");
               localApViewMode = "config";
               renderAutoPlanModal();
-              return; 
+              return;
             }
             localAutoPlanResult = result;
+            localAutoPlanAlternatives = { [localWeightProfile]: result };
+            Object.keys(AUTO_PLAN_WEIGHT_PROFILES).forEach((key) => {
+              if (key === localWeightProfile) return;
+              const altResult = computeAutoPlan(localAutoPlanTargets, key);
+              if (altResult && typeof altResult.then === "function") {
+                altResult.then((r) => { if (r) localAutoPlanAlternatives[key] = r; });
+              }
+            });
             await streamProgressLogs(result);
           }, 60);
         });
@@ -1919,6 +1949,44 @@ export function renderResultView() {
     </div>
   `;
 
+  const altKeys = Object.keys(AUTO_PLAN_WEIGHT_PROFILES);
+  if (altKeys.length > 1 && altKeys.some((k) => localAutoPlanAlternatives[k])) {
+    html += `
+      <div class="ap-alt-compare">
+        <div class="ap-alt-compare-hd">Alternative Gewichtungen</div>
+        <div class="ap-alt-cards">
+          ${altKeys.map((key) => {
+            const profile = AUTO_PLAN_WEIGHT_PROFILES[key];
+            const altResult = localAutoPlanAlternatives[key];
+            const isActive = key === localWeightProfile;
+            if (!altResult) {
+              return `
+                <div class="ap-alt-card is-loading">
+                  <div class="ap-alt-card-name">${profile.label}</div>
+                  <div class="ap-alt-card-loading">Wird berechnet…</div>
+                </div>
+              `;
+            }
+            const aq = altResult.summary?.quality || {};
+            return `
+              <div class="ap-alt-card${isActive ? " is-active" : ""}" data-profile="${key}">
+                <div class="ap-alt-card-name">${profile.label}${isActive ? ' <span class="ap-alt-card-tag">Aktiv</span>' : ""}</div>
+                <div class="ap-alt-card-hint">${profile.hint}</div>
+                <div class="ap-alt-card-stats">
+                  <span title="${qualityTooltips.score}">NFI <strong>${aq.score || "0.0"}</strong></span>
+                  <span title="${qualityTooltips.wishes}">Wünsche <strong>${Math.round((aq.wishFulfillmentRate || 0) * 100)}%</strong></span>
+                  <span title="${qualityTooltips.bdSpread}">BD-Streuung <strong>${aq.bdSpread ?? 0}</strong></span>
+                  <span title="${qualityTooltips.hgSpread}">HG-Streuung <strong>${aq.hgSpread ?? 0}</strong></span>
+                </div>
+                ${isActive ? "" : `<button type="button" class="mbtn mbtn-ghost ap-alt-use-btn" data-profile="${key}" style="width:100%; margin-top:8px; font-size:11px; padding:6px 10px; justify-content:center;">Diesen Plan verwenden</button>`}
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  }
+
   let bdHtml = `
     <div class="ap-table-wrap">
       <table class="ap-table">
@@ -2086,6 +2154,17 @@ export function renderResultView() {
   
   document.getElementById("ap-score-trigger")?.addEventListener("click", () => {
     openScoreInfoModal(localAutoPlanResult);
+  });
+
+  body.querySelectorAll(".ap-alt-use-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.profile;
+      const altResult = localAutoPlanAlternatives[key];
+      if (!altResult) return;
+      localWeightProfile = key;
+      localAutoPlanResult = altResult;
+      renderResultView();
+    });
   });
 }
 

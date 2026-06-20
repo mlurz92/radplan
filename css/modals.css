@@ -429,6 +429,55 @@
   line-height: 1;
 }
 
+.ap-weight-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.ap-weight-row-lbl {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gray-500);
+  flex-shrink: 0;
+}
+
+.ap-weight-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ap-weight-chip {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.ap-weight-chip:hover {
+  border-color: var(--accent-lt);
+  color: var(--gray-800);
+}
+
+.ap-weight-chip.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 .ap-config-list {
   flex: 1;
   overflow-y: auto;
@@ -1322,6 +1371,88 @@
 .ap-result-metric strong {
   font-family: var(--font-mono);
   font-size: clamp(14px, 3.5vw, 20px);
+  color: var(--gray-800);
+}
+
+.ap-alt-compare {
+  margin-bottom: 18px;
+}
+
+.ap-alt-compare-hd {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--gray-500);
+  margin-bottom: 8px;
+}
+
+.ap-alt-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.ap-alt-card {
+  background: #F8FAFC;
+  border: 1px solid rgba(226,232,240,.9);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.ap-alt-card.is-active {
+  border-color: var(--accent);
+  background: rgba(14,165,233,.06);
+}
+
+.ap-alt-card.is-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-500);
+  font-size: 11px;
+  min-height: 80px;
+}
+
+.ap-alt-card-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gray-800);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.ap-alt-card-tag {
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.ap-alt-card-hint {
+  font-size: 10px;
+  color: var(--gray-500);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.ap-alt-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 10px;
+  color: var(--gray-600);
+}
+
+.ap-alt-card-stats strong {
+  font-family: var(--font-mono);
   color: var(--gray-800);
 }
 
