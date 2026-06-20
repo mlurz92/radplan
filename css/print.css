@@ -92,6 +92,19 @@
     font-weight: 700;
   }
 
+  /* Inner text spans carry their own theme-light colours (e.g. .emp-label is
+     white in dark mode) that the cell-level overrides above can't reach, so
+     employee names, the corner caption and the footer/legend labels would print
+     near-invisible on the light background. Force them dark. The RD-Neurorad
+     band keeps its own white-on-teal styling (separate .td-name-rbn class) and
+     stays legible, so it is intentionally excluded here. */
+  .th-corner-inner,
+  #plan-table .td-name .emp-label,
+  .tr-stat .td-stat-lbl,
+  .tr-stat .stat-lbl-text {
+    color: #0F172A !important;
+  }
+
   .day-status-stripe,
   .kbd-hint-group,
   .cell-conflict-flag {
@@ -110,9 +123,4 @@
     size: A4 landscape;
     margin: 10mm;
   }
-}
-
-#print-header,
-#print-footer {
-  display: none;
 }

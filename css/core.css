@@ -147,7 +147,7 @@ html, body {
 body {
   font-family: var(--font-sans);
   background: var(--navy-900);
-  color: var(--gray-800);
+  color: var(--ink-strong);
   display: flex;
   flex-direction: column;
   -webkit-font-smoothing: antialiased;
@@ -265,4 +265,24 @@ html[data-vt-theme] ::view-transition-new(root) {
   ::view-transition-new(*) {
     animation: none !important;
   }
+}
+
+/* --- HIGH-CONTRAST PREFERENCE ---
+   Honour the OS "Increase contrast" setting. The dense planning grid relies on
+   hairline borders (rgba ink at .04–.08) to separate days and rows; for users
+   who request more contrast these can dissolve, so firm them up and thicken the
+   keyboard focus ring. Colour-coded cells already carry a text label (CT, MR,
+   …) so meaning never depends on colour alone. */
+@media (prefers-contrast: more) {
+  :root { --border: 1px solid rgba(var(--ink-rgb),.24); }
+  .td-cell,
+  .th-day,
+  .th-day.is-fri,
+  .td-cell.is-fri,
+  .td-name,
+  .tr-stat .td-stat-val,
+  .tr-stat .td-stat-lbl {
+    border-color: rgba(var(--ink-rgb),.24);
+  }
+  :focus-visible { outline-width: 3px; }
 }

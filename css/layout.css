@@ -1,3 +1,12 @@
+/* Print-only chrome: kept in the DOM for the print stylesheet but never shown
+   on screen. (print.css is linked with media="print", so its own hide rule can
+   only ever run while printing — this is the rule that actually hides them in
+   the live view; @media print re-enables them with !important.) */
+#print-header,
+#print-footer {
+  display: none;
+}
+
 #app-header {
   height: var(--header-h);
   background: rgba(var(--navy-800-rgb),.6);
@@ -378,17 +387,17 @@ main {
 }
 
 #grid-wrapper::-webkit-scrollbar-track {
-  background: rgba(241,245,249,.5);
+  background: rgba(var(--ink-rgb),.04);
   border-radius: 3px;
 }
 
 #grid-wrapper::-webkit-scrollbar-thumb {
-  background: rgba(148,163,184,.4);
+  background: rgba(var(--ink-rgb),.22);
   border-radius: 3px;
 }
 
 #grid-wrapper::-webkit-scrollbar-thumb:hover {
-  background: rgba(148,163,184,.6);
+  background: rgba(var(--ink-rgb),.36);
 }
 
 #grid-wrapper::-webkit-scrollbar-corner {
