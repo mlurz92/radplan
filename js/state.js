@@ -212,13 +212,6 @@ export async function loadFromStorage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
   }
   
-<<<<<<< codex/entferne-herrn-torki-aus-der-liste
-  let loadedDataChanged = false;
-  Object.entries(DATA).forEach(([key, md]) => {
-    normalizeMonthDataShape(md);
-    const [yearPart, monthPart] = key.split("-");
-    loadedDataChanged = reconcileEmployeesForMonth(md, parseInt(yearPart, 10), parseInt(monthPart, 10)) || loadedDataChanged;
-=======
   if (loadedFromServer) {
     return;
   }
@@ -234,7 +227,6 @@ export async function loadFromStorage() {
         loadedDataChanged = reconcileEmployeesForMonth(md, y, m) || loadedDataChanged;
       }
     }
->>>>>>> main
   });
   if (loadedDataChanged) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
