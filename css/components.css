@@ -889,7 +889,7 @@ body.is-mobile .plan-btn-auto span {
   border-radius: var(--radius-xs);
   border: 1px solid var(--glass-light-border);
   background: transparent;
-  color: rgba(15,23,42,.65);
+  color: rgba(var(--gray-900-rgb),.65);
   transition: background .15s, color .15s;
 }
 
