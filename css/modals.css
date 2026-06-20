@@ -39,6 +39,28 @@
   min-width: 0;
 }
 
+/* Premium glass sheen — a soft diagonal highlight across the top of the
+   modal, like light catching a glass pane. Sits at z-index 0 behind the
+   header/body (which get their own stacking context below) so it can
+   never wash out actual content; pointer-events: none either way. */
+.modal {
+  position: relative;
+}
+
+.modal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.03) 22%, transparent 45%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.modal-hd, .modal-bd {
+  position: relative;
+  z-index: 1;
+}
+
 .modal-profile { --modal-max-width: 760px; }
 .modal-editor { --modal-max-width: 560px; }
 .modal-import { --modal-max-width: 560px; }
