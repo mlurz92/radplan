@@ -47,9 +47,9 @@
   font-weight: 500;
   padding: 3px 10px;
   border-radius: 20px;
-  background: rgba(255,255,255,.1);
-  color: rgba(255,255,255,.7);
-  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(var(--ink-rgb),.1);
+  color: rgba(var(--ink-rgb),.7);
+  border: 1px solid rgba(var(--ink-rgb),.12);
   white-space: nowrap;
 }
 
@@ -60,8 +60,8 @@
 }
 
 .pm-chip-deputy {
-  background: rgba(255,255,255,.06);
-  color: rgba(255,255,255,.5);
+  background: rgba(var(--ink-rgb),.06);
+  color: rgba(var(--ink-rgb),.5);
 }
 
 .pm-body {
@@ -638,7 +638,7 @@
   padding: 10px 20px;
   font-size: 13px;
   font-weight: 600;
-  color: rgba(255,255,255,.45);
+  color: rgba(var(--ink-rgb),.45);
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
@@ -651,14 +651,14 @@
   gap: 8px;
 }
 
-.dept-tab:hover { color: rgba(255,255,255,.75); }
+.dept-tab:hover { color: rgba(var(--ink-rgb),.75); }
 .dept-tab:active { transform: scale(0.96); }
-.dept-tab.active { color: var(--white); border-bottom-color: var(--accent-lt); }
+.dept-tab.active { color: var(--ink-strong); border-bottom-color: var(--accent-lt); }
 .dept-tab svg { flex-shrink: 0; }
 
 .dept-context-line {
   font-size: 12px;
-  color: rgba(255,255,255,.5);
+  color: rgba(var(--ink-rgb),.5);
   margin-top: 4px;
 }
 
@@ -837,8 +837,8 @@
   top: 72px;
   right: 16px;
   width: min(430px, calc(100vw - 24px));
-  background: rgba(10,21,37,.94);
-  color: var(--white);
+  background: rgba(var(--navy-800-rgb),.94);
+  color: var(--ink-strong);
   border: 1px solid rgba(103,212,255,.18);
   border-radius: 18px;
   box-shadow: var(--shadow-xl);
@@ -856,16 +856,16 @@
   gap: 12px;
   align-items: flex-start;
   padding: 16px 18px 12px;
-  border-bottom: 1px solid rgba(255,255,255,.08);
+  border-bottom: 1px solid rgba(var(--ink-rgb),.08);
 }
 
 .period-flyout-title { font-size: 15px; font-weight: 700; color: #E0F2FE; }
-.period-flyout-sub { font-size: 11px; color: rgba(255,255,255,.6); line-height: 1.45; margin-top: 4px; }
+.period-flyout-sub { font-size: 11px; color: rgba(var(--ink-rgb),.6); line-height: 1.45; margin-top: 4px; }
 
 .period-flyout-close {
   border: none;
-  background: rgba(255,255,255,.06);
-  color: rgba(255,255,255,.8);
+  background: rgba(var(--ink-rgb),.06);
+  color: rgba(var(--ink-rgb),.8);
   width: 36px;
   height: 36px;
   border-radius: 10px;
@@ -873,7 +873,7 @@
   cursor: pointer;
 }
 
-.period-flyout-close:hover { background: rgba(255,255,255,.12); }
+.period-flyout-close:hover { background: rgba(var(--ink-rgb),.12); }
 .period-flyout-close:active { transform: scale(0.9); }
 
 .period-flyout-body {
@@ -889,15 +889,15 @@
 }
 
 .period-field { display: grid; gap: 6px; }
-.period-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,.55); }
+.period-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: rgba(var(--ink-rgb),.55); }
 
 .period-select, .period-year-input {
   width: 100%;
   min-height: 44px;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.06);
-  color: var(--white);
+  border: 1px solid rgba(var(--ink-rgb),.12);
+  background: rgba(var(--ink-rgb),.06);
+  color: var(--ink-strong);
   padding: 0 12px;
   font: inherit;
   transition: border-color 0.2s;
@@ -923,9 +923,9 @@
 .period-jump-row { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .period-pill, .period-inline-btn {
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.05);
-  color: rgba(255,255,255,.88);
+  border: 1px solid rgba(var(--ink-rgb),.12);
+  background: rgba(var(--ink-rgb),.05);
+  color: rgba(var(--ink-rgb),.88);
   border-radius: 999px;
   padding: 8px 14px;
   font-size: 12px;
@@ -934,7 +934,7 @@
   transition: transform 0.2s, background 0.2s;
 }
 
-.period-pill:active, .period-inline-btn:active { transform: scale(0.95); background: rgba(255,255,255,.1); }
+.period-pill:active, .period-inline-btn:active { transform: scale(0.95); background: rgba(var(--ink-rgb),.1); }
 
 .period-actions { display: flex; gap: 10px; }
 
@@ -951,16 +951,16 @@
 .period-primary { background: linear-gradient(135deg,#0EA5E9,#0369A1); color: #fff; }
 .period-primary:active { transform: scale(0.96); filter: brightness(1.1); }
 
-.period-secondary { background: rgba(255,255,255,.08); color: #E2E8F0; }
-.period-secondary:active { transform: scale(0.96); background: rgba(255,255,255,.12); }
+.period-secondary { background: rgba(var(--ink-rgb),.08); color: #E2E8F0; }
+.period-secondary:active { transform: scale(0.96); background: rgba(var(--ink-rgb),.12); }
 
-.period-context { font-size: 11px; color: rgba(255,255,255,.65); line-height: 1.45; }
+.period-context { font-size: 11px; color: rgba(var(--ink-rgb),.65); line-height: 1.45; }
 
 .employee-dashboard-modal { max-height: min(var(--modal-max-height, 94dvh), 94dvh); }
 
 .empdash-hd { align-items: flex-start; gap: 16px; }
 .empdash-hd-copy { flex: 1; min-width: 0; }
-.empdash-context { margin-top: 8px; font-size: 11px; color: rgba(255,255,255,.55); }
+.empdash-context { margin-top: 8px; font-size: 11px; color: rgba(var(--ink-rgb),.55); }
 .empdash-hd-actions { display: flex; align-items: center; gap: 8px; }
 
 .empdash-body { display: grid; gap: 18px; }
@@ -1237,7 +1237,7 @@ body.is-mobile.plan-mode-active .mobile-day-list {
   font-size: 9px;
   font-weight: 700;
   font-family: var(--font-mono);
-  color: rgba(255,255,255,.35);
+  color: rgba(var(--ink-rgb),.35);
   letter-spacing: .1em;
   text-transform: uppercase;
   flex-shrink: 0;
@@ -1247,7 +1247,7 @@ body.is-mobile.plan-mode-active .mobile-day-list {
   content: '';
   flex: 1;
   height: 1px;
-  background: rgba(255,255,255,.08);
+  background: rgba(var(--ink-rgb),.08);
 }
 
 .mobile-day-card {
@@ -1389,16 +1389,16 @@ body.is-mobile.plan-mode-active .mobile-day-list {
 .mday-handle {
   width: 36px;
   height: 4px;
-  background: rgba(255,255,255,.25);
+  background: rgba(var(--ink-rgb),.25);
   border-radius: 2px;
   margin: 10px auto 0;
   flex-shrink: 0;
 }
 
 .mday-hd {
-  background: rgba(10,21,37,.92) !important;
+  background: rgba(var(--navy-800-rgb),.92) !important;
   padding: 14px 16px 12px !important;
-  border-bottom: 1px solid rgba(255,255,255,.06) !important;
+  border-bottom: 1px solid rgba(var(--ink-rgb),.06) !important;
 }
 
 .mday-duty-badges { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }

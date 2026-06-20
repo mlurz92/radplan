@@ -4,7 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="RadPlan — Digitaler Dienstplan für die Klinik für Radiologie & Nuklearmedizin">
-  <meta name="theme-color" content="#0B1929">
+  <meta name="theme-color" content="#0B1929" id="meta-theme-color">
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('radplan_v3_theme');
+        var theme = saved === 'light' || saved === 'dark' ? saved : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -22,6 +33,7 @@
   <link rel="stylesheet" href="css/modals.css">
   <link rel="stylesheet" href="css/views.css">
   <link rel="stylesheet" href="css/contextmenu.css">
+  <link rel="stylesheet" href="css/print.css" media="print">
 </head>
 <body>
 
@@ -40,6 +52,36 @@
     </nav>
 
     <div class="header-actions" role="toolbar" aria-label="Aktionen">
+      <button type="button" id="btn-theme" title="Hell-/Dunkelmodus umschalten" aria-label="Hell-/Dunkelmodus umschalten">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" id="btn-theme-icon-moon">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" id="btn-theme-icon-sun" style="display:none">
+          <circle cx="12" cy="12" r="5"/>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+      </button>
+
+      <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
+
+      <button type="button" id="btn-density" title="Spaltenbreite umschalten (für kleinere Fenster/Tablets)" aria-label="Rasterdichte umschalten">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" id="btn-density-icon-compact">
+          <path d="M4 5v14M9 5v14M14 5v14M19 5v14"/>
+        </svg>
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" id="btn-density-icon-cozy" style="display:none">
+          <rect x="3" y="5" width="18" height="14" rx="1"/>
+          <path d="M3 12h18"/>
+        </svg>
+      </button>
+
+      <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
+
+      <button type="button" id="btn-cmdk" title="Befehlspalette öffnen (Strg/Cmd+K)" aria-label="Befehlspalette öffnen">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      </button>
+
+      <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
+
       <button type="button" id="btn-today" title="Zum heutigen Tag" aria-label="Zum heutigen Monat springen">
         <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
           <rect x="3" y="4" width="18" height="18" rx="2"/>
@@ -93,6 +135,15 @@
           <line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
         <span class="hbtn-lbl">Export</span>
+      </button>
+
+      <button type="button" class="hbtn hbtn-ghost" id="btn-print" title="Monatsplan drucken / als PDF speichern (Strg+P)">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="6 9 6 2 18 2 18 9"/>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <rect x="6" y="14" width="12" height="8"/>
+        </svg>
+        <span class="hbtn-lbl">Drucken</span>
       </button>
 
       <button type="button" class="hbtn hbtn-ghost" id="btn-import" title="Daten aus JSON-Datei importieren">
@@ -230,6 +281,11 @@
   <div id="stats-bar" role="status" aria-label="Monatsstatistik" aria-live="polite"></div>
 
   <main>
+    <div id="print-header" aria-hidden="true">
+      <div id="print-header-title">RadPlan — Dienstplan</div>
+      <div id="print-header-period"></div>
+      <div id="print-header-meta"></div>
+    </div>
     <div id="grid-wrapper" role="region" aria-label="Dienstplan-Tabelle">
       <table id="plan-table" role="grid" aria-label="Monatlicher Dienstplan">
         <thead id="plan-thead"></thead>
@@ -398,46 +454,74 @@
           </div>
           <div class="preview-box-duties" id="ed-preview-duties" aria-live="polite"></div>
         </div>
-        <div class="sect-hd">
-          <span id="ed-wp-label">Arbeitsplatz</span>
-          <span class="sect-hint" id="ed-wp-hint">— Mehrfachauswahl möglich, z.&thinsp;B. MR/CT</span>
-        </div>
-        <div class="chip-row" id="ed-wp" role="group" aria-label="Arbeitsplatz auswählen"></div>
-        <div id="ed-st-section">
-          <div class="sect-hd">
-            Status
-            <span class="sect-hint">— exklusiv, deaktiviert Arbeitsplatz-Auswahl</span>
+        <div class="ed-step">
+          <div class="ed-step-hd">
+            <span class="ed-step-num">1</span>
+            <span class="ed-step-title">Einsatz</span>
           </div>
-          <div class="chip-row" id="ed-st" role="group" aria-label="Status auswählen"></div>
+          <div class="sect-hd">
+            <span id="ed-wp-label">Arbeitsplatz</span>
+            <span class="sect-hint" id="ed-wp-hint">— Mehrfachauswahl möglich, z.&thinsp;B. MR/CT</span>
+          </div>
+          <div class="chip-row" id="ed-wp" role="group" aria-label="Arbeitsplatz auswählen"></div>
+          <div id="ed-st-section">
+            <div class="sect-hd">
+              Status
+              <span class="sect-hint">— exklusiv, deaktiviert Arbeitsplatz-Auswahl</span>
+            </div>
+            <div class="chip-row" id="ed-st" role="group" aria-label="Status auswählen"></div>
+          </div>
         </div>
-        <div id="ed-duty-section">
-          <div class="sect-hd">Dienst &amp; Hintergrund</div>
-          <div class="chip-row" id="ed-duty" role="group" aria-label="Dienst auswählen"></div>
-          <div class="duty-warn" id="ed-duty-warn" role="alert" aria-live="assertive" style="display:none"></div>
-        </div>
-        <div class="sect-hd" id="ed-wish-hd" style="display:none">
-          Dienstwunsch
-          <span class="sect-hint">— nur im Planungsmodus, für Auto-Planung</span>
-        </div>
-        <div class="chip-row" id="ed-wish" role="group" aria-label="Dienstwunsch auswählen" style="display:none"></div>
 
-        <div id="ed-comment-section">
-          <div class="sect-hd">
-            Notiz
-            <span class="sect-hint">— tagesgebundene Freitext-Anmerkung, wird im Dienstplan als Punkt angezeigt</span>
+        <div class="ed-step">
+          <div class="ed-step-hd">
+            <span class="ed-step-num">2</span>
+            <span class="ed-step-title">Dienst</span>
           </div>
-          <textarea
-            id="ed-comment-ta"
-            class="ed-comment-ta"
-            placeholder="Anmerkung zum Tag eingeben (z.&thinsp;B. Vertretung, Fortbildung, Besonderheit)…"
-            rows="2"
-            maxlength="200"
-            aria-label="Tagesnotiz"
-            spellcheck="true"
-          ></textarea>
-          <div class="ed-comment-meta">
-            <span class="ed-comment-hint">Max. 200 Zeichen · Wird beim Speichern übernommen</span>
-            <span class="ed-comment-count" id="ed-comment-count" aria-live="polite">0/200</span>
+          <div id="ed-duty-section">
+            <div class="chip-row" id="ed-duty" role="group" aria-label="Dienst auswählen"></div>
+            <div class="duty-warn" id="ed-duty-warn" role="alert" aria-live="assertive" style="display:none"></div>
+          </div>
+        </div>
+
+        <div class="ed-step" id="ed-plan-step" style="display:none">
+          <div class="ed-step-hd">
+            <span class="ed-step-num">3</span>
+            <span class="ed-step-title">Planung</span>
+          </div>
+          <div class="sect-hd" id="ed-wish-hd" style="display:none">
+            Dienstwunsch
+            <span class="sect-hint">— nur im Planungsmodus, für Auto-Planung</span>
+          </div>
+          <div class="chip-row" id="ed-wish" role="group" aria-label="Dienstwunsch auswählen" style="display:none"></div>
+
+          <div class="sect-hd" id="ed-pin-hd" style="display:none">
+            Fixierung
+            <span class="sect-hint">— nur im Planungsmodus, sperrt diese Zelle für die Auto-Planung</span>
+          </div>
+          <div class="chip-row" id="ed-pin" role="group" aria-label="Fixierung auswählen" style="display:none"></div>
+        </div>
+
+        <div class="ed-step">
+          <div class="ed-step-hd">
+            <span class="ed-step-num">4</span>
+            <span class="ed-step-title">Notiz</span>
+            <span class="sect-hint">— wird im Dienstplan als Punkt angezeigt</span>
+          </div>
+          <div id="ed-comment-section">
+            <textarea
+              id="ed-comment-ta"
+              class="ed-comment-ta"
+              placeholder="Anmerkung zum Tag eingeben (z.&thinsp;B. Vertretung, Fortbildung, Besonderheit)…"
+              rows="2"
+              maxlength="200"
+              aria-label="Tagesnotiz"
+              spellcheck="true"
+            ></textarea>
+            <div class="ed-comment-meta">
+              <span class="ed-comment-hint">Max. 200 Zeichen · Wird beim Speichern übernommen</span>
+              <span class="ed-comment-count" id="ed-comment-count" aria-live="polite">0/200</span>
+            </div>
           </div>
         </div>
       </div>
@@ -644,6 +728,17 @@
       <div class="modal-ft" style="background:#0F172A; border-top: 1px solid rgba(255,255,255,0.1);">
         <button type="button" class="mbtn mbtn-ghost" data-close="modal-score-info" style="color:#E2E8F0; border-color:rgba(255,255,255,0.2);">Schließen</button>
       </div>
+    </div>
+  </div>
+
+  <div class="overlay overlay-palette" id="modal-command-palette" role="dialog" aria-modal="true" aria-label="Befehlspalette" hidden style="display:none">
+    <div class="modal modal-command-palette">
+      <div class="cmdk-input-row">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="text" id="cmdk-input" class="cmdk-input" placeholder="Mitarbeitende, Monat oder Funktion suchen…" autocomplete="off" spellcheck="false" aria-label="Befehl oder Suchbegriff eingeben">
+        <kbd class="cmdk-esc">Esc</kbd>
+      </div>
+      <div class="cmdk-results" id="cmdk-results" role="listbox" aria-label="Ergebnisse"></div>
     </div>
   </div>
 

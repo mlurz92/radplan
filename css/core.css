@@ -38,22 +38,22 @@
   --foot-h: 30px;
   --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
-  --border: 1px solid rgba(255,255,255,.08);
+  --border: 1px solid rgba(var(--ink-rgb),.08);
   --radius-xs: 4px;
   --radius-sm: 6px;
   --radius: 10px;
   --radius-lg: 14px;
   --radius-xl: 18px;
-  --glass-bg: rgba(255,255,255,.04);
-  --glass-bg-hover: rgba(255,255,255,.08);
-  --glass-border: rgba(255,255,255,.08);
-  --glass-border-h: rgba(255,255,255,.14);
+  --glass-bg: rgba(var(--ink-rgb),.04);
+  --glass-bg-hover: rgba(var(--ink-rgb),.08);
+  --glass-border: rgba(var(--ink-rgb),.08);
+  --glass-border-h: rgba(var(--ink-rgb),.14);
   --glass-blur: 16px;
   --glass-blur-lg: 24px;
-  --glass-light: rgba(255,255,255,.65);
-  --glass-light-hover: rgba(255,255,255,.78);
-  --glass-light-border: rgba(255,255,255,.12);
-  --glass-light-bg: rgba(255,255,255,.45);
+  --glass-light: rgba(var(--ink-rgb),.65);
+  --glass-light-hover: rgba(var(--ink-rgb),.78);
+  --glass-light-border: rgba(var(--ink-rgb),.12);
+  --glass-light-bg: rgba(var(--ink-rgb),.45);
   --shadow-xs: 0 1px 2px rgba(0,0,0,.04);
   --shadow-sm: 0 1px 4px rgba(0,0,0,.06);
   --shadow-md: 0 4px 12px rgba(0,0,0,.08);
@@ -69,6 +69,47 @@
   --app-vh: 100dvh;
   --kb-inset: 0px;
   --overlay-pad: clamp(12px, 2.4vw, 24px);
+
+  /* Theme-aware surface tokens — RGB triplets so they can feed rgba() at any alpha.
+     Dark mode (default): light tint over a dark canvas. Light mode overrides below
+     invert the relationship without touching any of the alpha values used throughout
+     the stylesheet, so every "glass" surface keeps its depth in both themes. */
+  --ink-rgb: 255,255,255;
+  --ink-strong: #FFFFFF;
+  --navy-800-rgb: 10,21,37;
+  --navy-900-rgb: 6,13,22;
+  --gray-900-rgb: 15,23,42;
+}
+
+[data-theme="light"] {
+  --navy-900: #F4F1EA;
+  --navy-800: #ECE7DC;
+  --navy-700: #E2DCCC;
+  --navy-600: #D8CFB8;
+  --navy-500: #C9BC9C;
+  --navy-400: #B3A37C;
+  --steel: #6B8AAE;
+  --border: 1px solid rgba(15,23,42,.08);
+  --glass-bg: rgba(15,23,42,.035);
+  --glass-bg-hover: rgba(15,23,42,.07);
+  --glass-border: rgba(15,23,42,.09);
+  --glass-border-h: rgba(15,23,42,.16);
+  --glass-light: rgba(255,255,255,.82);
+  --glass-light-hover: rgba(255,255,255,.92);
+  --glass-light-border: rgba(15,23,42,.08);
+  --glass-light-bg: rgba(255,255,255,.62);
+  --shadow-xs: 0 1px 2px rgba(15,23,42,.05);
+  --shadow-sm: 0 1px 4px rgba(15,23,42,.07);
+  --shadow-md: 0 4px 12px rgba(15,23,42,.08);
+  --shadow-lg: 0 10px 30px rgba(15,23,42,.12), 0 2px 8px rgba(15,23,42,.06);
+  --shadow-xl: 0 24px 64px rgba(15,23,42,.18), 0 8px 20px rgba(15,23,42,.08);
+  --shadow-glow: 0 0 20px rgba(14,165,233,.18), 0 0 60px rgba(14,165,233,.07);
+
+  --ink-rgb: 15,23,42;
+  --ink-strong: #0F172A;
+  --navy-800-rgb: 236,231,220;
+  --navy-900-rgb: 244,241,234;
+  --gray-900-rgb: 15,23,42;
 }
 
 *, *::before, *::after {
@@ -102,6 +143,7 @@ body {
   flex-direction: column;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: background-color .35s ease, color .35s ease;
 }
 
 body::before {
@@ -112,9 +154,10 @@ body::before {
   background:
     radial-gradient(ellipse 80% 60% at 15% 20%, rgba(14,165,233,.07) 0%, transparent 60%),
     radial-gradient(ellipse 60% 50% at 85% 80%, rgba(99,102,241,.06) 0%, transparent 50%),
-    radial-gradient(ellipse 70% 40% at 50% 50%, rgba(6,13,22,.9) 0%, transparent 100%),
-    linear-gradient(160deg, #060D16 0%, #0A1525 40%, #0F1D32 100%);
+    radial-gradient(ellipse 70% 40% at 50% 50%, rgba(var(--navy-900-rgb),.9) 0%, transparent 100%),
+    linear-gradient(160deg, var(--navy-900) 0%, var(--navy-800) 40%, var(--navy-700) 100%);
   pointer-events: none;
+  transition: background .35s ease;
 }
 
 button, a, .td-cell, .td-name, .chip-wp, .chip-st, .chip-duty, .chip-wish {
@@ -178,4 +221,39 @@ body.is-mobile .overlay {
 /* Rigorous modal sizing */
 .modal {
   max-height: min(var(--modal-max-height, calc(100dvh - (2 * var(--overlay-pad)))), calc(100dvh - (2 * var(--overlay-pad)))) !important;
+}
+
+/* --- VIEW TRANSITIONS: month/year navigation choreography --- */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: .32s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html[data-vt-direction="forward"]::view-transition-old(root) { animation-name: vt-slide-out-left; }
+html[data-vt-direction="forward"]::view-transition-new(root) { animation-name: vt-slide-in-right; }
+html[data-vt-direction="backward"]::view-transition-old(root) { animation-name: vt-slide-out-right; }
+html[data-vt-direction="backward"]::view-transition-new(root) { animation-name: vt-slide-in-left; }
+
+@keyframes vt-slide-out-left { to { transform: translateX(-2.5%); opacity: 0; } }
+@keyframes vt-slide-in-right { from { transform: translateX(2.5%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes vt-slide-out-right { to { transform: translateX(2.5%); opacity: 0; } }
+@keyframes vt-slide-in-left { from { transform: translateX(-2.5%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* Theme toggle: circular reveal expanding from the click origin, driven via
+   the Web Animations API in viewtransition.js. The default UA cross-fade is
+   disabled here so the growing clip-path is the only visible effect. */
+html[data-vt-theme] ::view-transition-old(root),
+html[data-vt-theme] ::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }
