@@ -391,29 +391,6 @@ export function wouldCreateConsecutiveWeekendDuty(y, m, emp, assignments, d) {
   return false;
 }
 
-export function hasDalitzMammographyConflict(y, m, emp, d, dutyType, assignments) {
-  const wd = weekday(y, m, d);
-  if (wd !== 0 && wd !== 1) return false;
-  
-  const empsList = Object.keys(assignments);
-  
-  if (dutyType === "HG" && emp === "Fr. Dalitz") {
-    const bdHolder = empsList.find(e => assignments[e]?.[d]?.duty === "D");
-    if (bdHolder === "Hr. Torki" || bdHolder === "Hr. Sebastian") {
-      return true;
-    }
-  }
-  
-  if (dutyType === "D" && (emp === "Hr. Torki" || emp === "Hr. Sebastian")) {
-    const hgHolder = empsList.find(e => assignments[e]?.[d]?.duty === "HG");
-    if (hgHolder === "Fr. Dalitz") {
-      return true;
-    }
-  }
-  
-  return false;
-}
-
 export function dutyKey(emp, day) {
   return `${emp}@@${day}`;
 }
@@ -472,12 +449,6 @@ export function computeGridConflicts(y, m) {
 
       if (cell.duty === "D" && hasCTLeadershipConflict(y, m, emp, d, assignments)) {
         flag(emp, d, "CT-Leitungskonflikt: Vertretung am Folgetag abwesend");
-      }
-      if (cell.duty === "D" && hasDalitzMammographyConflict(y, m, emp, d, "D", assignments)) {
-        flag(emp, d, "Mammographie-Konflikt mit Hintergrunddienst");
-      }
-      if (cell.duty === "HG" && hasDalitzMammographyConflict(y, m, emp, d, "HG", assignments)) {
-        flag(emp, d, "Mammographie-Konflikt mit Bereitschaftsdienst");
       }
     }
 
@@ -862,8 +833,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     if (hasCTLeadershipConflict(y, m, emp, d, assignments)) return false;
     if (assignments[emp]?.[d]?.assignment === "F") return false;
     if (isNextDayVacation(y, m, emp, d, assignments)) return false;
-    if (hasDalitzMammographyConflict(y, m, emp, d, "D", assignments)) return false;
-    
+
     const prev = prevCalendarDay(y, m, d);
     const next = nextCalendarDay(y, m, d);
     
@@ -1262,10 +1232,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     if (!options.allowAdjacentHG && hasAdjacentHG(emp, d, result)) {
       return false;
     }
-    if (hasDalitzMammographyConflict(y, m, emp, d, "HG", result)) {
-      return false;
-    }
-    
+
     setDutyAssignment(emp, d, "HG");
     bundledHGDays.add(d);
     bundledHGKeys.add(dutyKey(emp, d));
@@ -1287,8 +1254,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     if (existingDuty && !(ignoreExistingDuty && existingDuty === "HG")) return false;
 
     if (wishes[emp]?.[d] === "NO_DUTY") return false;
-    if (hasDalitzMammographyConflict(y, m, emp, d, "HG", assignments)) return false;
-    
+
     const wd = weekday(y, m, d);
     const isWE = wd === 6 || wd === 0;
     
@@ -1762,7 +1728,6 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
             const nx = nextCalendarDay(y, m, d);
             if (getScheduledDuty(pv.y, pv.m, e, pv.d, result) === "D") return false;
             if (getScheduledDuty(nx.y, nx.m, e, nx.d, result) === "D") return false;
-            if (hasDalitzMammographyConflict(y, m, e, d, "D", result)) return false;
             return true;
           })
           .sort((a, b) => currentBD[a] - currentBD[b]);
@@ -1787,7 +1752,6 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
             if (result[e]?.[d]?.duty) return false;
             if (isPinnedEmpty(e, d)) return false;
             if (wishes[e]?.[d] === "NO_DUTY") return false;
-            if (hasDalitzMammographyConflict(y, m, e, d, "HG", result)) return false;
             return true;
           })
           .sort((a, b) => currentHG[a] - currentHG[b]);
@@ -1943,9 +1907,6 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     }
     if (!emps.some((e) => result[e]?.[d]?.duty === "HG")) {
       summary.warnings.push(`Tag ${d}: kein HG besetzt.`);
-    }
-    if (result["Fr. Dalitz"]?.[d]?.duty === "HG" && hasDalitzMammographyConflict(y, m, "Fr. Dalitz", d, "HG", result)) {
-      summary.warnings.push(`KRITISCH Tag ${d}: Fr. Dalitz HG für Torki/Sebastian (Mammographie-Konflikt am Folgetag).`);
     }
   }
 

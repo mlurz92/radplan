@@ -516,7 +516,6 @@ Beispiele:
 - keine Dienste für befreite Personen,
 - keine fachlich unzulässigen HG-/BD-Konstellationen,
 - Schutz gegen unzulässige CT-Leitungsabwesenheit,
-- Mammographie-Konflikt bei spezifischen Kombinationen (z. B. Torki/Sebastian an Sonn- und Montagen),
 - keine Veränderung gepinnter Zellen.
 
 #### Weiche Regeln
@@ -1354,7 +1353,6 @@ Geprüft werden u. a.:
 - Wochenend-Dienstzählung inklusive der Regel, dass `D` Vorrang vor `HG` hat,
 - Projektion zukünftiger Wochenend-Dienstlast,
 - der CT-Leitungskonflikt für das betroffene Mitarbeitendenpaar, ausschließlich an Werktagen,
-- der Mammographie-Konflikt für das betroffene Mitarbeitendenpaar, ausschließlich an Sonn- und Montagen,
 - Abwesenheits- und Urlaubserkennung,
 - `computeGridConflicts` (die Grid-Scan-Funktion hinter den [Inline-Konfliktwarnungen](#inline-konfliktwarnungen-im-grid)): insbesondere, dass der CT-Leitungskonflikt dort ausschließlich an Tagen mit tatsächlich gesetztem Bereitschaftsdienst (`D`) markiert wird und nicht — wie ein früherer Regressionsfehler es tat — an jedem beliebigen Tag des Leitungspaars, sobald nur die Partnerin oder der Partner am Folgetag abwesend ist,
 - diverse kleinere reine Hilfsfunktionen (Fairness-Spread, Dienstschlüssel-Bildung, Mittelwertberechnung).

@@ -13,7 +13,7 @@ Das System arbeitet nicht linear, sondern in einer massiv erweiterten 15-fachen 
 5. **Multi-Zyklus-Optimierung (15 Zyklen):**
    - **BD-Swap-Pass (80 Durchläufe):** Verfeinerung der BD-Gerechtigkeit und Auflösung lokaler Unausgewogenheiten.
    - **HG-Swap-Pass (120 Durchläufe):** Aktives Aufbrechen von HG-Clustern und Glättung des monatlichen Arbeitsrhythmus.
-   - **Globaler Deep-Optimize-Pass (150 Durchläufe):** Systemweite Cross-Role-Swaps zur Behebung hochkomplexer Interdependenz-Konflikte (z. B. CT-Leitung oder Mammographie-Kollisionen).
+   - **Globaler Deep-Optimize-Pass (150 Durchläufe):** Systemweite Cross-Role-Swaps zur Behebung hochkomplexer Interdependenz-Konflikte (z. B. CT-Leitung).
    - **Coverage-Repair:** Dynamische Schließung etwaiger verbleibender Lücken durch Zwangs-Zuweisungen an die am wenigsten belasteten Mitarbeiter.
 6. **Validierungs-Phase:** Letzte Integritätsprüfung der Dienst-Exklusivität (max. ein Dienst pro Tag) und Datenkonsistenz.
 
@@ -29,7 +29,6 @@ Verletzungen dieser Regeln führen zur sofortigen Ablehnung eines Kandidaten in 
 - **BD-Folge-Sperre:** Keine BD-Dienste an zwei aufeinanderfolgenden Tagen (D-D Verbot).
 - **HG-Vortag-Sperre (AA-Regel):** Ein FA darf keinen HG für einen AA leisten, wenn der FA am Folgetag selbst BD hat (späterer Dienstbeginn verhindert rechtzeitige Befundfreigabe).
 - **Spezial-Sperre Dr. Polednia:** Absolutes BD-Verbot an Sonntagen, Dienstagen und Donnerstagen. Ebenso absolutes HG-Verbot für AAs an diesen Tagen (Vermeidung von Kollisionen mit dem Kinder-Ultraschall am Folgetag).
-- **Spezial-Sperre Fr. Dalitz (Mammographie):** Fr. Dalitz darf niemals einen HG an einem Sonntag oder Montag leisten, wenn gleichzeitig Herr Torki oder Herr Sebastian den BD innehat. Die Befundfreigabe würde hierbei am Montagmorgen bzw. Dienstagmorgen mit ihrem Einsatz in der Mammographie kollidieren.
 - **CT-Leitungs-Interdependenz:** Dr. Becker und Dr. Martin dürfen an Werktagen niemals gleichzeitig abwesend (Urlaub/Frei/FZA) sein. Der Algorithmus plant die Dienste (und deren nachgelagerte Ruhetage) proaktiv um diese Vorgabe herum.
 - **Urlaubs-Puffer:** Kein BD am Tag direkt vor einem Urlaubsantritt.
 - **Feiertags-Alternanz:** Wer an Ostern Dienst hat, wird für Pfingsten gesperrt (und umgekehrt).
