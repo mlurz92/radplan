@@ -819,11 +819,28 @@ export function renderTbody(y, m, dim, hols, md) {
   const employeesToRender = md.employees.filter(e => e !== RBN_ROW_LABEL && e !== RBN_ROW_KEY);
   const gridConflicts = computeGridConflicts(y, m);
 
+  // Role-band grouping: classify each row so the grid gets visual structure
+  // (a firm divider + a subtle per-band tint) whenever the role category
+  // changes between consecutive rows — without reordering the source sequence.
+  const roleBand = (pos) => {
+    if (["CA", "LOA", "OA", "OÄ"].includes(pos)) return "lead";
+    if (["FA", "FÄ"].includes(pos)) return "fa";
+    if (["AA", "AÄ"].includes(pos)) return "aa";
+    return "other";
+  };
+  let prevBand = null;
+
   employeesToRender.forEach((emp) => {
     const meta = getEmpMeta(emp);
     const pc = posColor(meta.position);
-    
+    const band = roleBand(meta.position);
+
     const tr = document.createElement("tr");
+    tr.dataset.band = band;
+    if (band !== prevBand) {
+      tr.classList.add("tr-band-start");
+      prevBand = band;
+    }
     const tdN = document.createElement("td");
     tdN.className = "td-name";
     tdN.style.borderLeft = `3px solid ${pc.border}`;

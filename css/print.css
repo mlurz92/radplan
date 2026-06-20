@@ -187,6 +187,12 @@
   }
   #plan-table thead { display: table-header-group !important; }
 
+  /* Preserve the role-band structure on paper with a firm divider. */
+  #plan-table .tr-band-start .td-name,
+  #plan-table .tr-band-start .td-cell {
+    border-top: 1.5px solid #0F172A !important;
+  }
+
   #print-footer {
     display: block !important;
     margin-top: 6px;
