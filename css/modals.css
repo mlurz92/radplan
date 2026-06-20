@@ -2842,6 +2842,120 @@ body.is-mobile #modal-mobile-menu .modal-bd {
 .yp-ftd-sum { font-weight: 700; color: var(--gray-700); }
 .yp-ftd-dev { font-weight: 700; min-width: 44px; }
 
+/* ══ AUSWERTUNGS-TABS (Soll/Ist · Abwesenheiten) ══════════════════════════════
+   Toolbar im Stil des Mitarbeitenden-Modals: Rollenfilter · Sortierung · CSV. */
+.yp-eval-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.yp-eval-pills { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.yp-eval-pill {
+  border: 1px solid var(--gray-200);
+  background: #fff;
+  color: var(--gray-600);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .2s;
+}
+.yp-eval-pill:hover { background: var(--gray-50); color: var(--gray-800); }
+.yp-eval-pill.active { background: var(--gray-800); color: #fff; border-color: var(--gray-800); }
+.yp-eval-toolbar-right { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.yp-eval-sort-wrap { display: inline-flex; align-items: center; gap: 6px; }
+.yp-eval-sort-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--gray-500); }
+.yp-eval-sort {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-800);
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.yp-eval-sort:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(14,165,233,.15); }
+.yp-eval-export {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background .2s, transform .15s;
+}
+.yp-eval-export:hover { background: #0B8FCF; }
+.yp-eval-export:active { transform: scale(.96); }
+
+.yp-eval-hint {
+  font-size: 12px;
+  color: var(--gray-500);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.yp-eval-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-200);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.yp-eval-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.yp-eval-table th {
+  background: var(--gray-800);
+  color: var(--gray-300);
+  font-weight: 700;
+  font-size: 9.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 9px 10px;
+  text-align: center;
+  white-space: nowrap;
+}
+.yp-ev-th-name { text-align: left !important; min-width: 170px; padding-left: 12px !important; }
+.yp-eval-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--gray-100);
+  text-align: center;
+  font-family: var(--font-mono);
+}
+.yp-eval-table tr:last-child td { border-bottom: none; }
+.yp-eval-table tbody tr:hover td { background-color: var(--gray-50); }
+.yp-ev-name {
+  text-align: left !important;
+  font-family: var(--font-sans) !important;
+  padding-left: 12px !important;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.yp-ev-empname { font-weight: 600; color: var(--gray-800); }
+.yp-ev-pos {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  letter-spacing: .03em;
+}
+.yp-ev-num { color: var(--gray-700); }
+.yp-ev-strong { font-weight: 800; color: var(--gray-900); }
+.yp-eval-empty { padding: 28px !important; color: var(--gray-400) !important; font-family: var(--font-sans) !important; }
+
 /* ══ PROJEKTION-TAB ══════════════════════════════════════════════════════════ */
 
 .yp-proj-intro {

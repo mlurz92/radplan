@@ -10,14 +10,16 @@ import {
 } from './constants.js';
 
 import { DATA, state, planMode, planData, TOD_Y, TOD_M } from './state.js';
-import { buildProfileStats, getEmployeesForYear } from './model.js';
+import { buildProfileStats, buildYearlyStats, getEmployeesForYear } from './model.js';
 import { isDutyExempt } from './autoplan.js';
 
 // ─── Modul-State ─────────────────────────────────────────────────────────────
 
 export let ypYear = new Date().getFullYear();
-let _tab = 'grid';       // 'grid' | 'fairness' | 'projection'
+let _tab = 'grid';       // 'grid' | 'fairness' | 'sollist' | 'absence' | 'projection'
 let _fairMode = 'bd';    // 'bd' | 'hg'
+let _evalSort = 'name';  // shared sort key for the Soll/Ist + Abwesenheiten views
+let _evalRole = 'ALL';   // shared role filter for the evaluation views
 let _charts = [];
 
 // ─── Farb-Palette ─────────────────────────────────────────────────────────────
@@ -576,6 +578,196 @@ function _renderProjection(year, container) {
   _charts.push(chart);
 }
 
+// ─── Gemeinsame Helfer für die Auswertungs-Tabs ────────────────────────────────
+
+const _POS_ORDER = ['CA', 'LOA', 'OA', 'OÄ', 'FA', 'FÄ', 'AA', 'AÄ'];
+function _posRank(p) { const i = _POS_ORDER.indexOf(p); return i === -1 ? _POS_ORDER.length : i; }
+
+function _roleBucket(pos) {
+  if (['CA', 'LOA', 'OA', 'OÄ'].includes(pos)) return 'lead';
+  if (['FA', 'FÄ'].includes(pos)) return 'fa';
+  if (['AA', 'AÄ'].includes(pos)) return 'aa';
+  return 'other';
+}
+
+function _matchEvalRole(pos) {
+  if (_evalRole === 'ALL') return true;
+  return _roleBucket(pos) === _evalRole;
+}
+
+// Toolbar im Stil des Mitarbeitenden-Modals: Rollenfilter · Sortierung · CSV.
+function _evalToolbar(sortOptions) {
+  const rolePills = [
+    ['ALL', 'Alle'], ['lead', 'Leitung'], ['fa', 'FÄ'], ['aa', 'AÄ'], ['other', 'Weitere'],
+  ].map(([k, lbl]) =>
+    `<button type="button" class="yp-eval-pill${_evalRole === k ? ' active' : ''}" data-role="${k}">${lbl}</button>`
+  ).join('');
+  const opts = sortOptions.map(([v, lbl]) =>
+    `<option value="${v}"${_evalSort === v ? ' selected' : ''}>${lbl}</option>`
+  ).join('');
+  return `
+    <div class="yp-eval-toolbar">
+      <div class="yp-eval-pills" role="toolbar" aria-label="Rollenfilter">${rolePills}</div>
+      <div class="yp-eval-toolbar-right">
+        <label class="yp-eval-sort-wrap">
+          <span class="yp-eval-sort-lbl">Sortieren</span>
+          <select class="yp-eval-sort" aria-label="Sortieren">${opts}</select>
+        </label>
+        <button type="button" class="yp-eval-export" title="Diese Auswertung als CSV exportieren">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>CSV</span>
+        </button>
+      </div>
+    </div>`;
+}
+
+function _downloadCSV(filename, header, rows) {
+  const esc = (v) => { const s = String(v ?? ''); return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const lines = [header.join(';'), ...rows.map(r => r.map(esc).join(';'))];
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Verdrahtet die gemeinsamen Toolbar-Controls eines Auswertungs-Tabs.
+function _wireEvalToolbar(year, container) {
+  container.querySelectorAll('.yp-eval-pill').forEach(btn => {
+    btn.addEventListener('click', () => { _evalRole = btn.dataset.role; _renderContent(); });
+  });
+  const sel = container.querySelector('.yp-eval-sort');
+  if (sel) sel.addEventListener('change', (e) => { _evalSort = e.target.value; _renderContent(); });
+}
+
+// ─── Tab: Dienst Soll/Ist ──────────────────────────────────────────────────────
+
+function _buildSollIstRows(year) {
+  const { employees, perEmp } = _buildYearData(year);
+  return employees
+    .filter(e => perEmp[e].isDutyCapable)
+    .map(emp => {
+      const d = perEmp[emp];
+      const meta = getEmpMeta(emp);
+      const soll = d.monthlyTarget * d.monthsWithData;
+      const ist = d.totalBD;
+      const diff = ist - soll;
+      const quote = soll > 0 ? Math.round((ist / soll) * 100) : (ist > 0 ? 999 : 0);
+      return { emp, meta, perMonth: d.monthlyTarget, months: d.monthsWithData, soll, ist, diff, quote };
+    })
+    .filter(r => _matchEvalRole(r.meta.position));
+}
+
+function _sortEvalRows(rows, keyMap) {
+  const k = _evalSort;
+  rows.sort((a, b) => {
+    if (k === 'name') return a.emp.localeCompare(b.emp, 'de');
+    if (k === 'position') { const d = _posRank(a.meta.position) - _posRank(b.meta.position); return d !== 0 ? d : a.emp.localeCompare(b.emp, 'de'); }
+    const fn = keyMap[k];
+    return fn ? fn(b) - fn(a) : 0;
+  });
+  return rows;
+}
+
+function _renderSollIst(year, container) {
+  const rows = _sortEvalRows(_buildSollIstRows(year), {
+    ist: r => r.ist, soll: r => r.soll, diff: r => r.diff, quote: r => r.quote,
+  });
+
+  const body = rows.map(r => {
+    const pc = posColor(r.meta.position);
+    const diffCol = r.diff > 0.5 ? '#C2410C' : r.diff < -0.5 ? '#0369A1' : '#15803D';
+    const qCol = r.quote >= 95 && r.quote <= 110 ? '#15803D' : r.quote > 110 ? '#C2410C' : '#0369A1';
+    return `<tr>
+      <td class="yp-ev-name" style="border-left:3px solid ${pc.border}">
+        <span class="yp-ev-empname">${r.emp}</span>
+        <span class="yp-ev-pos" style="color:${pc.fg};background:${pc.bg}">${r.meta.position}</span>
+      </td>
+      <td class="yp-ev-num">${r.perMonth}</td>
+      <td class="yp-ev-num">${r.months}</td>
+      <td class="yp-ev-num">${r.soll}</td>
+      <td class="yp-ev-num yp-ev-strong">${r.ist}</td>
+      <td class="yp-ev-num" style="color:${diffCol};font-weight:700">${r.diff > 0 ? '+' : ''}${r.diff}</td>
+      <td class="yp-ev-num" style="color:${qCol};font-weight:700">${r.quote === 999 ? '—' : r.quote + '%'}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    ${_evalToolbar([['name', 'Name (A–Z)'], ['position', 'Position'], ['ist', 'Ist (absteigend)'], ['diff', 'Δ (absteigend)'], ['quote', 'Erfüllung %']])}
+    <p class="yp-eval-hint">Bereitschaftsdienst-Soll (Monatsziel × aktive Monate) gegen Ist. <strong>Δ &gt; 0</strong> = mehr Dienste als Soll, <strong>Δ &lt; 0</strong> = Rückstand. Nur dienstfähige Mitarbeitende.</p>
+    <div class="yp-eval-table-wrap">
+      <table class="yp-eval-table">
+        <thead><tr>
+          <th class="yp-ev-th-name">Mitarbeitende</th>
+          <th>Soll/Mon.</th><th>Akt. Mon.</th><th>Soll Σ</th><th>Ist Σ</th><th>Δ</th><th>Erfüllung</th>
+        </tr></thead>
+        <tbody>${body || '<tr><td colspan="7" class="yp-eval-empty">Keine Daten für diesen Filter.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+
+  _wireEvalToolbar(year, container);
+  container.querySelector('.yp-eval-export')?.addEventListener('click', () => {
+    _downloadCSV(`radplan_soll-ist_${year}.csv`,
+      ['Kürzel', 'Position', 'Soll/Monat', 'Aktive Monate', 'Soll gesamt', 'Ist gesamt', 'Differenz', 'Erfüllung %'],
+      rows.map(r => [r.emp, r.meta.position, r.perMonth, r.months, r.soll, r.ist, r.diff, r.quote === 999 ? '' : r.quote]));
+  });
+}
+
+// ─── Tab: Abwesenheiten ────────────────────────────────────────────────────────
+
+function _buildAbsenceRows(year) {
+  const employees = getEmployeesForYear(year);
+  return employees.map(emp => {
+    const ys = buildYearlyStats(emp, year);
+    const meta = getEmpMeta(emp);
+    const t = ys.totals;
+    const vac = t.vacationDays || 0, sick = t.sickDays || 0, fza = t.fzaDays || 0;
+    const wb = t.wbDays || 0, frei = t.freiDays || 0;
+    const sum = vac + sick + fza + wb;
+    return { emp, meta, vac, sick, fza, wb, frei, sum };
+  }).filter(r => _matchEvalRole(r.meta.position));
+}
+
+function _renderAbsence(year, container) {
+  const rows = _sortEvalRows(_buildAbsenceRows(year), {
+    vacation: r => r.vac, sick: r => r.sick, fza: r => r.fza, sum: r => r.sum,
+  });
+
+  const body = rows.map(r => {
+    const pc = posColor(r.meta.position);
+    const cell = (v, col) => `<td class="yp-ev-num"${v ? ` style="color:${col};font-weight:700"` : ''}>${v || '<span class="yp-dash">—</span>'}</td>`;
+    return `<tr>
+      <td class="yp-ev-name" style="border-left:3px solid ${pc.border}">
+        <span class="yp-ev-empname">${r.emp}</span>
+        <span class="yp-ev-pos" style="color:${pc.fg};background:${pc.bg}">${r.meta.position}</span>
+      </td>
+      ${cell(r.vac, '#7C3AED')}${cell(r.sick, '#B91C1C')}${cell(r.fza, '#0369A1')}${cell(r.wb, '#0F766E')}${cell(r.frei, '#64748B')}
+      <td class="yp-ev-num yp-ev-strong">${r.sum}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    ${_evalToolbar([['name', 'Name (A–Z)'], ['position', 'Position'], ['vacation', 'Urlaub (absteigend)'], ['sick', 'Krank (absteigend)'], ['sum', 'Σ Abwesenheit']])}
+    <p class="yp-eval-hint">Abwesenheitstage im Kalenderjahr: Urlaub (U/RU), Krank (K/KK), FZA, Weiterbildung (WB). „Frei" (F) ist informativ und zählt nicht in die Σ-Abwesenheit.</p>
+    <div class="yp-eval-table-wrap">
+      <table class="yp-eval-table">
+        <thead><tr>
+          <th class="yp-ev-th-name">Mitarbeitende</th>
+          <th>Urlaub</th><th>Krank</th><th>FZA</th><th>WB</th><th>Frei</th><th>Σ Abw.</th>
+        </tr></thead>
+        <tbody>${body || '<tr><td colspan="7" class="yp-eval-empty">Keine Daten für diesen Filter.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+
+  _wireEvalToolbar(year, container);
+  container.querySelector('.yp-eval-export')?.addEventListener('click', () => {
+    _downloadCSV(`radplan_abwesenheiten_${year}.csv`,
+      ['Kürzel', 'Position', 'Urlaub', 'Krank', 'FZA', 'Weiterbildung', 'Frei', 'Summe Abwesenheit'],
+      rows.map(r => [r.emp, r.meta.position, r.vac, r.sick, r.fza, r.wb, r.frei, r.sum]));
+  });
+}
+
 // ─── Öffentliche API ──────────────────────────────────────────────────────────
 
 function _syncTabUI() {
@@ -600,6 +792,10 @@ function _renderContent() {
     _renderGrid(ypYear, body);
   } else if (_tab === 'fairness') {
     _renderFairness(ypYear, body);
+  } else if (_tab === 'sollist') {
+    _renderSollIst(ypYear, body);
+  } else if (_tab === 'absence') {
+    _renderAbsence(ypYear, body);
   } else if (_tab === 'projection') {
     _renderProjection(ypYear, body);
   }
