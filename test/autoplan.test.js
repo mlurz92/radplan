@@ -18,7 +18,8 @@ import {
   getWeekendStateForKW,
   projectedWeekendDutyCount,
   wouldCreateConsecutiveWeekendDuty,
-  hasDalitzMammographyConflict
+  hasDalitzMammographyConflict,
+  computeGridConflicts
 } from "../js/autoplan.js";
 
 import {
@@ -26,8 +27,11 @@ import {
   weekday,
   isoWeekNumber,
   isWorkday,
-  getSaxonyHolidaysCached
+  getSaxonyHolidaysCached,
+  monthKey
 } from "../js/constants.js";
+
+import { DATA } from "../js/state.js";
 
 // Fixed reference month used throughout: June 2026 (0-indexed month 5).
 // Chosen because it has no Saxony public holidays, so every weekday in it
@@ -210,6 +214,36 @@ describe("hasCTLeadershipConflict", () => {
     const d = findWorkdayWithWeekendTomorrow();
     const assignments = { "Dr. Becker": {}, "Dr. Martin": { [d + 1]: { assignment: "U" } } };
     assert.equal(hasCTLeadershipConflict(Y, M, "Dr. Becker", d, assignments), false);
+  });
+});
+
+describe("computeGridConflicts", () => {
+  test("does not flag a CT-Leitungskonflikt on a day without a D-duty, even if the partner is absent tomorrow", () => {
+    const d = findWorkdayWithWorkdayTomorrow();
+    DATA[monthKey(Y, M)] = {
+      employees: ["Dr. Becker", "Dr. Martin"],
+      assignments: {
+        "Dr. Becker": { [d]: { assignment: "MR" } },
+        "Dr. Martin": { [d + 1]: { assignment: "U" } }
+      },
+      rbn: {}
+    };
+    const conflicts = computeGridConflicts(Y, M);
+    assert.equal(conflicts.has(dutyKey("Dr. Becker", d)), false);
+  });
+
+  test("flags a CT-Leitungskonflikt when the employee actually holds a D-duty and the partner is absent tomorrow", () => {
+    const d = findWorkdayWithWorkdayTomorrow();
+    DATA[monthKey(Y, M)] = {
+      employees: ["Dr. Becker", "Dr. Martin"],
+      assignments: {
+        "Dr. Becker": { [d]: { duty: "D", assignment: "F" } },
+        "Dr. Martin": { [d + 1]: { assignment: "U" } }
+      },
+      rbn: {}
+    };
+    const conflicts = computeGridConflicts(Y, M);
+    assert.ok(conflicts.get(dutyKey("Dr. Becker", d))?.some((r) => r.includes("CT-Leitungskonflikt")));
   });
 });
 
