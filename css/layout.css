@@ -701,6 +701,7 @@ tr:hover .emp-profile-icon {
 }
 
 .td-cell.auto-f-rest .cell-assign {
+  color: rgba(var(--ink-rgb),.4);
   font-weight: 500 !important;
   font-style: italic;
   letter-spacing: .03em;
@@ -876,7 +877,8 @@ tr:hover .emp-profile-icon {
 }
 
 .td-stat-val.dim {
-  opacity: .28;
+  color: rgba(var(--ink-rgb),.4);
+  opacity: 1;
 }
 
 .td-stat-val.nz {
