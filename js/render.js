@@ -72,7 +72,7 @@ import {
   quickSetStatus
 } from './app.js';
 
-import { autoPlanResult } from './autoplan.js';
+import { autoPlanResult, computeGridConflicts, dutyKey } from './autoplan.js';
 import { contextMenu } from './contextmenu.js';
 
 const dragSelectionState = {
@@ -830,7 +830,8 @@ export function renderTbody(y, m, dim, hols, md) {
 
   // Use the original sequence from data (filter only to avoid collisions)
   const employeesToRender = md.employees.filter(e => e !== RBN_ROW_LABEL && e !== RBN_ROW_KEY);
-  
+  const gridConflicts = computeGridConflicts(y, m);
+
   employeesToRender.forEach((emp) => {
     const meta = getEmpMeta(emp);
     const pc = posColor(meta.position);
@@ -915,10 +916,16 @@ export function renderTbody(y, m, dim, hols, md) {
       if (isAutoFRest) cls += " auto-f-rest";
       if (planMode && isPinned(emp, d)) cls += " pinned";
 
+      const cellConflicts = gridConflicts.get(dutyKey(emp, d));
+      if (cellConflicts?.length) cls += " cell-conflict";
+
       tdEl.className = cls;
       tdEl.dataset.emp = emp;
       tdEl.dataset.day = String(d);
       tdEl.tabIndex = 0;
+      if (cellConflicts?.length) {
+        tdEl.setAttribute("data-conflict", cellConflicts.join(" · "));
+      }
       
       if (cell.assignment && !isAutoFRest) {
         tdEl.style.backgroundColor = bg;
@@ -943,8 +950,14 @@ export function renderTbody(y, m, dim, hols, md) {
         const escapedComment = cellComment.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         innerHtml += `<span class="cell-comment-dot" title="${escapedComment}" aria-label="Notiz: ${escapedComment}"></span>`;
       }
+      if (cellConflicts?.length) {
+        innerHtml += `<span class="cell-conflict-flag" aria-hidden="true">⚠</span>`;
+      }
       innerHtml += `</div>`;
       tdEl.innerHTML = innerHtml;
+      if (cellConflicts?.length) {
+        tdEl.title = `Regelkonflikt: ${cellConflicts.join(" · ")}`;
+      }
       
       tdEl.addEventListener("click", (e) => {
         if (dragSelectionState.justDragged) {

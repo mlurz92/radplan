@@ -408,8 +408,83 @@ export function hasDalitzMammographyConflict(y, m, emp, d, dutyType, assignments
   return false;
 }
 
-export function dutyKey(emp, day) { 
-  return `${emp}@@${day}`; 
+export function dutyKey(emp, day) {
+  return `${emp}@@${day}`;
+}
+
+/**
+ * Scans every cell of the given month for hard-rule violations that the
+ * solver would normally prevent, but that manual editing can still produce
+ * (direct cell edits, imports, or stale data after roster changes). Used to
+ * drive inline warning highlights in the grid, independent of any Auto-Plan run.
+ */
+export function computeGridConflicts(y, m) {
+  const md = getMonthData(y, m);
+  const assignments = md.assignments || {};
+  const emps = md.employees || [];
+  const dim = daysInMonth(y, m);
+  const conflicts = new Map();
+
+  const flag = (emp, day, reason) => {
+    const key = dutyKey(emp, day);
+    if (!conflicts.has(key)) conflicts.set(key, []);
+    conflicts.get(key).push(reason);
+  };
+
+  for (let d = 1; d <= dim; d++) {
+    const dutyHolders = { D: [], HG: [] };
+
+    for (const emp of emps) {
+      const cell = assignments[emp]?.[d];
+      if (!cell) continue;
+
+      if (cell.duty === "D" || cell.duty === "HG") {
+        dutyHolders[cell.duty].push(emp);
+      }
+
+      if (cell.duty && cell.assignment) {
+        const codes = cell.assignment.split("/").map((x) => x.trim());
+        if (codes.some((c) => VACATION_CODES.includes(c) || ABSENCE_CODES.includes(c))) {
+          flag(emp, d, `${cell.duty}-Dienst kollidiert mit Abwesenheit (${cell.assignment}) am selben Tag`);
+        }
+      }
+
+      if (cell.duty === "D") {
+        const next = nextCalendarDay(y, m, d);
+        let nextCell;
+        if (next.y === y && next.m === m) {
+          nextCell = assignments[emp]?.[next.d];
+        } else {
+          nextCell = DATA[monthKey(next.y, next.m)]?.assignments?.[emp]?.[next.d];
+        }
+        const nextOk = nextCell?.assignment === "F"
+          || (nextCell?.assignment && nextCell.assignment.split("/").map((x) => x.trim()).some((c) => VACATION_CODES.includes(c) || ABSENCE_CODES.includes(c)));
+        if (!nextOk) {
+          flag(emp, d, "Bereitschaftsdienst (D) ohne Freistellung am Folgetag");
+        }
+      }
+
+      if (hasCTLeadershipConflict(y, m, emp, d, assignments)) {
+        flag(emp, d, "CT-Leitungskonflikt: Vertretung am Folgetag abwesend");
+      }
+      if (cell.duty === "D" && hasDalitzMammographyConflict(y, m, emp, d, "D", assignments)) {
+        flag(emp, d, "Mammographie-Konflikt mit Hintergrunddienst");
+      }
+      if (cell.duty === "HG" && hasDalitzMammographyConflict(y, m, emp, d, "HG", assignments)) {
+        flag(emp, d, "Mammographie-Konflikt mit Bereitschaftsdienst");
+      }
+    }
+
+    for (const code of ["D", "HG"]) {
+      if (dutyHolders[code].length > 1) {
+        dutyHolders[code].forEach((emp) => {
+          flag(emp, d, `Mehrfachbesetzung: ${dutyHolders[code].length}× ${code}-Dienst am selben Tag`);
+        });
+      }
+    }
+  }
+
+  return conflicts;
 }
 
 export function buildRuleTelemetryBucket() { 

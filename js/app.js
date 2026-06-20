@@ -164,6 +164,40 @@ export function initTheme() {
   }
 }
 
+const DENSITY_STORAGE_KEY = "radplan_v3_density";
+
+export function getDensity() {
+  return document.body.classList.contains("grid-density-compact") ? "compact" : "cozy";
+}
+
+export function applyDensity(density) {
+  document.body.classList.toggle("grid-density-compact", density === "compact");
+  const compactIcon = document.getElementById("btn-density-icon-compact");
+  const cozyIcon = document.getElementById("btn-density-icon-cozy");
+  if (compactIcon) compactIcon.style.display = density === "compact" ? "none" : "";
+  if (cozyIcon) cozyIcon.style.display = density === "compact" ? "" : "none";
+  const btn = document.getElementById("btn-density");
+  if (btn) btn.title = density === "compact" ? "Normale Spaltenbreite aktivieren" : "Kompakte Spaltenbreite aktivieren (für kleinere Fenster/Tablets)";
+}
+
+export function setDensity(density, persist = true) {
+  applyDensity(density);
+  if (persist) {
+    try { localStorage.setItem(DENSITY_STORAGE_KEY, density); } catch (e) { /* localStorage unavailable */ }
+  }
+  refreshResponsiveLayout({ forceRender: true });
+}
+
+export function toggleDensity() {
+  setDensity(getDensity() === "compact" ? "cozy" : "compact");
+}
+
+export function initDensity() {
+  let saved = null;
+  try { saved = localStorage.getItem(DENSITY_STORAGE_KEY); } catch (e) { /* ignore */ }
+  applyDensity(saved === "compact" ? "compact" : "cozy");
+}
+
 export function isPeriodFlyoutOpen() {
   const el = document.getElementById("period-flyout");
   return !!el && !el.hasAttribute("hidden");
@@ -2200,6 +2234,7 @@ export function wireEvents() {
   document.getElementById("btn-next")?.addEventListener("click", () => changeMonth(1));
   document.getElementById("btn-today")?.addEventListener("click", handleTodayClick);
   document.getElementById("btn-theme")?.addEventListener("click", toggleTheme);
+  document.getElementById("btn-density")?.addEventListener("click", toggleDensity);
 
   document.getElementById("btn-employees")?.addEventListener("click", () => {
     const { year: y } = state;
@@ -2598,6 +2633,7 @@ export function wireEvents() {
 
 export async function init() {
   initTheme();
+  initDensity();
   await loadFromStorage();
   ensurePostBDFreiDays();
   
