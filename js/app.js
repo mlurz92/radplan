@@ -118,6 +118,49 @@ let localAutoPlanConfigRenderToken = 0;
 let localApAnimationId = null;
 let neuralGraphInstance = null;
 
+const THEME_STORAGE_KEY = "radplan_v3_theme";
+
+export function getTheme() {
+  return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+}
+
+export function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const meta = document.getElementById("meta-theme-color");
+  if (meta) meta.setAttribute("content", theme === "light" ? "#F4F1EA" : "#0B1929");
+  const moonIcon = document.getElementById("btn-theme-icon-moon");
+  const sunIcon = document.getElementById("btn-theme-icon-sun");
+  if (moonIcon) moonIcon.style.display = theme === "light" ? "none" : "";
+  if (sunIcon) sunIcon.style.display = theme === "light" ? "" : "none";
+  const btn = document.getElementById("btn-theme");
+  if (btn) btn.title = theme === "light" ? "Dunkelmodus aktivieren" : "Hellmodus aktivieren";
+}
+
+export function setTheme(theme, persist = true) {
+  applyTheme(theme);
+  if (persist) {
+    try { localStorage.setItem(THEME_STORAGE_KEY, theme); } catch (e) { /* localStorage unavailable */ }
+  }
+}
+
+export function toggleTheme() {
+  setTheme(getTheme() === "light" ? "dark" : "light");
+}
+
+export function initTheme() {
+  applyTheme(getTheme());
+  let explicitPreference = false;
+  try { explicitPreference = localStorage.getItem(THEME_STORAGE_KEY) !== null; } catch (e) { /* ignore */ }
+  if (!explicitPreference && window.matchMedia) {
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    mq.addEventListener?.("change", (e) => {
+      let stillExplicit = false;
+      try { stillExplicit = localStorage.getItem(THEME_STORAGE_KEY) !== null; } catch (err) { /* ignore */ }
+      if (!stillExplicit) setTheme(e.matches ? "light" : "dark", false);
+    });
+  }
+}
+
 export function isPeriodFlyoutOpen() {
   const el = document.getElementById("period-flyout");
   return !!el && !el.hasAttribute("hidden");
@@ -2102,7 +2145,8 @@ export function wireEvents() {
   document.getElementById("btn-prev")?.addEventListener("click", () => changeMonth(-1));
   document.getElementById("btn-next")?.addEventListener("click", () => changeMonth(1));
   document.getElementById("btn-today")?.addEventListener("click", handleTodayClick);
-  
+  document.getElementById("btn-theme")?.addEventListener("click", toggleTheme);
+
   document.getElementById("btn-employees")?.addEventListener("click", () => {
     const { year: y } = state;
     const employees = getEmployeesForYear(y);
@@ -2499,6 +2543,7 @@ export function wireEvents() {
 }
 
 export async function init() {
+  initTheme();
   await loadFromStorage();
   ensurePostBDFreiDays();
   
