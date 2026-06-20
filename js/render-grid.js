@@ -920,7 +920,7 @@ export function renderTbody(y, m, dim, hols, md) {
       
       const cellComment = getComment(y, m, emp, d);
       let innerHtml = `<div class="cell-inner">`;
-      innerHtml += `<span class="cell-assign" style="color:${isAutoFRest ? "rgba(71,85,105,0.35)" : fg}">${cell.assignment || ""}</span>`;
+      innerHtml += `<span class="cell-assign"${isAutoFRest ? "" : ` style="color:${fg}"`}>${cell.assignment || ""}</span>`;
       if (cell.duty) {
         innerHtml += `<span class="cell-duty badge-${cell.duty}">${cell.duty}</span>`;
       }
