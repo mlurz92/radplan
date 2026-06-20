@@ -723,6 +723,21 @@ tr:hover .emp-profile-icon {
   pointer-events: none;
 }
 
+.cell-duty[draggable="true"] {
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.cell-duty[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* Drop target feedback for native drag & drop of duty badges */
+.td-cell.drag-over {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  background-color: var(--accent-dim);
+}
+
 .cell-wish {
   position: absolute;
   bottom: 1px;

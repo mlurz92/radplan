@@ -52,7 +52,8 @@ import {
   quickToggleWorkplace,
   quickToggleDuty,
   quickClearCell,
-  quickSetStatus
+  quickSetStatus,
+  moveDutyBadge
 } from './app.js';
 
 import { computeGridConflicts, dutyKey } from './autoplan.js';
@@ -944,7 +945,39 @@ export function renderTbody(y, m, dim, hols, md) {
       if (cellConflicts?.length) {
         tdEl.title = `Regelkonflikt: ${cellConflicts.join(" · ")}`;
       }
-      
+
+      if (!IS_MOBILE && cell.duty) {
+        const dutyBadge = tdEl.querySelector(".cell-duty");
+        if (dutyBadge) {
+          dutyBadge.draggable = true;
+          dutyBadge.addEventListener("dragstart", (e) => {
+            e.dataTransfer.setData("text/plain", JSON.stringify({ emp, day: d }));
+            e.dataTransfer.effectAllowed = "move";
+          });
+        }
+      }
+      if (!IS_MOBILE) {
+        tdEl.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          tdEl.classList.add("drag-over");
+        });
+        tdEl.addEventListener("dragleave", () => {
+          tdEl.classList.remove("drag-over");
+        });
+        tdEl.addEventListener("drop", (e) => {
+          e.preventDefault();
+          tdEl.classList.remove("drag-over");
+          let payload;
+          try {
+            payload = JSON.parse(e.dataTransfer.getData("text/plain"));
+          } catch {
+            return;
+          }
+          if (!payload || !payload.emp || !Number.isFinite(payload.day)) return;
+          moveDutyBadge(payload.emp, payload.day, emp, d);
+        });
+      }
+
       tdEl.addEventListener("click", (e) => {
         if (dragSelectionState.justDragged) {
           dragSelectionState.justDragged = false;
@@ -1114,6 +1147,7 @@ export function renderTfoot(y, m, dim, md) {
 
 document.addEventListener("mousedown", (e) => {
   if (e.button !== 0) return;
+  if (e.target.closest?.(".cell-duty")) return;
   const cell = e.target.closest?.("#plan-tbody .td-cell");
   if (!cell) return;
   const emp = cell.dataset.emp;

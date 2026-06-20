@@ -2338,6 +2338,38 @@ export function quickToggleDuty(emp, day, dutyCode) {
   focusCellAfterRender(emp, day);
 }
 
+export function moveDutyBadge(srcEmp, srcDay, dstEmp, dstDay) {
+  const { year: y, month: m } = state;
+  if (srcEmp === dstEmp && srcDay === dstDay) return;
+
+  const srcCell = getCell(y, m, srcEmp, srcDay);
+  const dutyCode = srcCell.duty;
+  if (!dutyCode) return;
+
+  const dstCell = getCell(y, m, dstEmp, dstDay);
+  if (dstCell.duty && dstCell.duty !== dutyCode) {
+    showToast(`Zielzelle hat bereits ${dstCell.duty}-Dienst`);
+    return;
+  }
+
+  if (dstDay !== srcDay) {
+    const owner = dutyOwner(y, m, dstDay, dutyCode);
+    if (owner && owner !== dstEmp && owner !== srcEmp) {
+      showToast(`${dutyCode} bereits vergeben an: ${owner}`);
+      return;
+    }
+  }
+
+  if (planMode) recordPlanHistory();
+  setCell(y, m, srcEmp, srcDay, { assignment: srcCell.assignment || null, duty: dstCell.duty || null });
+  setCell(y, m, dstEmp, dstDay, { assignment: dstCell.assignment || null, duty: dutyCode });
+  if (planMode) recordPlanHistory();
+
+  showToast(`${dutyCode}-Dienst verschoben: ${srcEmp} (${srcDay}.) → ${dstEmp} (${dstDay}.)`);
+  render();
+  focusCellAfterRender(dstEmp, dstDay);
+}
+
 export function quickClearCell(emp, day) {
   const { year: y, month: m } = state;
   if (planMode) recordPlanHistory();
