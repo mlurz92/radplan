@@ -583,6 +583,21 @@
               <div class="empdash-filter-pills" id="emp-role-filters" role="toolbar" aria-label="Rollenfilter"></div>
             </div>
             <div class="empdash-toolbar-right">
+              <label class="empdash-sort-wrap" for="emp-sort">
+                <span class="empdash-sort-lbl">Sortieren</span>
+                <select id="emp-sort" class="empdash-sort" aria-label="Mitarbeitende sortieren">
+                  <option value="name">Name (A–Z)</option>
+                  <option value="position">Position</option>
+                  <option value="duty">Dienste (absteigend)</option>
+                  <option value="vacation">Urlaub (absteigend)</option>
+                  <option value="sick">Krank (absteigend)</option>
+                  <option value="active">Aktive Monate (absteigend)</option>
+                </select>
+              </label>
+              <button type="button" class="empdash-export-btn" id="emp-export-csv" title="Sichtbare Auswahl als CSV exportieren">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <span>CSV</span>
+              </button>
               <div class="empdash-count" id="emp-visible-count" aria-live="polite"></div>
             </div>
           </div>

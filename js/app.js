@@ -103,7 +103,7 @@ import {
 } from './render-modals.js';
 
 import { renderDeptContent } from './render-dept.js';
-import { renderEmployeeDashboard } from './render-employee-dashboard.js';
+import { renderEmployeeDashboard, exportEmployeeDashboardCSV } from './render-employee-dashboard.js';
 
 import {
   computeAutoPlan,
@@ -2543,10 +2543,24 @@ export function wireEvents() {
   });
   
   document.querySelectorAll(".empdash-view-btn").forEach((btn) => {
-    btn.addEventListener("click", () => { 
-      state.employeeDashboard.detailView = btn.dataset.view; 
-      renderEmployeeDashboard(); 
+    btn.addEventListener("click", () => {
+      state.employeeDashboard.detailView = btn.dataset.view;
+      renderEmployeeDashboard();
     });
+  });
+
+  const empSortEl = document.getElementById("emp-sort");
+  if (empSortEl) {
+    empSortEl.value = state.employeeDashboard.sort || "name";
+    empSortEl.addEventListener("change", (e) => {
+      state.employeeDashboard.sort = e.target.value;
+      renderEmployeeDashboard();
+    });
+  }
+
+  document.getElementById("emp-export-csv")?.addEventListener("click", () => {
+    const n = exportEmployeeDashboardCSV();
+    showToast(n ? `${n} Mitarbeitende als CSV exportiert` : "Keine Daten zum Export");
   });
   
   document.addEventListener("click", (e) => {

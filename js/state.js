@@ -16,6 +16,7 @@ export let state = {
     role: "ALL",
     selectedEmp: null,
     detailView: "months",
+    sort: "name",
     analyticsRange: "month",
     customStart: null,
     customEnd: null,

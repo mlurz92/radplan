@@ -1037,6 +1037,41 @@
 
 .empdash-count { font-size: 12px; color: var(--gray-500); white-space: nowrap; padding-top: 10px; }
 
+.empdash-toolbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.empdash-sort-wrap { display: inline-flex; align-items: center; gap: 6px; }
+.empdash-sort-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--gray-500); }
+.empdash-sort {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-800);
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  transition: border-color .2s, box-shadow .2s;
+}
+.empdash-sort:hover { border-color: var(--gray-300); }
+.empdash-sort:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(14,165,233,.15); }
+.empdash-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background .2s, transform .15s;
+}
+.empdash-export-btn:hover { background: #0B8FCF; }
+.empdash-export-btn:active { transform: scale(.96); }
+
 .empdash-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 
 .empdash-card {
