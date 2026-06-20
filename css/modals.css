@@ -19,7 +19,7 @@
 }
 
 .modal {
-  background: rgba(var(--ink-rgb),.92);
+  background: rgba(255,255,255,.92);
   backdrop-filter: blur(var(--glass-blur-lg));
   -webkit-backdrop-filter: blur(var(--glass-blur-lg));
   border-radius: var(--radius-xl);
