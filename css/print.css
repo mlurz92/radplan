@@ -83,12 +83,18 @@
   }
 
   /* Festes Layout: Spalten teilen sich die verfügbare Breite gleichmäßig auf,
-     egal ob der Monat 28 oder 31 Tage hat → niemals horizontaler Überlauf. */
+     egal ob der Monat 28 oder 31 Tage hat → niemals horizontaler Überlauf.
+     Zusätzlich wird die Tabelle bei vielen Mitarbeitenden über --print-scale
+     (in printPlan() aus der Zeilenzahl berechnet) gleichmäßig verkleinert, so
+     dass sie auch vertikal vollständig auf eine Seite passt. Die inverse Breite
+     hält die Seite dabei randscharf gefüllt. */
   #plan-table {
-    width: 100% !important;
+    width: calc(100% / var(--print-scale, 1)) !important;
     table-layout: fixed !important;
     border-collapse: collapse !important;
     font-size: 8px !important;
+    transform: scale(var(--print-scale, 1));
+    transform-origin: top left;
   }
 
   /* Namensspalte bekommt eine feste, schmale Breite; die Tagesspalten teilen

@@ -95,6 +95,7 @@ export function renderEmployeeDashboard() {
   const query = dash.filter.trim().toLowerCase();
   const filtered = metrics.filter((item) => {
     if (!matchRoleFilter(item.emp, dash.role)) return false;
+    if (dash.activeOnly && item.activeMonths <= 0) return false;
     if (!query) return true;
     const hay = [item.emp, item.meta.fullName, item.meta.posLabel, item.meta.position, item.meta.area].join(" ").toLowerCase();
     return hay.includes(query);
@@ -924,6 +925,7 @@ export function exportEmployeeDashboardCSV() {
   const query = dash.filter.trim().toLowerCase();
   let rows = metrics.filter((item) => {
     if (!matchRoleFilter(item.emp, dash.role)) return false;
+    if (dash.activeOnly && item.activeMonths <= 0) return false;
     if (!query) return true;
     const hay = [item.emp, item.meta.fullName, item.meta.posLabel, item.meta.position, item.meta.area].join(" ").toLowerCase();
     return hay.includes(query);

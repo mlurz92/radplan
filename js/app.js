@@ -1310,6 +1310,21 @@ export function printPlan() {
     metaEl.textContent = `Gedruckt am ${new Date().toLocaleDateString("de-DE")}${planMode ? " · Planungsentwurf" : ""}`;
   }
   document.title = `RadPlan — ${MONTHS[month]} ${year}`;
+
+  // Guarantee the whole grid fits ONE landscape-A4 page vertically too.
+  // The print stylesheet already fits the width (table-layout:fixed), but a
+  // large department can still overflow downward. Estimate the printed height
+  // from the row count and derive a uniform scale that the print stylesheet
+  // applies via transform — with an inverse width so the page stays full-bleed.
+  const table = document.getElementById("plan-table");
+  const rows = table ? table.querySelectorAll("tr").length : 0;
+  // A4 landscape @96dpi, 8mm margins, minus print header/footer ≈ usable px.
+  const USABLE_H = 680;
+  const PRINT_ROW_H = 15; // matches the compact print row metrics
+  const estHeight = rows * PRINT_ROW_H + 24;
+  const scale = Math.min(1, USABLE_H / Math.max(estHeight, 1));
+  document.documentElement.style.setProperty("--print-scale", scale.toFixed(4));
+
   window.print();
 }
 
@@ -2554,6 +2569,15 @@ export function wireEvents() {
     empSortEl.value = state.employeeDashboard.sort || "name";
     empSortEl.addEventListener("change", (e) => {
       state.employeeDashboard.sort = e.target.value;
+      renderEmployeeDashboard();
+    });
+  }
+
+  const empActiveEl = document.getElementById("emp-active-only");
+  if (empActiveEl) {
+    empActiveEl.checked = !!state.employeeDashboard.activeOnly;
+    empActiveEl.addEventListener("change", (e) => {
+      state.employeeDashboard.activeOnly = e.target.checked;
       renderEmployeeDashboard();
     });
   }
