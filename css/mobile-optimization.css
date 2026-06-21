@@ -3,46 +3,51 @@
  * Viewport: 430x932 CSS pixels | Safe Area: top 59px, bottom 34px | DPR: 3x
  */
 
-@media only screen and (min-width: 430px) and (orientation: portrait) {
-  :root {
+/* Phone PORTRAIT (iPhone 14 Pro Max = 430px wide, plus all smaller phones).
+   Gated to touch devices so desktop windows narrower than the old 430px
+   threshold — or merely in a portrait-ish aspect — are never affected. The
+   previous `min-width: 430px` matched desktops AND skipped 390px-class phones;
+   `max-width: 480px` is the correct phone target. */
+@media only screen and (max-width: 480px) and (orientation: portrait) and (pointer: coarse) {
+  body.is-mobile {
     --header-h: 48px;
     --name-w: 120px;
     --cell-w: 42px;
     --row-h: clamp(44px, 5dvh, 56px);
     --foot-h: 28px;
     --overlay-pad: 14px;
-    --safe-top: env(safe-area-inset-top, 0px);
-    --safe-right: env(safe-area-inset-right, 0px);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-    --safe-left: env(safe-area-inset-left, 0px);
   }
 
   body.is-mobile.is-standalone #app-header {
     height: calc(var(--header-h) + var(--safe-top));
     padding-top: var(--safe-top);
-    padding-left: var(--safe-left);
-    padding-right: var(--safe-right);
+    padding-left: max(var(--safe-left), 8px);
+    padding-right: max(var(--safe-right), 8px);
   }
 
-  #grid-wrapper {
+  body.is-mobile #grid-wrapper {
     padding: calc(8px + var(--safe-top)) calc(8px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(8px + var(--safe-left));
   }
 }
 
-@media only screen and (min-width: 932px) and (orientation: landscape) {
-  :root {
+/* Phone LANDSCAPE (iPhone 14 Pro Max = 932px wide / 430px tall). Keyed off the
+   short height so it never matches desktop landscape windows ≥932px wide. */
+@media only screen and (orientation: landscape) and (max-height: 480px) and (pointer: coarse) {
+  body.is-mobile {
     --header-h: 42px;
     --name-w: 140px;
     --cell-w: 46px;
-    --row-h: clamp(44px, 4.2dvh, 52px);
+    --row-h: clamp(40px, 4.2dvh, 52px);
     --overlay-pad: 10px;
-    --safe-top: env(safe-area-inset-top, 0px);
-    --safe-right: env(safe-area-inset-right, 0px);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-    --safe-left: env(safe-area-inset-left, 0px);
   }
 
-  #grid-wrapper {
+  /* Use the side safe-areas (Dynamic Island sits on a side edge in landscape). */
+  body.is-mobile.is-standalone #app-header {
+    padding-left: max(var(--safe-left), 8px);
+    padding-right: max(var(--safe-right), 8px);
+  }
+
+  body.is-mobile #grid-wrapper {
     padding: calc(8px + var(--safe-top)) calc(8px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(8px + var(--safe-left));
   }
 }

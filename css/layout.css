@@ -545,6 +545,25 @@ tr:hover .td-name {
   border-right-color: rgba(14,165,233,.25);
 }
 
+/* Role-band structure: a firm divider separates each role group so the grid
+   reads as distinct sections (Leitung · FÄ · AÄ · weitere) instead of one
+   undifferentiated block. The first row of a band carries the heavier rule. */
+.tr-band-start .td-name,
+.tr-band-start .td-cell {
+  border-top: 2px solid rgba(var(--ink-rgb), 0.22);
+}
+.tr-band-start:first-child .td-name,
+.tr-band-start:first-child .td-cell {
+  border-top: none;
+}
+/* Subtle per-band tint on the sticky name column for at-a-glance grouping. */
+tr[data-band="lead"] .td-name { background: rgba(14, 165, 233, 0.10); }
+tr[data-band="fa"]   .td-name { background: rgba(168, 85, 247, 0.08); }
+tr[data-band="aa"]   .td-name { background: rgba(34, 197, 94, 0.07); }
+tr[data-band="lead"]:hover .td-name,
+tr[data-band="fa"]:hover .td-name,
+tr[data-band="aa"]:hover .td-name { background: rgba(14, 165, 233, 0.16); }
+
 .emp-label {
   flex: 1;
   font-size: 12.5px;
@@ -586,7 +605,7 @@ tr:hover .emp-pos-tag {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--gray-400);
+  color: var(--text-3);
   opacity: 0;
   transform: scale(0.8);
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -926,19 +945,19 @@ tr:hover .emp-profile-icon {
   align-items: center;
   gap: 10px;
   padding: 52px 24px;
-  color: var(--gray-400);
+  color: var(--text-3);
 }
 
 .empty-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--gray-500);
+  color: var(--text-2);
 }
 
 .empty-hint {
   font-size: 12px;
   line-height: 1.6;
-  color: var(--gray-400);
+  color: var(--text-3);
 }
 
 .tr-rbn .td-name-rbn {

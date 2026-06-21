@@ -95,11 +95,37 @@ export function renderEmployeeDashboard() {
   const query = dash.filter.trim().toLowerCase();
   const filtered = metrics.filter((item) => {
     if (!matchRoleFilter(item.emp, dash.role)) return false;
+    if (dash.activeOnly && item.activeMonths <= 0) return false;
     if (!query) return true;
     const hay = [item.emp, item.meta.fullName, item.meta.posLabel, item.meta.position, item.meta.area].join(" ").toLowerCase();
     return hay.includes(query);
   });
   
+  const posRank = (p) => {
+    const order = ["CA", "LOA", "OA", "OÄ", "FA", "FÄ", "AA", "AÄ"];
+    const i = order.indexOf(p);
+    return i === -1 ? order.length : i;
+  };
+  const sortKey = dash.sort || "name";
+  filtered.sort((a, b) => {
+    switch (sortKey) {
+      case "position": {
+        const d = posRank(a.meta.position) - posRank(b.meta.position);
+        return d !== 0 ? d : a.emp.localeCompare(b.emp, "de");
+      }
+      case "duty":
+        return (b.ys.totals.dutyD + b.ys.totals.dutyHG) - (a.ys.totals.dutyD + a.ys.totals.dutyHG);
+      case "vacation":
+        return (b.ys.totals.vacationDays || 0) - (a.ys.totals.vacationDays || 0);
+      case "sick":
+        return (b.ys.totals.sickDays || 0) - (a.ys.totals.sickDays || 0);
+      case "active":
+        return b.activeMonths - a.activeMonths;
+      default:
+        return a.emp.localeCompare(b.emp, "de");
+    }
+  });
+
   if (!dash.selectedEmp || !employees.includes(dash.selectedEmp)) {
     dash.selectedEmp = filtered[0]?.emp || null;
   }
@@ -884,4 +910,68 @@ export function renderEmployeeDetailDashboard(emp, year) {
       document.getElementById('emp-add-btn')?.click();
     }
   });
+}
+
+// Export the currently visible (filtered + sorted) employee year-metrics as a
+// semicolon-separated CSV (Excel-/de-locale friendly), so the dashboard doubles
+// as a reporting tool for staff- and planning oversight.
+export function exportEmployeeDashboardCSV() {
+  const { year: y } = state;
+  const dash = state.employeeDashboard;
+  const employees = getEmployeesForYear(y);
+  if (!employees.length) return false;
+
+  const metrics = employees.map((emp) => getEmployeeYearCardMetrics(emp, y));
+  const query = dash.filter.trim().toLowerCase();
+  let rows = metrics.filter((item) => {
+    if (!matchRoleFilter(item.emp, dash.role)) return false;
+    if (dash.activeOnly && item.activeMonths <= 0) return false;
+    if (!query) return true;
+    const hay = [item.emp, item.meta.fullName, item.meta.posLabel, item.meta.position, item.meta.area].join(" ").toLowerCase();
+    return hay.includes(query);
+  });
+
+  const posRank = (p) => {
+    const order = ["CA", "LOA", "OA", "OÄ", "FA", "FÄ", "AA", "AÄ"];
+    const i = order.indexOf(p);
+    return i === -1 ? order.length : i;
+  };
+  const sortKey = dash.sort || "name";
+  rows.sort((a, b) => {
+    switch (sortKey) {
+      case "position": { const d = posRank(a.meta.position) - posRank(b.meta.position); return d !== 0 ? d : a.emp.localeCompare(b.emp, "de"); }
+      case "duty": return (b.ys.totals.dutyD + b.ys.totals.dutyHG) - (a.ys.totals.dutyD + a.ys.totals.dutyHG);
+      case "vacation": return (b.ys.totals.vacationDays || 0) - (a.ys.totals.vacationDays || 0);
+      case "sick": return (b.ys.totals.sickDays || 0) - (a.ys.totals.sickDays || 0);
+      case "active": return b.activeMonths - a.activeMonths;
+      default: return a.emp.localeCompare(b.emp, "de");
+    }
+  });
+
+  const esc = (v) => {
+    const s = String(v ?? "");
+    return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const header = ["Kürzel", "Name", "Position", "Bereich", "Aktive Monate", "Dienste D", "Dienste HG", "Dienste gesamt", "Urlaubstage", "Kranktage", "FZA-Tage"];
+  const lines = [header.join(";")];
+  rows.forEach((item) => {
+    const t = item.ys.totals;
+    lines.push([
+      item.emp, item.meta.fullName || "", item.meta.position || "", item.meta.area || "",
+      item.activeMonths, t.dutyD, t.dutyHG, t.dutyD + t.dutyHG,
+      t.vacationDays || 0, t.sickDays || 0, t.fzaDays || 0,
+    ].map(esc).join(";"));
+  });
+
+  // BOM so Excel detects UTF-8 (umlauts in names render correctly).
+  const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `radplan_mitarbeitende_${y}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return rows.length;
 }
