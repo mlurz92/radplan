@@ -48,7 +48,7 @@
 #btn-today, #btn-theme, #btn-density, #btn-cmdk {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
-  color: rgba(var(--ink-rgb),.55);
+  color: var(--text-3);
   padding: 6px 9px;
   border-radius: var(--radius-sm);
   transition: all .2s;
@@ -131,7 +131,7 @@
 .plan-hist-btn {
   background: rgba(251,191,36,.1);
   border: 1px solid rgba(251,191,36,.18);
-  color: rgba(var(--ink-rgb),.5);
+  color: var(--text-3);
   padding: 6px 12px;
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);
@@ -188,7 +188,7 @@
 .plan-btn-abort {
   background: rgba(var(--ink-rgb),.07);
   border: 1px solid rgba(var(--ink-rgb),.12);
-  color: rgba(var(--ink-rgb),.6);
+  color: var(--text-2);
 }
 
 .plan-btn-abort:hover {
@@ -222,7 +222,7 @@
 .plan-btn-close {
   background: rgba(var(--ink-rgb),.07);
   border: 1px solid rgba(var(--ink-rgb),.12);
-  color: rgba(var(--ink-rgb),.6);
+  color: var(--text-2);
 }
 
 .plan-btn-close:hover {
@@ -510,7 +510,7 @@ body.plan-mode-active #btn-plan {
 }
 
 .text-input::placeholder {
-  color: var(--gray-400);
+  color: var(--gray-600);
 }
 
 .dropzone {
@@ -1071,7 +1071,7 @@ body.modal-open .cell-quick-popover {
 }
 
 .cmdk-input::placeholder {
-  color: var(--gray-400);
+  color: var(--gray-600);
 }
 
 .cmdk-esc {

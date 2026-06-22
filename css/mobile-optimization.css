@@ -250,3 +250,34 @@ body.is-mobile .overlay .modal .yp-grid-scroll {
     padding-bottom: max(12px, var(--safe-bottom, 0px)) !important;
   }
 }
+
+/* Mobile contrast hardening: these phone-only surfaces mix fixed light cards,
+   themed glass chrome and very small labels. Keep every label comfortably above
+   AA in both light and dark themes instead of relying on faint opacity tiers. */
+@media (max-width: 600px) {
+  body.is-mobile .mnav-btn { color: var(--text-2); font-weight: 650; }
+  body.is-mobile .mnav-btn svg { color: currentColor; }
+  body.is-mobile .mobile-week-sep { color: var(--text-2); }
+  body.is-mobile .mobile-month-summary,
+  body.is-mobile .mobile-day-card,
+  body.is-mobile .mobile-day-sheet .modal-bd {
+    --ink-rgb: 15,23,42;
+    --ink-strong: #0F172A;
+    --text-1: #0F172A;
+    --text-2: rgba(15,23,42,.88);
+    --text-3: rgba(15,23,42,.76);
+    --text-faint: rgba(15,23,42,.68);
+  }
+  body.is-mobile .mms-item-emp .mms-code,
+  body.is-mobile .mdc-assign-more,
+  body.is-mobile .mday-emp-sub,
+  body.is-mobile .mday-empty-assign,
+  body.is-mobile .mday-edit-icon,
+  body.is-mobile .mdc-arrow {
+    color: #64748B;
+  }
+  body.is-mobile .mday-section-hd {
+    color: #475569;
+    background: #F8FAFC;
+  }
+}
