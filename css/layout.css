@@ -98,7 +98,7 @@ body.is-mobile.is-standalone #app-header {
 .nav-btn {
   background: none;
   border: none;
-  color: rgba(var(--ink-rgb),.6);
+  color: var(--text-2);
   font-size: 18px;
   line-height: 1;
   padding: 4px 10px;
@@ -229,14 +229,14 @@ body.is-mobile.is-standalone #app-header {
   padding: 0 12px 0 0;
   border-right: 1px solid rgba(var(--ink-rgb),.1);
   margin-right: 4px;
-  color: rgba(var(--ink-rgb),.5);
+  color: var(--text-3);
   gap: 5px;
 }
 
 .stat-label-sm {
   font-size: 10px;
   font-weight: 600;
-  color: rgba(var(--ink-rgb),.4);
+  color: var(--text-faint);
   letter-spacing: .04em;
 }
 
@@ -259,7 +259,7 @@ body.is-mobile.is-standalone #app-header {
 
 #stats-empty {
   font-size: 11px;
-  color: rgba(var(--ink-rgb),.4);
+  color: var(--text-faint);
   font-style: italic;
 }
 
@@ -319,7 +319,7 @@ body.is-mobile.is-standalone #app-header {
 
 .plan-bar-hint {
   font-size: 11.5px;
-  color: rgba(var(--ink-rgb),.28);
+  color: var(--text-faint);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -432,7 +432,7 @@ main {
   font-weight: 700;
   letter-spacing: .1em;
   text-transform: uppercase;
-  color: rgba(var(--ink-rgb),.64);
+  color: var(--text-2);
 }
 
 .th-day {
@@ -720,7 +720,7 @@ tr:hover .emp-profile-icon {
 }
 
 .td-cell.auto-f-rest .cell-assign {
-  color: rgba(var(--ink-rgb),.4);
+  color: var(--text-faint);
   font-weight: 500 !important;
   font-style: italic;
   letter-spacing: .03em;
@@ -867,7 +867,7 @@ tr:hover .emp-profile-icon {
   left: 0;
   z-index: 20;
   background: rgba(var(--navy-700-rgb),.92);
-  color: rgba(var(--ink-rgb),.6);
+  color: var(--text-2);
   backdrop-filter: blur(6px);
   height: var(--foot-h);
   padding: 0 10px;
@@ -882,7 +882,7 @@ tr:hover .emp-profile-icon {
 
 .tr-stat .td-stat-val {
   background: rgba(var(--navy-700-rgb),.7);
-  color: rgba(var(--ink-rgb),.3);
+  color: var(--text-faint);
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
@@ -896,7 +896,7 @@ tr:hover .emp-profile-icon {
 }
 
 .td-stat-val.dim {
-  color: rgba(var(--ink-rgb),.4);
+  color: var(--text-faint);
   opacity: 1;
 }
 
@@ -931,7 +931,7 @@ tr:hover .emp-profile-icon {
 .stat-lbl-text {
   font-size: 10px;
   font-weight: 500;
-  color: rgba(var(--ink-rgb),.5);
+  color: var(--text-3);
 }
 
 .td-empty {
@@ -1176,7 +1176,7 @@ body.grid-density-compact .d-kw {
   .mnav-btn {
     background: none;
     border: none;
-    color: rgba(var(--ink-rgb),.6);
+    color: var(--text-2);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1248,7 +1248,7 @@ body.grid-density-compact .d-kw {
   background: rgba(14,165,233,.05);
   border-top: 1px solid rgba(14,165,233,.12);
   font-size: 10px;
-  color: rgba(var(--ink-rgb),.4);
+  color: var(--text-faint);
   font-family: var(--font-mono);
   flex-wrap: nowrap;
   overflow: hidden;
@@ -1297,7 +1297,7 @@ body.plan-mode-active #grid-kbd-hint {
   font-size: 8.5px;
   font-weight: 600;
   font-family: var(--font-mono);
-  color: rgba(var(--ink-rgb),.65);
+  color: var(--text-2);
   line-height: 1;
   letter-spacing: 0;
 }

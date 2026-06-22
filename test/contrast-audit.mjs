@@ -17,7 +17,7 @@ const MODAL_LIGHT=over([255,255,255],0.98,hex(LIGHT.navy900));
 function inkOn(a,theme,surface){return over(theme.ink,a,surface);}
 
 const tests=[];
-function T(name,fg,bg,big=false){const r=ratio(Array.isArray(fg)?fg:hex(fg),Array.isArray(bg)?bg:hex(bg));const min=big?3.0:4.5;tests.push({name,r:+r.toFixed(2),pass:r>=min,min});}
+function T(name,fg,bg,big=false,exempt=false){const r=ratio(Array.isArray(fg)?fg:hex(fg),Array.isArray(bg)?bg:hex(bg));const min=big?3.0:4.5;tests.push({name,r:+r.toFixed(2),pass:exempt||r>=min,min,exempt});}
 
 // ---- Dark canvas (navy) ----
 const dCanvas=over(hex(DARK.navy800),0.85,hex(DARK.navy900));
@@ -39,7 +39,7 @@ T('[light] text-faint (.60) on canvas',inkOn(.60,LIGHT,hex(LIGHT.navy900)),hex(L
   T(`[${t}] gray-600 text`,G[600],bg);
   T(`[${t}] gray-500 text`,G[500],bg);
   // gray-400 now only remains on ::placeholder text, which WCAG 1.4.3 exempts.
-  T(`[${t}] gray-400 PLACEHOLDER (WCAG-exempt)`,G[400],bg);
+  T(`[${t}] gray-400 PLACEHOLDER (WCAG-exempt)`,G[400],bg,false,true);
 });
 
 // ---- Fixed gray-800 table headers (yp/dept/empdash) with gray-300 text ----
@@ -77,6 +77,10 @@ T('[hg] #0369A1 on #E0F2FE',hex('#0369A1'),hex('#E0F2FE'));
 T('[hdr] modal-hd-sub white@.62 on navy-800(dark)',over([255,255,255],.62,hex('#0A1525')),hex('#0A1525'));
 T('[hdr] modal-hd-sub slate@.62 on navy-800(cream)',over([15,23,42],.62,hex('#ECE7DC')),hex('#ECE7DC'));
 T('[mdc] empty-duty gray-500 on white',G[500],[255,255,255]);
+T('[modal-body] pinned text-1 on fixed light modal',hex('#0F172A'),MODAL_DARK);
+T('[modal-body] pinned text-3 on fixed light modal',over([15,23,42],.68,MODAL_DARK),MODAL_DARK);
+T('[mobile-nav] text-2 dark on navy chrome',inkOn(.76,DARK,dCanvas),dCanvas);
+T('[mobile-sheet] mday section label gray-600 on gray-50',G[600],hex(G[50]));
 
 // ---- Output ----
 const fails=tests.filter(t=>!t.pass);
@@ -84,4 +88,10 @@ console.log('Total pairs:',tests.length,'| FAIL:',fails.length);
 console.log('\n--- FAILURES (< AA) ---');
 fails.forEach(t=>console.log(`✗ ${t.r}  (min ${t.min})  ${t.name}`));
 console.log('\n--- borderline pass (AA but < 4.5 large only / <5) ---');
-tests.filter(t=>t.pass&&t.r<5).forEach(t=>console.log(`~ ${t.r}  ${t.name}`));
+tests.filter(t=>t.pass&&!t.exempt&&t.r<5).forEach(t=>console.log(`~ ${t.r}  ${t.name}`));
+const exempt = tests.filter(t=>t.exempt);
+if (exempt.length) {
+  console.log('\n--- WCAG-exempt informational pairs ---');
+  exempt.forEach(t=>console.log(`i ${t.r}  ${t.name}`));
+}
+if (fails.length) process.exitCode = 1;

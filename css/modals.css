@@ -41,6 +41,30 @@
   min-width: 0;
 }
 
+/* Modal content panels are intentionally fixed light surfaces in both themes.
+   Pin body/footer ink to dark slate so labels, hints and form text do not turn
+   white and disappear when the app itself is in dark mode. Headers opt back
+   into the theme ink below because they sit on the themed dark/cream chrome. */
+.modal-bd,
+.modal-ft {
+  --ink-rgb: 15,23,42;
+  --ink-strong: #0F172A;
+  --text-1: #0F172A;
+  --text-2: rgba(15,23,42,.82);
+  --text-3: rgba(15,23,42,.68);
+  --text-faint: rgba(15,23,42,.58);
+  color: var(--text-1);
+}
+
+.modal-hd {
+  --ink-rgb: var(--app-ink-rgb);
+  --ink-strong: var(--app-ink-strong);
+  --text-1: var(--app-ink-strong);
+  --text-2: rgba(var(--app-ink-rgb),.82);
+  --text-3: rgba(var(--app-ink-rgb),.68);
+  --text-faint: rgba(var(--app-ink-rgb),.58);
+}
+
 /* Premium glass sheen — a soft diagonal highlight across the top of the
    modal, like light catching a glass pane. Sits at z-index 0 behind the
    header/body (which get their own stacking context below) so it can
@@ -199,7 +223,13 @@
 }
 
 .preview-box {
-  background: rgba(var(--navy-800-rgb),.75);
+  --ink-rgb: 255,255,255;
+  --ink-strong: #FFFFFF;
+  --text-1: #FFFFFF;
+  --text-2: rgba(255,255,255,.82);
+  --text-3: rgba(255,255,255,.68);
+  --text-faint: rgba(255,255,255,.58);
+  background: rgba(10,21,37,.92);
   backdrop-filter: blur(var(--glass-blur));
   border-radius: var(--radius);
   padding: 14px 18px;
@@ -223,7 +253,7 @@
   font-weight: 700;
   letter-spacing: .1em;
   text-transform: uppercase;
-  color: rgba(var(--ink-rgb),.6);
+  color: var(--text-3);
   margin-bottom: 4px;
 }
 
