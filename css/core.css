@@ -76,6 +76,8 @@
      the stylesheet, so every "glass" surface keeps its depth in both themes. */
   --ink-rgb: 255,255,255;
   --ink-strong: #FFFFFF;
+  --app-ink-rgb: 255,255,255;
+  --app-ink-strong: #FFFFFF;
   --navy-800-rgb: 10,21,37;
   --navy-900-rgb: 6,13,22;
   --navy-700-rgb: 15,29,50;
@@ -125,6 +127,8 @@
 
   --ink-rgb: 15,23,42;
   --ink-strong: #0F172A;
+  --app-ink-rgb: 15,23,42;
+  --app-ink-strong: #0F172A;
   --navy-800-rgb: 236,231,220;
   --navy-900-rgb: 244,241,234;
   --navy-700-rgb: 226,220,204;
