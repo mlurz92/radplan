@@ -120,6 +120,9 @@ import { NeuralGraph } from './neuralgraph.js';
 import { openYearPlan, setupYearPlanModal, renderYearPlanContent, setYearPlanYear, cleanupYearPlan } from './yearplan.js';
 import { initCommandPalette } from './commandpalette.js';
 import { withViewTransition, withThemeViewTransition } from './viewtransition.js';
+import { initNormalHistory, normalUndo, normalRedo, updateNormalHistoryUI } from './history.js';
+import { initCellTooltips } from './celltooltip.js';
+import { openPrintPreview } from './printpreview.js';
 
 let localAutoPlanResult = null;
 let localAutoPlanTargets = {};
@@ -383,6 +386,7 @@ export function enterPlanMode() {
   loadPlanSessionForState(y, m);
   localAutoPlanTargets = {};
   render();
+  updateNormalHistoryUI();
   showToast("Planungsmodus aktiv");
 }
 
@@ -394,6 +398,7 @@ export function exitPlanMode() {
   setPlanHistory([]);
   setPlanHistoryIdx(-1);
   render();
+  updateNormalHistoryUI();
 }
 
 export function getWish(emp, day) {
@@ -583,9 +588,30 @@ export function redoPlan() {
 
 export function openEditor(emp, day, options = {}) {
   const { year: y, month: m } = state;
-  const { ctrlKey = false } = options;
+  const { ctrlKey = false, shiftKey = false } = options;
   const isRbnRow = emp === RBN_ROW_KEY;
-  
+
+  // Shift+Klick → zusammenhängender Bereich vom Anker bis zum geklickten Tag.
+  if (shiftKey && !isRbnRow) {
+    if (state.multiEdit.emp !== emp || !state.multiEdit.days.length) {
+      state.multiEdit.emp = emp;
+      state.multiEdit.days = [day];
+      state.multiEdit.anchor = day;
+    } else {
+      const anchor = state.multiEdit.anchor || state.multiEdit.days[0];
+      const lo = Math.min(anchor, day);
+      const hi = Math.max(anchor, day);
+      const range = [];
+      for (let dd = lo; dd <= hi; dd++) range.push(dd);
+      state.multiEdit.days = range;
+      state.multiEdit.anchor = anchor;
+    }
+    render();
+    showToast(`${state.multiEdit.days.length} Tage für ${emp} markiert (Bereich)`);
+    return;
+  }
+
+  // Strg/Cmd+Klick → einzelne Tage zur Auswahl hinzufügen/entfernen.
   if (ctrlKey && !isRbnRow) {
     if (state.multiEdit.emp !== emp) {
       state.multiEdit.emp = emp;
@@ -598,6 +624,7 @@ export function openEditor(emp, day, options = {}) {
       state.multiEdit.days.push(day);
       state.multiEdit.days.sort((a, b) => a - b);
     }
+    state.multiEdit.anchor = day;
     render();
     showToast(state.multiEdit.days.length ? `${state.multiEdit.days.length} Tage für ${emp} markiert` : "Mehrfachauswahl aufgehoben");
     return;
@@ -1015,7 +1042,7 @@ export function saveEditor() {
   }
 
   hideOverlay("modal-editor");
-  state.multiEdit = { emp: null, days: [] };
+  state.multiEdit = { emp: null, days: [], anchor: null };
   if (days.length > 1) {
     const fSuffix = autoFCount > 0 ? ` (inkl. ${autoFCount}x F automatisch)` : "";
     showToast(`${days.length} Tage gespeichert${fSuffix}`);
@@ -2619,7 +2646,18 @@ export function wireEvents() {
   });
 
   document.getElementById("btn-print")?.addEventListener("click", () => {
-    printPlan();
+    openPrintPreview();
+  });
+
+  document.getElementById("btn-undo")?.addEventListener("click", normalUndo);
+  document.getElementById("btn-redo")?.addEventListener("click", normalRedo);
+  document.getElementById("mbtn-undo")?.addEventListener("click", () => {
+    hideOverlay("modal-mobile-menu");
+    setTimeout(normalUndo, 180);
+  });
+  document.getElementById("mbtn-redo")?.addEventListener("click", () => {
+    hideOverlay("modal-mobile-menu");
+    setTimeout(normalRedo, 180);
   });
 
   document.getElementById("btn-import")?.addEventListener("click", () => {
@@ -2731,7 +2769,7 @@ export function wireEvents() {
 
     if (planMode) recordPlanHistory();
 
-    state.multiEdit = { emp: null, days: [] };
+    state.multiEdit = { emp: null, days: [], anchor: null };
     hideOverlay("modal-editor");
     render();
   });
@@ -2769,7 +2807,7 @@ export function wireEvents() {
       [
         "modal-editor", "modal-emps", "modal-import", "modal-profile", "modal-dept",
         "modal-yearplan", "modal-autoplan", "modal-ap-report", "modal-mobile-menu",
-        "modal-mobile-day", "modal-score-info", "modal-command-palette"
+        "modal-mobile-day", "modal-score-info", "modal-command-palette", "modal-print-preview"
       ].forEach((id) => {
         const el = document.getElementById(id);
         if (el && !el.hasAttribute("hidden")) hideOverlay(id);
@@ -2845,26 +2883,45 @@ export function wireEvents() {
       }
     }
     
-    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "s") { 
-      e.preventDefault(); 
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "s") {
+      e.preventDefault();
       if (planMode) {
-        savePlanDraft(); 
+        savePlanDraft();
       } else {
-        doExport(); 
+        doExport();
       }
-      return; 
+      return;
     }
-    
+
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === "p" || e.key === "P")) {
+      e.preventDefault();
+      openPrintPreview();
+      return;
+    }
+
+    const typingTarget = ["INPUT", "TEXTAREA", "SELECT"].includes((e.target?.tagName || "").toUpperCase()) || e.target?.isContentEditable;
+
     if (planMode) {
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "z") { 
-        e.preventDefault(); 
-        undoPlan(); 
-        return; 
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "z") {
+        e.preventDefault();
+        undoPlan();
+        return;
       }
-      if ((e.ctrlKey || e.metaKey) && ((e.shiftKey && e.key === "z") || e.key === "y")) { 
-        e.preventDefault(); 
-        redoPlan(); 
-        return; 
+      if ((e.ctrlKey || e.metaKey) && ((e.shiftKey && e.key === "z") || e.key === "y")) {
+        e.preventDefault();
+        redoPlan();
+        return;
+      }
+    } else if (!typingTarget) {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === "z" || e.key === "Z")) {
+        e.preventDefault();
+        normalUndo();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && ((e.shiftKey && (e.key === "z" || e.key === "Z")) || e.key === "y" || e.key === "Y")) {
+        e.preventDefault();
+        normalRedo();
+        return;
       }
     }
     
@@ -2929,6 +2986,8 @@ export async function init() {
   syncPeriodControls();
   wireEvents();
   setupYearPlanModal();
+  initNormalHistory();
+  initCellTooltips();
 
   // Jahresplan-Navigation: Klick auf Gitterzelle springt zum Monat
   window.addEventListener('radplan-navigate', (e) => {

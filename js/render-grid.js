@@ -1000,6 +1000,11 @@ export function renderTbody(y, m, dim, hols, md) {
           dragSelectionState.justDragged = false;
           return;
         }
+        if (e.shiftKey) {
+          closeCellQuickPopover();
+          openEditor(emp, d, { shiftKey: true });
+          return;
+        }
         if (e.ctrlKey || e.metaKey) {
           closeCellQuickPopover();
           openEditor(emp, d, { ctrlKey: true });

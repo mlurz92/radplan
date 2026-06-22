@@ -32,8 +32,10 @@ Externe Abhängigkeiten werden ausschließlich über CDN-Skripte eingebunden:
 
 - **Chart.js** (`chart.umd.min.js`, Version 4.4.4) — für Donut-Diagramme, Balkendiagramme und Trendkurven in Profil-, Dashboard- und Jahresplaner-Ansichten.
 - **GSAP** (`gsap.min.js`, Version 3.12.2) — für ergänzende Animationseffekte.
+- **jsPDF** (`jspdf.umd.min.js`, Version 2.5.1) — für den nativen PDF-Export des Monatsplans ohne Umweg über den Browser-Druckdialog (Kopfzeile, Logo-Marke, Seitenzahlen, wählbares Layout).
+- **jsPDF-AutoTable** (`jspdf.plugin.autotable.min.js`, Version 3.8.2) — Tabellen-Plugin für jsPDF, das das Monatsraster seitenübergreifend mit wiederholtem Tabellenkopf und automatischer Skalierung in das PDF setzt.
 
-Beide werden als reguläre `<script>`-Tags vor dem Anwendungsmodul `js/app.js` geladen; die Anwendung prüft an den jeweiligen Einsatzstellen, ob die globalen Objekte (`Chart`, `gsap`) tatsächlich verfügbar sind, und verzichtet andernfalls auf die betroffene Visualisierung, ohne dass die Kernfunktion der Seite beeinträchtigt wird.
+Alle vier werden als reguläre `<script>`-Tags vor dem Anwendungsmodul `js/app.js` geladen; die Anwendung prüft an den jeweiligen Einsatzstellen, ob die globalen Objekte (`Chart`, `gsap`, `window.jspdf`) tatsächlich verfügbar sind, und verzichtet andernfalls auf die betroffene Funktion bzw. Visualisierung, ohne dass die Kernfunktion der Seite beeinträchtigt wird.
 
 ### 2.2 JavaScript-Module (`js/`)
 
@@ -42,7 +44,10 @@ Beide werden als reguläre `<script>`-Tags vor dem Anwendungsmodul `js/app.js` g
 | `constants.js` | Zentrale Konstanten und reine Hilfsfunktionen ohne Zustand: Arbeitsplatz-, Status- und Wunschtyp-Definitionen, Mitarbeitendenstammdaten (`EMP_META`), Feiertagsberechnung für Sachsen, Datums- und Kalenderhilfsfunktionen, Monatsschlüssel-Erzeugung, RBN-Zeilenkonfiguration und die Logik zur Mitarbeitenden-Abgangsbereinigung. |
 | `state.js` | Hält den globalen Laufzeitzustand (`DATA`, `state`, Planungsmodus-Zustand) und kapselt die gesamte Persistenzlogik: Laden/Speichern in `localStorage`, das Debounce-gesteuerte Nachsenden an den Server, den feldweisen Drei-Wege-Merge bei Synchronisationskonflikten sowie das Verwalten unabhängiger Planungsentwürfe je Monat. |
 | `model.js` | Reine Datenzugriffs- und Ableitungsschicht oberhalb von `DATA`/`planData`: Lesen und Schreiben einzelner Zellen, Ermitteln von Dienstinhaber:innen, Zusammenstellen der für ein Jahr aktiven Mitarbeitendenliste, Statistik- und Kennzahlenberechnung für Profile und Dashboards. |
-| `app.js` | Einstiegspunkt und Orchestrierung: Initialisierung der Anwendung, globale Tastaturkürzel, Header-Aktionen (Theme, Dichte, Export, Import, Druck, Server-Sync), Periodensteuerung (Monats-/Jahreswechsel inklusive View-Transition-Choreographie), Verwaltung des Planungsmodus (Start, Speichern, Abbrechen, Übernehmen, Undo/Redo), responsives Layout-Umschalten zwischen Desktop- und Mobilansicht. |
+| `app.js` | Einstiegspunkt und Orchestrierung: Initialisierung der Anwendung, globale Tastaturkürzel (u. a. `Strg/Cmd+Z`/`Strg/Cmd+Y` für Undo/Redo, `Strg/Cmd+P` für die Druckvorschau), Header-Aktionen (Theme, Dichte, Undo/Redo, Export, Import, Druck, Server-Sync), Mehrfachauswahl von Zellen per Strg-/Shift-Klick mit anschließendem Bulk-Edit, Periodensteuerung (Monats-/Jahreswechsel inklusive View-Transition-Choreographie), Verwaltung des Planungsmodus (Start, Speichern, Abbrechen, Übernehmen, Undo/Redo), responsives Layout-Umschalten zwischen Desktop- und Mobilansicht. |
+| `history.js` | Generische Undo/Redo-Historie für den **Normalmodus**: erfasst über das `radplan-save-queued`-Ereignis automatisch jede Datenmutation (Zellenänderungen, RBN-Zeile, Notizen, Import, Löschungen, Mitarbeitenden-Entfernung), fasst schnell aufeinanderfolgende Änderungen zu einem Schritt zusammen, verwaltet Undo-/Redo-Stapel und ein Änderungsprotokoll je Zelle (Grundlage für „letzte Änderung“ in den Tooltips). Der Planungsmodus nutzt weiterhin seine eigene Snapshot-Historie in `app.js`. |
+| `celltooltip.js` | Detail-Tooltip beim Überfahren einer Rasterzelle (nur Maus/Desktop): zeigt Person und Position, eine Vorschau der jüngsten Dienste (D/HG), die Erklärung etwaiger Regelkonflikte, eine vorhandene Notiz sowie Zeitpunkt und Inhalt der letzten erfassten Zellenänderung. |
+| `printpreview.js` | Druckvorschau-Dialog mit Layout-Optionen (Quer-/Hochformat), Ein-/Ausschluss der RD-Neurorad-Zeile, maßstabsgetreuer Seitenvorschau und Seitenumbruch-Hinweis. Bietet zwei Ausgabewege: nativer Browser-Druck (mit dynamisch gesetztem `@page`-Format) sowie native PDF-Generierung via jsPDF/AutoTable mit Kopfzeile, Logo-Marke und Seitenzahlen. |
 | `render-grid.js` | Aufbau und Interaktion der zentralen Monatsraster-Tabelle (`#plan-table`): Kopf- und Fußzeilenaufbau, Zellrendering inklusive Wochenend-/Feiertags-/Heute-Markierung, Tastaturnavigation innerhalb des Rasters, Drag-&-Drop von Diensten zwischen Zellen, Desktop-Schnellaktions-Popover, mobiles radiales Schnellaktionsmenü, Konfliktmarkierungen, RBN-Sonderzeile. |
 | `render-modals.js` | Aufbau aller Dialoge mit Ausnahme des Zellen-Editor-Layouts in `index.html`: Editor-Logik (Arbeitsplatz-/Status-/Dienst-/Wunsch-/Fixierungsauswahl, Kommentarfeld), Mitarbeitendenverwaltungs-Dialog (Profil, Anlegen/Entfernen), Auto-Plan-Konfigurationsoberfläche, Auto-Plan-Engine-Ansicht mit Terminal-Log und Neural-Graph-Einbettung, Abschlussbericht, Bewertungsdetail-Dialog (NFI-Score-Dashboard), Import-Dialog. |
 | `render-dept.js` | Abteilungsübersicht: Tagesabdeckung je Arbeitsplatz für den aktuellen Monat sowie Jahresübersicht mit Abdeckungsbalken pro Arbeitsplatz und Monat. |
@@ -69,8 +74,9 @@ Beide werden als reguläre `<script>`-Tags vor dem Anwendungsmodul `js/app.js` g
 | `components.css` | Wiederverwendbare UI-Bausteine: Schaltflächen-Varianten, Auswahl-Chips (Arbeitsplatz, Status, Dienst, Wunsch), Texteingabefelder, Drag-&-Drop-Dropzone, Toast-Benachrichtigung, Tooltipps, Desktop-Schnellaktions-Popover, mobiles radiales Schnellaktionsmenü, Befehlspalette. |
 | `modals.css` | Sämtliche Dialogfenster: generische Dialog-Hülle mit Glanzeffekt, Zellen-Editor, Mitarbeitendenverwaltung, Import-Dialog, Abteilungsdialog, die umfangreiche Auto-Plan-Konfigurations- und Engine-Oberfläche (inklusive Terminal-Log-Darstellung und Neural-Graph-Einbettung), Abschlussbericht, NFI-Bewertungsdetail-Dashboard, Jahresplaner-Dialog (Jahresraster, Fairness-Analyse, Projektion) sowie die mobilen Bottom-Sheet-Anpassungen aller Dialoge. |
 | `views.css` | Inhaltliche Gestaltung einzelner Ansichten: Mitarbeitendenprofil (Kennzahlen, Verteilungsdiagramme, Monatskalender, Jahresauswertung, Wochentags-Diagramm), Abteilungsansicht, Zeitraum-Flyout, Mitarbeitenden-Bereich (Zusammenfassung, Team-Analytics, Kartenraster, Detailansicht mit Analyse-Reiter), mobile Monatszusammenfassung und Tageslisten-Karten, mobiler Tages-Bottom-Sheet. |
-| `mobile-optimization.css` | Enthält Anpassungen für ein spezifisches mobiles Zielgerät (iPhone 14 Pro Max: Viewport 430×932 CSS-Pixel, definierte Safe-Area-Insets), darunter angepasste Maßvariablen für Kopfzeile, Namensspalte, Zellbreite, Zeilenhöhe und Overlay-Innenabstand für Hoch- und Querformat, eine Mindestgröße von 44×44 Pixel für Bedienelemente bei grobzeigerbasierter Eingabe sowie iOS-spezifische Bottom-Sheet-Animationen für einzelne Dialoge. Diese Datei ist im Quellbaum vorhanden, wird jedoch von `index.html` über kein `<link>`-Element referenziert; ihre Regeln wirken sich auf die laufende Anwendung daher nicht aus. |
-| `print.css` | Ausschließlich über `media="print"` eingebunden. Blendet sämtliche Bedienelemente, Leisten, Dialoge und die mobile Navigation aus und stellt stattdessen einen eigenen Druckkopf (`#print-header`) und Druckfuß (`#print-footer`) sowie eine vereinfachte, kontrastreiche Darstellung der Rastertabelle dar. Definiert zusätzlich das Seitenformat (A4 quer, 10 mm Rand). |
+| `mobile-optimization.css` | Anpassungen für Smartphones (iPhone-/Android-Klasse): über `@media`-Abfragen für Hoch- und Querformat gekoppelt an grobzeigerbasierte Eingabe (`pointer: coarse`) gesetzte Maßvariablen für Kopfzeile, Namensspalte, Zellbreite, Zeilenhöhe und Overlay-Innenabstand, Berücksichtigung der Safe-Area-Insets im Standalone-/PWA-Modus, eine Mindestgröße von 44×44 Pixel für alle Bedienelemente sowie iOS-typische Bottom-Sheet-Animationen für die wichtigsten Dialoge. Diese Datei wird über ein `<link>`-Element in `index.html` eingebunden und ist im Betrieb aktiv. |
+| `enhancements.css` | Gestaltung der ergänzenden Funktionen: Detail-Tooltip beim Überfahren einer Zelle (`celltooltip.js`) sowie der Druckvorschau-Dialog inklusive PDF-Export (`printpreview.js`) mit Layout-Optionen, Seitenvorschau und maßstabsgetreuer Tabellendarstellung. |
+| `print.css` | Ausschließlich über `media="print"` eingebunden. Blendet sämtliche Bedienelemente, Leisten, Dialoge und die mobile Navigation aus und stellt stattdessen einen eigenen Druckkopf (`#print-header`) und Druckfuß (`#print-footer`) sowie eine vereinfachte, kontrastreiche Darstellung der Rastertabelle dar. Das Seitenformat (A4, 8 mm Rand) wird zur Laufzeit über ein dynamisch erzeugtes `#print-page-style`-Element gesetzt, sodass Quer-/Hochformat aus der Druckvorschau steuerbar ist; eine Body-Klasse `print-no-rbn` blendet auf Wunsch die RD-Neurorad-Zeile aus dem Druck aus. |
 | `contextmenu.css` | Gestaltung des generischen Kontextmenüs: schwebendes Glaspanel mit Skalierungs-/Transparenz-Übergang, Menüpunkte mit Hover-/Aktiv-Zuständen, eine optische Sonderkennzeichnung für destruktive Aktionen, Trennlinien sowie rechtsbündige Tastaturkürzel-Hinweise. |
 
 ### 2.5 Persistenz und Datenfluss
@@ -186,7 +192,13 @@ Unabhängig von Arbeitsplatz und Status kann jeder Tageszelle einer diensthabend
 
 ### 5.1 Hauptraster (Monatsansicht)
 
-Das Hauptraster (`#plan-table`) zeigt alle aktiven Mitarbeitenden des gewählten Monats als Zeilen und alle Kalendertage des Monats als Spalten. Jede Zelle zeigt die kombinierte Zuweisung (Arbeitsplatz und/oder Status, Dienst-Zusatz, Wunsch-Symbol im Planungsmodus, Fixierungs-Symbol, Kommentar-Indikator) in farbcodierter Form gemäß Abschnitt 4. Wochenend- und Feiertagsspalten sind optisch hervorgehoben, ebenso die Spalte des aktuellen Tages. Mehrfachselektion über Maus-Drag oder Tastatur erlaubt das gleichzeitige Bearbeiten mehrerer Zellen. Konflikte, die der Planungsassistent oder die Live-Prüfung erkennt (siehe Abschnitt 6.3), werden direkt am betroffenen Zellpaar markiert.
+Das Hauptraster (`#plan-table`) zeigt alle aktiven Mitarbeitenden des gewählten Monats als Zeilen und alle Kalendertage des Monats als Spalten. Jede Zelle zeigt die kombinierte Zuweisung (Arbeitsplatz und/oder Status, Dienst-Zusatz, Wunsch-Symbol im Planungsmodus, Fixierungs-Symbol, Kommentar-Indikator) in farbcodierter Form gemäß Abschnitt 4. Wochenend- und Feiertagsspalten sind optisch hervorgehoben, ebenso die Spalte des aktuellen Tages. Konflikte, die der Planungsassistent oder die Live-Prüfung erkennt (siehe Abschnitt 6.3), werden direkt am betroffenen Zellpaar markiert.
+
+**Mehrfachauswahl und Bulk-Edit:** Mehrere Zellen einer Person lassen sich gezielt auswählen und anschließend gemeinsam bearbeiten. `Strg`/`Cmd`+Klick fügt einzelne Tage zur Auswahl hinzu oder entfernt sie wieder; `Shift`+Klick markiert einen zusammenhängenden Bereich vom zuletzt gesetzten Anker bis zum angeklickten Tag. Die markierten Tage werden im Raster hervorgehoben; das anschließende Öffnen des Zellen-Editors (Doppelklick) wendet die gespeicherte Zuweisung auf alle ausgewählten Tage an. Ergänzend besteht weiterhin die Maus-Drag-Auswahl.
+
+**Detail-Tooltip:** Beim Überfahren einer Zelle mit der Maus erscheint nach kurzer Verzögerung ein informativer Tooltip mit Person und Position, einer Vorschau der jüngsten Dienste (D/HG), der Erklärung etwaiger Regelkonflikte, einer vorhandenen Notiz sowie Zeitpunkt und Inhalt der letzten erfassten Zellenänderung.
+
+**Undo/Redo:** Im Normalmodus lassen sich sämtliche Datenänderungen — Zellenänderungen, RBN-Zeile, Notizen, Import und Löschungen — über die Schaltflächen `#btn-undo`/`#btn-redo` in der Kopfzeile bzw. die Tastenkürzel `Strg`/`Cmd`+`Z` und `Strg`/`Cmd`+`Y` rückgängig machen und wiederherstellen. Der Planungsmodus besitzt eine eigene, davon unabhängige Historie in der Planungsleiste.
 
 Eine schwebende, manuell umschaltbare Rasterdichte (`#btn-density`) verkleinert Namensspalte, Zellbreite und Zeilenhöhe unabhängig von den responsiven Breakpoints, um auf kleineren Fenstern oder Tablets mehr Spalten gleichzeitig sichtbar zu machen.
 
@@ -266,7 +278,18 @@ Der Import-Dialog (`#modal-import`) bietet eine Dropzone für JSON-Dateien (Zieh
 
 ### 5.11 Export und Druck
 
-Der Export (`#btn-export`, Tastenkürzel `Strg/Cmd+S` außerhalb des Planungsmodus) erzeugt eine herunterladbare JSON-Datei des gesamten Datenbestands. Der Druck (`#btn-print`, über die native Browserfunktion `Strg/Cmd+P`) nutzt die in `print.css` definierte Druckdarstellung: Eine vereinfachte, kontrastreiche Version der aktuellen Monatstabelle wird zusammen mit einem eigenen Druckkopf und Druckfuß im Format A4 quer ausgegeben. Es kommt keine eigenständige PDF-Bibliothek zum Einsatz; die PDF-Erzeugung erfolgt über die native „Als PDF speichern“-Funktion des Browser-Druckdialogs.
+Der Export (`#btn-export`, Tastenkürzel `Strg/Cmd+S` außerhalb des Planungsmodus) erzeugt eine herunterladbare JSON-Datei des gesamten Datenbestands.
+
+Der Druck (`#btn-print`, Tastenkürzel `Strg/Cmd+P`) öffnet zunächst eine **Druckvorschau** (`#modal-print-preview`, `printpreview.js`). Diese zeigt eine maßstabsgetreue Seitenvorschau der aktuellen Monatstabelle samt Druckkopf und bietet folgende Optionen:
+
+- **Ausrichtung** — Quer- oder Hochformat. Die Auswahl setzt zur Laufzeit das `@page`-Format für den Browser-Druck.
+- **RD-Neurorad-Zeile** — wahlweise im Ausdruck enthalten oder ausgeblendet.
+- **Seitenumbruch-Hinweis** — eine grobe Schätzung der benötigten Seitenzahl.
+
+Aus der Vorschau führen zwei Ausgabewege:
+
+1. **Drucken** — nutzt die in `print.css` definierte, kontrastreiche Druckdarstellung über den nativen Browser-Druckdialog (inklusive automatischer Skalierung, damit das Raster vollständig auf die Seite passt).
+2. **Als PDF speichern** — erzeugt über **jsPDF** und das **AutoTable**-Plugin direkt ein PDF des Monatsrasters, ohne den Browser-Druckdialog. Das PDF enthält eine Kopfzeile mit Titel und Logo-Marke, den gewählten Monatszeitraum, seitenübergreifend wiederholte Tabellenköpfe sowie eine Fußzeile mit Erstellungsdatum und Seitenzahlen im gewählten Layout.
 
 ### 5.12 Theme-Umschaltung
 
@@ -387,8 +410,9 @@ Neben dem automatischen Sync-Versuch nach jedem 409 steht über die Schaltfläch
 |---|---|
 | `Strg/Cmd+K` | Befehlspalette öffnen bzw. schließen |
 | `Strg/Cmd+S` | Außerhalb des Planungsmodus: Daten als JSON exportieren. Im Planungsmodus: aktuellen Planungsentwurf speichern |
-| `Strg/Cmd+Z` | Im Planungsmodus: letzte Änderung rückgängig machen |
-| `Strg/Cmd+Shift+Z` oder `Strg/Cmd+Y` | Im Planungsmodus: rückgängig gemachte Änderung wiederherstellen |
+| `Strg/Cmd+P` | Druckvorschau öffnen (Drucken bzw. PDF-Export) |
+| `Strg/Cmd+Z` | Letzte Änderung rückgängig machen — im Normalmodus auf den Hauptdaten, im Planungsmodus auf dem Entwurf |
+| `Strg/Cmd+Shift+Z` oder `Strg/Cmd+Y` | Zuvor rückgängig gemachte Änderung wiederherstellen (Normal- bzw. Planungsmodus) |
 | `Alt+←` | Zum vorherigen Monat wechseln |
 | `Alt+→` | Zum nächsten Monat wechseln |
 
@@ -488,7 +512,6 @@ Die Tests werden über `npm test` bzw. direkt über `node --test test/**/*.test.
 
 - Die automatische Planung (Auto-Plan) operiert ausschließlich innerhalb eines einzelnen Kalendermonats; eine monatsübergreifende Optimierung über mehrere Monate hinweg in einem einzigen Lauf ist nicht vorgesehen.
 - Die Tausch-Optimierung des Planungsassistenten ist heuristisch und arbeitet mit einer begrenzten Zahl an Durchläufen; sie garantiert keine global optimale, sondern eine innerhalb der gesetzten Iterationsgrenzen bestmögliche Lösung.
-- Die Datei `css/mobile-optimization.css` ist im Quellbaum vorhanden, wird jedoch von `index.html` nicht eingebunden; ihre darin definierten Anpassungen für ein spezifisches mobiles Zielgerät wirken sich auf die laufende Anwendung nicht aus.
 - Die serverseitige Konfliktbehandlung in `functions/api.js` erkennt Konflikte ausschließlich über einen Vergleich des Zeitstempelfeldes `lastModified`; die inhaltliche, feldweise Zusammenführung konkurrierender Änderungen erfolgt vollständig im Client.
 - Die Anwendung verfügt über keine serverseitige Benutzerauthentifizierung oder Mandantentrennung; die Cloudflare-Pages-Function ist auf einen einzigen, gemeinsam genutzten Datensatz unter einem festen KV-Schlüssel ausgelegt.
 - Es existiert genau eine automatisierte Testdatei, die sich auf die reinen Hilfs- und Regelfunktionen des Planungsassistenten beschränkt; UI-Rendering, Persistenzlogik und die Cloudflare-Pages-Function selbst sind nicht durch automatisierte Tests abgedeckt.
