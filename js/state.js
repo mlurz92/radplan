@@ -30,6 +30,7 @@ export let state = {
   multiEdit: {
     emp: null,
     days: [],
+    anchor: null,
   },
 };
 

@@ -207,8 +207,21 @@
     text-align: right;
   }
 
+  /* RBN-Zeile optional vom Druck ausnehmen (Druckvorschau-Option). */
+  body.print-no-rbn #plan-table .tr-rbn {
+    display: none !important;
+  }
+
   @page {
     size: A4 landscape;
     margin: 8mm;
   }
+
+  /* Hochformat-Variante (über Druckvorschau wählbar). */
+  body.print-portrait #print-header-meta::after {
+    content: "";
+  }
 }
+
+/* Seitenformat wird zur Laufzeit über #print-page-style (printpreview.js)
+   gesetzt, damit Quer-/Hochformat aus der Druckvorschau steuerbar ist. */
