@@ -118,7 +118,7 @@ import {
 
 import { NeuralGraph } from './neuralgraph.js';
 import { openYearPlan, setupYearPlanModal, renderYearPlanContent, setYearPlanYear, cleanupYearPlan } from './yearplan.js';
-import { initCommandPalette } from './commandpalette.js';
+import { initCommandPalette, openCommandPalette } from './commandpalette.js';
 import { withViewTransition, withThemeViewTransition } from './viewtransition.js';
 import { initNormalHistory, normalUndo, normalRedo, updateNormalHistoryUI } from './history.js';
 import { initCellTooltips } from './celltooltip.js';
@@ -149,6 +149,10 @@ export function applyTheme(theme) {
   if (sunIcon) sunIcon.style.display = theme === "light" ? "" : "none";
   const btn = document.getElementById("btn-theme");
   if (btn) btn.title = theme === "light" ? "Dunkelmodus aktivieren" : "Hellmodus aktivieren";
+  const mMoon = document.getElementById("mbtn-theme-moon");
+  const mSun = document.getElementById("mbtn-theme-sun");
+  if (mMoon) mMoon.style.display = theme === "light" ? "none" : "";
+  if (mSun) mSun.style.display = theme === "light" ? "" : "none";
 }
 
 export function setTheme(theme, persist = true) {
@@ -2713,9 +2717,26 @@ export function wireEvents() {
     setTimeout(() => doExport(), 180); 
   });
   
-  document.getElementById("mbtn-import")?.addEventListener("click", () => { 
-    hideOverlay("modal-mobile-menu"); 
-    setTimeout(() => openImportModal(), 180); 
+  document.getElementById("mbtn-import")?.addEventListener("click", () => {
+    hideOverlay("modal-mobile-menu");
+    setTimeout(() => openImportModal(), 180);
+  });
+
+  document.getElementById("mbtn-cmdk")?.addEventListener("click", () => {
+    hideOverlay("modal-mobile-menu");
+    setTimeout(() => openCommandPalette(), 180);
+  });
+
+  document.getElementById("mbtn-theme")?.addEventListener("click", (e) => toggleTheme(e));
+
+  document.getElementById("mbtn-yearplan")?.addEventListener("click", () => {
+    hideOverlay("modal-mobile-menu");
+    setTimeout(() => openYearPlan(state.year), 180);
+  });
+
+  document.getElementById("mbtn-print")?.addEventListener("click", () => {
+    hideOverlay("modal-mobile-menu");
+    setTimeout(() => openPrintPreview(), 180);
   });
 
   document.getElementById("mbtn-force-sync")?.addEventListener("click", () => {
