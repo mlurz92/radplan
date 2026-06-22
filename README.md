@@ -20,7 +20,7 @@ Die Anwendung deckt folgende fachliche Bereiche ab:
 - Ein eigenständiges, dediziertes mobiles Bedienkonzept mit Listenansicht, Bottom-Sheet-Dialogen und radialem Schnellaktionsmenü.
 - Ein Glasmorphismus-Oberflächendesign mit hellem und dunklem Farbthema, das nahtlos zwischen beiden Modi überblendet.
 
-Die Anwendung ist als reines Frontend-Projekt ohne Build-Pipeline realisiert: Es kommt ausschließlich Vanilla JavaScript in Form von ES6-Modulen zum Einsatz, ohne Framework, ohne Bundler und ohne Transpiler. Der Quellcode wird direkt vom Browser als ES-Module geladen und ausgeführt. Persistiert wird primär im `localStorage` des Browsers; optional ergänzt durch eine serverseitige Synchronisation über eine Cloudflare Pages Function mit angebundenem KV-Namensraum.
+Die Anwendung ist als reines Frontend-Projekt ohne Build-Pipeline realisiert: Der gesamte Anwendungscode ist in nativen ES6-Modulen unter `js/` geschrieben und wird ohne Framework, Bundler oder Transpiler direkt vom Browser als ES-Module geladen und ausgeführt. Ergänzend werden einige spezialisierte Funktionen über schlanke, per CDN eingebundene Bibliotheken realisiert (Chart.js, GSAP, jsPDF inkl. AutoTable — siehe Abschnitt 2.1); diese werden als globale `<script>`-Tags geladen und von der modularen Anwendungslogik genutzt. Persistiert wird primär im `localStorage` des Browsers; optional ergänzt durch eine serverseitige Synchronisation über eine Cloudflare Pages Function mit angebundenem KV-Namensraum.
 
 ## 2. Architekturüberblick
 
@@ -32,7 +32,7 @@ Externe Abhängigkeiten werden ausschließlich über CDN-Skripte eingebunden:
 
 - **Chart.js** (`chart.umd.min.js`, Version 4.4.4) — für Donut-Diagramme, Balkendiagramme und Trendkurven in Profil-, Dashboard- und Jahresplaner-Ansichten.
 - **GSAP** (`gsap.min.js`, Version 3.12.2) — für ergänzende Animationseffekte.
-- **jsPDF** (`jspdf.umd.min.js`, Version 2.5.1) — für den nativen PDF-Export des Monatsplans ohne Umweg über den Browser-Druckdialog (Kopfzeile, Logo-Marke, Seitenzahlen, wählbares Layout).
+- **jsPDF** (`jspdf.umd.min.js`, Version 2.5.1) — für den nativen PDF-Export des Monatsplans ohne Umweg über den Browser-Druckdialog (Kopfzeile, App-Logo, Seitenzahlen, wählbares Layout).
 - **jsPDF-AutoTable** (`jspdf.plugin.autotable.min.js`, Version 3.8.2) — Tabellen-Plugin für jsPDF, das das Monatsraster seitenübergreifend mit wiederholtem Tabellenkopf und automatischer Skalierung in das PDF setzt.
 
 Alle vier werden als reguläre `<script>`-Tags vor dem Anwendungsmodul `js/app.js` geladen; die Anwendung prüft an den jeweiligen Einsatzstellen, ob die globalen Objekte (`Chart`, `gsap`, `window.jspdf`) tatsächlich verfügbar sind, und verzichtet andernfalls auf die betroffene Funktion bzw. Visualisierung, ohne dass die Kernfunktion der Seite beeinträchtigt wird.
@@ -47,7 +47,7 @@ Alle vier werden als reguläre `<script>`-Tags vor dem Anwendungsmodul `js/app.j
 | `app.js` | Einstiegspunkt und Orchestrierung: Initialisierung der Anwendung, globale Tastaturkürzel (u. a. `Strg/Cmd+Z`/`Strg/Cmd+Y` für Undo/Redo, `Strg/Cmd+P` für die Druckvorschau), Header-Aktionen (Theme, Dichte, Undo/Redo, Export, Import, Druck, Server-Sync), Mehrfachauswahl von Zellen per Strg-/Shift-Klick mit anschließendem Bulk-Edit, Periodensteuerung (Monats-/Jahreswechsel inklusive View-Transition-Choreographie), Verwaltung des Planungsmodus (Start, Speichern, Abbrechen, Übernehmen, Undo/Redo), responsives Layout-Umschalten zwischen Desktop- und Mobilansicht. |
 | `history.js` | Generische Undo/Redo-Historie für den **Normalmodus**: erfasst über das `radplan-save-queued`-Ereignis automatisch jede Datenmutation (Zellenänderungen, RBN-Zeile, Notizen, Import, Löschungen, Mitarbeitenden-Entfernung), fasst schnell aufeinanderfolgende Änderungen zu einem Schritt zusammen, verwaltet Undo-/Redo-Stapel und ein Änderungsprotokoll je Zelle (Grundlage für „letzte Änderung“ in den Tooltips). Der Planungsmodus nutzt weiterhin seine eigene Snapshot-Historie in `app.js`. |
 | `celltooltip.js` | Detail-Tooltip beim Überfahren einer Rasterzelle (nur Maus/Desktop): zeigt Person und Position, eine Vorschau der jüngsten Dienste (D/HG), die Erklärung etwaiger Regelkonflikte, eine vorhandene Notiz sowie Zeitpunkt und Inhalt der letzten erfassten Zellenänderung. |
-| `printpreview.js` | Druckvorschau-Dialog mit Layout-Optionen (Quer-/Hochformat), Ein-/Ausschluss der RD-Neurorad-Zeile, maßstabsgetreuer Seitenvorschau und Seitenumbruch-Hinweis. Bietet zwei Ausgabewege: nativer Browser-Druck (mit dynamisch gesetztem `@page`-Format) sowie native PDF-Generierung via jsPDF/AutoTable mit Kopfzeile, Logo-Marke und Seitenzahlen. |
+| `printpreview.js` | Druckvorschau-Dialog mit Layout-Optionen (Quer-/Hochformat), Ein-/Ausschluss der RD-Neurorad-Zeile, maßstabsgetreuer Seitenvorschau und Seitenumbruch-Hinweis. Bietet zwei Ausgabewege: nativer Browser-Druck (mit dynamisch gesetztem `@page`-Format) sowie native PDF-Generierung via jsPDF/AutoTable mit Kopfzeile, eingebettetem App-Logo und Seitenzahlen. |
 | `render-grid.js` | Aufbau und Interaktion der zentralen Monatsraster-Tabelle (`#plan-table`): Kopf- und Fußzeilenaufbau, Zellrendering inklusive Wochenend-/Feiertags-/Heute-Markierung, Tastaturnavigation innerhalb des Rasters, Drag-&-Drop von Diensten zwischen Zellen, Desktop-Schnellaktions-Popover, mobiles radiales Schnellaktionsmenü, Konfliktmarkierungen, RBN-Sonderzeile. |
 | `render-modals.js` | Aufbau aller Dialoge mit Ausnahme des Zellen-Editor-Layouts in `index.html`: Editor-Logik (Arbeitsplatz-/Status-/Dienst-/Wunsch-/Fixierungsauswahl, Kommentarfeld), Mitarbeitendenverwaltungs-Dialog (Profil, Anlegen/Entfernen), Auto-Plan-Konfigurationsoberfläche, Auto-Plan-Engine-Ansicht mit Terminal-Log und Neural-Graph-Einbettung, Abschlussbericht, Bewertungsdetail-Dialog (NFI-Score-Dashboard), Import-Dialog. |
 | `render-dept.js` | Abteilungsübersicht: Tagesabdeckung je Arbeitsplatz für den aktuellen Monat sowie Jahresübersicht mit Abdeckungsbalken pro Arbeitsplatz und Monat. |
@@ -289,7 +289,7 @@ Der Druck (`#btn-print`, Tastenkürzel `Strg/Cmd+P`) öffnet zunächst eine **Dr
 Aus der Vorschau führen zwei Ausgabewege:
 
 1. **Drucken** — nutzt die in `print.css` definierte, kontrastreiche Druckdarstellung über den nativen Browser-Druckdialog (inklusive automatischer Skalierung, damit das Raster vollständig auf die Seite passt).
-2. **Als PDF speichern** — erzeugt über **jsPDF** und das **AutoTable**-Plugin direkt ein PDF des Monatsrasters, ohne den Browser-Druckdialog. Das PDF enthält eine Kopfzeile mit Titel und Logo-Marke, den gewählten Monatszeitraum, seitenübergreifend wiederholte Tabellenköpfe sowie eine Fußzeile mit Erstellungsdatum und Seitenzahlen im gewählten Layout.
+2. **Als PDF speichern** — erzeugt über **jsPDF** und das **AutoTable**-Plugin direkt ein PDF des Monatsrasters, ohne den Browser-Druckdialog. Das PDF enthält eine Kopfzeile mit Titel und eingebettetem App-Logo (img/icon.svg), den gewählten Monatszeitraum, seitenübergreifend wiederholte Tabellenköpfe sowie eine Fußzeile mit Erstellungsdatum und Seitenzahlen im gewählten Layout.
 
 ### 5.12 Theme-Umschaltung
 

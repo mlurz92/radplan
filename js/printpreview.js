@@ -6,7 +6,7 @@
  *   - Option, die RBN-/RD-Neurorad-Zeile ein- oder auszuschließen
  *   - maßstabsgetreuer Vorschau des Monatsrasters inkl. Seitenumbruch-Hinweis
  *   - nativem Druck (Browser-Dialog) ODER nativer PDF-Generierung via jsPDF
- *     (Kopfzeile, Logo-Marke, Seitenzahlen, konfigurierbares Layout) ohne den
+ *     (Kopfzeile, eingebettetes App-Logo, Seitenzahlen, konfigurierbares Layout) ohne den
  *     Umweg über den Browser-Druckdialog.
  */
 
@@ -16,8 +16,39 @@ import { showToast } from './render-modals.js';
 
 let modalEl = null;
 let options = { orientation: 'landscape', includeRbn: true };
+let logoDataUrl = null;   // gerastertes Anwendungslogo (img/icon.svg → PNG) für jsPDF
 
 const TITLE = 'RadPlan — Dienstplan';
+
+// Lädt das echte App-Logo (SVG) und rastert es einmalig zu einem PNG-DataURL,
+// das jsPDF via addImage einbetten kann. Schlägt das Laden fehl, wird auf eine
+// gezeichnete Logo-Marke zurückgegriffen.
+function loadLogo() {
+  return new Promise((resolve) => {
+    if (logoDataUrl !== null) {
+      resolve(logoDataUrl);
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const size = 96;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, size, size);
+        logoDataUrl = canvas.toDataURL('image/png');
+      } catch (e) {
+        logoDataUrl = '';
+      }
+      resolve(logoDataUrl);
+    };
+    img.onerror = () => { logoDataUrl = ''; resolve(''); };
+    img.src = 'img/icon.svg';
+  });
+}
 
 function periodLabel() {
   return `${MONTHS[state.month]} ${state.year}`;
@@ -136,7 +167,8 @@ function doBrowserPrint() {
 }
 
 // ── Native PDF-Generierung via jsPDF + autotable ────────────────────────────────
-function doPdfExport() {
+async function doPdfExport() {
+  await loadLogo();
   const jspdfNS = window.jspdf;
   if (!jspdfNS || !jspdfNS.jsPDF) {
     showToast('PDF-Bibliothek nicht geladen');
@@ -179,18 +211,29 @@ function doPdfExport() {
       }
     },
     didDrawPage: (data) => {
-      // Kopfzeile mit Logo-Marke
-      doc.setFillColor(11, 25, 41);
-      doc.roundedRect(8, 8, 8, 8, 1.5, 1.5, 'F');
-      doc.setFillColor(245, 158, 11);
-      doc.circle(12, 12, 1.8, 'F');
+      // Kopfzeile mit echtem App-Logo (Fallback: gezeichnete Marke)
+      if (logoDataUrl) {
+        try {
+          doc.addImage(logoDataUrl, 'PNG', 8, 6.5, 9, 9);
+        } catch (e) {
+          doc.setFillColor(11, 25, 41);
+          doc.roundedRect(8, 8, 8, 8, 1.5, 1.5, 'F');
+          doc.setFillColor(245, 158, 11);
+          doc.circle(12, 12, 1.8, 'F');
+        }
+      } else {
+        doc.setFillColor(11, 25, 41);
+        doc.roundedRect(8, 8, 8, 8, 1.5, 1.5, 'F');
+        doc.setFillColor(245, 158, 11);
+        doc.circle(12, 12, 1.8, 'F');
+      }
       doc.setTextColor(15, 23, 42);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(13);
-      doc.text(TITLE, 19, 12);
+      doc.text(TITLE, 20, 12);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
-      doc.text(`${periodLabel()}${planMode ? ' · Planungsentwurf' : ''}`, 19, 17);
+      doc.text(`${periodLabel()}${planMode ? ' · Planungsentwurf' : ''}`, 20, 17);
 
       // Fußzeile mit Seitenzahl
       const page = doc.internal.getNumberOfPages();
