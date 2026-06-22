@@ -194,6 +194,48 @@
 .mm-row-danger .mm-row-ic { background: rgba(239,68,68,.12); color: #EF4444; }
 .mm-row-danger .mm-row-lbl { color: #EF4444; }
 
+/* ════════════════════════════════════════════════════════════════════════
+   GLOBALE ÜBERLAUF-SCHUTZSCHICHT FÜR MOBILE MODALE & ANSICHTEN
+   ------------------------------------------------------------------------
+   Flex-/Grid-Kinder haben standardmäßig `min-width:auto`. Dadurch blähen
+   breite Blattknoten (Chart.js-Canvas, nicht umbrechende Texte, Datentabellen)
+   das Layout über die Viewport-Breite hinaus auf — der Dialog (`overflow:hidden`)
+   schneidet den Überhang dann rechts ab. Diese Schicht setzt Layout-Container
+   auf `min-width:0` zurück, damit Inhalte umbrechen und Tabellen-Wrapper
+   horizontal scrollen statt zu überlaufen.
+
+   Der gesamte Selektor steht in `:where(...)` → Spezifität 0. Dadurch behalten
+   die 44-px-Touch-Target-Regeln (höhere Spezifität) für Buttons/Chips/Zellen
+   Vorrang; nur die ungewollte Auto-Inflation der Layout-Boxen wird neutralisiert.
+   ════════════════════════════════════════════════════════════════════════ */
+:where(body.is-mobile .overlay .modal, body.is-mobile .mobile-view)
+:where(div, section, article, header, footer, nav, ul, ol, li, dl, dd, table, thead, tbody, tfoot, tr, p, span, label, form, fieldset, figure) {
+  min-width: 0;
+}
+
+/* Medien dürfen nie breiter als ihr Container werden. */
+:where(body.is-mobile .overlay .modal, body.is-mobile .mobile-view)
+:where(canvas, img, video) {
+  max-width: 100%;
+}
+
+/* Datentabellen behalten ihre Spaltenbreite und scrollen horizontal im Wrapper,
+   statt den Dialog zu sprengen. */
+body.is-mobile .overlay .modal .dept-table-wrap,
+body.is-mobile .overlay .modal .yp-fair-table-wrap,
+body.is-mobile .overlay .modal .yp-eval-table-wrap,
+body.is-mobile .overlay .modal .yp-proj-table-wrap,
+body.is-mobile .overlay .modal .yr-table-wrap,
+body.is-mobile .overlay .modal .empdash-month-table-wrap,
+body.is-mobile .overlay .modal .ap-table-wrap,
+body.is-mobile .overlay .modal .yp-grid-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  min-width: 0;
+  overscroll-behavior-x: contain;
+}
+
 /* ── Jahresplaner: Notch/Safe-Area auf dem iPhone berücksichtigen ───────── */
 @media (max-width: 700px) {
   #modal-yearplan .modal {

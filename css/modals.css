@@ -3140,8 +3140,12 @@ body.is-mobile #modal-mobile-menu .modal-bd {
     padding: 0 12px;
     overflow-x: auto;
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
   }
   .yp-tabs::-webkit-scrollbar { display: none; }
+  /* Tabs dürfen nicht schrumpfen, sonst kollidiert der Text — stattdessen
+     scrollt die Leiste horizontal. */
+  .yp-tab { flex: 0 0 auto; }
 
   .yp-body {
     padding: 14px 12px;
