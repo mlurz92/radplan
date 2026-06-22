@@ -64,6 +64,20 @@ T('[toast] error #FFF on dark red',[255,255,255],hex('#781616'));
 // ---- yp-eval colored numbers on white ----
 ['#C2410C','#0369A1','#15803D','#7C3AED','#B91C1C','#0F766E','#64748B'].forEach(c=>T(`[yp] num ${c} on white`,c,[255,255,255]));
 
+// ---- Fixed-light surfaces that previously used theme-ink (white in dark) and
+//      went invisible in dark mode. Now pinned to fixed dark ink / fixed grays. ----
+T('[pp] text-3 pin (15,23,42 @.64) on gray-50',over([15,23,42],.64,hex(G[50])),hex(G[50]));
+T('[pp] text-2 pin (15,23,42 @.80) on gray-50',over([15,23,42],.80,hex(G[50])),hex(G[50]));
+T('[tip] text-3 pin (15,23,42 @.62) on glass-light(≈white)',over([15,23,42],.62,[255,255,255]),[255,255,255]);
+T('[import] or-divider gray-500 on white',G[500],[255,255,255]);
+T('[cmdk] active hint #0369A1 on accent-dim(≈#E8F8FF)',hex('#0369A1'),hex('#E8F8FF'));
+T('[pm] today-empty gray-500 on gray-50',G[500],hex(G[50]));
+T('[hg] #0369A1 on white',hex('#0369A1'),[255,255,255]);
+T('[hg] #0369A1 on #E0F2FE',hex('#0369A1'),hex('#E0F2FE'));
+T('[hdr] modal-hd-sub white@.62 on navy-800(dark)',over([255,255,255],.62,hex('#0A1525')),hex('#0A1525'));
+T('[hdr] modal-hd-sub slate@.62 on navy-800(cream)',over([15,23,42],.62,hex('#ECE7DC')),hex('#ECE7DC'));
+T('[mdc] empty-duty gray-500 on white',G[500],[255,255,255]);
+
 // ---- Output ----
 const fails=tests.filter(t=>!t.pass);
 console.log('Total pairs:',tests.length,'| FAIL:',fails.length);
