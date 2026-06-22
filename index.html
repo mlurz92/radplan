@@ -352,43 +352,65 @@
         <div class="modal-hd-title" id="mm-title">Aktionen</div>
         <button type="button" class="modal-x" data-close="modal-mobile-menu" aria-label="Menü schließen">✕</button>
       </div>
-      <div class="modal-bd" style="display:flex; flex-direction:column; gap:10px;">
-        <button type="button" class="mbtn mbtn-ghost" id="mbtn-today" style="justify-content:flex-start; padding:14px; font-size: 14px;">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px; flex-shrink:0;">
-            <rect x="3" y="4" width="18" height="18" rx="2"/>
-            <line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="8"  y1="2" x2="8"  y2="6"/>
-            <line x1="3"  y1="10" x2="21" y2="10"/>
-            <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/>
-          </svg>
-          Zum heutigen Tag
-        </button>
-        <div style="display:flex; gap:10px;">
-          <button type="button" class="mbtn mbtn-ghost" id="mbtn-undo" disabled style="flex:1; justify-content:center; padding:14px; font-size: 14px;">
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:6px;"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
-            Rückgängig
+      <div class="modal-bd mm-body">
+        <div class="mm-section-label">Ansicht &amp; Navigation</div>
+        <div class="mm-grid">
+          <button type="button" class="mm-tile" id="mbtn-today">
+            <span class="mm-tile-ic" aria-hidden="true"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/></svg></span>
+            <span class="mm-tile-lbl">Heute</span>
           </button>
-          <button type="button" class="mbtn mbtn-ghost" id="mbtn-redo" disabled style="flex:1; justify-content:center; padding:14px; font-size: 14px;">
-            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:6px;"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
-            Wiederherstellen
+          <button type="button" class="mm-tile" id="mbtn-cmdk">
+            <span class="mm-tile-ic" aria-hidden="true"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></span>
+            <span class="mm-tile-lbl">Suche</span>
+          </button>
+          <button type="button" class="mm-tile" id="mbtn-theme">
+            <span class="mm-tile-ic" aria-hidden="true">
+              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" id="mbtn-theme-moon"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" id="mbtn-theme-sun" style="display:none"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            </span>
+            <span class="mm-tile-lbl">Design</span>
+          </button>
+          <button type="button" class="mm-tile" id="mbtn-undo" disabled>
+            <span class="mm-tile-ic" aria-hidden="true"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg></span>
+            <span class="mm-tile-lbl">Rückgängig</span>
+          </button>
+          <button type="button" class="mm-tile" id="mbtn-redo" disabled>
+            <span class="mm-tile-ic" aria-hidden="true"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg></span>
+            <span class="mm-tile-lbl">Wiederholen</span>
           </button>
         </div>
-        <button type="button" class="mbtn mbtn-ghost" id="mbtn-employees" style="justify-content:flex-start; padding:14px; font-size: 14px;">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Mitarbeitende verwalten
-        </button>
-        <button type="button" class="mbtn mbtn-ghost" id="mbtn-export" style="justify-content:flex-start; padding:14px; font-size: 14px;">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Daten exportieren
-        </button>
-        <button type="button" class="mbtn mbtn-ghost" id="mbtn-import" style="justify-content:flex-start; padding:14px; font-size: 14px;">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Daten importieren
-        </button>
-        <button type="button" class="mbtn mbtn-ghost" id="mbtn-force-sync" style="justify-content:flex-start; padding:14px; font-size: 14px; color: #EF4444;">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:8px;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          Lokal verwerfen & vom Server laden
-        </button>
+
+        <div class="mm-section-label">Module</div>
+        <div class="mm-grid">
+          <button type="button" class="mm-tile" id="mbtn-employees">
+            <span class="mm-tile-ic" aria-hidden="true"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+            <span class="mm-tile-lbl">Mitarbeitende</span>
+          </button>
+          <button type="button" class="mm-tile" id="mbtn-yearplan">
+            <span class="mm-tile-ic" aria-hidden="true"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14l2 2 4-4"/></svg></span>
+            <span class="mm-tile-lbl">Jahresplan</span>
+          </button>
+          <button type="button" class="mm-tile" id="mbtn-print">
+            <span class="mm-tile-ic" aria-hidden="true"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span>
+            <span class="mm-tile-lbl">Drucken / PDF</span>
+          </button>
+        </div>
+
+        <div class="mm-section-label">Daten</div>
+        <div class="mm-list">
+          <button type="button" class="mm-row" id="mbtn-export">
+            <span class="mm-row-ic" aria-hidden="true"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+            <span class="mm-row-txt"><span class="mm-row-lbl">Daten exportieren</span><span class="mm-row-sub">Kompletten Datenbestand als JSON sichern</span></span>
+          </button>
+          <button type="button" class="mm-row" id="mbtn-import">
+            <span class="mm-row-ic" aria-hidden="true"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>
+            <span class="mm-row-txt"><span class="mm-row-lbl">Daten importieren</span><span class="mm-row-sub">JSON-Datei oder Text einspielen</span></span>
+          </button>
+          <button type="button" class="mm-row mm-row-danger" id="mbtn-force-sync">
+            <span class="mm-row-ic" aria-hidden="true"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></span>
+            <span class="mm-row-txt"><span class="mm-row-lbl">Vom Server neu laden</span><span class="mm-row-sub">Lokale Entwürfe verwerfen &amp; Server-Stand holen</span></span>
+          </button>
+        </div>
       </div>
     </div>
   </div>

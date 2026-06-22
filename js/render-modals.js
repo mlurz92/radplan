@@ -1,5 +1,6 @@
 import {
   CODE_MAP,
+  WORKPLACES,
   MONTHS,
   MONTHS_SHORT,
   DOW_ABBR,
@@ -22,6 +23,11 @@ import { getCell, buildProfileStats, buildYearlyStats } from './model.js';
 import { openEditor } from './app.js';
 import { autoPlanResult } from './autoplan.js';
 import { closeCellQuickPopover, updateModalLayout } from './render-grid.js';
+
+// Registry der aktiven Chart.js-Instanzen des Profil-Modals (Donut, Trend …),
+// damit sie vor dem Neuaufbau sauber zerstört werden und keine Leaks/Doppel-
+// Renderings entstehen.
+const _pmCharts = {};
 
 function _destroyChart(id) {
   if (_pmCharts[id]) {
