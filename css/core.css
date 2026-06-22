@@ -96,9 +96,9 @@
      that sits on the themed canvas (the gray scale stays correct for fixed
      light surfaces such as the dept/year tables). */
   --text-1: var(--ink-strong);
-  --text-2: rgba(var(--ink-rgb),.76);
-  --text-3: rgba(var(--ink-rgb),.58);
-  --text-faint: rgba(var(--ink-rgb),.48);
+  --text-2: rgba(var(--ink-rgb),.84);
+  --text-3: rgba(var(--ink-rgb),.70);
+  --text-faint: rgba(var(--ink-rgb),.62);
 }
 
 [data-theme="light"] {
@@ -136,9 +136,9 @@
 
   /* The light canvas is a warm cream, so dark ink needs a higher alpha than in
      dark mode to clear WCAG AA for secondary/faint label tiers. */
-  --text-2: rgba(var(--ink-rgb),.80);
-  --text-3: rgba(var(--ink-rgb),.64);
-  --text-faint: rgba(var(--ink-rgb),.60);
+  --text-2: rgba(var(--ink-rgb),.88);
+  --text-3: rgba(var(--ink-rgb),.74);
+  --text-faint: rgba(var(--ink-rgb),.68);
 }
 
 *, *::before, *::after {

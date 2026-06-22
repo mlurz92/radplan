@@ -510,7 +510,7 @@ body.plan-mode-active #btn-plan {
 }
 
 .text-input::placeholder {
-  color: var(--gray-400);
+  color: var(--gray-600);
 }
 
 .dropzone {
@@ -1071,7 +1071,7 @@ body.modal-open .cell-quick-popover {
 }
 
 .cmdk-input::placeholder {
-  color: var(--gray-400);
+  color: var(--gray-600);
 }
 
 .cmdk-esc {

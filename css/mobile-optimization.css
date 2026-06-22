@@ -264,9 +264,9 @@ body.is-mobile .overlay .modal .yp-grid-scroll {
     --ink-rgb: 15,23,42;
     --ink-strong: #0F172A;
     --text-1: #0F172A;
-    --text-2: rgba(15,23,42,.82);
-    --text-3: rgba(15,23,42,.68);
-    --text-faint: rgba(15,23,42,.58);
+    --text-2: rgba(15,23,42,.88);
+    --text-3: rgba(15,23,42,.76);
+    --text-faint: rgba(15,23,42,.68);
   }
   body.is-mobile .mms-item-emp .mms-code,
   body.is-mobile .mdc-assign-more,

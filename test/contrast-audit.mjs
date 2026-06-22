@@ -22,15 +22,15 @@ function T(name,fg,bg,big=false,exempt=false){const r=ratio(Array.isArray(fg)?fg
 // ---- Dark canvas (navy) ----
 const dCanvas=over(hex(DARK.navy800),0.85,hex(DARK.navy900));
 T('[dark] emp-label ink.88 on td-name(navy700.96)',inkOn(.88,DARK,over(hex(DARK.navy700),.96,hex(DARK.navy900))),over(hex(DARK.navy700),.96,hex(DARK.navy900)));
-T('[dark] text-2 (.76) on canvas',inkOn(.76,DARK,hex(DARK.navy900)),hex(DARK.navy900));
-T('[dark] text-3 (.58) on canvas',inkOn(.58,DARK,hex(DARK.navy900)),hex(DARK.navy900));
-T('[dark] text-faint (.48) on canvas',inkOn(.48,DARK,hex(DARK.navy900)),hex(DARK.navy900));
+T('[dark] text-2 (.84) on canvas',inkOn(.84,DARK,hex(DARK.navy900)),hex(DARK.navy900));
+T('[dark] text-3 (.70) on canvas',inkOn(.70,DARK,hex(DARK.navy900)),hex(DARK.navy900));
+T('[dark] text-faint (.62) on canvas',inkOn(.62,DARK,hex(DARK.navy900)),hex(DARK.navy900));
 T('[dark] stats-bar ink.76 on stats-bar surface',inkOn(.76,DARK,dCanvas),dCanvas);
 
 // ---- Light canvas (theme overrides) ----
-T('[light] text-2 (.80) on canvas',inkOn(.80,LIGHT,hex(LIGHT.navy900)),hex(LIGHT.navy900));
-T('[light] text-3 (.64) on canvas',inkOn(.64,LIGHT,hex(LIGHT.navy900)),hex(LIGHT.navy900));
-T('[light] text-faint (.60) on canvas',inkOn(.60,LIGHT,hex(LIGHT.navy900)),hex(LIGHT.navy900));
+T('[light] text-2 (.88) on canvas',inkOn(.88,LIGHT,hex(LIGHT.navy900)),hex(LIGHT.navy900));
+T('[light] text-3 (.74) on canvas',inkOn(.74,LIGHT,hex(LIGHT.navy900)),hex(LIGHT.navy900));
+T('[light] text-faint (.68) on canvas',inkOn(.68,LIGHT,hex(LIGHT.navy900)),hex(LIGHT.navy900));
 
 // ---- White modal (both themes ≈ near-white) ----
 [['darkModal',MODAL_DARK],['lightModal',MODAL_LIGHT]].forEach(([t,bg])=>{
@@ -38,8 +38,7 @@ T('[light] text-faint (.60) on canvas',inkOn(.60,LIGHT,hex(LIGHT.navy900)),hex(L
   T(`[${t}] gray-700 text`,G[700],bg);
   T(`[${t}] gray-600 text`,G[600],bg);
   T(`[${t}] gray-500 text`,G[500],bg);
-  // gray-400 now only remains on ::placeholder text, which WCAG 1.4.3 exempts.
-  T(`[${t}] gray-400 PLACEHOLDER (WCAG-exempt)`,G[400],bg,false,true);
+  T(`[${t}] gray-600 placeholder text`,G[600],bg);
 });
 
 // ---- Fixed gray-800 table headers (yp/dept/empdash) with gray-300 text ----
@@ -74,12 +73,13 @@ T('[cmdk] active hint #0369A1 on accent-dim(≈#E8F8FF)',hex('#0369A1'),hex('#E8
 T('[pm] today-empty gray-500 on gray-50',G[500],hex(G[50]));
 T('[hg] #0369A1 on white',hex('#0369A1'),[255,255,255]);
 T('[hg] #0369A1 on #E0F2FE',hex('#0369A1'),hex('#E0F2FE'));
-T('[hdr] modal-hd-sub white@.62 on navy-800(dark)',over([255,255,255],.62,hex('#0A1525')),hex('#0A1525'));
-T('[hdr] modal-hd-sub slate@.62 on navy-800(cream)',over([15,23,42],.62,hex('#ECE7DC')),hex('#ECE7DC'));
+T('[hdr] modal-hd-sub white@.76 on navy-800(dark)',over([255,255,255],.76,hex('#0A1525')),hex('#0A1525'));
+T('[hdr] modal-hd-sub slate@.76 on navy-800(cream)',over([15,23,42],.76,hex('#ECE7DC')),hex('#ECE7DC'));
 T('[mdc] empty-duty gray-500 on white',G[500],[255,255,255]);
 T('[modal-body] pinned text-1 on fixed light modal',hex('#0F172A'),MODAL_DARK);
-T('[modal-body] pinned text-3 on fixed light modal',over([15,23,42],.68,MODAL_DARK),MODAL_DARK);
-T('[mobile-nav] text-2 dark on navy chrome',inkOn(.76,DARK,dCanvas),dCanvas);
+T('[modal-body] pinned text-3 on fixed light modal',over([15,23,42],.76,MODAL_DARK),MODAL_DARK);
+T('[modal-body] pinned text-faint on fixed light modal',over([15,23,42],.68,MODAL_DARK),MODAL_DARK);
+T('[mobile-nav] text-2 dark on navy chrome',inkOn(.84,DARK,dCanvas),dCanvas);
 T('[mobile-sheet] mday section label gray-600 on gray-50',G[600],hex(G[50]));
 
 // ---- Output ----
@@ -89,9 +89,4 @@ console.log('\n--- FAILURES (< AA) ---');
 fails.forEach(t=>console.log(`✗ ${t.r}  (min ${t.min})  ${t.name}`));
 console.log('\n--- borderline pass (AA but < 4.5 large only / <5) ---');
 tests.filter(t=>t.pass&&!t.exempt&&t.r<5).forEach(t=>console.log(`~ ${t.r}  ${t.name}`));
-const exempt = tests.filter(t=>t.exempt);
-if (exempt.length) {
-  console.log('\n--- WCAG-exempt informational pairs ---');
-  exempt.forEach(t=>console.log(`i ${t.r}  ${t.name}`));
-}
 if (fails.length) process.exitCode = 1;
