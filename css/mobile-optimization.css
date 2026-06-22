@@ -247,6 +247,6 @@ body.is-mobile .overlay .modal .yp-grid-scroll {
   }
   #modal-yearplan .yp-modal-hd { padding-top: 12px; }
   #modal-yearplan .modal-ft {
-    padding-bottom: max(12px, var(--safe-bottom)) !important;
+    padding-bottom: max(12px, var(--safe-bottom, 0px)) !important;
   }
 }
