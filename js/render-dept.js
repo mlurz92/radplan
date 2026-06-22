@@ -62,7 +62,7 @@ export function renderDeptMonth(y, m) {
     { label: "MR", val: mrCov, pct: pct(mrCov), color: "#1D4ED8", bg: "#DBEAFE" },
     { label: "CT", val: ctCov, pct: pct(ctCov), color: "#C2410C", bg: "#FFEDD5" },
     { label: "D", val: dCov, pct: pct(dCov), color: "#EF4444", bg: "#FEE2E2" },
-    { label: "HG", val: hgCov, pct: pct(hgCov), color: "#0EA5E9", bg: "#E0F2FE" },
+    { label: "HG", val: hgCov, pct: pct(hgCov), color: "#0369A1", bg: "#E0F2FE" },
   ];
   
   let stripHtml = `
@@ -246,7 +246,7 @@ export function renderDeptYear(year) {
       </div>
       <div class="dept-yr-kpi">
         <span class="dept-yr-kpi-val">
-          <span style="color:#EF4444">${team.d}</span>&thinsp;/&thinsp;<span style="color:#0EA5E9">${team.hg}</span>
+          <span style="color:#EF4444">${team.d}</span>&thinsp;/&thinsp;<span style="color:#0369A1">${team.hg}</span>
         </span>
         <span class="dept-yr-kpi-lbl">D/HG</span>
       </div>

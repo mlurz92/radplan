@@ -194,7 +194,7 @@ export function renderEmployeeDashboard() {
           <div class="empdash-card-stats">
             <span><strong>${item.ys.totals.totalActive || 0}</strong><small>Aktiv</small></span>
             <span><strong style="color:#EF4444">${item.ys.totals.dutyD || 0}</strong><small>D</small></span>
-            <span><strong style="color:#0EA5E9">${item.ys.totals.dutyHG || 0}</strong><small>HG</small></span>
+            <span><strong style="color:#0369A1">${item.ys.totals.dutyHG || 0}</strong><small>HG</small></span>
             <span><strong style="color:#7C3AED">${vac}</strong><small>Urlaub</small></span>
             <span><strong style="color:${sick>0?"#DC2626":"#64748B"}">${sick}</strong><small>Krank</small></span>
             <span><strong style="color:#3730A3">${fza}</strong><small>FZA</small></span>
@@ -718,7 +718,7 @@ export function renderEmployeeDetailDashboard(emp, year) {
                 </div>
                 <div class="empdash-duty-ratio-labels">
                   <span style="color:#EF4444">D: ${ys.totals.dutyD} (${Math.round((ys.totals.dutyD/totalDuties)*100)}%)</span>
-                  <span style="color:#0EA5E9">HG: ${ys.totals.dutyHG} (${Math.round((ys.totals.dutyHG/totalDuties)*100)}%)</span>
+                  <span style="color:#0369A1">HG: ${ys.totals.dutyHG} (${Math.round((ys.totals.dutyHG/totalDuties)*100)}%)</span>
                 </div>
               </div>
             ` : '<p class="empdash-mini-empty">Keine Dienste eingetragen</p>'}

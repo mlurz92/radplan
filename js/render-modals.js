@@ -139,7 +139,7 @@ export function openProfileModal(empName) {
         statusText = `Heute: ${todayDuty === "D" ? "Bereitschaftsdienst" : "Hintergrunddienst"}`;
       } else {
         statusText = "Heute: Kein Eintrag";
-        statusColor = "#94A3B8"; statusBg = "#F8FAFC";
+        statusColor = "#64748B"; statusBg = "#F8FAFC";
       }
 
       todayStatusEl.style.display = "";
@@ -178,7 +178,7 @@ export function openProfileModal(empName) {
       { label: "Werktage", val: s.totalWorkdays, sub: `${s.totalActive} aktiv · ${covPct}%`, color: "#1D4ED8", pct: covPct, trendHtml: trend(s.totalActive, sPrev.totalActive), ytd: ys.totals.totalActive },
       { label: "Nicht geplant", val: s.uncovered, sub: s.uncovered > 0 ? "Arbeitstage offen" : "Vollständig geplant", color: s.uncovered > 0 ? "#F97316" : "#15803D", pct: 0, trendHtml: "", ytd: null },
       { label: "D-Dienste", val: s.dutyD.length, sub: s.dutyD.length ? s.dutyD.map(d => `${d}.`).join(" ") : "Keine", color: "#EF4444", pct: 0, trendHtml: trend(s.dutyD.length, sPrev.dutyD.length), ytd: ys.totals.dutyD },
-      { label: "HG-Dienste", val: s.dutyHG.length, sub: s.dutyHG.length ? s.dutyHG.map(d => `${d}.`).join(" ") : "Keine", color: "#0EA5E9", pct: 0, trendHtml: trend(s.dutyHG.length, sPrev.dutyHG.length), ytd: ys.totals.dutyHG },
+      { label: "HG-Dienste", val: s.dutyHG.length, sub: s.dutyHG.length ? s.dutyHG.map(d => `${d}.`).join(" ") : "Keine", color: "#0369A1", pct: 0, trendHtml: trend(s.dutyHG.length, sPrev.dutyHG.length), ytd: ys.totals.dutyHG },
       { label: "Urlaub", val: vac, sub: "U · ZU · SU · §15c", color: "#7C3AED", pct: 0, trendHtml: trend(vac, vacPrev), ytd: ys.totals.vacationDays },
       { label: "Krank", val: sick, sub: sick > 0 ? "K · KK" : "Kein Krankentag", color: sick > 0 ? "#DC2626" : "#15803D", pct: 0, trendHtml: trend(sick, sickPrev), ytd: ys.totals.sickDays },
       { label: "FZA", val: fza, sub: "Freizeitausgleich", color: "#3730A3", pct: 0, trendHtml: "", ytd: ys.totals.fzaDays },
