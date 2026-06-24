@@ -250,6 +250,13 @@ export function openHeaderMenu() {
   const wrap = document.querySelector(".header-more");
   const btn = document.getElementById("btn-more");
   if (!menu || !menu.hasAttribute("hidden")) return;
+  // Das Menü liegt außerhalb des Headers (Paint-Containment) und wird per
+  // fixed-Position unter dem Drei-Punkte-Button verankert.
+  if (btn) {
+    const r = btn.getBoundingClientRect();
+    menu.style.setProperty("--hmenu-top", `${Math.round(r.bottom + 8)}px`);
+    menu.style.setProperty("--hmenu-right", `${Math.round(window.innerWidth - r.right)}px`);
+  }
   menu.removeAttribute("hidden");
   wrap?.classList.add("open");
   btn?.setAttribute("aria-expanded", "true");
@@ -317,8 +324,10 @@ export function isColorblind() {
 export function applyColorblind(on) {
   if (on) document.documentElement.setAttribute("data-cb", "1");
   else document.documentElement.removeAttribute("data-cb");
-  const item = document.getElementById("btn-colorblind");
-  if (item) item.setAttribute("aria-checked", on ? "true" : "false");
+  // Beide Schalter (Header-Overflow-Menü + mobiles Menü) synchron halten.
+  ["btn-colorblind", "mbtn-colorblind"].forEach((id) => {
+    document.getElementById(id)?.setAttribute("aria-checked", on ? "true" : "false");
+  });
 }
 
 export function setColorblind(on, persist = true) {
@@ -331,16 +340,18 @@ export function setColorblind(on, persist = true) {
 function initColorblindToggle() {
   const stored = (() => { try { return localStorage.getItem(COLORBLIND_STORAGE_KEY) === "1"; } catch (e) { return false; } })();
   applyColorblind(stored);
-  const item = document.getElementById("btn-colorblind");
-  if (item) {
-    const ico = item.querySelector(".hmenu-ico");
+  const desktopItem = document.getElementById("btn-colorblind");
+  if (desktopItem) {
+    const ico = desktopItem.querySelector(".hmenu-ico");
     if (ico && !ico.childElementCount) setIcon(ico, "eye", { size: 16 });
-    item.addEventListener("click", () => {
-      const next = !isColorblind();
-      setColorblind(next);
-      showToast(next ? "Farbenblind-sicherer Modus aktiviert" : "Farbenblind-sicherer Modus deaktiviert");
-    });
   }
+  const toggle = () => {
+    const next = !isColorblind();
+    setColorblind(next);
+    showToast(next ? "Farbenblind-sicherer Modus aktiviert" : "Farbenblind-sicherer Modus deaktiviert");
+  };
+  desktopItem?.addEventListener("click", toggle);
+  document.getElementById("mbtn-colorblind")?.addEventListener("click", toggle);
 }
 
 export function isPeriodFlyoutOpen() {

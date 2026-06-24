@@ -114,9 +114,9 @@
 }
 
 .header-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  position: fixed;
+  top: var(--hmenu-top, 56px);
+  right: var(--hmenu-right, 12px);
   min-width: 248px;
   padding: 6px;
   background: var(--surface-overlay);
@@ -125,7 +125,7 @@
   border: 1px solid var(--elev-border-3);
   border-radius: var(--radius-lg);
   box-shadow: var(--elev-shadow-3);
-  z-index: 200;
+  z-index: 1200;
   transform-origin: top right;
   animation: hmenuIn var(--dur-2) var(--ease-spring);
 }
@@ -225,11 +225,13 @@
   transition: transform var(--dur-2) var(--ease-spring), background var(--dur-2) var(--ease-out);
 }
 
+[aria-checked="true"] > .hmenu-state,
 .hmenu-item[aria-checked="true"] .hmenu-state {
   background: var(--accent-soft-hover);
   border-color: rgba(var(--accent-rgb),.5);
 }
 
+[aria-checked="true"] > .hmenu-state::after,
 .hmenu-item[aria-checked="true"] .hmenu-state::after {
   transform: translateX(13px);
   background: var(--accent-strong);
