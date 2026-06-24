@@ -297,7 +297,7 @@ function initHeaderOverflowMenu() {
   menu.addEventListener("click", (e) => {
     const item = e.target.closest(".hmenu-item");
     if (!item) return;
-    if (item.id === "btn-colorblind") return;
+    if (item.id === "btn-colorblind" || item.id === "btn-density") return;
     closeHeaderMenu();
   });
 
