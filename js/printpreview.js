@@ -18,7 +18,7 @@ let modalEl = null;
 let options = { orientation: 'landscape', includeRbn: true };
 let logoDataUrl = null;   // gerastertes Anwendungslogo (img/icon.svg → PNG) für jsPDF
 
-const TITLE = 'RadPlan — Dienstplan';
+const TITLE = 'Arbeitsplatzverteilung';
 
 // Lädt das echte App-Logo (SVG) und rastert es einmalig zu einem PNG-DataURL,
 // das jsPDF via addImage einbetten kann. Schlägt das Laden fehl, wird auf eine
@@ -74,15 +74,12 @@ function extractGrid(includeRbn) {
 
   const headCells = [...table.querySelectorAll('#plan-thead th')];
   const head = headCells.map((th, i) => (i === 0 ? 'Mitarbeiter/in' : dayHeaderText(th)));
-  // Kopf-Metadaten je Tagesspalte (für Wochenend-/Feiertags-/Heute-Markierung).
+  // Kopf-Metadaten je Tagesspalte (für Wochenend-/Feiertags-Markierung).
+  // Der heutige Tag wird im PDF bewusst NICHT hervorgehoben.
   const headMeta = headCells.map((th) => ({
     we: th.classList.contains('we'),
     hol: th.classList.contains('hol'),
-    today: th.classList.contains('today'),
   }));
-  // Index der Heute-Spalte (für die durchgehende Heute-Spaltenmarkierung im PDF).
-  let todayCol = -1;
-  headMeta.forEach((m, i) => { if (i > 0 && m.today) todayCol = i; });
 
   const body = [];
   table.querySelectorAll('#plan-tbody tr').forEach((tr) => {
@@ -99,20 +96,21 @@ function extractGrid(includeRbn) {
       }
       const assign = c.querySelector('.cell-assign, .cell-assign-rbn')?.textContent || '';
       const duty = c.querySelector('.cell-duty')?.textContent || '';
-      row.push(collapse(`${assign}${duty ? ' ' + duty : ''}`));
+      // Belegung als Zelltext; der Dienst (D/HG) wird separat als farbiges
+      // Badge gezeichnet (nicht in den Text gemischt).
+      row.push(collapse(assign));
       meta.push({
         code: c.dataset.code || '',
         duty: collapse(duty),
         we: c.classList.contains('we'),
         hol: c.classList.contains('hol'),
-        today: c.classList.contains('today'),
         conflict: c.classList.contains('cell-conflict'),
       });
     });
     body.push({ cells: row, meta, isRbn: tr.classList.contains('tr-rbn') });
   });
 
-  return { head, headMeta, todayCol, body };
+  return { head, headMeta, body };
 }
 
 // Hex-Farbe (#RRGGBB) → [r,g,b]-Tripel für jsPDF.
@@ -132,10 +130,8 @@ function hexToRgb(hex) {
 const PRINT_COLORS = {
   weFill: [238, 242, 247],     // Wochenende — sehr helles Slate
   holFill: [254, 243, 199],    // Feiertag — helles Amber
-  todayFill: [224, 242, 254],  // Heute (ohne Belegung) — helles Blau
-  todayLine: [14, 165, 233],   // Heute-Spaltenrahmen
-  dutyD: [254, 226, 226],      // D-Dienst (Belegung leer) — helles Rot
-  dutyHG: [219, 234, 254],     // HG-Dienst (Belegung leer) — helles Blau
+  dutyDBadge: [239, 68, 68],   // D-Dienst-Badge — Rot (wie im Raster)
+  dutyHGBadge: [14, 165, 233], // HG-Dienst-Badge — Blau (wie im Raster)
   conflict: [220, 38, 38],     // Konflikt-Rahmen
   rbnFill: [14, 116, 144],     // RD-Neurorad-Zeile
   headFill: [30, 41, 59],      // Tabellenkopf
@@ -261,7 +257,7 @@ function buildAutoTableConfig(grid, fontSize, geom, generatedAt, doc) {
     styles: {
       fontSize,
       cellPadding,
-      overflow: 'linebreak',
+      overflow: 'hidden',
       halign: 'center',
       valign: 'middle',
       lineColor: [203, 213, 225],
@@ -297,7 +293,9 @@ function buildAutoTableConfig(grid, fontSize, geom, generatedAt, doc) {
       const cm = rowMeta.meta?.[col];
       if (!cm || cm.name) return;
 
-      // Priorität: Belegungs-Chipfarbe > Dienst-Tint > Feiertag > Wochenende > Heute.
+      // Priorität der Flächenfarbe: Belegungs-Chip > Feiertag > Wochenende.
+      // (Der Dienst wird NICHT als Fläche, sondern als Badge gezeichnet; der
+      // heutige Tag wird bewusst nicht markiert.)
       const meta = cm.code ? CODE_MAP[cm.code] : null;
       if (meta) {
         const bg = hexToRgb(meta.bg);
@@ -305,16 +303,10 @@ function buildAutoTableConfig(grid, fontSize, geom, generatedAt, doc) {
         if (bg) data.cell.styles.fillColor = bg;
         if (fg) data.cell.styles.textColor = fg;
         data.cell.styles.fontStyle = 'bold';
-      } else if (cm.duty === 'D') {
-        data.cell.styles.fillColor = PRINT_COLORS.dutyD;
-      } else if (cm.duty === 'HG') {
-        data.cell.styles.fillColor = PRINT_COLORS.dutyHG;
       } else if (cm.hol) {
         data.cell.styles.fillColor = PRINT_COLORS.holFill;
       } else if (cm.we) {
         data.cell.styles.fillColor = PRINT_COLORS.weFill;
-      } else if (cm.today) {
-        data.cell.styles.fillColor = PRINT_COLORS.todayFill;
       }
 
       // Konfliktzellen erhalten einen kräftigen roten Rahmen.
@@ -324,15 +316,41 @@ function buildAutoTableConfig(grid, fontSize, geom, generatedAt, doc) {
       }
     },
     didDrawCell: (data) => {
-      // Durchgehende Heute-Spaltenmarkierung (linke + rechte Kante), damit die
-      // Heute-Spalte auch bei belegten Zellen klar erkennbar bleibt.
-      if (grid.todayCol > 0 && data.column.index === grid.todayCol) {
-        const { x, y, width, height } = data.cell;
-        doc.setDrawColor(...PRINT_COLORS.todayLine);
-        doc.setLineWidth(0.5);
-        doc.line(x, y, x, y + height);
-        doc.line(x + width, y, x + width, y + height);
+      // Dienst-Badges: kleine farbige Pillen (D = rot, HG = blau) wie im
+      // Raster. Bei vorhandener Belegung oben rechts in der Ecke, andernfalls
+      // mittig zentriert.
+      if (data.section !== 'body') return;
+      const rowMeta = grid.body[data.row.index];
+      if (!rowMeta || rowMeta.isRbn) return;
+      const cm = rowMeta.meta?.[data.column.index];
+      if (!cm || cm.name || !cm.duty) return;
+
+      const isHG = cm.duty === 'HG';
+      const fill = isHG ? PRINT_COLORS.dutyHGBadge : PRINT_COLORS.dutyDBadge;
+      const label = isHG ? 'HG' : 'D';
+      const { x, y, width, height } = data.cell;
+
+      const bf = Math.max(3.2, fontSize * 0.78);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(bf);
+      const tw = doc.getTextWidth(label);
+      const bw = tw + 1.2;
+      const bh = bf * 0.3528 + 0.9;
+
+      let bx;
+      let by;
+      if (cm.code) {
+        bx = x + width - bw - 0.5;
+        by = y + 0.5;
+      } else {
+        bx = x + (width - bw) / 2;
+        by = y + (height - bh) / 2;
       }
+
+      doc.setFillColor(fill[0], fill[1], fill[2]);
+      doc.roundedRect(bx, by, bw, bh, 0.5, 0.5, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.text(label, bx + bw / 2, by + bh / 2, { align: 'center', baseline: 'middle' });
     },
     didDrawPage: (data) => {
       drawPageChrome(doc, geom, generatedAt, data);
@@ -363,7 +381,13 @@ function drawPageChrome(doc, geom, generatedAt, data) {
   doc.text(TITLE, 20, 12);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
+  doc.setTextColor(71, 85, 105);
   doc.text(`${periodLabel()}${planMode ? ' · Planungsentwurf' : ''}`, 20, 17);
+
+  // Feine Trennlinie zwischen Kopfbereich und Tabelle (professioneller Abschluss).
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.3);
+  doc.line(8, 19.4, geom.pageW - 8, 19.4);
 
   const totalPages = doc.internal.getNumberOfPages();
   doc.setFontSize(7);
@@ -408,24 +432,54 @@ async function doPdfExport() {
 
   const usableH = pageH - PDF_LAYOUT.top - PDF_LAYOUT.bottom;
 
-  // Auto-Fit: größte Schriftgröße finden, bei der ALLES auf eine Seite passt.
-  // Wir messen die tatsächliche Tabellenhöhe über einen stillen Probelauf
-  // (autoTable schreibt finalY) statt sie nur zu schätzen.
   const FONT_MAX = 8;
   const FONT_MIN = 2.4;
   const FONT_STEP = 0.25;
 
+  // 1) Horizontale Grenze: die größte Schriftgröße, bei der JEDE Beschriftung
+  //    einzeilig in ihre Spaltenbreite passt (kein Umbruch, kein Abschnitt
+  //    mitten im Wort). Wir messen die Textbreite bei Schriftgröße 1 (skaliert
+  //    linear) und leiten daraus die maximal mögliche Schriftgröße ab.
+  function horizontalFontLimit() {
+    probe.setFont('helvetica', 'bold');   // fett = breiteste Variante (worst case)
+    probe.setFontSize(1);
+    let limit = FONT_MAX;
+    const hPad = 1.4;   // horizontaler Innenabstand (beide Seiten) in mm
+    const consider = (text, colW, reserve) => {
+      const avail = colW - hPad - (reserve || 0);
+      String(text).split('\n').forEach((line) => {
+        const w1 = probe.getTextWidth(line);
+        if (w1 > 0) limit = Math.min(limit, avail / w1);
+      });
+    };
+    grid.head.forEach((txt, i) => consider(txt, i === 0 ? nameW : dayColW, 0));
+    grid.body.forEach((r) => {
+      r.cells.forEach((txt, i) => {
+        if (!txt) return;
+        // In belegten Zellen sitzt evtl. ein Dienst-Badge oben rechts —
+        // etwas Breite reservieren, damit Text und Badge nicht kollidieren.
+        const reserve = (i > 0 && r.meta?.[i]?.duty && r.meta?.[i]?.code) ? dayColW * 0.32 : 0;
+        consider(txt, i === 0 ? nameW : dayColW, reserve);
+      });
+    });
+    // Sicherheitsmarge gegen Rundung; auf den sinnvollen Bereich begrenzen.
+    return Math.max(FONT_MIN, Math.min(FONT_MAX, limit * 0.92));
+  }
+
+  // 2) Vertikale Grenze: größte Schriftgröße, bei der die gesamte Tabelle auf
+  //    eine Seite passt — gemessen über einen stillen autoTable-Probelauf.
   function measuredHeight(fontSize) {
     const tmp = new jsPDF({ orientation: options.orientation, unit: 'mm', format: 'a4' });
     const cfg = buildAutoTableConfig(grid, fontSize, geom, generatedAt, tmp);
-    cfg.didDrawPage = () => {};   // kein Chrome im Messlauf
+    cfg.didDrawPage = () => {};
     cfg.didDrawCell = () => {};
     tmp.autoTable(cfg);
     return { height: tmp.lastAutoTable.finalY - PDF_LAYOUT.top, pages: tmp.internal.getNumberOfPages() };
   }
 
+  const hLimit = horizontalFontLimit();
   let chosenFont = FONT_MIN;
-  for (let fs = FONT_MAX; fs >= FONT_MIN - 0.001; fs -= FONT_STEP) {
+  for (let fs = Math.min(FONT_MAX, hLimit); fs >= FONT_MIN - 0.001; fs -= FONT_STEP) {
     const { height, pages } = measuredHeight(fs);
     if (pages === 1 && height <= usableH) {
       chosenFont = fs;
