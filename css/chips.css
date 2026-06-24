@@ -60,8 +60,7 @@ html[data-cb="1"] .td-cell[data-code] {
 html[data-cb="1"] .td-cell[data-code] .cell-assign {
   color: var(--cb-fg, var(--ink-strong)) !important;
 }
-/* Light-Mode: kräftige Vollfarbe + weiße Schrift für klare Trennung */
-html[data-cb="1"][data-theme="light"] .td-cell[data-code] .cell-assign { color:#fff !important; }
+/* In Light-Mode wird die jeweils optimal kontrastierende Textfarbe aus --cb-fg verwendet */
 
 html[data-cb="1"] .td-cell[data-code="MR"]  { --cb-bg:#0072B2; --cb-edge:#004C7A; --cb-fg:#EAF4FB; }
 html[data-cb="1"] .td-cell[data-code="CT"]  { --cb-bg:#D55E00; --cb-edge:#8F3F00; --cb-fg:#FFF1E8; }
