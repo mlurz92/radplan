@@ -1,15 +1,16 @@
 :root {
-  --navy-900: #0B131F;
-  --navy-800: #111C2E;
-  --navy-700: #18283F;
-  --navy-600: #1F3554;
-  --navy-500: #274468;
-  --navy-400: #345484;
-  --steel: #3674A8;
-  --accent: #0EA5E9;
-  --accent-lt: #67D4FF;
-  --accent-xs: #E8F8FF;
-  --accent-dim: rgba(14,165,233,.10);
+  /* OLED Dark Mode Colors (Medical Standard) */
+  --navy-900: #000000; /* True OLED Black */
+  --navy-800: #050A0F;
+  --navy-700: #0D1621;
+  --navy-600: #132233;
+  --navy-500: #1B3046;
+  --navy-400: #274563;
+  --steel: #3A7CAE;
+  --accent: #0891B2; /* Medical Teal (Cyan 600) */
+  --accent-lt: #22D3EE;
+  --accent-xs: #CFFAFE;
+  --accent-dim: rgba(8,145,178,.12);
   --white: #FFFFFF;
   --gray-50: #F8FAFC;
   --gray-100: #F1F5F9;
@@ -26,98 +27,101 @@
   --red-dark: #B91C1C;
   --red-lt: #FEF2F2;
   --red-bg: #FEE2E2;
-  --blue-d: #0EA5E9;
-  --green: #22C55E;
+  --blue-d: #0891B2;
+  --green: #22C55E; /* Health Green */
   --green-lt: #F0FDF4;
   --orange: #F97316;
-  --header-h: 54px;
-  --statsbar-h: 38px;
-  --name-w: 155px;
-  --cell-w: 48px;
-  --row-h: clamp(40px, 4.5vh, 60px);
-  --foot-h: 30px;
-  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  
+  /* Layout & Fluid Spacing */
+  --header-h: clamp(50px, 6vh, 60px);
+  --statsbar-h: clamp(34px, 4vh, 42px);
+  --name-w: clamp(130px, 15vw, 170px);
+  --cell-w: clamp(44px, 5vw, 54px);
+  --row-h: clamp(42px, 5vh, 64px);
+  --foot-h: 32px;
+  
+  /* Typography */
+  --font-sans: 'Noto Sans', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Figtree', 'Noto Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  
+  /* Fluid Typography Tokens */
+  --text-xs: clamp(10px, 0.8vw + 8px, 11px);
+  --text-sm: clamp(11.5px, 0.9vw + 9px, 13px);
+  --text-base: clamp(13px, 1vw + 10px, 15px);
+  --text-md: clamp(15px, 1.2vw + 11px, 18px);
+  --text-lg: clamp(18px, 1.5vw + 14px, 22px);
+  
   --border: 1px solid rgba(var(--ink-rgb),.08);
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
-  --glass-bg: rgba(var(--ink-rgb),.04);
+  --border-subtle: 1px solid rgba(var(--ink-rgb),.04);
+  
+  /* Refined Radii */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  
+  /* Advanced Glassmorphism */
+  --glass-bg: rgba(var(--ink-rgb),.03);
   --glass-bg-hover: rgba(var(--ink-rgb),.08);
-  --glass-border: rgba(var(--ink-rgb),.08);
-  --glass-border-h: rgba(var(--ink-rgb),.14);
+  --glass-border: rgba(var(--ink-rgb),.06);
+  --glass-border-h: rgba(var(--ink-rgb),.15);
   --glass-blur: 16px;
-  --glass-blur-lg: 24px;
+  --glass-blur-lg: 32px;
+  --glass-blur-xl: 48px;
+  
   --glass-light: rgba(var(--ink-rgb),.65);
   --glass-light-hover: rgba(var(--ink-rgb),.78);
   --glass-light-border: rgba(var(--ink-rgb),.12);
   --glass-light-bg: rgba(var(--ink-rgb),.45);
+  
+  /* Multi-layered Soft Shadows */
   --shadow-xs: 0 1px 2px rgba(0,0,0,.04);
-  --shadow-sm: 0 1px 4px rgba(0,0,0,.06);
-  --shadow-md: 0 4px 12px rgba(0,0,0,.08);
-  --shadow-lg: 0 10px 30px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.06);
-  --shadow-xl: 0 24px 64px rgba(0,0,0,.2), 0 8px 20px rgba(0,0,0,.1);
-  --shadow-glow: 0 0 20px rgba(14,165,233,.15), 0 0 60px rgba(14,165,233,.05);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 6px rgba(0,0,0,.08), 0 2px 4px rgba(0,0,0,.04);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,.1), 0 4px 6px rgba(0,0,0,.06);
+  --shadow-xl: 0 20px 30px rgba(0,0,0,.15), 0 10px 15px rgba(0,0,0,.1);
+  --shadow-2xl: 0 30px 60px rgba(0,0,0,.25), 0 15px 25px rgba(0,0,0,.15);
+  --shadow-glow: 0 0 20px rgba(14,165,233,.2), 0 0 40px rgba(14,165,233,.1);
+  
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --mnav-h: calc(56px + var(--safe-bottom));
+  --mnav-h: calc(60px + var(--safe-bottom));
   --app-vw: 100vw;
   --app-vh: 100dvh;
   --kb-inset: 0px;
-  --overlay-pad: clamp(12px, 2.4vw, 24px);
-
-  /* Theme-aware surface tokens — RGB triplets so they can feed rgba() at any alpha.
-     Dark mode (default): light tint over a dark canvas. Light mode overrides below
-     invert the relationship without touching any of the alpha values used throughout
-     the stylesheet, so every "glass" surface keeps its depth in both themes. */
+  --overlay-pad: clamp(12px, 3vw, 32px);
+  
   --ink-rgb: 255,255,255;
   --ink-strong: #FFFFFF;
   --app-ink-rgb: 255,255,255;
   --app-ink-strong: #FFFFFF;
-  --navy-800-rgb: 10,21,37;
-  --navy-900-rgb: 6,13,22;
-  --navy-700-rgb: 15,29,50;
+  --navy-800-rgb: 5,10,15;
+  --navy-900-rgb: 0,0,0;
+  --navy-700-rgb: 16,30,49;
   --gray-900-rgb: 15,23,42;
-
-  /* --glass-light-bg/-border are deliberately a light-tinted surface in BOTH
-     themes (a frosted panel raised above the canvas). --ink-strong tracks the
-     canvas (white in dark mode) and would sit near-white-on-near-white on top
-     of it, so content placed on a --glass-light-* surface must use this fixed,
-     always-dark token instead. */
+  
   --ink-on-glass-light: #0F172A;
-
-  /* Semantic, theme-aware text tiers — always legible on the app canvas because
-     they derive from --ink-rgb (white in dark, slate in light) at fixed alphas.
-     Prefer these over the fixed --gray-* scale for body/secondary/muted text
-     that sits on the themed canvas (the gray scale stays correct for fixed
-     light surfaces such as the dept/year tables). */
+  
   --text-1: var(--ink-strong);
-  --text-2: rgba(var(--ink-rgb),.84);
-  --text-3: rgba(var(--ink-rgb),.70);
-  --text-faint: rgba(var(--ink-rgb),.62);
-
-  /* ============================================================
-     DESIGN-TOKEN-ARCHITEKTUR (Task 18)
-     Zwei Ebenen: PRIMITIVE Tokens (rohe Werte, themenunabhängig)
-     und SEMANTIC Tokens (Bedeutung, themenbewusst). Komponenten
-     referenzieren AUSSCHLIESSLICH semantische Tokens, sodass ein
-     Theme-Wechsel an genau einer Stelle erfolgt.
-     ============================================================ */
-
-  /* --- PRIMITIVE: Akzent als RGB-Tripel (für rgba() in jeder Deckkraft) --- */
-  --accent-rgb: 14,165,233;
-  --accent-2-rgb: 99,102,241;          /* Indigo-Sekundärakzent */
-  --accent-strong: #38BDF8;
-  --accent-soft: rgba(var(--accent-rgb),.14);
-  --accent-soft-hover: rgba(var(--accent-rgb),.22);
-  --accent-ring: rgba(var(--accent-rgb),.45);
-  --accent-grad: linear-gradient(135deg, #0EA5E9 0%, #6366F1 100%);
-
-  /* --- SEMANTIC: status hues (single source of truth) --- */
+  --text-2: rgba(var(--ink-rgb),.88);
+  --text-3: rgba(var(--ink-rgb),.72);
+  --text-faint: rgba(var(--ink-rgb),.55);
+  
+  /* Primitive Tokens */
+  --accent-rgb: 8,145,178; /* 0891B2 rgb */
+  --accent-2-rgb: 34,197,94; /* 22C55E rgb */
+  --accent-strong: #22D3EE;
+  --accent-soft: rgba(var(--accent-rgb),.12);
+  --accent-soft-hover: rgba(var(--accent-rgb),.24);
+  --accent-ring: rgba(var(--accent-rgb),.5);
+  --accent-grad: linear-gradient(135deg, #0891B2 0%, #22D3EE 100%);
+  --accent-grad-hover: linear-gradient(135deg, #06B6D4 0%, #67E8F9 100%);
+  
+  /* Semantic Tokens */
   --hue-success: 152;
   --hue-warning: 32;
   --hue-danger: 0;
@@ -126,109 +130,99 @@
   --c-warning: #F59E0B;
   --c-danger: #EF4444;
   --c-info: #38BDF8;
-
-  /* ============================================================
-     ELEVATION / MATERIAL-TIEFE (Task 3)
-     Eine durchgehende Höhenleiter Surface 0..3. Jede Stufe hebt
-     sich durch (a) hellere Glasfüllung, (b) festere Border,
-     (c) oberen Innen-Glanz (--elev-hi) und (d) stärkeren Schatten
-     vom darunterliegenden Material ab. Alle Werte basieren auf
-     --ink-rgb und sind damit automatisch themenbewusst.
-     ============================================================ */
-  --elev-0-bg: rgba(var(--ink-rgb),.02);
-  --elev-1-bg: rgba(var(--ink-rgb),.045);
+  
+  /* Elevation System */
+  --elev-0-bg: rgba(var(--ink-rgb),.015);
+  --elev-1-bg: rgba(var(--ink-rgb),.04);
   --elev-2-bg: rgba(var(--ink-rgb),.07);
-  --elev-3-bg: rgba(var(--ink-rgb),.10);
-  --elev-1-bg-hover: rgba(var(--ink-rgb),.075);
-  --elev-2-bg-hover: rgba(var(--ink-rgb),.105);
-
-  --elev-border: rgba(var(--ink-rgb),.08);
-  --elev-border-1: rgba(var(--ink-rgb),.10);
-  --elev-border-2: rgba(var(--ink-rgb),.13);
-  --elev-border-3: rgba(var(--ink-rgb),.17);
-
-  /* Oberer Innen-Glanz + unterer Innen-Schatten = plastische Kante */
-  --elev-hi: inset 0 1px 0 rgba(var(--ink-rgb),.07);
-  --elev-hi-strong: inset 0 1px 0 rgba(var(--ink-rgb),.10);
-  --elev-lo: inset 0 -1px 0 rgba(0,0,0,.18);
-
-  --elev-shadow-1: 0 1px 3px rgba(0,0,0,.18), var(--elev-hi);
-  --elev-shadow-2: 0 6px 18px rgba(0,0,0,.28), var(--elev-hi);
-  --elev-shadow-3: 0 18px 48px rgba(0,0,0,.40), 0 4px 12px rgba(0,0,0,.24), var(--elev-hi-strong);
-
-  /* Opake Surface-Farben (für Backdrops, die echte Deckung brauchen) */
+  --elev-3-bg: rgba(var(--ink-rgb),.12);
+  --elev-1-bg-hover: rgba(var(--ink-rgb),.06);
+  --elev-2-bg-hover: rgba(var(--ink-rgb),.09);
+  
+  --elev-border: rgba(var(--ink-rgb),.06);
+  --elev-border-1: rgba(var(--ink-rgb),.09);
+  --elev-border-2: rgba(var(--ink-rgb),.12);
+  --elev-border-3: rgba(var(--ink-rgb),.16);
+  
+  /* Advanced highlights for 3D realism */
+  --elev-hi: inset 0 1px 0 rgba(var(--ink-rgb),.1), inset 0 0 0 1px rgba(var(--ink-rgb), .02);
+  --elev-hi-strong: inset 0 1px 0 rgba(var(--ink-rgb),.15), inset 0 0 0 1px rgba(var(--ink-rgb), .04);
+  --elev-lo: inset 0 -1px 0 rgba(0,0,0,.25);
+  
+  --elev-shadow-1: 0 2px 4px rgba(0,0,0,.15), var(--elev-hi);
+  --elev-shadow-2: 0 8px 24px rgba(0,0,0,.25), 0 2px 6px rgba(0,0,0,.15), var(--elev-hi);
+  --elev-shadow-3: 0 24px 64px rgba(0,0,0,.45), 0 8px 16px rgba(0,0,0,.2), var(--elev-hi-strong);
+  
   --surface-canvas: var(--navy-900);
-  --surface-raised: rgba(var(--navy-800-rgb),.72);
-  --surface-overlay: rgba(var(--navy-800-rgb),.86);
-
-  /* ============================================================
-     MOTION-SYSTEM (Task 8) — eine einheitliche Bewegungssprache.
-     ============================================================ */
-  --dur-1: .12s;          /* Mikro: Hover, Tap */
-  --dur-2: .2s;           /* Standard: Farb-/Transformwechsel */
-  --dur-3: .32s;          /* Übergänge, Enthüllungen */
-  --dur-4: .5s;           /* große Choreographien */
-  --ease-out: cubic-bezier(.22,.61,.36,1);
-  --ease-in-out: cubic-bezier(.4,0,.2,1);
-  --ease-spring: cubic-bezier(.34,1.32,.64,1);   /* leichtes Überschwingen */
-  --ease-spring-soft: cubic-bezier(.34,1.12,.64,1);
+  --surface-raised: rgba(var(--navy-800-rgb),.75);
+  --surface-overlay: rgba(var(--navy-800-rgb),.88);
+  
+  /* Ultra-smooth Motion System */
+  --dur-1: .15s;
+  --dur-2: .25s;
+  --dur-3: .4s;
+  --dur-4: .6s;
+  --ease-out: cubic-bezier(.25,1,.5,1);
+  --ease-in-out: cubic-bezier(.65,0,.35,1);
+  --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
+  --ease-spring-soft: cubic-bezier(0.34, 1.15, 0.64, 1);
+  --ease-elastic: cubic-bezier(0.4, 2, 0.2, 1);
 }
 
 [data-theme="light"] {
-  --navy-900: #F4F1EA;
-  --navy-800: #ECE7DC;
-  --navy-700: #E2DCCC;
-  --navy-600: #D8CFB8;
-  --navy-500: #C9BC9C;
-  --navy-400: #B3A37C;
+  --navy-900: #F8F9FA;
+  --navy-800: #F1F3F5;
+  --navy-700: #E9ECEF;
+  --navy-600: #DEE2E6;
+  --navy-500: #CED4DA;
+  --navy-400: #ADB5BD;
   --steel: #6B8AAE;
-  --border: 1px solid rgba(15,23,42,.08);
-  --glass-bg: rgba(15,23,42,.035);
-  --glass-bg-hover: rgba(15,23,42,.07);
-  --glass-border: rgba(15,23,42,.09);
-  --glass-border-h: rgba(15,23,42,.16);
-  --glass-light: rgba(255,255,255,.82);
-  --glass-light-hover: rgba(255,255,255,.92);
-  --glass-light-border: rgba(15,23,42,.08);
-  --glass-light-bg: rgba(255,255,255,.62);
-  --shadow-xs: 0 1px 2px rgba(15,23,42,.05);
-  --shadow-sm: 0 1px 4px rgba(15,23,42,.07);
-  --shadow-md: 0 4px 12px rgba(15,23,42,.08);
-  --shadow-lg: 0 10px 30px rgba(15,23,42,.12), 0 2px 8px rgba(15,23,42,.06);
-  --shadow-xl: 0 24px 64px rgba(15,23,42,.18), 0 8px 20px rgba(15,23,42,.08);
-  --shadow-glow: 0 0 20px rgba(14,165,233,.18), 0 0 60px rgba(14,165,233,.07);
-
+  --border: 1px solid rgba(15,23,42,.06);
+  --border-subtle: 1px solid rgba(15,23,42,.03);
+  --glass-bg: rgba(15,23,42,.02);
+  --glass-bg-hover: rgba(15,23,42,.05);
+  --glass-border: rgba(15,23,42,.06);
+  --glass-border-h: rgba(15,23,42,.12);
+  --glass-light: rgba(255,255,255,.9);
+  --glass-light-hover: rgba(255,255,255,.98);
+  --glass-light-border: rgba(15,23,42,.05);
+  --glass-light-bg: rgba(255,255,255,.75);
+  --shadow-xs: 0 1px 2px rgba(15,23,42,.03);
+  --shadow-sm: 0 1px 3px rgba(15,23,42,.05), 0 1px 2px rgba(15,23,42,.03);
+  --shadow-md: 0 4px 6px rgba(15,23,42,.06), 0 2px 4px rgba(15,23,42,.04);
+  --shadow-lg: 0 10px 15px rgba(15,23,42,.08), 0 4px 6px rgba(15,23,42,.05);
+  --shadow-xl: 0 20px 30px rgba(15,23,42,.12), 0 10px 15px rgba(15,23,42,.08);
+  --shadow-2xl: 0 30px 60px rgba(15,23,42,.15), 0 15px 25px rgba(15,23,42,.1);
+  --shadow-glow: 0 0 20px rgba(14,165,233,.15), 0 0 40px rgba(14,165,233,.05);
+  
   --ink-rgb: 15,23,42;
   --ink-strong: #0F172A;
   --app-ink-rgb: 15,23,42;
   --app-ink-strong: #0F172A;
-  --navy-800-rgb: 236,231,220;
-  --navy-900-rgb: 244,241,234;
-  --navy-700-rgb: 226,220,204;
+  --navy-800-rgb: 241,243,245;
+  --navy-900-rgb: 248,249,250;
+  --navy-700-rgb: 233,236,239;
   --gray-900-rgb: 15,23,42;
-
-  /* The light canvas is a warm cream, so dark ink needs a higher alpha than in
-     dark mode to clear WCAG AA for secondary/faint label tiers. */
-  --text-2: rgba(var(--ink-rgb),.88);
-  --text-3: rgba(var(--ink-rgb),.74);
-  --text-faint: rgba(var(--ink-rgb),.68);
-
-  /* Light-Mode-Anpassung der Elevation-Tokens: auf hellem Cream-Canvas
-     erzeugt dunkle Tinte die Tiefe, der obere Glanz wird hingegen weiß. */
-  --elev-0-bg: rgba(var(--ink-rgb),.015);
-  --elev-1-bg: rgba(255,255,255,.55);
-  --elev-2-bg: rgba(255,255,255,.72);
-  --elev-3-bg: rgba(255,255,255,.86);
-  --elev-1-bg-hover: rgba(255,255,255,.68);
-  --elev-2-bg-hover: rgba(255,255,255,.82);
-  --elev-hi: inset 0 1px 0 rgba(255,255,255,.7);
-  --elev-hi-strong: inset 0 1px 0 rgba(255,255,255,.85);
-  --elev-lo: inset 0 -1px 0 rgba(15,23,42,.05);
-  --elev-shadow-1: 0 1px 3px rgba(15,23,42,.08), var(--elev-hi);
-  --elev-shadow-2: 0 6px 18px rgba(15,23,42,.12), var(--elev-hi);
-  --elev-shadow-3: 0 18px 48px rgba(15,23,42,.18), 0 4px 12px rgba(15,23,42,.10), var(--elev-hi-strong);
-  --accent-soft: rgba(var(--accent-rgb),.11);
-  --accent-soft-hover: rgba(var(--accent-rgb),.18);
+  
+  --text-2: rgba(var(--ink-rgb),.85);
+  --text-3: rgba(var(--ink-rgb),.68);
+  --text-faint: rgba(var(--ink-rgb),.52);
+  
+  --elev-0-bg: rgba(var(--ink-rgb),.01);
+  --elev-1-bg: rgba(255,255,255,.65);
+  --elev-2-bg: rgba(255,255,255,.85);
+  --elev-3-bg: rgba(255,255,255,.95);
+  --elev-1-bg-hover: rgba(255,255,255,.78);
+  --elev-2-bg-hover: rgba(255,255,255,.92);
+  --elev-hi: inset 0 1px 0 rgba(255,255,255,.8), inset 0 0 0 1px rgba(255,255,255, .4);
+  --elev-hi-strong: inset 0 1px 0 rgba(255,255,255,.95), inset 0 0 0 1px rgba(255,255,255, .6);
+  --elev-lo: inset 0 -1px 0 rgba(15,23,42,.04);
+  --elev-shadow-1: 0 2px 4px rgba(15,23,42,.05), var(--elev-hi);
+  --elev-shadow-2: 0 8px 24px rgba(15,23,42,.08), 0 2px 6px rgba(15,23,42,.05), var(--elev-hi);
+  --elev-shadow-3: 0 24px 64px rgba(15,23,42,.12), 0 8px 16px rgba(15,23,42,.08), var(--elev-hi-strong);
+  
+  --accent-soft: rgba(var(--accent-rgb),.08);
+  --accent-soft-hover: rgba(var(--accent-rgb),.15);
 }
 
 *, *::before, *::after {
@@ -245,6 +239,22 @@ html, body {
   scrollbar-color: rgba(148,163,184,.4) transparent;
 }
 
+/* Custom Webkit Scrollbars for Premium feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(var(--ink-rgb), .15);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--ink-rgb), .25);
+}
+
 @media (prefers-reduced-motion: no-preference) {
   html { scroll-behavior: smooth; }
 }
@@ -256,13 +266,15 @@ html, body {
 
 body {
   font-family: var(--font-sans);
+  font-size: var(--text-base);
   background: var(--navy-900);
   color: var(--ink-strong);
   display: flex;
   flex-direction: column;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  transition: background-color .35s ease, color .35s ease;
+  transition: background-color .4s ease, color .4s ease;
 }
 
 body::before {
@@ -271,12 +283,12 @@ body::before {
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(14,165,233,.07) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 85% 80%, rgba(99,102,241,.06) 0%, transparent 50%),
-    radial-gradient(ellipse 70% 40% at 50% 50%, rgba(var(--navy-900-rgb),.9) 0%, transparent 100%),
+    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(14,165,233,.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 85% 80%, rgba(99,102,241,.07) 0%, transparent 50%),
+    radial-gradient(ellipse 70% 40% at 50% 50%, rgba(var(--navy-900-rgb),.85) 0%, transparent 100%),
     linear-gradient(160deg, var(--navy-900) 0%, var(--navy-800) 40%, var(--navy-700) 100%);
   pointer-events: none;
-  transition: background .35s ease;
+  transition: background .4s ease;
 }
 
 button, a, .td-cell, .td-name, .chip-wp, .chip-st, .chip-duty, .chip-wish {
@@ -296,23 +308,21 @@ body.is-drag-selecting {
 button {
   cursor: pointer;
   font-family: inherit;
-  transition: transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1), opacity 0.2s, background-color 0.2s, box-shadow 0.2s;
+  transition: transform var(--dur-2) var(--ease-spring), opacity var(--dur-2), background-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
 }
 
 button:active {
-  transform: scale(0.96);
+  transform: scale(0.95);
 }
 
-/* Keyboard-only focus ring — invisible on mouse click */
 :focus { outline: none; }
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+  border-radius: inherit;
 }
 
-
-/* --- GLOBAL UI/UX & RESPONSIVE OPTIMIZATIONS --- */
-
+/* Global Mobile Rules */
 body.is-mobile .nav-btn,
 body.is-mobile .month-label-btn {
   min-width: 44px;
@@ -324,7 +334,6 @@ body.is-mobile .overlay {
   padding-bottom: max(var(--overlay-pad), var(--safe-bottom)) !important;
 }
 
-/* Suppress sticky hover effects on mobile */
 @media (hover: none) and (pointer: coarse) {
   .nav-btn:hover { background: none; transform: none; }
   .month-nav:hover { border-color: var(--glass-border); box-shadow: 0 2px 8px rgba(0,0,0,.15); }
@@ -332,22 +341,19 @@ body.is-mobile .overlay {
   .td-name:hover { background: var(--bg-a); }
 }
 
-/* Smooth momentum scrolling globally */
 .ap-table-wrap, .dept-table-wrap, #grid-wrapper, .mobile-day-list, .empdash-month-table-wrap {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Rigorous modal sizing */
 .modal {
   max-height: min(var(--modal-max-height, calc(100dvh - (2 * var(--overlay-pad)))), calc(100dvh - (2 * var(--overlay-pad)))) !important;
 }
 
-/* --- VIEW TRANSITIONS: month/year navigation choreography --- */
-
+/* View Transitions */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: .32s;
-  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-duration: var(--dur-3);
+  animation-timing-function: var(--ease-in-out);
 }
 
 html[data-vt-direction="forward"]::view-transition-old(root) { animation-name: vt-slide-out-left; }
@@ -355,14 +361,11 @@ html[data-vt-direction="forward"]::view-transition-new(root) { animation-name: v
 html[data-vt-direction="backward"]::view-transition-old(root) { animation-name: vt-slide-out-right; }
 html[data-vt-direction="backward"]::view-transition-new(root) { animation-name: vt-slide-in-left; }
 
-@keyframes vt-slide-out-left { to { transform: translateX(-2.5%); opacity: 0; } }
-@keyframes vt-slide-in-right { from { transform: translateX(2.5%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-@keyframes vt-slide-out-right { to { transform: translateX(2.5%); opacity: 0; } }
-@keyframes vt-slide-in-left { from { transform: translateX(-2.5%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes vt-slide-out-left { to { transform: translateX(-3%); opacity: 0; } }
+@keyframes vt-slide-in-right { from { transform: translateX(3%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes vt-slide-out-right { to { transform: translateX(3%); opacity: 0; } }
+@keyframes vt-slide-in-left { from { transform: translateX(-3%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-/* Theme toggle: circular reveal expanding from the click origin, driven via
-   the Web Animations API in viewtransition.js. The default UA cross-fade is
-   disabled here so the growing clip-path is the only visible effect. */
 html[data-vt-theme] ::view-transition-old(root),
 html[data-vt-theme] ::view-transition-new(root) {
   animation: none;
@@ -377,21 +380,9 @@ html[data-vt-theme] ::view-transition-new(root) {
   }
 }
 
-/* --- HIGH-CONTRAST PREFERENCE ---
-   Honour the OS "Increase contrast" setting. The dense planning grid relies on
-   hairline borders (rgba ink at .04–.08) to separate days and rows; for users
-   who request more contrast these can dissolve, so firm them up and thicken the
-   keyboard focus ring. Colour-coded cells already carry a text label (CT, MR,
-   …) so meaning never depends on colour alone. */
 @media (prefers-contrast: more) {
   :root { --border: 1px solid rgba(var(--ink-rgb),.24); }
-  .td-cell,
-  .th-day,
-  .th-day.is-fri,
-  .td-cell.is-fri,
-  .td-name,
-  .tr-stat .td-stat-val,
-  .tr-stat .td-stat-lbl {
+  .td-cell, .th-day, .th-day.is-fri, .td-cell.is-fri, .td-name, .tr-stat .td-stat-val, .tr-stat .td-stat-lbl {
     border-color: rgba(var(--ink-rgb),.24);
   }
   :focus-visible { outline-width: 3px; }
