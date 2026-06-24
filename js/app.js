@@ -123,6 +123,7 @@ import { withViewTransition, withThemeViewTransition } from './viewtransition.js
 import { initNormalHistory, normalUndo, normalRedo, updateNormalHistoryUI } from './history.js';
 import { initCellTooltips } from './celltooltip.js';
 import { openPrintPreview } from './printpreview.js';
+import { icon, setIcon } from './icons.js';
 
 let localAutoPlanResult = null;
 let localAutoPlanTargets = {};
@@ -214,6 +215,132 @@ export function initDensity() {
   let saved = null;
   try { saved = localStorage.getItem(DENSITY_STORAGE_KEY); } catch (e) { /* ignore */ }
   applyDensity(saved === "compact" ? "compact" : "cozy");
+}
+
+/* ── Header-Overflow-Menü (Task 6) ──────────────────────────────────────────
+   Bündelt sekundäre Aktionen (Export/Import/Druck/Sync, Ansichtsoptionen)
+   hinter einem Drei-Punkte-Button. Die eigentlichen Aktions-Handler bleiben
+   an den ursprünglichen Button-IDs gebunden — hier wird nur Sichtbarkeit,
+   Tastatur- und Außenklick-Verhalten verwaltet sowie die Icons aus dem
+   zentralen Icon-System (Task 19) eingesetzt. */
+let headerMenuOutsideHandler = null;
+
+export function isHeaderMenuOpen() {
+  const menu = document.getElementById("header-menu");
+  return !!menu && !menu.hasAttribute("hidden");
+}
+
+export function closeHeaderMenu() {
+  const menu = document.getElementById("header-menu");
+  const wrap = document.querySelector(".header-more");
+  const btn = document.getElementById("btn-more");
+  if (!menu || menu.hasAttribute("hidden")) return;
+  menu.setAttribute("hidden", "");
+  wrap?.classList.remove("open");
+  btn?.setAttribute("aria-expanded", "false");
+  if (headerMenuOutsideHandler) {
+    document.removeEventListener("pointerdown", headerMenuOutsideHandler, true);
+    document.removeEventListener("keydown", headerMenuOutsideHandler, true);
+    headerMenuOutsideHandler = null;
+  }
+}
+
+export function openHeaderMenu() {
+  const menu = document.getElementById("header-menu");
+  const wrap = document.querySelector(".header-more");
+  const btn = document.getElementById("btn-more");
+  if (!menu || !menu.hasAttribute("hidden")) return;
+  menu.removeAttribute("hidden");
+  wrap?.classList.add("open");
+  btn?.setAttribute("aria-expanded", "true");
+  // Fokus auf das erste Menüelement für Tastaturbedienung.
+  menu.querySelector(".hmenu-item")?.focus();
+  headerMenuOutsideHandler = (e) => {
+    if (e.type === "keydown") {
+      if (e.key === "Escape") { closeHeaderMenu(); btn?.focus(); }
+      return;
+    }
+    if (!menu.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
+      closeHeaderMenu();
+    }
+  };
+  document.addEventListener("pointerdown", headerMenuOutsideHandler, true);
+  document.addEventListener("keydown", headerMenuOutsideHandler, true);
+}
+
+function initHeaderOverflowMenu() {
+  const btn = document.getElementById("btn-more");
+  const menu = document.getElementById("header-menu");
+  if (!btn || !menu) return;
+
+  // Icons aus dem zentralen Set in die Menüeinträge setzen.
+  menu.querySelectorAll(".hmenu-item[data-icon]").forEach((item) => {
+    const ico = item.querySelector(".hmenu-ico");
+    if (ico && !ico.childElementCount) setIcon(ico, item.dataset.icon, { size: 16 });
+  });
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    isHeaderMenuOpen() ? closeHeaderMenu() : openHeaderMenu();
+  });
+
+  // Schließt das Menü, nachdem eine normale Aktion ausgelöst wurde — die
+  // Aktion selbst läuft über den ursprünglichen ID-Handler. Der
+  // Farbenblind-Umschalter hält das Menü bewusst offen (Mehrfach-Vergleich).
+  menu.addEventListener("click", (e) => {
+    const item = e.target.closest(".hmenu-item");
+    if (!item) return;
+    if (item.id === "btn-colorblind") return;
+    closeHeaderMenu();
+  });
+
+  // Pfeiltasten-Navigation innerhalb des Menüs.
+  menu.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const items = [...menu.querySelectorAll(".hmenu-item")];
+    const idx = items.indexOf(document.activeElement);
+    const next = e.key === "ArrowDown"
+      ? items[(idx + 1) % items.length]
+      : items[(idx - 1 + items.length) % items.length];
+    next?.focus();
+  });
+}
+
+/* ── Farbenblind-sicherer Modus (Task 4) ────────────────────────────────── */
+const COLORBLIND_STORAGE_KEY = "radplan_v3_colorblind";
+
+export function isColorblind() {
+  return document.documentElement.getAttribute("data-cb") === "1";
+}
+
+export function applyColorblind(on) {
+  if (on) document.documentElement.setAttribute("data-cb", "1");
+  else document.documentElement.removeAttribute("data-cb");
+  const item = document.getElementById("btn-colorblind");
+  if (item) item.setAttribute("aria-checked", on ? "true" : "false");
+}
+
+export function setColorblind(on, persist = true) {
+  applyColorblind(on);
+  if (persist) {
+    try { localStorage.setItem(COLORBLIND_STORAGE_KEY, on ? "1" : "0"); } catch (e) { /* ignore */ }
+  }
+}
+
+function initColorblindToggle() {
+  const stored = (() => { try { return localStorage.getItem(COLORBLIND_STORAGE_KEY) === "1"; } catch (e) { return false; } })();
+  applyColorblind(stored);
+  const item = document.getElementById("btn-colorblind");
+  if (item) {
+    const ico = item.querySelector(".hmenu-ico");
+    if (ico && !ico.childElementCount) setIcon(ico, "eye", { size: 16 });
+    item.addEventListener("click", () => {
+      const next = !isColorblind();
+      setColorblind(next);
+      showToast(next ? "Farbenblind-sicherer Modus aktiviert" : "Farbenblind-sicherer Modus deaktiviert");
+    });
+  }
 }
 
 export function isPeriodFlyoutOpen() {
@@ -2680,14 +2807,17 @@ export function wireEvents() {
     }
   });
   
-  document.getElementById("btn-plan")?.addEventListener("click", () => { 
+  initHeaderOverflowMenu();
+  initColorblindToggle();
+
+  document.getElementById("btn-plan")?.addEventListener("click", () => {
     if (planMode) {
-      closePlanMode(); 
+      closePlanMode();
     } else {
-      enterPlanMode(); 
+      enterPlanMode();
     }
   });
-  
+
   document.getElementById("mnav-dept")?.addEventListener("click", () => {
     document.getElementById("btn-employees")?.click();
   });

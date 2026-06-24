@@ -609,6 +609,55 @@ export function initGridKeyboardHandlers() {
       }
     }, 50);
   });
+
+  initGridCrossHighlight(table);
+}
+
+/* ── Kreuz-Hervorhebung (Task 7) ─────────────────────────────────────────────
+   Beim Überfahren einer Rasterzelle werden ihre komplette Spalte (inkl.
+   Tageskopf) und Zeile (inkl. Namensspalte) dezent hervorgehoben. Das
+   erleichtert in der dichten Monatsmatrix das Ablesen „welcher Tag / welche
+   Person". Reine Klassen-Umschaltung mit Spalten-Caching, damit pro
+   Mausbewegung nur bei echtem Zeilen-/Spaltenwechsel neu gezeichnet wird.
+   Auf Touch-Geräten (pointer: coarse) bleibt die Funktion inaktiv. */
+let xhCurrentDay = null;
+let xhCurrentRow = null;
+
+function clearCrossHighlight(table) {
+  if (xhCurrentRow) { xhCurrentRow.classList.remove('row-hl'); xhCurrentRow = null; }
+  if (xhCurrentDay != null) {
+    table.querySelectorAll('.col-hl').forEach((el) => el.classList.remove('col-hl'));
+    xhCurrentDay = null;
+  }
+}
+
+function initGridCrossHighlight(table) {
+  if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return;
+
+  table.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch') return;
+    const cell = e.target.closest?.('.td-cell, .td-name');
+    if (!cell) { clearCrossHighlight(table); return; }
+
+    const row = cell.parentElement;
+    const day = cell.dataset.day ? cell.dataset.day : null;
+
+    if (row !== xhCurrentRow) {
+      xhCurrentRow?.classList.remove('row-hl');
+      row?.classList.add('row-hl');
+      xhCurrentRow = row;
+    }
+
+    if (day !== xhCurrentDay) {
+      table.querySelectorAll('.col-hl').forEach((el) => el.classList.remove('col-hl'));
+      if (day != null) {
+        table.querySelectorAll(`[data-day="${day}"]`).forEach((el) => el.classList.add('col-hl'));
+      }
+      xhCurrentDay = day;
+    }
+  });
+
+  table.addEventListener('pointerleave', () => clearCrossHighlight(table));
 }
 
 export function render() {
@@ -762,6 +811,7 @@ export function renderThead(y, m, dim, hols, md) {
     if (fri) cls += " is-fri";
 
     th.className = cls;
+    th.dataset.day = String(d);
 
     const hasEmps = md.employees.length > 0;
     const dCount  = hasEmps ? dayCodeCount(y, m, d, "D")  : 0;
@@ -926,6 +976,9 @@ export function renderTbody(y, m, dim, hols, md) {
       tdEl.className = cls;
       tdEl.dataset.emp = emp;
       tdEl.dataset.day = String(d);
+      if (cell.assignment && !isAutoFRest) {
+        tdEl.dataset.code = cell.assignment.split("/")[0].trim();
+      }
       tdEl.tabIndex = 0;
       if (cellConflicts?.length) {
         tdEl.setAttribute("data-conflict", cellConflicts.join(" · "));

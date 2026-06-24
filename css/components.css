@@ -45,34 +45,203 @@
   box-shadow: var(--shadow-glow);
 }
 
-#btn-today, #btn-theme, #btn-density, #btn-cmdk {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  color: var(--text-3);
-  padding: 6px 9px;
+/* ── Segmentierte Icon-Buttons im Header (Task 6) ───────────────────────────
+   .hbtn-group fasst verwandte Icon-Aktionen zu einem zusammenhängenden,
+   gerahmten Segment mit Innen-Trennlinien zusammen. .hbtn-icon ist der
+   einheitliche quadratische Icon-Button. */
+.hbtn-group {
+  display: flex;
+  align-items: center;
+  background: var(--elev-1-bg);
+  border: 1px solid var(--elev-border-1);
   border-radius: var(--radius-sm);
-  transition: all .2s;
+  padding: 2px;
+  gap: 2px;
+  box-shadow: var(--elev-hi);
+}
+
+.hbtn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
+  color: var(--text-3);
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-spring);
+}
+
+.hbtn-icon:hover:not(:disabled) {
+  background: var(--elev-2-bg);
+  color: var(--ink-strong);
+}
+
+.hbtn-icon:active:not(:disabled) {
+  transform: scale(.88);
+}
+
+.hbtn-icon:disabled {
+  opacity: .38;
+  cursor: not-allowed;
+}
+
+#btn-today.today-btn-active {
+  background: var(--accent-soft);
+  color: var(--accent-lt);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb),.3);
+}
+
+/* ── Overflow-Menü (Task 6 / Task 19) ──────────────────────────────────── */
+.header-more {
+  position: relative;
   display: flex;
   align-items: center;
 }
 
-#btn-today:hover, #btn-theme:hover, #btn-density:hover, #btn-cmdk:hover {
-  background: var(--glass-bg-hover);
-  border-color: var(--glass-border-h);
+.header-more > #btn-more {
+  background: var(--elev-1-bg);
+  border: 1px solid var(--elev-border-1);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--elev-hi);
+}
+
+.header-more.open > #btn-more {
+  background: var(--elev-2-bg);
   color: var(--ink-strong);
-  transform: translateY(-1px);
+  border-color: var(--elev-border-3);
 }
 
-#btn-theme:active, #btn-density:active, #btn-cmdk:active {
-  transform: scale(.9);
+.header-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 248px;
+  padding: 6px;
+  background: var(--surface-overlay);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.2);
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.2);
+  border: 1px solid var(--elev-border-3);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-shadow-3);
+  z-index: 200;
+  transform-origin: top right;
+  animation: hmenuIn var(--dur-2) var(--ease-spring);
 }
 
-#btn-today.today-btn-active {
-  background: rgba(14,165,233,.15);
-  border-color: rgba(14,165,233,.3);
-  color: var(--accent-lt);
-  box-shadow: 0 0 12px rgba(14,165,233,.1);
+.header-menu[hidden] { display: none; }
+
+@keyframes hmenuIn {
+  from { opacity: 0; transform: translateY(-6px) scale(.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+.hmenu-section {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 8px 10px 4px;
+}
+
+.hmenu-sep {
+  height: 1px;
+  margin: 5px 6px;
+  background: var(--elev-border-2);
+}
+
+.hmenu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  text-align: left;
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+
+.hmenu-item:hover,
+.hmenu-item:focus-visible {
+  background: var(--elev-2-bg);
+  color: var(--ink-strong);
+  outline: none;
+}
+
+.hmenu-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--text-3);
+}
+
+.hmenu-item:hover .hmenu-ico { color: var(--accent-lt); }
+
+.hmenu-lbl { flex: 1; }
+
+.hmenu-kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-faint);
+  background: var(--elev-1-bg);
+  border: 1px solid var(--elev-border-1);
+  border-radius: var(--radius-xs);
+  padding: 2px 6px;
+  letter-spacing: .02em;
+}
+
+.hmenu-state {
+  width: 30px;
+  height: 17px;
+  border-radius: 999px;
+  background: var(--elev-2-bg);
+  border: 1px solid var(--elev-border-2);
+  position: relative;
+  flex-shrink: 0;
+  transition: background var(--dur-2) var(--ease-out);
+}
+
+.hmenu-state::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--text-3);
+  transition: transform var(--dur-2) var(--ease-spring), background var(--dur-2) var(--ease-out);
+}
+
+.hmenu-item[aria-checked="true"] .hmenu-state {
+  background: var(--accent-soft-hover);
+  border-color: rgba(var(--accent-rgb),.5);
+}
+
+.hmenu-item[aria-checked="true"] .hmenu-state::after {
+  transform: translateX(13px);
+  background: var(--accent-strong);
+}
+
+.hmenu-item-danger { color: #FCA5A5; }
+.hmenu-item-danger .hmenu-ico { color: #F87171; }
+.hmenu-item-danger:hover {
+  background: rgba(239,68,68,.14);
+  color: #FECACA;
+}
+.hmenu-item-danger:hover .hmenu-ico { color: #FCA5A5; }
 
 .mbtn {
   display: flex;
@@ -662,7 +831,7 @@ body.plan-mode-active #btn-plan {
   pointer-events: none;
   opacity: 0;
   transform: translateY(15px) scale(.94);
-  transition: opacity .25s, transform .3s cubic-bezier(.34,1.3,.64,1);
+  transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-3) var(--ease-spring);
   max-width: 380px;
   line-height: 1.4;
   display: flex;
@@ -1146,4 +1315,116 @@ body.modal-open .cell-quick-popover {
   text-align: center;
   font-size: 13px;
   color: var(--gray-500);
+}
+
+/* ============================================================================
+   MOTION-KONSOLIDIERUNG & SKELETON-LOADER (Task 8)
+   ----------------------------------------------------------------------------
+   Eine einheitliche Bewegungs- und Ladezustandssprache. Die Tokens
+   --dur-* / --ease-* (core.css) sind die gemeinsame Grundlage; hier folgen
+   die wiederverwendbaren Lade-Platzhalter (Skeletons) mit Shimmer für
+   asynchrone Inhalte (Diagramme, Team-Analytics, Server-Sync) sowie ein
+   global wirksamer Respekt vor „reduzierter Bewegung".
+   ============================================================================ */
+
+/* Shimmer-Platzhalter. Auf den themed Canvas abgestimmte Tinte, damit das
+   Skeleton in Hell- wie Dunkelmodus glaubwürdig „leer" wirkt. */
+.skeleton,
+.skeleton-text,
+.skeleton-chart {
+  position: relative;
+  overflow: hidden;
+  background: rgba(var(--ink-rgb), .06);
+  border-radius: var(--radius-sm);
+}
+
+.skeleton::after,
+.skeleton-text::after,
+.skeleton-chart::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(var(--ink-rgb), .09) 45%,
+    rgba(var(--ink-rgb), .14) 50%,
+    rgba(var(--ink-rgb), .09) 55%,
+    transparent 100%
+  );
+  animation: skeletonShimmer 1.25s var(--ease-in-out) infinite;
+}
+
+.skeleton-text {
+  height: 11px;
+  margin: 6px 0;
+}
+.skeleton-text.w-40 { width: 40%; }
+.skeleton-text.w-60 { width: 60%; }
+.skeleton-text.w-80 { width: 80%; }
+
+.skeleton-chart {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  border-radius: var(--radius);
+}
+
+/* Ringförmiges Lade-Skeleton (für Donut-Diagramme). */
+.skeleton-donut {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, transparent 54%, rgba(var(--ink-rgb), .06) 55%);
+  position: relative;
+  overflow: hidden;
+  margin: 0 auto;
+}
+.skeleton-donut::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(var(--ink-rgb), .12), transparent);
+  animation: skeletonShimmer 1.25s var(--ease-in-out) infinite;
+}
+
+@keyframes skeletonShimmer {
+  to { transform: translateX(100%); }
+}
+
+/* Generischer Lade-Schleier, der über einen bereits gerenderten Container
+   gelegt werden kann (z. B. Server-Sync läuft). */
+.is-loading-overlay {
+  position: relative;
+  pointer-events: none;
+}
+.is-loading-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(var(--ink-rgb), .04);
+  backdrop-filter: blur(1px);
+  z-index: 3;
+  border-radius: inherit;
+}
+
+/* Sanftes Einblenden frisch eingesetzter Inhalte — ersetzt harte Sprünge. */
+.motion-fade-in {
+  animation: motionFadeIn var(--dur-3) var(--ease-out) both;
+}
+@keyframes motionFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after,
+  .skeleton-text::after,
+  .skeleton-chart::after,
+  .skeleton-donut::after { animation: none; }
+  .header-menu,
+  .motion-fade-in { animation: none !important; }
 }
