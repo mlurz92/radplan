@@ -1,11 +1,11 @@
 :root {
-  /* OLED Dark Mode Colors (Medical Standard) */
-  --navy-900: #000000; /* True OLED Black */
-  --navy-800: #050A0F;
-  --navy-700: #0D1621;
-  --navy-600: #132233;
-  --navy-500: #1B3046;
-  --navy-400: #274563;
+  /* Slate Dark Mode Colors (Medical Standard / Halation Prevention) */
+  --navy-900: #0F172A; /* Tailwind Slate 900 */
+  --navy-800: #1E293B; /* Slate 800 */
+  --navy-700: #334155; /* Slate 700 */
+  --navy-600: #475569; /* Slate 600 */
+  --navy-500: #64748B;
+  --navy-400: #94A3B8;
   --steel: #3A7CAE;
   --accent: #0891B2; /* Medical Teal (Cyan 600) */
   --accent-lt: #22D3EE;
@@ -99,17 +99,17 @@
   --ink-strong: #FFFFFF;
   --app-ink-rgb: 255,255,255;
   --app-ink-strong: #FFFFFF;
-  --navy-800-rgb: 5,10,15;
-  --navy-900-rgb: 0,0,0;
+  --navy-800-rgb: 30,41,59;
+  --navy-900-rgb: 15,23,42;
   --navy-700-rgb: 16,30,49;
   --gray-900-rgb: 15,23,42;
   
   --ink-on-glass-light: #0F172A;
   
-  --text-1: var(--ink-strong);
-  --text-2: rgba(var(--ink-rgb),.88);
-  --text-3: rgba(var(--ink-rgb),.72);
-  --text-faint: rgba(var(--ink-rgb),.55);
+  --text-1: #F8FAFC; /* Slate 50 (High contrast solid) */
+  --text-2: #E2E8F0; /* Slate 200 (Readable subtext) */
+  --text-3: #CBD5E1; /* Slate 300 */
+  --text-faint: #94A3B8; /* Slate 400 (WCAG 4.5:1 minimum) */
   
   /* Primitive Tokens */
   --accent-rgb: 8,145,178; /* 0891B2 rgb */
