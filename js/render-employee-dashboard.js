@@ -750,6 +750,11 @@ export function renderEmployeeDetailDashboard(emp, year) {
 
     detailEl.querySelector('[data-open-profile]')?.addEventListener('click', () => openProfileModal(emp));
 
+    // Sanftes Einblenden des neu gerenderten Detailbereichs (Task 8).
+    detailEl.classList.remove('motion-fade-in');
+    void detailEl.offsetWidth;
+    detailEl.classList.add('motion-fade-in');
+
     // Render bar chart
     const barCanvas = document.getElementById('empdash-bar-canvas');
     if (barCanvas && typeof Chart !== 'undefined') {

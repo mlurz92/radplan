@@ -1,0 +1,110 @@
+/* ============================================================================
+   CHIP-FARBSYSTEM (Task 4)
+   ----------------------------------------------------------------------------
+   Zentrale, themenbewusste Farbcodierung aller Arbeitsplatz-/Status-Codes.
+   Die JS-Schicht setzt lediglich noch `data-code="XX"` auf die Rasterzelle
+   (und eine helle Pastell-Inline-Farbe als Light-Mode-Basis). Dieses Stylesheet
+   ist die *eine* Quelle der Wahrheit für die Farbwirkung:
+
+     • LIGHT-Mode  → ruhige Pastellflächen mit dunkler, WCAG-AA-fester Schrift.
+     • DARK-Mode   → harmonische, halbtransparente Sättigungs-Tints auf dem
+                     dunklen Canvas mit hellem, kontraststarkem Text (löst das
+                     bisherige „grelle Pastell auf Navy"-Problem).
+     • COLORBLIND  → optionaler Okabe-Ito-basierter Modus (html[data-cb="1"]),
+                     der die acht Arbeitsplätze maximal unterscheidbar einfärbt
+                     und zusätzliche Form-/Kanten-Hinweise gibt.
+
+   Alle Codes tragen ohnehin ihr Textkürzel (CT, MR, U, K …), Bedeutung hängt
+   also nie allein an der Farbe.
+   ============================================================================ */
+
+/* --- Per-Code-Tints für den DARK-Mode ------------------------------------ */
+[data-theme="dark"] .td-cell[data-code] {
+  background-color: var(--chip-bg, rgba(var(--ink-rgb), .06)) !important;
+  background-image: none !important;
+}
+[data-theme="dark"] .td-cell[data-code] .cell-assign {
+  color: var(--chip-fg, var(--ink-strong)) !important;
+}
+
+/* Arbeitsplätze */
+[data-theme="dark"] .td-cell[data-code="MR"]  { --chip-bg: rgba( 59,130,246,.22); --chip-fg:#BFDBFE; }
+[data-theme="dark"] .td-cell[data-code="CT"]  { --chip-bg: rgba(249,115, 22,.22); --chip-fg:#FED7AA; }
+[data-theme="dark"] .td-cell[data-code="US"]  { --chip-bg: rgba( 20,184,166,.22); --chip-fg:#99F6E4; }
+[data-theme="dark"] .td-cell[data-code="AN"]  { --chip-bg: rgba(168, 85,247,.22); --chip-fg:#E9D5FF; }
+[data-theme="dark"] .td-cell[data-code="MA"]  { --chip-bg: rgba(236, 72,153,.22); --chip-fg:#FBCFE8; }
+[data-theme="dark"] .td-cell[data-code="KUS"] { --chip-bg: rgba( 34,197, 94,.22); --chip-fg:#BBF7D0; }
+[data-theme="dark"] .td-cell[data-code="W"]   { --chip-bg: rgba(234,179,  8,.20); --chip-fg:#FDE68A; }
+[data-theme="dark"] .td-cell[data-code="T"]   { --chip-bg: rgba( 99,102,241,.22); --chip-fg:#C7D2FE; }
+
+/* Status */
+[data-theme="dark"] .td-cell[data-code="F"]    { --chip-bg: rgba(148,163,184,.15); --chip-fg:#CBD5E1; }
+[data-theme="dark"] .td-cell[data-code="U"]    { --chip-bg: rgba(139, 92,246,.24); --chip-fg:#DDD6FE; }
+[data-theme="dark"] .td-cell[data-code="ZU"]   { --chip-bg: rgba(124, 58,237,.28); --chip-fg:#DDD6FE; }
+[data-theme="dark"] .td-cell[data-code="SU"]   { --chip-bg: rgba(109, 40,217,.32); --chip-fg:#E9D5FF; }
+[data-theme="dark"] .td-cell[data-code="FZA"]  { --chip-bg: rgba( 99,102,241,.22); --chip-fg:#C7D2FE; }
+[data-theme="dark"] .td-cell[data-code="K"]    { --chip-bg: rgba(239, 68, 68,.24); --chip-fg:#FECACA; }
+[data-theme="dark"] .td-cell[data-code="KK"]   { --chip-bg: rgba(220, 38, 38,.30); --chip-fg:#FECACA; }
+[data-theme="dark"] .td-cell[data-code="§15c"] { --chip-bg: rgba(  6,182,212,.22); --chip-fg:#A5F3FC; }
+[data-theme="dark"] .td-cell[data-code="WB"]   { --chip-bg: rgba(245,158, 11,.22); --chip-fg:#FDE68A; }
+
+/* --- FARBENBLIND-SICHERER MODUS (Okabe-Ito) ------------------------------ */
+/* Aktiviert über html[data-cb="1"]. Die acht Arbeitsplätze erhalten maximal
+   unterscheidbare Farben; zusätzlich eine kräftige linke Kante als Formreiz.
+   Greift in beiden Themes, daher kein [data-theme]-Vorsatz. */
+html[data-cb="1"] .td-cell[data-code] {
+  background-color: var(--cb-bg, rgba(var(--ink-rgb), .08)) !important;
+  background-image: none !important;
+  box-shadow: inset 3px 0 0 0 var(--cb-edge, transparent);
+}
+html[data-cb="1"] .td-cell[data-code] .cell-assign {
+  color: var(--cb-fg, var(--ink-strong)) !important;
+}
+/* In Light-Mode wird die jeweils optimal kontrastierende Textfarbe aus --cb-fg verwendet */
+
+html[data-cb="1"] .td-cell[data-code="MR"]  { --cb-bg:#0072B2; --cb-edge:#004C7A; --cb-fg:#EAF4FB; }
+html[data-cb="1"] .td-cell[data-code="CT"]  { --cb-bg:#D55E00; --cb-edge:#8F3F00; --cb-fg:#FFF1E8; }
+html[data-cb="1"] .td-cell[data-code="US"]  { --cb-bg:#009E73; --cb-edge:#006B4E; --cb-fg:#E8FBF4; }
+html[data-cb="1"] .td-cell[data-code="AN"]  { --cb-bg:#CC79A7; --cb-edge:#8E5274; --cb-fg:#FCEEF5; }
+html[data-cb="1"] .td-cell[data-code="MA"]  { --cb-bg:#E69F00; --cb-edge:#9C6C00; --cb-fg:#2A1C00; }
+html[data-cb="1"] .td-cell[data-code="KUS"] { --cb-bg:#56B4E9; --cb-edge:#2E7CA8; --cb-fg:#06243A; }
+html[data-cb="1"] .td-cell[data-code="W"]   { --cb-bg:#F0E442; --cb-edge:#A8A000; --cb-fg:#2A2800; }
+html[data-cb="1"] .td-cell[data-code="T"]   { --cb-bg:#999999; --cb-edge:#5F5F5F; --cb-fg:#15181D; }
+
+/* Status im CB-Modus: einheitlich neutralisiert (Schrift trägt Bedeutung),
+   Abwesenheiten klar von Arbeitsplätzen abgesetzt. */
+html[data-cb="1"] .td-cell[data-code="F"],
+html[data-cb="1"] .td-cell[data-code="U"],
+html[data-cb="1"] .td-cell[data-code="ZU"],
+html[data-cb="1"] .td-cell[data-code="SU"],
+html[data-cb="1"] .td-cell[data-code="FZA"],
+html[data-cb="1"] .td-cell[data-code="WB"] { --cb-bg:rgba(var(--ink-rgb),.10); --cb-edge:rgba(var(--ink-rgb),.35); --cb-fg:var(--text-2); }
+html[data-cb="1"] .td-cell[data-code="K"],
+html[data-cb="1"] .td-cell[data-code="KK"]  { --cb-bg:#D55E00; --cb-edge:#8F3F00; --cb-fg:#FFF1E8; }
+html[data-cb="1"][data-theme="light"] .td-cell[data-code="F"] .cell-assign,
+html[data-cb="1"][data-theme="light"] .td-cell[data-code="U"] .cell-assign,
+html[data-cb="1"][data-theme="light"] .td-cell[data-code="ZU"] .cell-assign,
+html[data-cb="1"][data-theme="light"] .td-cell[data-code="SU"] .cell-assign,
+html[data-cb="1"][data-theme="light"] .td-cell[data-code="FZA"] .cell-assign,
+html[data-cb="1"][data-theme="light"] .td-cell[data-code="WB"] .cell-assign { color: var(--text-1) !important; }
+
+/* --- Wiederverwendbare Chip-/Badge-Utility -------------------------------- */
+/* Einheitlicher Baustein für Legenden, Filter-Pills und zukünftige UI.
+   Nutzt dieselben Tints wie das Raster, damit das System konsistent bleibt. */
+.chip-code {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: var(--radius-xs);
+  letter-spacing: .01em;
+  background: var(--chip-bg, rgba(var(--ink-rgb), .08));
+  color: var(--chip-fg, var(--text-1));
+  border: 1px solid rgba(var(--ink-rgb), .08);
+  white-space: nowrap;
+}

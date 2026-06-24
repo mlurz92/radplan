@@ -193,6 +193,9 @@
 .mm-row-sub { font-size: 11.5px; color: var(--text-3); line-height: 1.25; }
 .mm-row-danger .mm-row-ic { background: rgba(239,68,68,.12); color: #EF4444; }
 .mm-row-danger .mm-row-lbl { color: #EF4444; }
+/* Umschalter-Zeilen (z. B. Farbenblind-Modus): Text dehnt sich, Schalter rechts. */
+.mm-row[role="menuitemcheckbox"] .mm-row-txt { flex: 1; }
+.mm-row[role="menuitemcheckbox"] .hmenu-state { margin-left: auto; }
 
 /* ════════════════════════════════════════════════════════════════════════
    GLOBALE ÜBERLAUF-SCHUTZSCHICHT FÜR MOBILE MODALE & ANSICHTEN
