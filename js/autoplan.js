@@ -1401,7 +1401,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     if (assignments[emp]?.[d]?.assignment === "F" && !isWE) return false;
 
     // Kein Dienst am Tag vor (urlaubsähnlichem) Urlaub – gilt auch für HG.
-    if (isNextDayVacationLike(y, m, emp, d, assignments)) return false;
+    if (isNextDayVacationLike(y, m, emp, d, assignments, externalAssignments)) return false;
 
     const bdOnDay = dutyEmps.find((e) => assignments[e]?.[d]?.duty === "D");
     const isBdAA = bdOnDay && isAssistenzarzt(bdOnDay);
