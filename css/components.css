@@ -1021,6 +1021,35 @@ body.is-mobile .plan-btn-auto span {
   transform-origin: bottom center;
 }
 
+/* Verbindungs-Caret zur Ankerzelle (klärt visuell „woher" das Menü kommt) */
+.cqp-caret {
+  position: absolute;
+  top: -6px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  background: var(--glass-light-bg);
+  backdrop-filter: blur(var(--glass-blur-lg));
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg));
+  border-left: 1px solid var(--glass-light-border);
+  border-top: 1px solid var(--glass-light-border);
+  border-top-left-radius: 3px;
+  transform: rotate(45deg);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.cell-quick-popover.cqp-above .cqp-caret {
+  top: auto;
+  bottom: -6px;
+  border-left: none;
+  border-top: none;
+  border-right: 1px solid var(--glass-light-border);
+  border-bottom: 1px solid var(--glass-light-border);
+  border-top-left-radius: 0;
+  border-bottom-right-radius: 3px;
+}
+
 .cell-quick-popover-inner {
   display: flex;
   flex-direction: column;
