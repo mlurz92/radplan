@@ -739,8 +739,8 @@ export function openProfileModal(empName) {
         const hol = isHoliday(y, mon, d, hols);
         const holName = hols[dateKey(y, mon, d)];
         const cell = getCell(y, mon, empName, d);
-        const assign = cell.assignment || "";
-        const duty = cell.duty || "";
+        const assign = typeof cell.assignment === "string" ? cell.assignment : "";
+        const duty = typeof cell.duty === "string" ? cell.duty : "";
         const { bg: cbg, fg: cfg } = cellColor(assign);
 
         let cls = "pyc-day";
