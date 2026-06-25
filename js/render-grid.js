@@ -493,7 +493,7 @@ function wirePopoverButtons(el, emp, day) {
     btn.addEventListener('click', (e) => { e.stopPropagation(); quickToggleDuty(emp, day, btn.dataset.duty); });
   });
   el.querySelector('.cqp-clear')?.addEventListener('click', (e) => { e.stopPropagation(); quickClearCell(emp, day); });
-  el.querySelector('.cqp-close')?.addEventListener('click', (e) => { e.stopPropagation(); dismissQuickMenu(); });
+  el.querySelector('.cqp-close')?.addEventListener('click', (e) => { e.stopPropagation(); dismissQuickMenu({ refocus: true }); });
   el.querySelector('.cqp-more')?.addEventListener('click', (e) => {
     e.stopPropagation();
     closeCellQuickPopover();
