@@ -14,9 +14,10 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @media print {
-  html, body {
+  html,
+  body {
     background: #fff !important;
-    color: #0F172A !important;
+    color: #0f172a !important;
     height: auto !important;
     overflow: visible !important;
     -webkit-print-color-adjust: exact !important;
@@ -47,21 +48,21 @@
     display: block !important;
     margin: 0 0 8px;
     padding: 0 0 6px;
-    border-bottom: 2px solid #0F172A;
+    border-bottom: 2px solid #0f172a;
   }
 
   #print-header-title {
     font-family: var(--font-sans, sans-serif);
     font-size: 15px;
     font-weight: 700;
-    color: #0F172A;
+    color: #0f172a;
   }
 
   #print-header-period {
     font-family: var(--font-mono, monospace);
     font-size: 12px;
     font-weight: 600;
-    color: #0F172A;
+    color: #0f172a;
     margin-top: 1px;
   }
 
@@ -107,8 +108,8 @@
 
   #plan-table th,
   #plan-table td {
-    border: 0.5px solid #94A3B8 !important;
-    color: #0F172A !important;
+    border: 0.5px solid #94a3b8 !important;
+    color: #0f172a !important;
     padding: 1px 1px !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
@@ -122,8 +123,8 @@
   #plan-table thead th,
   #plan-table .td-name,
   #plan-table tfoot td {
-    background: #EEF2F7 !important;
-    color: #0F172A !important;
+    background: #eef2f7 !important;
+    color: #0f172a !important;
     font-weight: 700;
   }
 
@@ -134,7 +135,7 @@
   #plan-table .td-cell.is-weekend,
   #plan-table .th-day.is-holiday,
   #plan-table .td-cell.is-holiday {
-    background: #F1F5F9 !important;
+    background: #f1f5f9 !important;
   }
 
   /* Inner text spans carry their own theme-light colours (e.g. .emp-label is
@@ -147,7 +148,7 @@
   #plan-table .td-name .emp-label,
   .tr-stat .td-stat-lbl,
   .tr-stat .stat-lbl-text {
-    color: #0F172A !important;
+    color: #0f172a !important;
     font-size: 8px !important;
   }
 
@@ -191,19 +192,21 @@
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
-  #plan-table thead { display: table-header-group !important; }
+  #plan-table thead {
+    display: table-header-group !important;
+  }
 
   /* Preserve the role-band structure on paper with a firm divider. */
   #plan-table .tr-band-start .td-name,
   #plan-table .tr-band-start .td-cell {
-    border-top: 1.5px solid #0F172A !important;
+    border-top: 1.5px solid #0f172a !important;
   }
 
   #print-footer {
     display: block !important;
     margin-top: 6px;
     font-size: 8px;
-    color: #64748B;
+    color: #64748b;
     text-align: right;
   }
 

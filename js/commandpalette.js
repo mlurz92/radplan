@@ -1,8 +1,8 @@
-import { MONTHS } from './constants.js';
-import { state } from './state.js';
-import { getEmployeesForYear } from './model.js';
-import { showOverlay, hideOverlay, openProfileModal } from './render-modals.js';
-import { switchPeriod, toggleTheme, toggleDensity } from './app.js';
+import { MONTHS } from "./constants.js";
+import { state } from "./state.js";
+import { getEmployeesForYear } from "./model.js";
+import { showOverlay, hideOverlay, openProfileModal } from "./render-modals.js";
+import { switchPeriod, toggleTheme, toggleDensity } from "./app.js";
 
 const OVERLAY_ID = "modal-command-palette";
 
@@ -218,7 +218,8 @@ export function initCommandPalette() {
   });
 
   document.addEventListener("keydown", (e) => {
-    const isPaletteShortcut = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "k";
+    const isPaletteShortcut =
+      (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "k";
     if (isPaletteShortcut) {
       e.preventDefault();
       if (isCommandPaletteOpen()) {

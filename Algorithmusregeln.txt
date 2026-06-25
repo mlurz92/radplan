@@ -48,7 +48,6 @@ PERSONELLE SONDEREINSCHRÄNKUNGEN:
 - Prof. Schäfer: Komplett dienstbefreit (Target 0).
 - Dr. Polednia: Absolutes Dienstverbot (D) und HG-Verbot für AA an Sonntagen, Dienstagen und Donnerstagen. (Ursache: Befundfreigabe-Kollision mit KUS-Untersuchungen am Folgetag).
 - Dr. Becker: Samstags-D nur als absolut letzte Instanz (Ultima Ratio). Falls sie Samstags-D hat, trägt das System zwingend einen FZA-Tag am nächsten regulären Werktag ein.
-- Fr. Dalitz: Sie darf an einem Sonntag oder Montag niemals einen HG übernehmen, wenn gleichzeitig Herr Torki oder Herr Sebastian den BD leisten. (Ursache: Mammographie-Schicht am Folgetag lässt keine Zeit für zeitintensive AA-Befundfreigaben).
 - Dr. Becker & Dr. Martin (CT-Leitung): Diese beiden dürfen an Werktagen nicht gleichzeitig im Urlaub sein oder ein "F" (Freizeitausgleich) haben. Der Algorithmus routet Dienste und die daraus resultierenden F-Tage so, dass immer mindestens einer anwesend ist.
 
 SONSTIGES:

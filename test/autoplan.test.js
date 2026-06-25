@@ -1,5 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { computeAutoPlan } from "../js/autoplan.js";
+import { setPlanMode, setPlanData, state } from "../js/state.js";
 
 import {
   isDutyExempt,
@@ -214,6 +216,12 @@ describe("hasCTLeadershipConflict", () => {
     const assignments = { "Dr. Becker": {}, "Dr. Martin": { [d + 1]: { assignment: "U" } } };
     assert.equal(hasCTLeadershipConflict(Y, M, "Dr. Becker", d, assignments), false);
   });
+
+  test("flags a conflict when the partner has an F rest day on the next workday", () => {
+    const d = findWorkdayWithWorkdayTomorrow();
+    const assignments = { "Dr. Becker": {}, "Dr. Martin": { [d + 1]: { assignment: "F" } } };
+    assert.equal(hasCTLeadershipConflict(Y, M, "Dr. Becker", d, assignments), true);
+  });
 });
 
 describe("computeGridConflicts", () => {
@@ -371,6 +379,240 @@ describe("wouldCreateConsecutiveWeekendDuty", () => {
     }
     const assignments = { "Dr. A": {} };
     assert.equal(wouldCreateConsecutiveWeekendDuty(Y, M, "Dr. A", assignments, weekdayDay), false);
+  });
+});
+
+describe("canDoHG - Friday coupling logic", () => {
+  test("Saturday BD doctor can do Friday HG if Friday BD holder is an assistant", async () => {
+    state.year = 2026;
+    state.month = 5;
+    setPlanMode(true);
+
+    const assignments = {
+      "Dr. Martin": {
+        5: { assignment: "MR" },
+        6: { duty: "D" }
+      },
+      "Hr. Torki": {
+        5: { duty: "D" }
+      }
+    };
+
+    setPlanData({
+      employees: ["Dr. Martin", "Hr. Torki"],
+      assignments,
+      wishes: {},
+      pins: {}
+    });
+
+    const helpers = await computeAutoPlan("__TEST_EXPOSE__");
+    const result = helpers.canDoHG("Dr. Martin", 5, true, assignments);
+    assert.equal(result, true);
+  });
+
+  test("Saturday BD doctor is blocked from Friday HG if Friday BD holder is a Facharzt", async () => {
+    state.year = 2026;
+    state.month = 5;
+    setPlanMode(true);
+
+    const assignments = {
+      "Dr. Martin": {
+        5: { assignment: "MR" },
+        6: { duty: "D" }
+      },
+      "Dr. Polednia": {
+        5: { duty: "D" }
+      }
+    };
+
+    setPlanData({
+      employees: ["Dr. Martin", "Dr. Polednia"],
+      assignments,
+      wishes: {},
+      pins: {}
+    });
+
+    const helpers = await computeAutoPlan("__TEST_EXPOSE__");
+    const result = helpers.canDoHG("Dr. Martin", 5, true, assignments);
+    assert.equal(result, false);
+  });
+});
+
+describe("canDoHG - Dalitz blocker", () => {
+  test("Fr. Dalitz is blocked on Sunday/Monday HG if Hr. Torki has BD today", async () => {
+    state.year = 2026;
+    state.month = 5;
+    setPlanMode(true);
+
+    const assignments = {
+      "Fr. Dalitz": {
+        7: { assignment: "MR" }
+      },
+      "Hr. Torki": {
+        7: { duty: "D" }
+      }
+    };
+
+    setPlanData({
+      employees: ["Fr. Dalitz", "Hr. Torki"],
+      assignments,
+      wishes: {},
+      pins: {}
+    });
+
+    const helpers = await computeAutoPlan("__TEST_EXPOSE__");
+    const result = helpers.canDoHG("Fr. Dalitz", 7, true, assignments);
+    assert.equal(result, false);
+  });
+
+  test("Fr. Dalitz is blocked on Sunday/Monday HG if Hr. Sebastian has BD today", async () => {
+    state.year = 2026;
+    state.month = 5;
+    setPlanMode(true);
+
+    const assignments = {
+      "Fr. Dalitz": {
+        8: { assignment: "MR" }
+      },
+      "Hr. Sebastian": {
+        8: { duty: "D" }
+      }
+    };
+
+    setPlanData({
+      employees: ["Fr. Dalitz", "Hr. Sebastian"],
+      assignments,
+      wishes: {},
+      pins: {}
+    });
+
+    const helpers = await computeAutoPlan("__TEST_EXPOSE__");
+    const result = helpers.canDoHG("Fr. Dalitz", 8, true, assignments);
+    assert.equal(result, false);
+  });
+
+  test("Fr. Dalitz is NOT blocked on Sunday/Monday HG if Dr. Becker has BD today", async () => {
+    state.year = 2026;
+    state.month = 5;
+    setPlanMode(true);
+
+    const assignments = {
+      "Fr. Dalitz": {
+        7: { assignment: "MR" }
+      },
+      "Dr. Becker": {
+        7: { duty: "D" }
+      }
+    };
+
+    setPlanData({
+      employees: ["Fr. Dalitz", "Dr. Becker"],
+      assignments,
+      wishes: {},
+      pins: {}
+    });
+
+    const helpers = await computeAutoPlan("__TEST_EXPOSE__");
+    const result = helpers.canDoHG("Fr. Dalitz", 7, true, assignments);
+    assert.equal(result, true);
+  });
+});
+
+describe("canDoBD - Folgetag check", () => {
+  test("blocked if next day has a regular duty", async () => {
+    state.year = 2026;
+    state.month = 5;
+    setPlanMode(true);
+
+    const assignments = {
+      "Dr. Becker": {
+        1: { assignment: "MR" },
+        2: { assignment: "MR" }
+      }
+    };
+
+    setPlanData({
+      employees: ["Dr. Becker"],
+      assignments,
+      wishes: {},
+      pins: {}
+    });
+
+    const helpers = await computeAutoPlan("__TEST_EXPOSE__");
+    const result = helpers.canDoBD("Dr. Becker", 1, true, assignments);
+    assert.equal(result, false);
+  });
+
+  test("NOT blocked if next day has 'F'", async () => {
+    state.year = 2026;
+    state.month = 5;
+    setPlanMode(true);
+
+    const assignments = {
+      "Dr. Becker": {
+        1: { assignment: "MR" },
+        2: { assignment: "F" }
+      }
+    };
+
+    setPlanData({
+      employees: ["Dr. Becker"],
+      assignments,
+      wishes: {},
+      pins: {}
+    });
+
+    const helpers = await computeAutoPlan("__TEST_EXPOSE__");
+    const result = helpers.canDoBD("Dr. Becker", 1, true, assignments);
+    assert.equal(result, true);
+  });
+
+  test("blocked if next day has a vacation code (U) (due to isNextDayVacation blocker)", async () => {
+    state.year = 2026;
+    state.month = 5;
+    setPlanMode(true);
+
+    const assignments = {
+      "Dr. Becker": {
+        1: { assignment: "MR" },
+        2: { assignment: "U" }
+      }
+    };
+
+    setPlanData({
+      employees: ["Dr. Becker"],
+      assignments,
+      wishes: {},
+      pins: {}
+    });
+
+    const helpers = await computeAutoPlan("__TEST_EXPOSE__");
+    const result = helpers.canDoBD("Dr. Becker", 1, true, assignments);
+    assert.equal(result, false);
+  });
+
+  test("NOT blocked if next day has an absence code (K)", async () => {
+    state.year = 2026;
+    state.month = 5;
+    setPlanMode(true);
+
+    const assignments = {
+      "Dr. Becker": {
+        1: { assignment: "MR" },
+        2: { assignment: "K" }
+      }
+    };
+
+    setPlanData({
+      employees: ["Dr. Becker"],
+      assignments,
+      wishes: {},
+      pins: {}
+    });
+
+    const helpers = await computeAutoPlan("__TEST_EXPOSE__");
+    const result = helpers.canDoBD("Dr. Becker", 1, true, assignments);
+    assert.equal(result, true);
   });
 });
 

@@ -6,138 +6,249 @@
  * generische, entkoppelte Historie für den Normalmodus, die JEDE Mutation der
  * Hauptdaten erfasst: Zellenänderungen, RBN-Zeile, Notizen, Import, Löschungen
  * und das Entfernen von Mitarbeitenden.
- *
- * Funktionsweise: Jede datenverändernde Aktion ruft am Ende saveToStorage()
- * auf, das synchron das Event `radplan-save-queued` feuert. Wir hängen uns
- * dort ein und vergleichen einen JSON-Snapshot der DATA gegen den letzten
- * bekannten Stand. Unterscheiden sich beide, wird der alte Stand auf den
- * Undo-Stack gelegt. Dadurch ist keine Instrumentierung der zahlreichen
- * einzelnen Mutationsstellen nötig.
  */
 
-import { DATA, saveToStorage, planMode } from './state.js';
-import { monthKey } from './constants.js';
-import { render } from './render-grid.js';
-import { showToast } from './render-modals.js';
+import { DATA, saveToStorage, planMode, store } from "./state.js";
+import { monthKey } from "./constants.js";
+import { render } from "./render-grid.js";
+import { showToast } from "./render-modals.js";
 
 const MAX_HISTORY = 80;
 
-let baseline = null;        // JSON-String des letzten festgeschriebenen Standes
-let undoStack = [];         // ältere JSON-Snapshots (jeweils Stand VOR einer Änderung)
+let baseline = null; // deep-cloned plain object of the last committed state
+let undoStack = []; // older arrays of delta objects (each containing a transaction's change deltas)
 let redoStack = [];
-let suppress = false;       // verhindert Re-Capture während Undo/Redo/Reset
+let suppress = false; // prevents Re-Capture during Undo/Redo/Reset
 let captureTimer = null;
 
 // Änderungsprotokoll für Tooltips: key `${mk}|${emp}|${day}` -> { ts, from, to }
 const changeLog = new Map();
 
-function cloneDATAString() {
-  return JSON.stringify(DATA);
-}
-
-function replaceData(obj) {
-  Object.keys(DATA).forEach((k) => delete DATA[k]);
-  Object.assign(DATA, obj);
-}
-
 function cellSummary(cell) {
-  if (!cell || typeof cell !== 'object') return '';
-  const a = cell.assignment || '';
-  const d = cell.duty ? ` [${cell.duty}]` : '';
+  if (!cell || typeof cell !== "object") return "";
+  const a = cell.assignment || "";
+  const d = cell.duty ? ` [${cell.duty}]` : "";
   return `${a}${d}`.trim();
 }
 
-// Diff zweier DATA-Stände und Eintrag der geänderten Zellen ins Änderungsprotokoll.
-function recordCellDiffs(oldData, newData) {
-  const ts = Date.now();
+// Diff two DATA objects and return a list of delta actions.
+function diffData(oldData, newData) {
+  const deltas = [];
   const keys = new Set([...Object.keys(oldData || {}), ...Object.keys(newData || {})]);
-  keys.forEach((mk) => {
-    const oa = oldData?.[mk]?.assignments || {};
-    const na = newData?.[mk]?.assignments || {};
-    const emps = new Set([...Object.keys(oa), ...Object.keys(na)]);
-    emps.forEach((emp) => {
-      const od = oa[emp] || {};
-      const nd = na[emp] || {};
-      const days = new Set([...Object.keys(od), ...Object.keys(nd)]);
-      days.forEach((day) => {
-        const before = cellSummary(od[day]);
-        const after = cellSummary(nd[day]);
-        if (before !== after) {
-          changeLog.set(`${mk}|${emp}|${day}`, { ts, from: before, to: after });
+  const emptyMonth = { employees: [], assignments: {}, rbn: {}, comments: {} };
+
+  for (const mk of keys) {
+    const oldMonth = oldData?.[mk] || emptyMonth;
+    const newMonth = newData?.[mk] || emptyMonth;
+
+    // 1. Compare employees
+    const oldEmps = oldMonth.employees || [];
+    const newEmps = newMonth.employees || [];
+    if (oldEmps.length !== newEmps.length || oldEmps.some((e, i) => e !== newEmps[i])) {
+      deltas.push({ type: "employees", mk, from: [...oldEmps], to: [...newEmps] });
+    }
+
+    // 2. Compare RBN
+    const oldRbn = oldMonth.rbn || {};
+    const newRbn = newMonth.rbn || {};
+    const rbnDays = new Set([...Object.keys(oldRbn), ...Object.keys(newRbn)]);
+    for (const day of rbnDays) {
+      const fromVal = oldRbn[day] || "";
+      const toVal = newRbn[day] || "";
+      if (fromVal !== toVal) {
+        deltas.push({ type: "rbn", mk, day: parseInt(day, 10), from: fromVal, to: toVal });
+      }
+    }
+
+    // 3. Compare comments
+    const oldComments = oldMonth.comments || {};
+    const newComments = newMonth.comments || {};
+    const commentEmps = new Set([...Object.keys(oldComments), ...Object.keys(newComments)]);
+    for (const emp of commentEmps) {
+      const oldEmpComments = oldComments[emp] || {};
+      const newEmpComments = newComments[emp] || {};
+      const commentDays = new Set([...Object.keys(oldEmpComments), ...Object.keys(newEmpComments)]);
+      for (const day of commentDays) {
+        const fromVal = oldEmpComments[day] || "";
+        const toVal = newEmpComments[day] || "";
+        if (fromVal !== toVal) {
+          deltas.push({ type: "comment", mk, emp, day: parseInt(day, 10), from: fromVal, to: toVal });
         }
-      });
-    });
+      }
+    }
+
+    // 4. Compare assignments (cells)
+    const oldAssigns = oldMonth.assignments || {};
+    const newAssigns = newMonth.assignments || {};
+    const assignEmps = new Set([...Object.keys(oldAssigns), ...Object.keys(newAssigns)]);
+    for (const emp of assignEmps) {
+      const oldEmpAssigns = oldAssigns[emp] || {};
+      const newEmpAssigns = newAssigns[emp] || {};
+      const assignDays = new Set([...Object.keys(oldEmpAssigns), ...Object.keys(newEmpAssigns)]);
+      for (const day of assignDays) {
+        const oldCell = oldEmpAssigns[day];
+        const newCell = newEmpAssigns[day];
+        const fromVal = oldCell ? { assignment: oldCell.assignment || "", duty: oldCell.duty || "" } : null;
+        const toVal = newCell ? { assignment: newCell.assignment || "", duty: newCell.duty || "" } : null;
+
+        const beforeStr = fromVal ? `${fromVal.assignment}|${fromVal.duty}` : "|";
+        const afterStr = toVal ? `${toVal.assignment}|${toVal.duty}` : "|";
+
+        if (beforeStr !== afterStr) {
+          deltas.push({
+            type: "cell",
+            mk,
+            emp,
+            day: parseInt(day, 10),
+            from: fromVal,
+            to: toVal
+          });
+        }
+      }
+    }
+  }
+
+  return deltas;
+}
+
+// Apply transition of deltas to state store.
+function applyDeltas(deltas, inverse) {
+  const list = inverse ? [...deltas].reverse() : deltas;
+
+  list.forEach((delta) => {
+    const { type, mk } = delta;
+
+    if (!DATA[mk]) {
+      DATA[mk] = { employees: [], assignments: {}, rbn: {}, comments: {} };
+    }
+
+    if (type === "cell") {
+      const { emp, day, from, to } = delta;
+      const val = inverse ? from : to;
+      if (!DATA[mk].assignments[emp]) {
+        DATA[mk].assignments[emp] = {};
+      }
+      if (!val || (!val.assignment && !val.duty)) {
+        delete DATA[mk].assignments[emp][day];
+      } else {
+        DATA[mk].assignments[emp][day] = {
+          assignment: val.assignment || "",
+          duty: val.duty || ""
+        };
+      }
+    } else if (type === "rbn") {
+      const { day, from, to } = delta;
+      const val = inverse ? from : to;
+      if (!DATA[mk].rbn) {
+        DATA[mk].rbn = {};
+      }
+      if (!val) {
+        delete DATA[mk].rbn[day];
+      } else {
+        DATA[mk].rbn[day] = val;
+      }
+    } else if (type === "comment") {
+      const { emp, day, from, to } = delta;
+      const val = inverse ? from : to;
+      if (!DATA[mk].comments) {
+        DATA[mk].comments = {};
+      }
+      if (!DATA[mk].comments[emp]) {
+        DATA[mk].comments[emp] = {};
+      }
+      if (!val) {
+        delete DATA[mk].comments[emp][day];
+        if (!Object.keys(DATA[mk].comments[emp]).length) {
+          delete DATA[mk].comments[emp];
+        }
+      } else {
+        DATA[mk].comments[emp][day] = val;
+      }
+    } else if (type === "employees") {
+      const { from, to } = delta;
+      const val = inverse ? from : to;
+      DATA[mk].employees = [...val];
+    }
   });
 }
 
 function scheduleCapture() {
   if (suppress || planMode) return;
   if (captureTimer) clearTimeout(captureTimer);
-  // Mehrere schnell aufeinanderfolgende Mutationen (z. B. Multi-Edit, Import,
-  // automatisch gesetzte F-Tage) werden zu EINEM Undo-Schritt zusammengefasst.
   captureTimer = setTimeout(capture, 260);
 }
 
 function capture() {
   captureTimer = null;
   if (suppress || planMode) return;
-  const cur = cloneDATAString();
-  if (cur === baseline) return;
+  const cur = store.DATA;
 
-  if (baseline) {
-    try {
-      recordCellDiffs(JSON.parse(baseline), JSON.parse(cur));
-    } catch (e) { /* defensiv: Diff darf die Historie nie blockieren */ }
-    undoStack.push(baseline);
-    if (undoStack.length > MAX_HISTORY) undoStack.shift();
-  }
+  const deltas = diffData(baseline, cur);
+  if (deltas.length === 0) return;
+
+  const ts = Date.now();
+  deltas.forEach((delta) => {
+    if (delta.type === "cell") {
+      const { mk, emp, day, from, to } = delta;
+      const before = cellSummary(from);
+      const after = cellSummary(to);
+      changeLog.set(`${mk}|${emp}|${day}`, { ts, from: before, to: after });
+    }
+  });
+
+  undoStack.push(deltas);
+  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+
   redoStack = [];
-  baseline = cur;
+  baseline = structuredClone(cur);
   updateNormalHistoryUI();
-}
-
-function applySnapshot(json) {
-  let obj;
-  try {
-    obj = JSON.parse(json);
-  } catch (e) {
-    return false;
-  }
-  suppress = true;
-  replaceData(obj);
-  saveToStorage();   // feuert synchron save-queued -> wird durch suppress ignoriert
-  baseline = json;
-  render();          // ggf. ausgelöste Reconcile-Speicherungen sollen nicht erfasst werden
-  suppress = false;
-  return true;
 }
 
 export function normalUndo() {
   if (planMode) return false;
-  if (captureTimer) { clearTimeout(captureTimer); capture(); }
+  if (captureTimer) {
+    clearTimeout(captureTimer);
+    capture();
+  }
   if (!undoStack.length) {
-    showToast('Nichts zum Rückgängigmachen');
+    showToast("Nichts zum Rückgängigmachen");
     return false;
   }
-  redoStack.push(baseline);
-  const prev = undoStack.pop();
-  applySnapshot(prev);
+  const deltas = undoStack.pop();
+  suppress = true;
+  try {
+    applyDeltas(deltas, true);
+    saveToStorage();
+    baseline = structuredClone(store.DATA);
+    render();
+  } finally {
+    suppress = false;
+  }
+  redoStack.push(deltas);
   updateNormalHistoryUI();
-  showToast('Rückgängig gemacht');
+  showToast("Rückgängig gemacht");
   return true;
 }
 
 export function normalRedo() {
   if (planMode) return false;
   if (!redoStack.length) {
-    showToast('Nichts zum Wiederherstellen');
+    showToast("Nichts zum Wiederherstellen");
     return false;
   }
-  undoStack.push(baseline);
-  const next = redoStack.pop();
-  applySnapshot(next);
+  const deltas = redoStack.pop();
+  suppress = true;
+  try {
+    applyDeltas(deltas, false);
+    saveToStorage();
+    baseline = structuredClone(store.DATA);
+    render();
+  } finally {
+    suppress = false;
+  }
+  undoStack.push(deltas);
   updateNormalHistoryUI();
-  showToast('Wiederhergestellt');
+  showToast("Wiederhergestellt");
   return true;
 }
 
@@ -150,16 +261,14 @@ export function canNormalRedo() {
 }
 
 export function updateNormalHistoryUI() {
-  const undoBtn = document.getElementById('btn-undo');
-  const redoBtn = document.getElementById('btn-redo');
-  const mUndo = document.getElementById('mbtn-undo');
-  const mRedo = document.getElementById('mbtn-redo');
+  const undoBtn = document.getElementById("btn-undo");
+  const redoBtn = document.getElementById("btn-redo");
+  const mUndo = document.getElementById("mbtn-undo");
+  const mRedo = document.getElementById("mbtn-redo");
 
-  // Im Planungsmodus übernimmt die Planungsleiste die Undo/Redo-Funktion;
-  // die globalen Buttons werden ausgeblendet, um Verwechslungen zu vermeiden.
   const hide = planMode;
   [undoBtn, redoBtn].forEach((b) => {
-    if (b) b.style.display = hide ? 'none' : '';
+    if (b) b.style.display = hide ? "none" : "";
   });
 
   const cu = undoStack.length > 0;
@@ -170,25 +279,24 @@ export function updateNormalHistoryUI() {
   if (mRedo) mRedo.disabled = !cr;
 }
 
-// Liefert die letzte protokollierte Änderung einer Zelle (für Tooltips).
 export function getLastChange(year, month, emp, day) {
   return changeLog.get(`${monthKey(year, month)}|${emp}|${day}`) || null;
 }
 
-// Setzt die Historie auf den aktuellen DATA-Stand zurück (z. B. nach einem
-// Server-Sync, der die Daten komplett ersetzt hat).
 export function resetNormalHistory() {
-  if (captureTimer) { clearTimeout(captureTimer); captureTimer = null; }
+  if (captureTimer) {
+    clearTimeout(captureTimer);
+    captureTimer = null;
+  }
   undoStack = [];
   redoStack = [];
-  baseline = cloneDATAString();
+  baseline = structuredClone(store.DATA);
   updateNormalHistoryUI();
 }
 
 export function initNormalHistory() {
-  baseline = cloneDATAString();
-  window.addEventListener('radplan-save-queued', scheduleCapture);
-  // Externe Datenersetzungen invalidieren die lokale Historie.
-  window.addEventListener('radplan-sync-update', resetNormalHistory);
+  baseline = structuredClone(store.DATA);
+  window.addEventListener("radplan-save-queued", scheduleCapture);
+  window.addEventListener("radplan-sync-update", resetNormalHistory);
   updateNormalHistoryUI();
 }

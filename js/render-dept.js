@@ -1,6 +1,14 @@
-import { MONTHS, VACATION_CODES, getEmpMeta, posColor, getSaxonyHolidaysCached, daysInMonth, isWorkday } from './constants.js';
-import { state, deptTab } from './state.js';
-import { getMonthData, buildProfileStats, buildYearlyStats, getEmployeesForYear } from './model.js';
+import {
+  MONTHS,
+  VACATION_CODES,
+  getEmpMeta,
+  posColor,
+  getSaxonyHolidaysCached,
+  daysInMonth,
+  isWorkday
+} from "./constants.js";
+import { state, deptTab } from "./state.js";
+import { getMonthData, buildProfileStats, buildYearlyStats, getEmployeesForYear } from "./model.js";
 
 export function renderDeptContent() {
   const { year: y, month: m } = state;
@@ -14,33 +22,36 @@ export function renderDeptContent() {
 export function renderDeptMonth(y, m) {
   const body = document.getElementById("dept-body");
   if (!body) return;
-  
+
   const hols = getSaxonyHolidaysCached(y);
   const md = getMonthData(y, m);
   const dim = daysInMonth(y, m);
-  
+
   const deptHeadLine = document.getElementById("dept-context-line");
   if (deptHeadLine) {
     deptHeadLine.textContent = `${MONTHS[m]} ${y}`;
   }
-  
+
   if (!md.employees.length) {
     body.innerHTML = `<div class="dept-empty"><p>Keine Daten</p></div>`;
     return;
   }
-  
+
   let workdayCount = 0;
   let mrCov = 0;
   let ctCov = 0;
   let dCov = 0;
   let hgCov = 0;
-  
+
   for (let d = 1; d <= dim; d++) {
     if (!isWorkday(y, m, d, hols)) continue;
     workdayCount++;
-    
-    let hasMR = false, hasCT = false, hasD = false, hasHG = false;
-    
+
+    let hasMR = false,
+      hasCT = false,
+      hasD = false,
+      hasHG = false;
+
     md.employees.forEach((emp) => {
       const cell = md.assignments?.[emp]?.[d] || {};
       const assign = (cell.assignment || "").split("/").map((x) => x.trim());
@@ -49,22 +60,22 @@ export function renderDeptMonth(y, m) {
       if (cell.duty === "D") hasD = true;
       if (cell.duty === "HG") hasHG = true;
     });
-    
+
     if (hasMR) mrCov++;
     if (hasCT) ctCov++;
     if (hasD) dCov++;
     if (hasHG) hgCov++;
   }
-  
-  const pct = (v) => workdayCount > 0 ? Math.round((v / workdayCount) * 100) : 0;
-  
+
+  const pct = (v) => (workdayCount > 0 ? Math.round((v / workdayCount) * 100) : 0);
+
   const covItems = [
     { label: "MR", val: mrCov, pct: pct(mrCov), color: "#1D4ED8", bg: "#DBEAFE" },
     { label: "CT", val: ctCov, pct: pct(ctCov), color: "#C2410C", bg: "#FFEDD5" },
     { label: "D", val: dCov, pct: pct(dCov), color: "#EF4444", bg: "#FEE2E2" },
-    { label: "HG", val: hgCov, pct: pct(hgCov), color: "#0369A1", bg: "#E0F2FE" },
+    { label: "HG", val: hgCov, pct: pct(hgCov), color: "#0369A1", bg: "#E0F2FE" }
   ];
-  
+
   let stripHtml = `
     <div class="dept-cov-strip">
       <div class="dept-cov-meta">
@@ -77,7 +88,7 @@ export function renderDeptMonth(y, m) {
       </div>
       <div class="dept-cov-bars">
   `;
-  
+
   covItems.forEach((item) => {
     stripHtml += `
       <div class="dept-cov-bar-item">
@@ -92,9 +103,9 @@ export function renderDeptMonth(y, m) {
       </div>
     `;
   });
-  
+
   stripHtml += `</div></div>`;
-  
+
   const empStats = md.employees.map((emp) => {
     const s = buildProfileStats(y, m, emp);
     const meta = getEmpMeta(emp);
@@ -105,19 +116,22 @@ export function renderDeptMonth(y, m) {
     const frei = s.stCounts["F"] || 0;
     return { emp, s, meta, pc, vac, sick, fza, frei };
   });
-  
-  const team = empStats.reduce((acc, { s, vac, sick, fza, frei }) => {
-    acc.wp += s.totalActive;
-    acc.vac += vac;
-    acc.sick += sick;
-    acc.fza += fza;
-    acc.d += s.dutyD.length;
-    acc.hg += s.dutyHG.length;
-    acc.frei += frei;
-    acc.offen += s.uncovered;
-    return acc;
-  }, { wp: 0, vac: 0, sick: 0, fza: 0, d: 0, hg: 0, frei: 0, offen: 0 });
-  
+
+  const team = empStats.reduce(
+    (acc, { s, vac, sick, fza, frei }) => {
+      acc.wp += s.totalActive;
+      acc.vac += vac;
+      acc.sick += sick;
+      acc.fza += fza;
+      acc.d += s.dutyD.length;
+      acc.hg += s.dutyHG.length;
+      acc.frei += frei;
+      acc.offen += s.uncovered;
+      return acc;
+    },
+    { wp: 0, vac: 0, sick: 0, fza: 0, d: 0, hg: 0, frei: 0, offen: 0 }
+  );
+
   let rowsHtml = "";
   empStats.forEach(({ emp, s, meta, pc, vac, sick, fza, frei }) => {
     rowsHtml += `
@@ -139,7 +153,7 @@ export function renderDeptMonth(y, m) {
       </tr>
     `;
   });
-  
+
   const tableHtml = `
     <div class="dept-table-wrap">
       <table class="dept-table">
@@ -176,56 +190,61 @@ export function renderDeptMonth(y, m) {
       </table>
     </div>
   `;
-  
+
   body.innerHTML = stripHtml + tableHtml;
 }
 
 export function renderDeptYear(year) {
   const body = document.getElementById("dept-body");
   if (!body) return;
-  
+
   const deptHeadLine = document.getElementById("dept-context-line");
   if (deptHeadLine) {
     deptHeadLine.textContent = `Jahresübersicht ${year}`;
   }
-  
+
   const allEmpsList = getEmployeesForYear(year);
-  
+
   if (!allEmpsList.length) {
     body.innerHTML = `<div class="dept-empty"><p>Keine Daten für ${year}</p></div>`;
     return;
   }
-  
-  const empYS = allEmpsList.map((emp) => {
-    return { 
-      emp, 
-      ys: buildYearlyStats(emp, year), 
-      meta: getEmpMeta(emp) 
-    };
-  }).filter(({ ys }) => {
-    return ys.totals.totalWorkdays > 0 || ys.totals.dutyD > 0 || ys.totals.dutyHG > 0;
-  });
-  
+
+  const empYS = allEmpsList
+    .map((emp) => {
+      return {
+        emp,
+        ys: buildYearlyStats(emp, year),
+        meta: getEmpMeta(emp)
+      };
+    })
+    .filter(({ ys }) => {
+      return ys.totals.totalWorkdays > 0 || ys.totals.dutyD > 0 || ys.totals.dutyHG > 0;
+    });
+
   if (!empYS.length) {
     body.innerHTML = `<div class="dept-empty"><p>Keine Daten</p></div>`;
     return;
   }
-  
-  const team = empYS.reduce((acc, { ys }) => {
-    acc.wd += ys.totals.totalWorkdays;
-    acc.cov += ys.totals.coveredWorkdays;
-    acc.wp += ys.totals.totalActive;
-    acc.vac += ys.totals.vacationDays;
-    acc.sick += ys.totals.sickDays;
-    acc.fza += ys.totals.fzaDays;
-    acc.wb += ys.totals.wbDays;
-    acc.d += ys.totals.dutyD;
-    acc.hg += ys.totals.dutyHG;
-    return acc;
-  }, { wd: 0, cov: 0, wp: 0, vac: 0, sick: 0, fza: 0, wb: 0, d: 0, hg: 0 });
-  
+
+  const team = empYS.reduce(
+    (acc, { ys }) => {
+      acc.wd += ys.totals.totalWorkdays;
+      acc.cov += ys.totals.coveredWorkdays;
+      acc.wp += ys.totals.totalActive;
+      acc.vac += ys.totals.vacationDays;
+      acc.sick += ys.totals.sickDays;
+      acc.fza += ys.totals.fzaDays;
+      acc.wb += ys.totals.wbDays;
+      acc.d += ys.totals.dutyD;
+      acc.hg += ys.totals.dutyHG;
+      return acc;
+    },
+    { wd: 0, cov: 0, wp: 0, vac: 0, sick: 0, fza: 0, wb: 0, d: 0, hg: 0 }
+  );
+
   const teamCovPct = team.wd > 0 ? Math.round((team.cov / team.wd) * 100) : 0;
-  
+
   const stripHtml = `
     <div class="dept-yr-strip">
       <div class="dept-yr-kpi">
@@ -256,16 +275,23 @@ export function renderDeptYear(year) {
       </div>
     </div>
   `;
-  
+
   let rowsHtml = "";
   empYS.forEach(({ emp, ys, meta }) => {
     const t = ys.totals;
     const pc = posColor(meta.position);
-    
-    const requiredWorkdays = Math.max(0, t.totalWorkdays - t.vacationDays - t.sickDays - t.fzaDays - t.wbDays - t.freiDays);
-    const cov = requiredWorkdays > 0 ? Math.min(100, Math.round((t.totalActive / requiredWorkdays) * 100)) : 0;
-    const covCls = cov >= 80 ? "dept-cov-good" : cov >= 60 ? "dept-cov-mid" : cov > 0 ? "dept-cov-low" : "";
-    
+
+    const requiredWorkdays = Math.max(
+      0,
+      t.totalWorkdays - t.vacationDays - t.sickDays - t.fzaDays - t.wbDays - t.freiDays
+    );
+    const cov =
+      requiredWorkdays > 0
+        ? Math.min(100, Math.round((t.totalActive / requiredWorkdays) * 100))
+        : 0;
+    const covCls =
+      cov >= 80 ? "dept-cov-good" : cov >= 60 ? "dept-cov-mid" : cov > 0 ? "dept-cov-low" : "";
+
     rowsHtml += `
       <tr class="dept-tr">
         <td class="dept-td-name" style="border-left:3px solid ${pc.border}">
@@ -283,7 +309,7 @@ export function renderDeptYear(year) {
       </tr>
     `;
   });
-  
+
   const tableHtml = `
     <div class="dept-table-wrap">
       <table class="dept-table">
@@ -317,7 +343,6 @@ export function renderDeptYear(year) {
       </table>
     </div>
   `;
-  
+
   body.innerHTML = stripHtml + tableHtml;
 }
-

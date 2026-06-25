@@ -6,7 +6,7 @@ export const WORKPLACES = [
   { code: "MA", label: "Mammographie", bg: "#FCE7F3", fg: "#BE185D" },
   { code: "KUS", label: "Kinder-US", bg: "#DCFCE7", fg: "#15803D" },
   { code: "W", label: "Wermsdorf", bg: "#FEF9C3", fg: "#854D0E" },
-  { code: "T", label: "Teleradiologie", bg: "#E0E7FF", fg: "#3730A3" },
+  { code: "T", label: "Teleradiologie", bg: "#E0E7FF", fg: "#3730A3" }
 ];
 
 export const STATUSES = [
@@ -18,7 +18,7 @@ export const STATUSES = [
   { code: "K", label: "Krank", bg: "#FEE2E2", fg: "#991B1B" },
   { code: "KK", label: "Kind Krank", bg: "#FECACA", fg: "#7F1D1D" },
   { code: "§15c", label: "§15c", bg: "#CFFAFE", fg: "#155E75" },
-  { code: "WB", label: "Weiterbildung", bg: "#FEF3C7", fg: "#78350F" },
+  { code: "WB", label: "Weiterbildung", bg: "#FEF3C7", fg: "#78350F" }
 ];
 
 export const CODE_MAP = {};
@@ -38,13 +38,13 @@ export const RBN_OPTIONS = [
   "Fr. Dalitz (RAD)",
   "Fr. Thaler (RAD)",
   "Dr. Martin (RAD)",
-  "Hr. El Houba (RAD)",
+  "Hr. El Houba (RAD)"
 ];
 
 export const RBN_THALER_LAST_MONTH = { year: 2026, month: 2 };
 
 export const EMPLOYEE_DEPARTURES = {
-  "Hr. Torki": { year: 2026, month: 6, reason: "gekündigt" },
+  "Hr. Torki": { year: 2026, month: 6, reason: "gekündigt" }
 };
 
 export function isEmployeeActiveInMonth(name, y, m) {
@@ -95,27 +95,53 @@ export function getRbnOptionsForDate(y, m) {
   const allowThaler =
     y < RBN_THALER_LAST_MONTH.year ||
     (y === RBN_THALER_LAST_MONTH.year && m <= RBN_THALER_LAST_MONTH.month);
-  
+
   if (allowThaler) {
     return [...RBN_OPTIONS];
   }
-  
+
   return RBN_OPTIONS.filter((opt) => opt !== "Fr. Thaler (RAD)");
 }
 
 export const MONTHS = [
-  "Januar", "Februar", "März", "April", "Mai", "Juni",
-  "Juli", "August", "September", "Oktober", "November", "Dezember"
+  "Januar",
+  "Februar",
+  "März",
+  "April",
+  "Mai",
+  "Juni",
+  "Juli",
+  "August",
+  "September",
+  "Oktober",
+  "November",
+  "Dezember"
 ];
 
 export const MONTHS_SHORT = [
-  "Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
-  "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"
+  "Jan",
+  "Feb",
+  "Mär",
+  "Apr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Dez"
 ];
 
 export const DOW_ABBR = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 export const DOW_LONG = [
-  "Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"
+  "Sonntag",
+  "Montag",
+  "Dienstag",
+  "Mittwoch",
+  "Donnerstag",
+  "Freitag",
+  "Samstag"
 ];
 
 export const STORAGE_KEY = "radplan_v3";
@@ -129,7 +155,7 @@ export const WISH_TYPES = [
     icon: "✗",
     bg: "#FEE2E2",
     fg: "#991B1B",
-    border: "#FCA5A5",
+    border: "#FCA5A5"
   },
   {
     code: "BD_WISH",
@@ -137,7 +163,7 @@ export const WISH_TYPES = [
     icon: "D",
     bg: "#FEE2E2",
     fg: "#B91C1C",
-    border: "#F87171",
+    border: "#F87171"
   },
   {
     code: "HG_WISH",
@@ -145,8 +171,8 @@ export const WISH_TYPES = [
     icon: "H",
     bg: "#E0F2FE",
     fg: "#0369A1",
-    border: "#7DD3FC",
-  },
+    border: "#7DD3FC"
+  }
 ];
 
 export const WISH_MAP = {};
@@ -165,7 +191,7 @@ export const EMP_META = {
     since: 2018,
     fte: 100,
     phone: "4001",
-    tags: ["Radiologie", "Interventionelle Radiologie", "MRT", "CT"],
+    tags: ["Radiologie", "Interventionelle Radiologie", "MRT", "CT"]
   },
   "Dr. Lurz": {
     fullName: "Dr. med. Markus Lurz",
@@ -177,7 +203,7 @@ export const EMP_META = {
     since: 2015,
     fte: 100,
     phone: "4002",
-    tags: ["Radiologie", "MRT", "Röntgen KV"],
+    tags: ["Radiologie", "MRT", "Röntgen KV"]
   },
   "Dr. Polednia": {
     fullName: "Dr. med. Alexander Polednia",
@@ -189,7 +215,7 @@ export const EMP_META = {
     since: 2016,
     fte: 100,
     phone: "4003",
-    tags: ["Radiologie", "Kinderradiologie", "Sonographie"],
+    tags: ["Radiologie", "Kinderradiologie", "Sonographie"]
   },
   "Fr. Dalitz": {
     fullName: "Bettina Dalitz",
@@ -201,7 +227,7 @@ export const EMP_META = {
     since: 2017,
     fte: 100,
     phone: "4004",
-    tags: ["Radiologie", "Neuroradiologie", "Mammographie"],
+    tags: ["Radiologie", "Neuroradiologie", "Mammographie"]
   },
   "Fr. Thaler": {
     fullName: "Fr. Thaler",
@@ -213,7 +239,7 @@ export const EMP_META = {
     since: 2020,
     fte: 100,
     phone: "4005",
-    tags: ["Radiologie"],
+    tags: ["Radiologie"]
   },
   "Dr. Becker": {
     fullName: "Dr. med. Juliane Becker",
@@ -225,7 +251,7 @@ export const EMP_META = {
     since: 2019,
     fte: 100,
     phone: "4006",
-    tags: ["Radiologie", "Nuklearmedizin", "CT"],
+    tags: ["Radiologie", "Nuklearmedizin", "CT"]
   },
   "Dr. Martin": {
     fullName: "Dr. med. Arno Martin",
@@ -237,7 +263,7 @@ export const EMP_META = {
     since: 2021,
     fte: 100,
     phone: "4007",
-    tags: ["Radiologie"],
+    tags: ["Radiologie"]
   },
   "Hr. El Houba": {
     fullName: "Abdelilah El Houba",
@@ -249,7 +275,7 @@ export const EMP_META = {
     since: 2022,
     fte: 100,
     phone: "4008",
-    tags: ["Radiologie (WB)"],
+    tags: ["Radiologie (WB)"]
   },
   "Fr. Licenji": {
     fullName: "Johanna Licenji",
@@ -261,7 +287,7 @@ export const EMP_META = {
     since: 2023,
     fte: 100,
     phone: "4009",
-    tags: ["Radiologie (WB)"],
+    tags: ["Radiologie (WB)"]
   },
   "Hr. Torki": {
     fullName: "Mohamed Torki",
@@ -273,7 +299,7 @@ export const EMP_META = {
     since: 2023,
     fte: 100,
     phone: "4010",
-    tags: ["Radiologie (WB)"],
+    tags: ["Radiologie (WB)"]
   },
   "Hr. Sebastian": {
     fullName: "Ron Sebastian",
@@ -285,8 +311,8 @@ export const EMP_META = {
     since: 2024,
     fte: 100,
     phone: "4011",
-    tags: ["Radiologie (WB)"],
-  },
+    tags: ["Radiologie (WB)"]
+  }
 };
 
 export function isFacharzt(empName) {
@@ -313,7 +339,7 @@ export function getEmpMeta(name) {
       posLabel: "—",
       type: "—",
       area: "",
-      deputy: "",
+      deputy: ""
     }
   );
 }
@@ -327,7 +353,7 @@ export function posColor(pos) {
     FA: { bg: "#DCFCE7", fg: "#15803D", border: "#22C55E" },
     FÄ: { bg: "#DCFCE7", fg: "#15803D", border: "#22C55E" },
     AA: { bg: "#F1F5F9", fg: "#475569", border: "#94A3B8" },
-    AÄ: { bg: "#F1F5F9", fg: "#475569", border: "#94A3B8" },
+    AÄ: { bg: "#F1F5F9", fg: "#475569", border: "#94A3B8" }
   };
   return m[pos] || { bg: "#F1F5F9", fg: "#475569", border: "#CBD5E1" };
 }
@@ -378,7 +404,7 @@ export function easterDate(year) {
   const m2 = Math.floor((a + 11 * h + 22 * l) / 451);
   const mo = Math.floor((h + l - 7 * m2 + 114) / 31);
   const dy = ((h + l - 7 * m2 + 114) % 31) + 1;
-  
+
   return new Date(year, mo - 1, dy);
 }
 
@@ -396,7 +422,7 @@ export function getSaxonyHolidays(year) {
   while (nov22.getDay() !== 3) {
     nov22.setDate(nov22.getDate() - 1);
   }
-  
+
   return {
     [dateKey(year, 0, 1)]: "Neujahr",
     [dateToDK(addDays(e, -2))]: "Karfreitag",
@@ -408,7 +434,7 @@ export function getSaxonyHolidays(year) {
     [dateKey(year, 9, 31)]: "Reformationstag",
     [dateToDK(nov22)]: "Buß- und Bettag",
     [dateKey(year, 11, 25)]: "1. Weihnachtstag",
-    [dateKey(year, 11, 26)]: "2. Weihnachtstag",
+    [dateKey(year, 11, 26)]: "2. Weihnachtstag"
   };
 }
 
@@ -474,7 +500,10 @@ export function empInitials(name) {
   const parts = name.split(/\s+/).filter(Boolean);
   const caps = parts.filter((p) => p.length > 0 && /[A-ZÄÖÜ]/.test(p[0]));
   if (caps.length >= 2) {
-    return caps.map((p) => p[0]).slice(0, 2).join("");
+    return caps
+      .map((p) => p[0])
+      .slice(0, 2)
+      .join("");
   }
   return name.slice(0, 2).toUpperCase();
 }

@@ -22,17 +22,9 @@ import {
   isRbnMonthVisible,
   formatRbnDisplay,
   WISH_MAP
-} from './constants.js';
+} from "./constants.js";
 
-import {
-  state,
-  planMode,
-  IS_MOBILE,
-  TOD_Y,
-  TOD_M,
-  TOD_D,
-  setIsMobile
-} from './state.js';
+import { state, planMode, IS_MOBILE, TOD_Y, TOD_M, TOD_D, setIsMobile } from "./state.js";
 
 import {
   getMonthData,
@@ -41,7 +33,7 @@ import {
   dayCodeCount,
   dayPresentCount,
   getComment
-} from './model.js';
+} from "./model.js";
 
 import {
   openEditor,
@@ -54,19 +46,20 @@ import {
   quickClearCell,
   quickSetStatus,
   moveDutyBadge
-} from './app.js';
+} from "./app.js";
 
-import { computeGridConflicts, dutyKey } from './autoplan.js';
-import { contextMenu } from './contextmenu.js';
-import { hideOverlay, showToast, openProfileModal } from './render-modals.js';
-import { renderDeptContent } from './render-dept.js';
-import { renderEmployeeDashboard } from './render-employee-dashboard.js';
+import { computeGridConflicts, dutyKey } from "./autoplan.js";
+import { contextMenu } from "./contextmenu.js";
+import { hideOverlay, showToast, openProfileModal } from "./render-modals.js";
+import { renderDeptContent } from "./render-dept.js";
+import { renderEmployeeDashboard } from "./render-employee-dashboard.js";
+import { icon } from "./icons.js";
 
 const dragSelectionState = {
   active: false,
   emp: null,
   justDragged: false,
-  touched: new Set(),
+  touched: new Set()
 };
 
 function resetDragSelectionState() {
@@ -100,7 +93,7 @@ export function getViewportHeight() {
   const dw = document.documentElement?.clientHeight;
   const ww = window.innerHeight;
   // Prioritize stable dimensions on desktop, but allow visualViewport for mobile/keyboard overlays
-  const vals = [vv, dw, ww].filter(v => Number.isFinite(v) && v > 0);
+  const vals = [vv, dw, ww].filter((v) => Number.isFinite(v) && v > 0);
   return vals.length ? Math.min(...vals) : 0;
 }
 
@@ -120,7 +113,9 @@ function syncViewportCssVars() {
   root.style.setProperty("--app-vh", `${Math.max(320, Math.round(viewportH || 0))}px`);
   root.style.setProperty("--kb-inset", `${keyboardInset}px`);
 
-  const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator?.standalone === true;
+  const standalone =
+    (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+    window.navigator?.standalone === true;
   document.body.classList.toggle("is-standalone", !!standalone);
 }
 
@@ -129,26 +124,26 @@ window.addEventListener("resize", syncViewportCssVars);
 window.visualViewport?.addEventListener("resize", syncViewportCssVars);
 syncViewportCssVars(); // Immediate initial sync
 
-
 export function updateModalLayout(target) {
   const overlay = typeof target === "string" ? document.getElementById(target) : target;
   if (!overlay || overlay.hasAttribute("hidden")) return;
-  
+
   const modal = overlay.querySelector(".modal");
   if (!modal) return;
-  
+
   const viewportH = getViewportHeight();
   const viewportW = getViewportWidth();
-  
-  const mobileSheet = document.body.classList.contains("is-mobile") && 
-                      overlay.id !== "modal-mobile-menu" && 
-                      overlay.id !== "modal-mobile-day";
-                      
+
+  const mobileSheet =
+    document.body.classList.contains("is-mobile") &&
+    overlay.id !== "modal-mobile-menu" &&
+    overlay.id !== "modal-mobile-day";
+
   const pad = mobileSheet ? 0 : Math.max(10, Math.min(24, viewportW * 0.024));
   const availableH = Math.max(280, Math.floor(viewportH - pad * 2));
-  
+
   modal.style.setProperty("--modal-max-height", `${availableH}px`);
-  
+
   requestAnimationFrame(() => {
     const naturalHeight = modal.scrollHeight;
     const fitsViewport = naturalHeight <= availableH;
@@ -170,25 +165,25 @@ export function refreshResponsiveLayout(options = {}) {
   const coarsePointer = window.matchMedia ? window.matchMedia("(pointer: coarse)").matches : false;
   const touchLike = coarsePointer || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   const nextMobile = width <= MOBILE_BREAKPOINT;
-  
+
   const changed = nextMobile !== IS_MOBILE;
   setIsMobile(nextMobile);
   document.body.classList.toggle("is-mobile", IS_MOBILE);
-  
+
   if (!changed && !forceRender) {
     updateOpenModalLayouts();
     return false;
   }
-  
+
   if (!IS_MOBILE) {
     hideOverlay("modal-mobile-menu");
     hideOverlay("modal-mobile-day");
   }
-  
+
   render();
   refreshOpenContextPanels();
   updateOpenModalLayouts();
-  
+
   return true;
 }
 
@@ -233,7 +228,8 @@ export function scrollToToday() {
   }
 
   if (gridWrapper && todayCol) {
-    const targetX = todayCol.offsetLeft - Math.max(0, (gridWrapper.clientWidth - todayCol.offsetWidth) / 2);
+    const targetX =
+      todayCol.offsetLeft - Math.max(0, (gridWrapper.clientWidth - todayCol.offsetWidth) / 2);
     gridWrapper.scrollTo({ left: Math.max(0, targetX), behavior: "smooth" });
   }
 }
@@ -243,12 +239,12 @@ export function refreshOpenContextPanels() {
   if (deptModal && !deptModal.hasAttribute("hidden")) {
     renderDeptContent();
   }
-  
+
   const empModal = document.getElementById("modal-emps");
   if (empModal && !empModal.hasAttribute("hidden")) {
     renderEmployeeDashboard();
   }
-  
+
   const profileModal = document.getElementById("modal-profile");
   if (profileModal && !profileModal.hasAttribute("hidden") && state.profileEmp) {
     openProfileModal(state.profileEmp);
@@ -257,9 +253,9 @@ export function refreshOpenContextPanels() {
 
 export function focusCellAfterRender(emp, day) {
   requestAnimationFrame(() => {
-    const tbody = document.getElementById('plan-tbody');
+    const tbody = document.getElementById("plan-tbody");
     if (!tbody) return;
-    const cells = tbody.querySelectorAll('.td-cell');
+    const cells = tbody.querySelectorAll(".td-cell");
     for (const cell of cells) {
       if (cell.dataset.emp === emp && parseInt(cell.dataset.day, 10) === day) {
         cell.focus({ preventScroll: true });
@@ -272,9 +268,9 @@ export function focusCellAfterRender(emp, day) {
 function focusAdjacentCell(currentCell, rowDelta, colDelta) {
   if (colDelta !== 0) {
     const targetDay = parseInt(currentCell.dataset.day, 10) + colDelta;
-    const row = currentCell.closest('tr');
+    const row = currentCell.closest("tr");
     if (!row) return;
-    const allCells = row.querySelectorAll('.td-cell');
+    const allCells = row.querySelectorAll(".td-cell");
     for (const c of allCells) {
       if (parseInt(c.dataset.day, 10) === targetDay) {
         c.focus({ preventScroll: false });
@@ -284,18 +280,15 @@ function focusAdjacentCell(currentCell, rowDelta, colDelta) {
   }
   if (rowDelta !== 0) {
     const day = parseInt(currentCell.dataset.day, 10);
-    const currentRow = currentCell.closest('tr');
+    const currentRow = currentCell.closest("tr");
     if (!currentRow) return;
-    let targetRow = rowDelta > 0
-      ? currentRow.nextElementSibling
-      : currentRow.previousElementSibling;
-    while (targetRow && targetRow.classList.contains('tr-rbn')) {
-      targetRow = rowDelta > 0
-        ? targetRow.nextElementSibling
-        : targetRow.previousElementSibling;
+    let targetRow =
+      rowDelta > 0 ? currentRow.nextElementSibling : currentRow.previousElementSibling;
+    while (targetRow && targetRow.classList.contains("tr-rbn")) {
+      targetRow = rowDelta > 0 ? targetRow.nextElementSibling : targetRow.previousElementSibling;
     }
     if (!targetRow) return;
-    const allCells = targetRow.querySelectorAll('.td-cell');
+    const allCells = targetRow.querySelectorAll(".td-cell");
     for (const c of allCells) {
       if (parseInt(c.dataset.day, 10) === day) {
         c.focus({ preventScroll: false });
@@ -307,21 +300,37 @@ function focusAdjacentCell(currentCell, rowDelta, colDelta) {
 
 function handleGridKeydown(e) {
   if (IS_MOBILE) return;
-  const cell = e.target.closest?.('#plan-tbody .td-cell');
+  const cell = e.target.closest?.("#plan-tbody .td-cell");
   if (!cell) return;
   const emp = cell.dataset.emp;
-  const day = parseInt(cell.dataset.day || '', 10);
+  const day = parseInt(cell.dataset.day || "", 10);
   if (!emp || !Number.isFinite(day)) return;
   if (emp === RBN_ROW_KEY) return;
 
   const noMod = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
 
-  if (noMod && e.key === 'ArrowRight') { e.preventDefault(); focusAdjacentCell(cell, 0, 1); return; }
-  if (noMod && e.key === 'ArrowLeft')  { e.preventDefault(); focusAdjacentCell(cell, 0, -1); return; }
-  if (noMod && e.key === 'ArrowDown')  { e.preventDefault(); focusAdjacentCell(cell, 1, 0); return; }
-  if (noMod && e.key === 'ArrowUp')    { e.preventDefault(); focusAdjacentCell(cell, -1, 0); return; }
+  if (noMod && e.key === "ArrowRight") {
+    e.preventDefault();
+    focusAdjacentCell(cell, 0, 1);
+    return;
+  }
+  if (noMod && e.key === "ArrowLeft") {
+    e.preventDefault();
+    focusAdjacentCell(cell, 0, -1);
+    return;
+  }
+  if (noMod && e.key === "ArrowDown") {
+    e.preventDefault();
+    focusAdjacentCell(cell, 1, 0);
+    return;
+  }
+  if (noMod && e.key === "ArrowUp") {
+    e.preventDefault();
+    focusAdjacentCell(cell, -1, 0);
+    return;
+  }
 
-  if (noMod && e.key >= '1' && e.key <= '8') {
+  if (noMod && e.key >= "1" && e.key <= "8") {
     e.preventDefault();
     const idx = parseInt(e.key, 10) - 1;
     const wp = WORKPLACES[idx];
@@ -329,16 +338,24 @@ function handleGridKeydown(e) {
     return;
   }
 
-  if (noMod && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); quickToggleDuty(emp, day, 'D'); return; }
-  if (noMod && (e.key === 'h' || e.key === 'H')) { e.preventDefault(); quickToggleDuty(emp, day, 'HG'); return; }
+  if (noMod && (e.key === "d" || e.key === "D")) {
+    e.preventDefault();
+    quickToggleDuty(emp, day, "D");
+    return;
+  }
+  if (noMod && (e.key === "h" || e.key === "H")) {
+    e.preventDefault();
+    quickToggleDuty(emp, day, "HG");
+    return;
+  }
 
-  if (noMod && (e.key === 'Delete' || e.key === 'Backspace')) {
+  if (noMod && (e.key === "Delete" || e.key === "Backspace")) {
     e.preventDefault();
     quickClearCell(emp, day);
     return;
   }
 
-  if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+  if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
     openEditor(emp, day);
     return;
@@ -347,23 +364,42 @@ function handleGridKeydown(e) {
 
 // --- Desktop: floating quick-action popover anchored to the focused cell ---
 
-let quickPopover = { el: null, emp: null, day: null, anchorEl: null, outsideHandler: null, keyHandler: null };
+let quickPopover = {
+  el: null,
+  emp: null,
+  day: null,
+  anchorEl: null,
+  outsideHandler: null,
+  keyHandler: null
+};
 
 export function closeCellQuickPopover() {
   if (!quickPopover.el) return;
   quickPopover.el.remove();
-  if (quickPopover.outsideHandler) document.removeEventListener('pointerdown', quickPopover.outsideHandler, true);
-  if (quickPopover.keyHandler) document.removeEventListener('keydown', quickPopover.keyHandler, true);
-  quickPopover = { el: null, emp: null, day: null, anchorEl: null, outsideHandler: null, keyHandler: null };
-  document.body.classList.remove('cell-popover-open');
+  if (quickPopover.outsideHandler)
+    document.removeEventListener("pointerdown", quickPopover.outsideHandler, true);
+  if (quickPopover.keyHandler)
+    document.removeEventListener("keydown", quickPopover.keyHandler, true);
+  quickPopover = {
+    el: null,
+    emp: null,
+    day: null,
+    anchorEl: null,
+    outsideHandler: null,
+    keyHandler: null
+  };
+  document.body.classList.remove("cell-popover-open");
 }
 
 function buildQuickPopoverHtml(emp, day) {
   const { year: y, month: m } = state;
   const cell = getCell(y, m, emp, day);
-  const parts = (cell.assignment || "").split("/").map(x => x.trim()).filter(Boolean);
+  const parts = (cell.assignment || "")
+    .split("/")
+    .map((x) => x.trim())
+    .filter(Boolean);
 
-  const wpHtml = WORKPLACES.map(wp => {
+  const wpHtml = WORKPLACES.map((wp) => {
     const active = parts.includes(wp.code);
     return `<button type="button" class="cqp-wp${active ? " active" : ""}" data-wp="${wp.code}" style="${active ? `background:${wp.bg};color:${wp.fg};border-color:${wp.bg};` : ""}" title="${wp.label}">${wp.code}</button>`;
   }).join("");
@@ -388,9 +424,9 @@ function positionQuickPopover() {
   const rect = quickPopover.anchorEl.getBoundingClientRect();
   const el = quickPopover.el;
   const margin = 8;
-  el.style.visibility = 'hidden';
-  el.style.left = '0px';
-  el.style.top = '0px';
+  el.style.visibility = "hidden";
+  el.style.left = "0px";
+  el.style.top = "0px";
   const pw = el.offsetWidth;
   const ph = el.offsetHeight;
   let left = rect.left + rect.width / 2 - pw / 2;
@@ -402,38 +438,38 @@ function positionQuickPopover() {
     above = true;
     if (top < margin) top = margin;
   }
-  el.classList.toggle('cqp-above', above);
+  el.classList.toggle("cqp-above", above);
   el.style.left = `${left}px`;
   el.style.top = `${top}px`;
-  el.style.visibility = '';
+  el.style.visibility = "";
 }
 
 export function showCellQuickPopover(emp, day, anchorEl) {
   if (IS_MOBILE || !anchorEl || emp === RBN_ROW_KEY) return;
   closeCellQuickPopover();
 
-  const el = document.createElement('div');
-  el.className = 'cell-quick-popover';
+  const el = document.createElement("div");
+  el.className = "cell-quick-popover";
   el.innerHTML = buildQuickPopoverHtml(emp, day);
   document.body.appendChild(el);
 
-  el.querySelectorAll('.cqp-wp').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  el.querySelectorAll(".cqp-wp").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
       e.stopPropagation();
       quickToggleWorkplace(emp, day, btn.dataset.wp);
     });
   });
-  el.querySelectorAll('.cqp-duty').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  el.querySelectorAll(".cqp-duty").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
       e.stopPropagation();
       quickToggleDuty(emp, day, btn.dataset.duty);
     });
   });
-  el.querySelector('.cqp-clear')?.addEventListener('click', (e) => {
+  el.querySelector(".cqp-clear")?.addEventListener("click", (e) => {
     e.stopPropagation();
     quickClearCell(emp, day);
   });
-  el.querySelector('.cqp-more')?.addEventListener('click', (e) => {
+  el.querySelector(".cqp-more")?.addEventListener("click", (e) => {
     e.stopPropagation();
     closeCellQuickPopover();
     openEditor(emp, day);
@@ -445,36 +481,40 @@ export function showCellQuickPopover(emp, day, anchorEl) {
   quickPopover.anchorEl = anchorEl;
 
   positionQuickPopover();
-  requestAnimationFrame(() => el.classList.add('cqp-visible'));
+  requestAnimationFrame(() => el.classList.add("cqp-visible"));
 
   quickPopover.outsideHandler = (e) => {
-    if (quickPopover.el && !quickPopover.el.contains(e.target) && e.target !== quickPopover.anchorEl) {
+    if (
+      quickPopover.el &&
+      !quickPopover.el.contains(e.target) &&
+      e.target !== quickPopover.anchorEl
+    ) {
       closeCellQuickPopover();
     }
   };
   quickPopover.keyHandler = (e) => {
-    if (e.key === 'Escape') {
+    if (e.key === "Escape") {
       const anchor = quickPopover.anchorEl;
       closeCellQuickPopover();
       anchor?.focus({ preventScroll: true });
     }
   };
-  document.addEventListener('pointerdown', quickPopover.outsideHandler, true);
-  document.addEventListener('keydown', quickPopover.keyHandler, true);
+  document.addEventListener("pointerdown", quickPopover.outsideHandler, true);
+  document.addEventListener("keydown", quickPopover.keyHandler, true);
 
-  document.body.classList.add('cell-popover-open');
+  document.body.classList.add("cell-popover-open");
 }
 
 // --- Mobile: radial quick-action menu with tap-to-open / swipe-to-select ---
 
 const RADIAL_QUICK_ACTIONS = [
-  { id: 'CT', kind: 'wp', code: 'CT', label: 'CT' },
-  { id: 'MR', kind: 'wp', code: 'MR', label: 'MR' },
-  { id: 'D', kind: 'duty', code: 'D', label: 'D' },
-  { id: 'HG', kind: 'duty', code: 'HG', label: 'HG' },
-  { id: 'F', kind: 'status', code: 'F', label: 'Frei' },
-  { id: 'clear', kind: 'clear', label: 'Löschen' },
-  { id: 'more', kind: 'more', label: 'Mehr…' },
+  { id: "CT", kind: "wp", code: "CT", label: "CT" },
+  { id: "MR", kind: "wp", code: "MR", label: "MR" },
+  { id: "D", kind: "duty", code: "D", label: "D" },
+  { id: "HG", kind: "duty", code: "HG", label: "HG" },
+  { id: "F", kind: "status", code: "F", label: "Frei" },
+  { id: "clear", kind: "clear", label: "Löschen" },
+  { id: "more", kind: "more", label: "Mehr…" }
 ];
 
 let radialMenuState = { el: null, emp: null, day: null, sectors: [], activeIndex: -1 };
@@ -488,23 +528,33 @@ function radialOutsideHandler(e) {
 export function closeRadialQuickMenu() {
   if (!radialMenuState.el) return;
   radialMenuState.el.remove();
-  document.removeEventListener('pointerdown', radialOutsideHandler, true);
+  document.removeEventListener("pointerdown", radialOutsideHandler, true);
   radialMenuState = { el: null, emp: null, day: null, sectors: [], activeIndex: -1 };
-  document.body.classList.remove('radial-menu-open');
+  document.body.classList.remove("radial-menu-open");
 }
 
 function runRadialAction(emp, day, action) {
   switch (action.kind) {
-    case 'wp': quickToggleWorkplace(emp, day, action.code); break;
-    case 'duty': quickToggleDuty(emp, day, action.code); break;
-    case 'status': quickSetStatus(emp, day, action.code); break;
-    case 'clear': quickClearCell(emp, day); break;
-    case 'more': openEditor(emp, day); return;
+    case "wp":
+      quickToggleWorkplace(emp, day, action.code);
+      break;
+    case "duty":
+      quickToggleDuty(emp, day, action.code);
+      break;
+    case "status":
+      quickSetStatus(emp, day, action.code);
+      break;
+    case "clear":
+      quickClearCell(emp, day);
+      break;
+    case "more":
+      openEditor(emp, day);
+      return;
   }
 
-  const mdayOverlay = document.getElementById('modal-mobile-day');
-  if (mdayOverlay && !mdayOverlay.hasAttribute('hidden')) {
-    import('./app.js').then((mod) => mod.openMobileDay(day));
+  const mdayOverlay = document.getElementById("modal-mobile-day");
+  if (mdayOverlay && !mdayOverlay.hasAttribute("hidden")) {
+    import("./app.js").then((mod) => mod.openMobileDay(day));
   }
 }
 
@@ -522,16 +572,20 @@ export function openRadialQuickMenu(emp, day, x, y) {
   const cx = Math.max(margin, Math.min(x, window.innerWidth - margin));
   const cy = Math.max(margin, Math.min(y, window.innerHeight - margin));
 
-  const el = document.createElement('div');
-  el.className = 'radial-quick-menu';
+  const el = document.createElement("div");
+  el.className = "radial-quick-menu";
   el.style.left = `${cx}px`;
   el.style.top = `${cy}px`;
 
-  const itemsHtml = sectors.map((s, i) => `
+  const itemsHtml = sectors
+    .map(
+      (s, i) => `
     <button type="button" class="radial-item" data-idx="${i}" style="transform: translate(${s.x}px, ${s.y}px);">
       <span class="radial-item-label">${s.label}</span>
     </button>
-  `).join('');
+  `
+    )
+    .join("");
 
   el.innerHTML = `
     <div class="radial-center"><span class="radial-center-emp">${emp}</span></div>
@@ -539,13 +593,13 @@ export function openRadialQuickMenu(emp, day, x, y) {
   `;
 
   document.body.appendChild(el);
-  document.body.classList.add('radial-menu-open');
-  requestAnimationFrame(() => el.classList.add('radial-visible'));
+  document.body.classList.add("radial-menu-open");
+  requestAnimationFrame(() => el.classList.add("radial-visible"));
 
   radialMenuState = { el, emp, day, sectors, activeIndex: -1 };
 
-  el.querySelectorAll('.radial-item').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  el.querySelectorAll(".radial-item").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const idx = parseInt(btn.dataset.idx, 10);
       const action = RADIAL_QUICK_ACTIONS[idx];
@@ -554,7 +608,7 @@ export function openRadialQuickMenu(emp, day, x, y) {
     });
   });
 
-  setTimeout(() => document.addEventListener('pointerdown', radialOutsideHandler, true), 0);
+  setTimeout(() => document.addEventListener("pointerdown", radialOutsideHandler, true), 0);
 }
 
 export function updateRadialHover(clientX, clientY) {
@@ -570,11 +624,11 @@ export function updateRadialHover(clientX, clientY) {
     let angle = Math.atan2(dy, dx) + Math.PI / 2;
     if (angle < 0) angle += 2 * Math.PI;
     const n = radialMenuState.sectors.length;
-    idx = Math.round(angle / (2 * Math.PI / n)) % n;
+    idx = Math.round(angle / ((2 * Math.PI) / n)) % n;
   }
   radialMenuState.activeIndex = idx;
-  radialMenuState.el.querySelectorAll('.radial-item').forEach((btn, i) => {
-    btn.classList.toggle('radial-hover', i === idx);
+  radialMenuState.el.querySelectorAll(".radial-item").forEach((btn, i) => {
+    btn.classList.toggle("radial-hover", i === idx);
   });
 }
 
@@ -591,21 +645,21 @@ export function releaseRadialMenu(clientX, clientY) {
 }
 
 export function initGridKeyboardHandlers() {
-  const table = document.getElementById('plan-table');
+  const table = document.getElementById("plan-table");
   if (!table) return;
 
-  table.addEventListener('keydown', handleGridKeydown);
+  table.addEventListener("keydown", handleGridKeydown);
 
-  table.addEventListener('focusin', (e) => {
-    if (e.target.closest?.('#plan-tbody .td-cell')) {
-      document.body.classList.add('grid-cell-focused');
+  table.addEventListener("focusin", (e) => {
+    if (e.target.closest?.("#plan-tbody .td-cell")) {
+      document.body.classList.add("grid-cell-focused");
     }
   });
 
-  table.addEventListener('focusout', () => {
+  table.addEventListener("focusout", () => {
     setTimeout(() => {
-      if (!document.activeElement?.closest?.('#plan-tbody .td-cell')) {
-        document.body.classList.remove('grid-cell-focused');
+      if (!document.activeElement?.closest?.("#plan-tbody .td-cell")) {
+        document.body.classList.remove("grid-cell-focused");
       }
     }, 50);
   });
@@ -624,40 +678,46 @@ let xhCurrentDay = null;
 let xhCurrentRow = null;
 
 function clearCrossHighlight(table) {
-  if (xhCurrentRow) { xhCurrentRow.classList.remove('row-hl'); xhCurrentRow = null; }
+  if (xhCurrentRow) {
+    xhCurrentRow.classList.remove("row-hl");
+    xhCurrentRow = null;
+  }
   if (xhCurrentDay != null) {
-    table.querySelectorAll('.col-hl').forEach((el) => el.classList.remove('col-hl'));
+    table.querySelectorAll(".col-hl").forEach((el) => el.classList.remove("col-hl"));
     xhCurrentDay = null;
   }
 }
 
 function initGridCrossHighlight(table) {
-  if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return;
+  if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return;
 
-  table.addEventListener('pointermove', (e) => {
-    if (e.pointerType === 'touch') return;
-    const cell = e.target.closest?.('.td-cell, .td-name');
-    if (!cell) { clearCrossHighlight(table); return; }
+  table.addEventListener("pointermove", (e) => {
+    if (e.pointerType === "touch") return;
+    const cell = e.target.closest?.(".td-cell, .td-name");
+    if (!cell) {
+      clearCrossHighlight(table);
+      return;
+    }
 
     const row = cell.parentElement;
     const day = cell.dataset.day ? cell.dataset.day : null;
 
     if (row !== xhCurrentRow) {
-      xhCurrentRow?.classList.remove('row-hl');
-      row?.classList.add('row-hl');
+      xhCurrentRow?.classList.remove("row-hl");
+      row?.classList.add("row-hl");
       xhCurrentRow = row;
     }
 
     if (day !== xhCurrentDay) {
-      table.querySelectorAll('.col-hl').forEach((el) => el.classList.remove('col-hl'));
+      table.querySelectorAll(".col-hl").forEach((el) => el.classList.remove("col-hl"));
       if (day != null) {
-        table.querySelectorAll(`[data-day="${day}"]`).forEach((el) => el.classList.add('col-hl'));
+        table.querySelectorAll(`[data-day="${day}"]`).forEach((el) => el.classList.add("col-hl"));
       }
       xhCurrentDay = day;
     }
   });
 
-  table.addEventListener('pointerleave', () => clearCrossHighlight(table));
+  table.addEventListener("pointerleave", () => clearCrossHighlight(table));
 }
 
 export function render() {
@@ -665,19 +725,19 @@ export function render() {
   const hols = getSaxonyHolidaysCached(y);
   const md = getMonthData(y, m);
   const dim = daysInMonth(y, m);
-  
+
   const monthLabel = document.getElementById("month-label");
   if (monthLabel) {
     monthLabel.textContent = `${MONTHS[m]} ${y}`;
   }
-  
+
   syncPeriodControls();
-  
+
   const todayBtn = document.getElementById("btn-today");
   if (todayBtn) {
     todayBtn.classList.toggle("today-btn-active", y === TOD_Y && m === TOD_M);
   }
-  
+
   const planBar = document.getElementById("plan-bar");
   if (planBar) {
     if (planMode) {
@@ -694,13 +754,13 @@ export function render() {
       document.body.classList.remove("plan-mode-active");
     }
   }
-  
+
   if (IS_MOBILE) {
     renderMobileView();
     updateOpenModalLayouts();
     return;
   }
-  
+
   renderStatsBar(y, m, dim, md);
   renderThead(y, m, dim, hols, md);
   renderTbody(y, m, dim, hols, md);
@@ -711,7 +771,7 @@ export function render() {
 export function renderStatsBar(y, m, dim, md) {
   const bar = document.getElementById("stats-bar");
   bar.innerHTML = "";
-  
+
   const empCount = document.createElement("div");
   empCount.className = "stat-item stat-item-emp";
   empCount.innerHTML = `
@@ -724,45 +784,58 @@ export function renderStatsBar(y, m, dim, md) {
     <span class="stat-label-sm">MA</span>
   `;
   bar.appendChild(empCount);
-  
+
   const totals = {};
   [...WORKPLACES.map((w) => w.code), ...STATUSES.map((s) => s.code), "D", "HG"].forEach((c) => {
     totals[c] = 0;
   });
-  
+
   for (let d = 1; d <= dim; d++) {
     md.employees.forEach((emp) => {
       const cell = md.assignments?.[emp]?.[d] || {};
       if (cell.assignment) {
-        cell.assignment.split("/").map((x) => x.trim()).forEach((c) => { 
-          if (c in totals) totals[c]++; 
-        });
+        cell.assignment
+          .split("/")
+          .map((x) => x.trim())
+          .forEach((c) => {
+            if (c in totals) totals[c]++;
+          });
       }
       if (cell.duty && cell.duty in totals) {
         totals[cell.duty]++;
       }
     });
   }
-  
+
   const order = [
     ...WORKPLACES.map((w) => w.code),
-    "D", "HG", "U", "K", "F", "WB", "FZA", "ZU", "SU", "KK", "§15c"
+    "D",
+    "HG",
+    "U",
+    "K",
+    "F",
+    "WB",
+    "FZA",
+    "ZU",
+    "SU",
+    "KK",
+    "§15c"
   ];
-  
+
   let any = false;
-  
+
   order.forEach((code) => {
     const v = totals[code];
     if (!v) return;
     any = true;
-    
+
     const meta = CODE_MAP[code];
     const isD = code === "D";
     const isHG = code === "HG";
-    
+
     const bg = isD ? "#EF4444" : isHG ? "#0EA5E9" : meta?.bg || "#E2E8F0";
     const fg = isD || isHG ? "#fff" : meta?.fg || "#374151";
-    
+
     const div = document.createElement("div");
     div.className = "stat-item";
     div.innerHTML = `
@@ -771,7 +844,7 @@ export function renderStatsBar(y, m, dim, md) {
     `;
     bar.appendChild(div);
   });
-  
+
   if (!any && !md.employees.length) {
     bar.innerHTML = `<span id="stats-empty">Keine Daten</span>`;
   }
@@ -780,15 +853,15 @@ export function renderStatsBar(y, m, dim, md) {
 export function renderThead(y, m, dim, hols, md) {
   const thead = document.getElementById("plan-thead");
   thead.innerHTML = "";
-  
+
   const tr = document.createElement("tr");
   const thC = document.createElement("th");
   thC.className = "th-corner";
   thC.innerHTML = '<div class="th-corner-inner">Mitarbeitende</div>';
   tr.appendChild(thC);
-  
+
   let prevKW = -1;
-  
+
   for (let d = 1; d <= dim; d++) {
     const wd = weekday(y, m, d);
     const hol = isHoliday(y, m, d, hols);
@@ -797,11 +870,11 @@ export function renderThead(y, m, dim, hols, md) {
     const fri = isFriday(y, m, d);
     const kw = isoWeekNumber(y, m, d);
     const showKW = (wd === 1 || (d === 1 && wd !== 1)) && kw !== prevKW;
-    
+
     if (showKW) {
       prevKW = kw;
     }
-    
+
     const hn = hols[dateKey(y, m, d)] || "";
     const th = document.createElement("th");
 
@@ -814,24 +887,24 @@ export function renderThead(y, m, dim, hols, md) {
     th.dataset.day = String(d);
 
     const hasEmps = md.employees.length > 0;
-    const dCount  = hasEmps ? dayCodeCount(y, m, d, "D")  : 0;
+    const dCount = hasEmps ? dayCodeCount(y, m, d, "D") : 0;
     const hgCount = hasEmps ? dayCodeCount(y, m, d, "HG") : 0;
 
     let stripeColor = "transparent";
     if (hasEmps) {
       const bothCovered = dCount > 0 && hgCount > 0;
-      const oneCovered  = (dCount > 0) !== (hgCount > 0);
+      const oneCovered = dCount > 0 !== hgCount > 0;
       if (bothCovered) {
         stripeColor = "#22C55E";
       } else if (oneCovered) {
         stripeColor = "#F59E0B";
       } else {
-        stripeColor = (we || hol) ? "rgba(249,115,22,0.55)" : "#EF4444";
+        stripeColor = we || hol ? "rgba(249,115,22,0.55)" : "#EF4444";
       }
     }
 
     if (hasEmps) {
-      const dLabel  = dCount  > 0 ? `${dCount}× besetzt` : "fehlt";
+      const dLabel = dCount > 0 ? `${dCount}× besetzt` : "fehlt";
       const hgLabel = hgCount > 0 ? `${hgCount}× besetzt` : "fehlt";
       th.title = `${d}. ${MONTHS[m]} · D: ${dLabel} · HG: ${hgLabel}`;
     }
@@ -853,7 +926,7 @@ export function renderThead(y, m, dim, hols, md) {
 export function renderTbody(y, m, dim, hols, md) {
   const tbody = document.getElementById("plan-tbody");
   tbody.innerHTML = "";
-  
+
   if (!md.employees.length) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
@@ -866,7 +939,7 @@ export function renderTbody(y, m, dim, hols, md) {
   }
 
   // Use the original sequence from data (filter only to avoid collisions)
-  const employeesToRender = md.employees.filter(e => e !== RBN_ROW_LABEL && e !== RBN_ROW_KEY);
+  const employeesToRender = md.employees.filter((e) => e !== RBN_ROW_LABEL && e !== RBN_ROW_KEY);
   const gridConflicts = computeGridConflicts(y, m);
 
   // Role-band grouping: classify each row so the grid gets visual structure
@@ -897,7 +970,7 @@ export function renderTbody(y, m, dim, hols, md) {
     tdN.style.paddingLeft = "11px";
     tdN.setAttribute("role", "button");
     tdN.setAttribute("tabindex", "0");
-    
+
     let tdNHtml = `<span class="emp-label">${emp}</span>`;
     if (meta.position !== "—") {
       tdNHtml += `<span class="emp-pos-tag" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span>`;
@@ -911,55 +984,61 @@ export function renderTbody(y, m, dim, hols, md) {
       </span>
     `;
     tdN.innerHTML = tdNHtml;
-    
+
     // Modern Context Menu on Right Click (Secondary Click)
     tdN.addEventListener("contextmenu", (e) => {
       e.preventDefault();
-      contextMenu.show(e.clientX, e.clientY, [
-        { 
-          label: "Profil öffnen", 
-          icon: '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
-          action: () => openProfileModal(emp)
-        },
-        { type: "divider" },
-        { 
-          label: "Aus Monat entfernen", 
-          sub: `${MONTHS[m]} ${y}`,
-          danger: true,
-          icon: '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>',
-          action: () => import('./app.js').then(module => module.confirmRemoveEmployee(emp))
-        },
-        { 
-          label: "Ab hier dauerhaft entfernen", 
-          sub: `Folgende Monate inkl.`,
-          danger: true,
-          icon: '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/><path d="M21 7l-5-5m0 0l-5 5m5-5v18"/></svg>',
-          action: () => import('./app.js').then(module => module.confirmRemoveEmployeeFuture(emp))
-        }
-      ], tdN);
+      contextMenu.show(
+        e.clientX,
+        e.clientY,
+        [
+          {
+            label: "Profil öffnen",
+            icon: '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+            action: () => openProfileModal(emp)
+          },
+          { type: "divider" },
+          {
+            label: "Aus Monat entfernen",
+            sub: `${MONTHS[m]} ${y}`,
+            danger: true,
+            icon: '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>',
+            action: () => import("./app.js").then((module) => module.confirmRemoveEmployee(emp))
+          },
+          {
+            label: "Ab hier dauerhaft entfernen",
+            sub: `Folgende Monate inkl.`,
+            danger: true,
+            icon: '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/><path d="M21 7l-5-5m0 0l-5 5m5-5v18"/></svg>',
+            action: () =>
+              import("./app.js").then((module) => module.confirmRemoveEmployeeFuture(emp))
+          }
+        ],
+        tdN
+      );
     });
-    
+
     tdN.addEventListener("click", () => openProfileModal(emp));
-    tdN.addEventListener("keydown", (e) => { 
-      if (e.key === "Enter" || e.key === " ") { 
-        e.preventDefault(); 
-        openProfileModal(emp); 
-      } 
+    tdN.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openProfileModal(emp);
+      }
     });
-    
+
     tr.appendChild(tdN);
-    
+
     for (let d = 1; d <= dim; d++) {
       const cell = md.assignments?.[emp]?.[d] || {};
       const we = isWeekend(y, m, d);
       const hol = isHoliday(y, m, d, hols);
       const isT = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
       const fri = isFriday(y, m, d);
-      
+
       const emptyWd = !we && !hol && !cell.assignment && !cell.duty;
       const isAutoFRest = cell.assignment === "F" && (we || hol);
       const { bg, fg } = cellColor(cell.assignment);
-      
+
       const tdEl = document.createElement("td");
       let cls = "td-cell";
       if (hol) cls += " hol";
@@ -980,14 +1059,29 @@ export function renderTbody(y, m, dim, hols, md) {
         tdEl.dataset.code = cell.assignment.split("/")[0].trim();
       }
       tdEl.tabIndex = 0;
+      tdEl.setAttribute("aria-haspopup", "dialog");
+      let dutyText = "";
+      const parts = [];
+      if (cell.assignment) {
+        parts.push(cell.assignment);
+      }
+      if (cell.duty) {
+        parts.push(cell.duty === "D" ? "Bereitschaftsdienst" : "Hintergrunddienst");
+      }
+      if (parts.length > 0) {
+        dutyText = parts.join(" + ");
+      } else {
+        dutyText = "Frei";
+      }
+      tdEl.setAttribute("aria-label", `${emp}, ${d}. ${MONTHS[m]} ${y}, Dienst: ${dutyText}`);
       if (cellConflicts?.length) {
         tdEl.setAttribute("data-conflict", cellConflicts.join(" · "));
       }
-      
+
       if (cell.assignment && !isAutoFRest) {
         tdEl.style.backgroundColor = bg;
       }
-      
+
       const cellComment = getComment(y, m, emp, d);
       let innerHtml = `<div class="cell-inner">`;
       innerHtml += `<span class="cell-assign"${isAutoFRest ? "" : ` style="color:${fg}"`}>${cell.assignment || ""}</span>`;
@@ -1001,14 +1095,18 @@ export function renderTbody(y, m, dim, hols, md) {
       }
       const cellPinned = planMode && isPinned(emp, d);
       if (cellPinned) {
-        innerHtml += `<span class="cell-pin" title="Für Auto-Plan fixiert">📌</span>`;
+        innerHtml += `<span class="cell-pin" title="Für Auto-Plan fixiert">${icon("pin", { size: 9 })}</span>`;
       }
       if (cellComment) {
-        const escapedComment = cellComment.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const escapedComment = cellComment
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
         innerHtml += `<span class="cell-comment-dot" title="${escapedComment}" aria-label="Notiz: ${escapedComment}"></span>`;
       }
       if (cellConflicts?.length) {
-        innerHtml += `<span class="cell-conflict-flag" aria-hidden="true">⚠</span>`;
+        innerHtml += `<span class="cell-conflict-flag" aria-hidden="true">${icon("alert-triangle", { size: 10 })}</span>`;
       }
       innerHtml += `</div>`;
       tdEl.innerHTML = innerHtml;
@@ -1080,78 +1178,94 @@ export function renderTbody(y, m, dim, hols, md) {
         tdEl.addEventListener("contextmenu", (e) => {
           e.preventDefault();
           const pinnedNow = isPinned(emp, d);
-          contextMenu.show(e.clientX, e.clientY, [
-            {
-              label: pinnedNow ? "Fixierung aufheben" : "Für Auto-Plan fixieren",
-              sub: pinnedNow ? "Solver darf diese Zelle wieder ändern" : "Solver lässt diese Zelle unverändert",
-              icon: '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 17v5M9 10.76a2 2 0 0 1 1.11-1.79l1.78-.9a2 2 0 0 1 1.78 0l1.78.9A2 2 0 0 1 17.56 11l.3 4.94a1 1 0 0 1-1 1.06H7.14a1 1 0 0 1-1-1.06L9 10.76Z"/></svg>',
-              action: () => togglePinned(emp, d)
-            }
-          ], tdEl);
+          contextMenu.show(
+            e.clientX,
+            e.clientY,
+            [
+              {
+                label: pinnedNow ? "Fixierung aufheben" : "Für Auto-Plan fixieren",
+                sub: pinnedNow
+                  ? "Solver darf diese Zelle wieder ändern"
+                  : "Solver lässt diese Zelle unverändert",
+                icon: '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 17v5M9 10.76a2 2 0 0 1 1.11-1.79l1.78-.9a2 2 0 0 1 1.78 0l1.78.9A2 2 0 0 1 17.56 11l.3 4.94a1 1 0 0 1-1 1.06H7.14a1 1 0 0 1-1-1.06L9 10.76Z"/></svg>',
+                action: () => togglePinned(emp, d)
+              }
+            ],
+            tdEl
+          );
         });
       }
-      if (state.multiEdit?.emp === emp && Array.isArray(state.multiEdit.days) && state.multiEdit.days.includes(d)) {
+      if (
+        state.multiEdit?.emp === emp &&
+        Array.isArray(state.multiEdit.days) &&
+        state.multiEdit.days.includes(d)
+      ) {
         tdEl.classList.add("multi-selected");
       }
       tr.appendChild(tdEl);
     }
-    
+
     // UI Polish: Row highlighting
-    tr.addEventListener('mouseenter', () => tr.classList.add('tr-hover'));
-    tr.addEventListener('mouseleave', () => tr.classList.remove('tr-hover'));
-    
+    tr.addEventListener("mouseenter", () => tr.classList.add("tr-hover"));
+    tr.addEventListener("mouseleave", () => tr.classList.remove("tr-hover"));
+
     tbody.appendChild(tr);
   });
-  
+
   if (isRbnMonthVisible(y, m)) {
     const tr = document.createElement("tr");
     tr.className = "tr-rbn";
-    
+
     const tdN = document.createElement("td");
     tdN.className = "td-name td-name-rbn";
     tdN.style.borderLeft = "3px solid #0EA5E9";
     tdN.style.paddingLeft = "11px";
     tdN.innerHTML = `<span class="emp-label">${RBN_ROW_LABEL}</span>`;
     tr.appendChild(tdN);
-    
+
     for (let d = 1; d <= dim; d++) {
       const we = isWeekend(y, m, d);
       const hol = isHoliday(y, m, d, hols);
       const isT = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
       const fri = isFriday(y, m, d);
       const rbnValue = getRbnValue(y, m, d);
-      
+
       const tdEl = document.createElement("td");
       let cls = "td-cell td-cell-rbn";
       if (hol) cls += " hol";
       if (we) cls += " we";
       if (isT) cls += " today";
       if (fri) cls += " is-fri";
-      
+
       tdEl.className = cls;
       tdEl.dataset.emp = RBN_ROW_KEY;
       tdEl.dataset.day = String(d);
       tdEl.tabIndex = 0;
+      tdEl.setAttribute("aria-haspopup", "dialog");
+      const rbnText = rbnValue ? rbnValue : "Frei";
+      tdEl.setAttribute("aria-label", `${RBN_ROW_LABEL}, ${d}. ${MONTHS[m]} ${y}, Dienst: ${rbnText}`);
       tdEl.innerHTML = `
         <div class="cell-inner">
           <span class="cell-assign cell-assign-rbn">${formatRbnDisplay(rbnValue)}</span>
         </div>
       `;
-      
-      tdEl.addEventListener("click", (e) => openEditor(RBN_ROW_KEY, d, { ctrlKey: e.ctrlKey || e.metaKey }));
-      tdEl.addEventListener("keydown", (e) => { 
-        if (e.key === "Enter" || e.key === " ") { 
-          e.preventDefault(); 
-          openEditor(RBN_ROW_KEY, d); 
-        } 
+
+      tdEl.addEventListener("click", (e) =>
+        openEditor(RBN_ROW_KEY, d, { ctrlKey: e.ctrlKey || e.metaKey })
+      );
+      tdEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openEditor(RBN_ROW_KEY, d);
+        }
       });
       tr.appendChild(tdEl);
     }
-    
+
     // UI Polish: Row highlighting for RBN
-    tr.addEventListener('mouseenter', () => tr.classList.add('tr-hover'));
-    tr.addEventListener('mouseleave', () => tr.classList.remove('tr-hover'));
-    
+    tr.addEventListener("mouseenter", () => tr.classList.add("tr-hover"));
+    tr.addEventListener("mouseleave", () => tr.classList.remove("tr-hover"));
+
     tbody.appendChild(tr);
   }
 }
@@ -1159,14 +1273,14 @@ export function renderTbody(y, m, dim, hols, md) {
 export function renderTfoot(y, m, dim, md) {
   const tfoot = document.getElementById("plan-tfoot");
   tfoot.innerHTML = "";
-  
+
   const hols = getSaxonyHolidaysCached(y);
   const rows = [
     { code: "MR", label: "MRT", meta: CODE_MAP["MR"] },
     { code: "CT", label: "CT", meta: CODE_MAP["CT"] },
     { code: "D", label: "Bereitschaftsdienst", meta: null },
     { code: "HG", label: "Hintergrunddienst", meta: null },
-    { code: "PRESENT", label: "Mitarbeitende anwesend", meta: null },
+    { code: "PRESENT", label: "Mitarbeitende anwesend", meta: null }
   ];
 
   rows.forEach(({ code, label, meta }, rowIdx) => {
@@ -1178,7 +1292,8 @@ export function renderTfoot(y, m, dim, md) {
     const fg = isD || isHG || isPresent ? "#fff" : meta.fg;
 
     const tr = document.createElement("tr");
-    tr.className = "tr-stat" + (rowIdx === 0 ? " tr-stat-first" : "") + (isPresent ? " tr-stat-present" : "");
+    tr.className =
+      "tr-stat" + (rowIdx === 0 ? " tr-stat-first" : "") + (isPresent ? " tr-stat-present" : "");
 
     const tdL = document.createElement("td");
     tdL.className = "td-stat-lbl";
@@ -1268,49 +1383,72 @@ export function renderMobileView() {
 export function renderMobileSummary(y, m) {
   const summaryEl = document.getElementById("mobile-month-summary");
   if (!summaryEl) return;
-  
+
   const md = getMonthData(y, m);
   const dim = daysInMonth(y, m);
   const totals = {};
-  
-  [...WORKPLACES.map(w => w.code), ...STATUSES.map(s => s.code), "D", "HG"].forEach(c => { 
-    totals[c] = 0; 
+
+  [...WORKPLACES.map((w) => w.code), ...STATUSES.map((s) => s.code), "D", "HG"].forEach((c) => {
+    totals[c] = 0;
   });
-  
+
   for (let d = 1; d <= dim; d++) {
-    md.employees.forEach(emp => {
+    md.employees.forEach((emp) => {
       const cell = md.assignments?.[emp]?.[d] || {};
       if (cell.assignment) {
-        cell.assignment.split("/").map(x => x.trim()).forEach(c => { 
-          if (c in totals) totals[c]++; 
-        });
+        cell.assignment
+          .split("/")
+          .map((x) => x.trim())
+          .forEach((c) => {
+            if (c in totals) totals[c]++;
+          });
       }
       if (cell.duty && cell.duty in totals) {
         totals[cell.duty]++;
       }
     });
   }
-  
-  const order = ["D", "HG", "U", "K", "F", "MR", "CT", "US", "WB", "FZA", "ZU", "SU", "KK", "§15c", "AN", "MA", "KUS", "W", "T"];
-  
+
+  const order = [
+    "D",
+    "HG",
+    "U",
+    "K",
+    "F",
+    "MR",
+    "CT",
+    "US",
+    "WB",
+    "FZA",
+    "ZU",
+    "SU",
+    "KK",
+    "§15c",
+    "AN",
+    "MA",
+    "KUS",
+    "W",
+    "T"
+  ];
+
   let html = `
     <div class="mms-item mms-item-emp">
       <span class="mms-val">${md.employees.length}</span>
       <span class="mms-code">MA</span>
     </div>
   `;
-  
-  order.forEach(code => {
+
+  order.forEach((code) => {
     const v = totals[code];
     if (!v) return;
-    
+
     const meta = CODE_MAP[code];
     const isD = code === "D";
     const isHG = code === "HG";
-    
+
     const bg = isD ? "#EF4444" : isHG ? "#0EA5E9" : meta?.bg || "#E2E8F0";
     const fg = isD || isHG ? "#fff" : meta?.fg || "#374151";
-    
+
     html += `
       <div class="mms-item">
         <span class="mms-code" style="background:${bg};color:${fg};padding:1px 5px;border-radius:3px;font-size:8px;font-weight:700;font-family:var(--font-mono)">${code}</span>
@@ -1318,28 +1456,28 @@ export function renderMobileSummary(y, m) {
       </div>
     `;
   });
-  
+
   summaryEl.innerHTML = html;
 }
 
 export function renderMobileDayList(y, m) {
   const listEl = document.getElementById("mobile-day-list");
   if (!listEl) return;
-  
+
   const hols = getSaxonyHolidaysCached(y);
   const md = getMonthData(y, m);
   const dim = daysInMonth(y, m);
-  
+
   listEl.innerHTML = "";
   let prevKW = -1;
-  
+
   for (let d = 1; d <= dim; d++) {
     const wd = weekday(y, m, d);
     const hol = isHoliday(y, m, d, hols);
     const holName = hols[dateKey(y, m, d)] || "";
     const isToday = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
     const kw = isoWeekNumber(y, m, d);
-    
+
     if (wd === 1 && kw !== prevKW) {
       prevKW = kw;
       const sep = document.createElement("div");
@@ -1347,35 +1485,39 @@ export function renderMobileDayList(y, m) {
       sep.textContent = `KW ${kw}`;
       listEl.appendChild(sep);
     }
-    
-    const bdHolder = md.employees.find(e => md.assignments?.[e]?.[d]?.duty === "D") || null;
-    const hgHolder = md.employees.find(e => md.assignments?.[e]?.[d]?.duty === "HG") || null;
+
+    const bdHolder = md.employees.find((e) => md.assignments?.[e]?.[d]?.duty === "D") || null;
+    const hgHolder = md.employees.find((e) => md.assignments?.[e]?.[d]?.duty === "HG") || null;
     const allAssigns = [];
-    
-    md.employees.forEach(emp => {
+
+    md.employees.forEach((emp) => {
       const cell = md.assignments?.[emp]?.[d] || {};
       if (cell.assignment) {
-        cell.assignment.split("/").map(x => x.trim()).filter(Boolean).forEach(code => {
-          if (!allAssigns.find(a => a.code === code)) {
-            const meta = CODE_MAP[code];
-            if (meta) {
-              allAssigns.push({ code, bg: meta.bg, fg: meta.fg });
+        cell.assignment
+          .split("/")
+          .map((x) => x.trim())
+          .filter(Boolean)
+          .forEach((code) => {
+            if (!allAssigns.find((a) => a.code === code)) {
+              const meta = CODE_MAP[code];
+              if (meta) {
+                allAssigns.push({ code, bg: meta.bg, fg: meta.fg });
+              }
             }
-          }
-        });
+          });
       }
     });
-    
+
     const card = document.createElement("div");
     let cardCls = "mobile-day-card";
     if (hol) cardCls += " mdc-hol";
     else if (wd === 0 || wd === 6) cardCls += " mdc-we";
     if (isToday) cardCls += " mdc-today";
-    
+
     card.className = cardCls;
     card.setAttribute("role", "button");
     card.setAttribute("tabindex", "0");
-    
+
     let dutyHtml = "";
     if (bdHolder) {
       const shortName = bdHolder.split(" ").pop();
@@ -1388,18 +1530,18 @@ export function renderMobileDayList(y, m) {
     if (!bdHolder && !hgHolder) {
       dutyHtml = `<span class="mdc-empty-duty">kein Dienst</span>`;
     }
-    
+
     let assignHtml = "";
     const shown = allAssigns.slice(0, 5);
-    shown.forEach(a => {
+    shown.forEach((a) => {
       assignHtml += `<span class="mdc-assign-chip" style="background:${a.bg};color:${a.fg}">${a.code}</span>`;
     });
     if (allAssigns.length > 5) {
       assignHtml += `<span class="mdc-assign-more">+${allAssigns.length - 5}</span>`;
     }
-    
+
     const planWishIndicator = planMode ? `<span class="mdc-plan-badge"></span>` : "";
-    
+
     card.innerHTML = `
       <div class="mdc-date">
         <span class="mdc-day-num">${d}</span>
@@ -1419,20 +1561,19 @@ export function renderMobileDayList(y, m) {
       </div>
       ${planWishIndicator}
     `;
-    
-    card.addEventListener("click", () => import('./app.js').then(m => m.openMobileDay(d)));
-    card.addEventListener("keydown", e => { 
-      if (e.key === "Enter" || e.key === " ") { 
-        e.preventDefault(); 
-        import('./app.js').then(m => m.openMobileDay(d)); 
-      } 
+
+    card.addEventListener("click", () => import("./app.js").then((m) => m.openMobileDay(d)));
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        import("./app.js").then((m) => m.openMobileDay(d));
+      }
     });
-    
+
     listEl.appendChild(card);
-    
+
     if (isToday) {
       setTimeout(() => card.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
     }
   }
 }
-

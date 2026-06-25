@@ -13,7 +13,7 @@ import {
   isWorkday,
   getSaxonyHolidaysCached,
   getEmpMeta
-} from './constants.js';
+} from "./constants.js";
 
 import {
   DATA,
@@ -30,20 +30,23 @@ import {
   setPlanHistory,
   setPlanHistoryIdx,
   setPlanSessions
-} from './state.js';
+} from "./state.js";
 
 export function getMonthDataRaw(y, m) {
   const k = monthKey(y, m);
-  
+
   if (!DATA[k]) {
     const prev = DATA[prevMK(y, m)];
     DATA[k] = {
-      employees: prev && prev.employees ? prev.employees.filter((emp) => isEmployeeActiveInMonth(emp, y, m)) : [],
+      employees:
+        prev?.employees
+          ? prev.employees.filter((emp) => isEmployeeActiveInMonth(emp, y, m))
+          : [],
       assignments: {},
       rbn: {}
     };
   }
-  
+
   normalizeMonthDataShape(DATA[k]);
   if (reconcileEmployeesForMonth(DATA[k], y, m)) {
     saveToStorage();
@@ -53,29 +56,29 @@ export function getMonthDataRaw(y, m) {
 
 export function ensurePostBDFreiDays() {
   let totalRepaired = 0;
-  
+
   for (const [k, mData] of Object.entries(DATA)) {
     if (!mData || !mData.employees || !mData.assignments) {
       continue;
     }
-    
+
     const parts = k.split("-");
     const ky = parseInt(parts[0], 10);
     const km = parseInt(parts[1], 10);
     const dim = daysInMonth(ky, km);
-    
+
     for (const emp of mData.employees) {
       if (!mData.assignments[emp]) {
         continue;
       }
-      
+
       for (let d = 1; d <= dim; d++) {
         if (mData.assignments[emp][d]?.duty !== "D") {
           continue;
         }
-        
+
         const next = nextCalendarDay(ky, km, d);
-        
+
         if (next.y === ky && next.m === km) {
           if (!mData.assignments[emp][next.d]) {
             mData.assignments[emp][next.d] = {};
@@ -105,11 +108,11 @@ export function ensurePostBDFreiDays() {
       }
     }
   }
-  
+
   if (totalRepaired > 0) {
     saveToStorage();
   }
-  
+
   return totalRepaired;
 }
 
@@ -117,7 +120,7 @@ export function getMonthData(y, m) {
   if (planMode && planData && y === state.year && m === state.month) {
     return planData;
   }
-  
+
   const md = getMonthDataRaw(y, m);
   normalizeMonthDataShape(md);
   return md;
@@ -125,25 +128,25 @@ export function getMonthData(y, m) {
 
 export function setCell(y, m, emp, day, patch) {
   const md = getMonthData(y, m);
-  
+
   if (!md.assignments[emp]) {
     md.assignments[emp] = {};
   }
-  
+
   const merged = { ...(md.assignments[emp][day] || {}), ...patch };
-  
+
   Object.keys(merged).forEach((k) => {
     if (!merged[k]) {
       delete merged[k];
     }
   });
-  
+
   if (!Object.keys(merged).length) {
     delete md.assignments[emp][day];
   } else {
     md.assignments[emp][day] = merged;
   }
-  
+
   if (!planMode) {
     saveToStorage();
   }
@@ -151,11 +154,11 @@ export function setCell(y, m, emp, day, patch) {
 
 export function clearCell(y, m, emp, day) {
   const md = getMonthData(y, m);
-  
+
   if (md.assignments[emp]) {
     delete md.assignments[emp][day];
   }
-  
+
   if (!planMode) {
     saveToStorage();
   }
@@ -173,17 +176,17 @@ export function getRbnValue(y, m, day) {
 
 export function setRbnValue(y, m, day, value) {
   const md = getMonthData(y, m);
-  
+
   if (!md.rbn) {
     md.rbn = {};
   }
-  
+
   if (value) {
     md.rbn[day] = value;
   } else {
     delete md.rbn[day];
   }
-  
+
   if (!planMode) {
     saveToStorage();
   }
@@ -191,7 +194,7 @@ export function setRbnValue(y, m, day, value) {
 
 export function addEmployee(y, m, name) {
   const md = getMonthData(y, m);
-  
+
   if (!isEmployeeActiveInMonth(name, y, m)) {
     return;
   }
@@ -199,7 +202,7 @@ export function addEmployee(y, m, name) {
   if (!md.employees.includes(name)) {
     md.employees.push(name);
   }
-  
+
   if (planMode) {
     persistPlanSessionRefs();
   } else {
@@ -209,10 +212,10 @@ export function addEmployee(y, m, name) {
 
 export function removeEmployee(y, m, name) {
   const md = getMonthData(y, m);
-  
+
   md.employees = md.employees.filter((e) => e !== name);
   delete md.assignments[name];
-  
+
   if (planMode) {
     persistPlanSessionRefs();
   } else {
@@ -227,11 +230,11 @@ export function dutyOwner(y, m, day, dt) {
 
 export function dayCodeCount(y, m, day, code) {
   const md = getMonthData(y, m);
-  
+
   if (code === "D" || code === "HG") {
     return md.employees.filter((e) => md.assignments[e]?.[day]?.duty === code).length;
   }
-  
+
   return md.employees.filter((e) => {
     const assignment = md.assignments[e]?.[day]?.assignment || "";
     const parts = assignment.split("/").map((x) => x.trim());
@@ -253,24 +256,24 @@ export function dayPresentCount(y, m, day) {
 export function buildProfileStats(y, m, emp) {
   const hols = getSaxonyHolidaysCached(y);
   const dim = daysInMonth(y, m);
-  
+
   let totalWorkdays = 0;
   let coveredWorkdays = 0;
-  
+
   const wpCounts = {};
   const stCounts = {};
   const dutyD = [];
   const dutyHG = [];
-  
+
   for (let d = 1; d <= dim; d++) {
     const work = isWorkday(y, m, d, hols);
     if (work) {
       totalWorkdays++;
     }
-    
+
     const cell = getCell(y, m, emp, d);
     let isActiveOnWorkday = false;
-    
+
     if (cell.assignment) {
       const parts = cell.assignment.split("/").map((x) => x.trim());
       let hasWorkplace = false;
@@ -288,7 +291,7 @@ export function buildProfileStats(y, m, emp) {
         isActiveOnWorkday = true;
       }
     }
-    
+
     if (cell.duty === "D") {
       dutyD.push(d);
       if (work) isActiveOnWorkday = true;
@@ -297,17 +300,17 @@ export function buildProfileStats(y, m, emp) {
       dutyHG.push(d);
       if (work) isActiveOnWorkday = true;
     }
-    
+
     if (isActiveOnWorkday) {
       coveredWorkdays++;
     }
   }
-  
+
   const totalActive = coveredWorkdays;
   const totalAbs = ABSENCE_CODES.reduce((s, c) => s + (stCounts[c] || 0), 0);
   const frei = stCounts["F"] || 0;
   const uncovered = Math.max(0, totalWorkdays - totalActive - totalAbs - frei);
-  
+
   return {
     totalWorkdays,
     coveredWorkdays,
@@ -319,7 +322,7 @@ export function buildProfileStats(y, m, emp) {
     frei,
     dutyD,
     dutyHG,
-    dim,
+    dim
   };
 }
 
@@ -332,12 +335,12 @@ export function buildYearlyStats(emp, year) {
     wpCounts: {},
     stCounts: {},
     dutyD: 0,
-    dutyHG: 0,
+    dutyHG: 0
   };
-  
+
   for (let m = 0; m < 12; m++) {
     const k = monthKey(year, m);
-    
+
     if (!DATA[k] || !DATA[k].employees.includes(emp)) {
       months.push({
         m,
@@ -348,31 +351,31 @@ export function buildYearlyStats(emp, year) {
         wpCounts: {},
         stCounts: {},
         dutyD: 0,
-        dutyHG: 0,
+        dutyHG: 0
       });
       continue;
     }
-    
+
     const hols = getSaxonyHolidaysCached(year);
     const dim = daysInMonth(year, m);
-    
+
     let wd = 0;
     let cov = 0;
     let dutyD = 0;
     let dutyHG = 0;
-    
+
     const wpc = {};
     const stc = {};
-    
+
     for (let d = 1; d <= dim; d++) {
       const wdDay = isWorkday(year, m, d, hols);
       if (wdDay) {
         wd++;
       }
-      
+
       const cell = getCell(year, m, emp, d);
       let isActiveOnWorkday = false;
-      
+
       if (cell.assignment) {
         const parts = cell.assignment.split("/").map((x) => x.trim());
         let hasWorkplace = false;
@@ -390,7 +393,7 @@ export function buildYearlyStats(emp, year) {
           isActiveOnWorkday = true;
         }
       }
-      
+
       if (cell.duty === "D") {
         dutyD++;
         if (wdDay) isActiveOnWorkday = true;
@@ -399,26 +402,26 @@ export function buildYearlyStats(emp, year) {
         dutyHG++;
         if (wdDay) isActiveOnWorkday = true;
       }
-      
+
       if (isActiveOnWorkday) {
         cov++;
       }
     }
-    
+
     totals.totalWorkdays += wd;
     totals.coveredWorkdays += cov;
     totals.totalActive += cov;
     totals.dutyD += dutyD;
     totals.dutyHG += dutyHG;
-    
+
     Object.entries(wpc).forEach(([c, v]) => {
       totals.wpCounts[c] = (totals.wpCounts[c] || 0) + v;
     });
-    
+
     Object.entries(stc).forEach(([c, v]) => {
       totals.stCounts[c] = (totals.stCounts[c] || 0) + v;
     });
-    
+
     months.push({
       m,
       hasData: true,
@@ -428,22 +431,22 @@ export function buildYearlyStats(emp, year) {
       wpCounts: wpc,
       stCounts: stc,
       dutyD,
-      dutyHG,
+      dutyHG
     });
   }
-  
+
   totals.vacationDays = VACATION_CODES.reduce((s, c) => s + (totals.stCounts[c] || 0), 0);
   totals.sickDays = (totals.stCounts["K"] || 0) + (totals.stCounts["KK"] || 0);
   totals.fzaDays = totals.stCounts["FZA"] || 0;
   totals.wbDays = totals.stCounts["WB"] || 0;
   totals.freiDays = totals.stCounts["F"] || 0;
-  
+
   return { months, totals, year };
 }
 
 export function getEmployeesForYear(year) {
   const emps = new Set();
-  
+
   Object.entries(DATA).forEach(([key, md]) => {
     if (!key.startsWith(`${year}-`) || !md?.employees) {
       return;
@@ -454,11 +457,11 @@ export function getEmployeesForYear(year) {
       if (isEmployeeActiveInMonth(emp, year, m)) emps.add(emp);
     });
   });
-  
+
   getMonthDataRaw(year, state.month).employees.forEach((emp) => {
     if (isEmployeeActiveInMonth(emp, year, state.month)) emps.add(emp);
   });
-  
+
   if (planMode) {
     Object.keys(planSessions).forEach((key) => {
       if (!key.startsWith(`${year}-`)) {
@@ -471,13 +474,13 @@ export function getEmployeesForYear(year) {
       });
     });
   }
-  
-  return [...emps].sort((a, b) => a.localeCompare(b, 'de'));
+
+  return [...emps].sort((a, b) => a.localeCompare(b, "de"));
 }
 
 export function getRoleFilterBuckets(year, employees) {
   const buckets = { ALL: employees.length, CA: 0, OA: 0, FA: 0, AA: 0, OHNE: 0 };
-  
+
   employees.forEach((emp) => {
     const pos = getEmpMeta(emp).position;
     if (pos === "CA") {
@@ -492,7 +495,7 @@ export function getRoleFilterBuckets(year, employees) {
       buckets.OHNE++;
     }
   });
-  
+
   return buckets;
 }
 
@@ -500,12 +503,18 @@ export function getEmployeeYearCardMetrics(emp, year) {
   const ys = buildYearlyStats(emp, year);
   const meta = getEmpMeta(emp);
   const activeMonths = ys.months.filter((mon) => mon.hasData).length;
-  const totalAbs = ys.totals.vacationDays + ys.totals.sickDays + ys.totals.fzaDays + ys.totals.wbDays + ys.totals.freiDays;
+  const totalAbs =
+    ys.totals.vacationDays +
+    ys.totals.sickDays +
+    ys.totals.fzaDays +
+    ys.totals.wbDays +
+    ys.totals.freiDays;
   const requiredWorkdays = Math.max(0, ys.totals.totalWorkdays - totalAbs);
-  const coverage = requiredWorkdays > 0 
-    ? Math.min(100, Math.round((ys.totals.totalActive / requiredWorkdays) * 100)) 
-    : 0;
-    
+  const coverage =
+    requiredWorkdays > 0
+      ? Math.min(100, Math.round((ys.totals.totalActive / requiredWorkdays) * 100))
+      : 0;
+
   return { emp, ys, meta, activeMonths, coverage };
 }
 
@@ -513,9 +522,9 @@ export function matchRoleFilter(emp, role) {
   if (role === "ALL") {
     return true;
   }
-  
+
   const pos = getEmpMeta(emp).position;
-  
+
   if (role === "CA") {
     return pos === "CA";
   }
@@ -531,7 +540,7 @@ export function matchRoleFilter(emp, role) {
   if (role === "OHNE") {
     return pos === "—";
   }
-  
+
   return true;
 }
 
@@ -562,7 +571,7 @@ export function setComment(y, m, emp, day, text) {
 }
 
 export function cloneData(obj) {
-  return JSON.parse(JSON.stringify(obj));
+  return structuredClone(obj);
 }
 
 export function getStoredPlanDraft(key) {
@@ -593,49 +602,50 @@ export function syncPlanSessionRefs(session) {
 export function createPlanSession(y, m) {
   const key = monthKey(y, m);
   const stored = getStoredPlanDraft(key);
-  
-  const source = stored && stored.assignments
-    ? stored
-    : {
-        employees: [...getMonthDataRaw(y, m).employees],
-        assignments: cloneData(getMonthDataRaw(y, m).assignments || {}),
-        rbn: cloneData(getMonthDataRaw(y, m).rbn || {}),
-        wishes: {},
-        pins: {},
-      };
-      
+
+  const source =
+    stored?.assignments
+      ? stored
+      : {
+          employees: [...getMonthDataRaw(y, m).employees],
+          assignments: cloneData(getMonthDataRaw(y, m).assignments ?? {}),
+          rbn: cloneData(getMonthDataRaw(y, m).rbn ?? {}),
+          wishes: {},
+          pins: {}
+        };
+
   normalizeMonthDataShape(source);
   reconcileEmployeesForMonth(source, y, m);
-  const sourceRbn = cloneData(source.rbn || {});
-  
+  const sourceRbn = cloneData(source.rbn ?? {});
+
   return {
     key,
-    employees: [...(source.employees || [])],
-    assignments: cloneData(source.assignments || {}),
+    employees: [...(source.employees ?? [])],
+    assignments: cloneData(source.assignments ?? {}),
     rbn: sourceRbn,
-    wishes: cloneData(source.wishes || {}),
-    pins: cloneData(source.pins || {}),
+    wishes: cloneData(source.wishes ?? {}),
+    pins: cloneData(source.pins ?? {}),
     baseline: {
-      assignments: cloneData(source.assignments || {}),
-      rbn: cloneData(sourceRbn),
+      assignments: cloneData(source.assignments ?? {}),
+      rbn: cloneData(sourceRbn)
     },
     history: [
       {
-        assignments: cloneData(source.assignments || {}),
-        rbn: cloneData(sourceRbn),
-      },
+        assignments: cloneData(source.assignments ?? {}),
+        rbn: cloneData(sourceRbn)
+      }
     ],
-    historyIdx: 0,
+    historyIdx: 0
   };
 }
 
 export function hasSessionChanges(session) {
-  const currentStr = JSON.stringify({ 
-    assignments: session.assignments, 
-    rbn: session.rbn || {} 
+  const currentStr = JSON.stringify({
+    assignments: session.assignments,
+    rbn: session.rbn || {}
   });
   const baselineStr = JSON.stringify(session.baseline);
-  
+
   return currentStr !== baselineStr;
 }
 
@@ -645,13 +655,13 @@ export function hasAnyPlanChanges() {
 
 export function ensurePlanSession(y, m) {
   const key = monthKey(y, m);
-  
+
   if (!planSessions[key]) {
     const sessionsCopy = { ...planSessions };
     sessionsCopy[key] = createPlanSession(y, m);
     setPlanSessions(sessionsCopy);
   }
-  
+
   normalizeMonthDataShape(planSessions[key]);
   return planSessions[key];
 }
