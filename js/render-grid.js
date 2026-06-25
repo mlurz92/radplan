@@ -68,6 +68,8 @@ const dragSelectionState = {
   mode: "add", // "add" | "remove"
   justDragged: false,
   touched: new Set(),
+  startEmp: null,
+  startDay: null,
 };
 
 function resetDragSelectionState() {
@@ -75,6 +77,8 @@ function resetDragSelectionState() {
   dragSelectionState.emp = null;
   dragSelectionState.mode = "add";
   dragSelectionState.touched = new Set();
+  dragSelectionState.startEmp = null;
+  dragSelectionState.startDay = null;
   document.body.classList.remove("is-drag-selecting");
 }
 
@@ -383,15 +387,25 @@ function handleGridKeydown(e) {
 
 // --- Desktop: floating quick-action popover anchored to the focused cell ---
 
-let quickPopover = { el: null, emp: null, day: null, anchorEl: null, outsideHandler: null, keyHandler: null };
+let quickPopover = { el: null, emp: null, day: null, anchorEl: null, outsideHandler: null, keyHandler: null, reposHandler: null };
 
 export function closeCellQuickPopover() {
   if (!quickPopover.el) return;
-  quickPopover.el.remove();
+  const el = quickPopover.el;
+  quickPopover.anchorEl?.classList.remove('cqp-anchor-cell');
   if (quickPopover.outsideHandler) document.removeEventListener('pointerdown', quickPopover.outsideHandler, true);
   if (quickPopover.keyHandler) document.removeEventListener('keydown', quickPopover.keyHandler, true);
-  quickPopover = { el: null, emp: null, day: null, anchorEl: null, outsideHandler: null, keyHandler: null };
+  if (quickPopover.reposHandler) {
+    window.removeEventListener('scroll', quickPopover.reposHandler, true);
+    window.removeEventListener('resize', quickPopover.reposHandler);
+  }
+  quickPopover = { el: null, emp: null, day: null, anchorEl: null, outsideHandler: null, keyHandler: null, reposHandler: null };
   document.body.classList.remove('cell-popover-open');
+  // Sanftes Ausblenden: Klasse entfernen lässt die Basistransition zurücklaufen,
+  // der Knoten wird erst nach Ablauf der Animation entfernt.
+  el.classList.remove('cqp-visible');
+  el.classList.add('cqp-leaving');
+  setTimeout(() => el.remove(), 170);
 }
 
 // Kuratiertes Status-Schnellset für das Popover (häufigste Codes zuerst).
@@ -445,80 +459,117 @@ function buildQuickPopoverHtml(emp, day) {
   `;
 }
 
-function positionQuickPopover() {
-  if (!quickPopover.el || !quickPopover.anchorEl) return;
-  const rect = quickPopover.anchorEl.getBoundingClientRect();
-  const el = quickPopover.el;
-  const margin = 8;
-  el.style.visibility = 'hidden';
-  el.style.left = '0px';
-  el.style.top = '0px';
-  const pw = el.offsetWidth;
-  const ph = el.offsetHeight;
-  let left = rect.left + rect.width / 2 - pw / 2;
-  left = Math.max(margin, Math.min(left, window.innerWidth - pw - margin));
-  let top = rect.bottom + 6;
-  let above = false;
-  if (top + ph > window.innerHeight - margin) {
-    top = rect.top - ph - 6;
-    above = true;
-    if (top < margin) top = margin;
-  }
-  el.classList.toggle('cqp-above', above);
-  el.style.left = `${left}px`;
-  el.style.top = `${top}px`;
-  el.style.visibility = '';
-}
-
-export function showCellQuickPopover(emp, day, anchorEl) {
-  if (IS_MOBILE || !anchorEl || emp === RBN_ROW_KEY) return;
-  closeCellQuickPopover();
-
-  const el = document.createElement('div');
-  el.className = 'cell-quick-popover';
-  el.innerHTML = buildQuickPopoverHtml(emp, day);
-  document.body.appendChild(el);
-
+function wirePopoverButtons(el, emp, day) {
   el.querySelectorAll('.cqp-wp').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      quickToggleWorkplace(emp, day, btn.dataset.wp);
-    });
+    btn.addEventListener('click', (e) => { e.stopPropagation(); quickToggleWorkplace(emp, day, btn.dataset.wp); });
   });
   el.querySelectorAll('.cqp-status').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      quickSetStatus(emp, day, btn.dataset.status);
-    });
+    btn.addEventListener('click', (e) => { e.stopPropagation(); quickSetStatus(emp, day, btn.dataset.status); });
   });
   el.querySelectorAll('.cqp-duty').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      quickToggleDuty(emp, day, btn.dataset.duty);
-    });
+    btn.addEventListener('click', (e) => { e.stopPropagation(); quickToggleDuty(emp, day, btn.dataset.duty); });
   });
-  el.querySelector('.cqp-clear')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    quickClearCell(emp, day);
-  });
+  el.querySelector('.cqp-clear')?.addEventListener('click', (e) => { e.stopPropagation(); quickClearCell(emp, day); });
   el.querySelector('.cqp-more')?.addEventListener('click', (e) => {
     e.stopPropagation();
     closeCellQuickPopover();
     openEditor(emp, day);
   });
+}
+
+function renderPopoverInto(el, emp, day) {
+  el.innerHTML = buildQuickPopoverHtml(emp, day);
+  const caret = document.createElement('span');
+  caret.className = 'cqp-caret';
+  caret.setAttribute('aria-hidden', 'true');
+  el.appendChild(caret);
+  wirePopoverButtons(el, emp, day);
+}
+
+function positionQuickPopover() {
+  if (!quickPopover.el || !quickPopover.anchorEl) return;
+  if (!document.contains(quickPopover.anchorEl)) return; // veralteter Anker nach Neuaufbau
+  const rect = quickPopover.anchorEl.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) return;
+  const el = quickPopover.el;
+  const margin = 10;
+  const gap = 9;
+  const prevVis = el.style.visibility;
+  el.style.visibility = 'hidden';
+  el.style.left = '0px';
+  el.style.top = '0px';
+  const pw = el.offsetWidth;
+  const ph = el.offsetHeight;
+  const anchorCx = rect.left + rect.width / 2;
+
+  let left = anchorCx - pw / 2;
+  left = Math.max(margin, Math.min(left, window.innerWidth - pw - margin));
+
+  let top = rect.bottom + gap;
+  let above = false;
+  if (top + ph > window.innerHeight - margin) {
+    const aboveTop = rect.top - ph - gap;
+    if (aboveTop >= margin) {
+      top = aboveTop;
+      above = true;
+    } else {
+      // Weder oben noch unten genug Platz → unten einpassen.
+      top = Math.max(margin, Math.min(rect.bottom + gap, window.innerHeight - ph - margin));
+    }
+  }
+
+  el.classList.toggle('cqp-above', above);
+  el.style.left = `${left}px`;
+  el.style.top = `${top}px`;
+
+  const caret = el.querySelector('.cqp-caret');
+  if (caret) {
+    const caretX = Math.max(15, Math.min(anchorCx - left, pw - 15));
+    caret.style.left = `${caretX}px`;
+  }
+  el.style.visibility = prevVis || '';
+}
+
+export function showCellQuickPopover(emp, day, anchorEl) {
+  if (IS_MOBILE || !anchorEl || emp === RBN_ROW_KEY) return;
+
+  // Gleiche Zelle (z. B. nach einer Schnellaktion oder Tastatur-Follow) → Inhalt
+  // an Ort und Stelle aktualisieren, ohne das Popover neu zu erzeugen. Das
+  // verhindert jegliches Flackern und hält das Menü beim Stapeln ruhig.
+  if (quickPopover.el && quickPopover.emp === emp && quickPopover.day === day) {
+    if (quickPopover.anchorEl !== anchorEl) {
+      quickPopover.anchorEl?.classList.remove('cqp-anchor-cell');
+      quickPopover.anchorEl = anchorEl;
+    }
+    anchorEl.classList.add('cqp-anchor-cell');
+    renderPopoverInto(quickPopover.el, emp, day);
+    positionQuickPopover();
+    return;
+  }
+
+  closeCellQuickPopover();
+
+  const el = document.createElement('div');
+  el.className = 'cell-quick-popover';
+  document.body.appendChild(el);
+  renderPopoverInto(el, emp, day);
 
   quickPopover.el = el;
   quickPopover.emp = emp;
   quickPopover.day = day;
   quickPopover.anchorEl = anchorEl;
+  anchorEl.classList.add('cqp-anchor-cell');
 
   positionQuickPopover();
   requestAnimationFrame(() => el.classList.add('cqp-visible'));
 
   quickPopover.outsideHandler = (e) => {
-    if (quickPopover.el && !quickPopover.el.contains(e.target) && e.target !== quickPopover.anchorEl) {
-      closeCellQuickPopover();
-    }
+    if (!quickPopover.el) return;
+    if (quickPopover.el.contains(e.target)) return;
+    // Klicks auf andere belegbare Rasterzellen schließen nicht hart – die
+    // mouseup-Logik blendet das Menü dort sanft neu ein.
+    if (e.target.closest?.('#plan-tbody .td-cell:not(.td-cell-rbn)')) return;
+    closeCellQuickPopover();
   };
   quickPopover.keyHandler = (e) => {
     if (e.key === 'Escape') {
@@ -527,10 +578,41 @@ export function showCellQuickPopover(emp, day, anchorEl) {
       anchor?.focus({ preventScroll: true });
     }
   };
+  quickPopover.reposHandler = () => {
+    const a = quickPopover.anchorEl;
+    if (!a || !document.contains(a)) { closeCellQuickPopover(); return; }
+    const r = a.getBoundingClientRect();
+    const wrap = document.getElementById('grid-wrapper');
+    if (wrap) {
+      const wr = wrap.getBoundingClientRect();
+      // Ankerzelle aus dem sichtbaren Rasterbereich gescrollt → schließen.
+      if (r.right < wr.left + 4 || r.left > wr.right - 4 || r.bottom < wr.top + 4 || r.top > wr.bottom - 4) {
+        closeCellQuickPopover();
+        return;
+      }
+    }
+    positionQuickPopover();
+  };
+
   document.addEventListener('pointerdown', quickPopover.outsideHandler, true);
   document.addEventListener('keydown', quickPopover.keyHandler, true);
+  window.addEventListener('scroll', quickPopover.reposHandler, true);
+  window.addEventListener('resize', quickPopover.reposHandler);
 
   document.body.classList.add('cell-popover-open');
+}
+
+/** Öffnet das Schnellmenü für (emp, day) nach dem nächsten Render-Frame. */
+export function openCellQuickPopoverFor(emp, day) {
+  if (IS_MOBILE || emp === RBN_ROW_KEY || !Number.isFinite(day)) return;
+  requestAnimationFrame(() => {
+    const tbody = document.getElementById("plan-tbody");
+    const cell = tbody?.querySelector(`.td-cell[data-emp="${CSS.escape(emp)}"][data-day="${day}"]`);
+    if (cell) {
+      cell.focus({ preventScroll: true });
+      showCellQuickPopover(emp, day, cell);
+    }
+  });
 }
 
 // --- Mobile: radial quick-action menu with tap-to-open / swipe-to-select ---
@@ -1136,7 +1218,10 @@ export function renderTbody(y, m, dim, hols, md) {
         openEditor(emp, d);
       });
       tdEl.addEventListener("focus", () => {
-        if (!IS_MOBILE) showCellQuickPopover(emp, d, tdEl);
+        // Nur „mitführen", wenn bereits ein Menü offen ist (Tastatur-Navigation,
+        // Re-Fokus nach Schnellaktion). Das erstmalige Öffnen erfolgt bewusst
+        // über Klick/Ziehen (mouseup) – kein Flackern beim Pfeiltasten-Browsen.
+        if (!IS_MOBILE && quickPopover.el) showCellQuickPopover(emp, d, tdEl);
       });
       tdEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -1319,6 +1404,8 @@ document.addEventListener("mousedown", (e) => {
   dragSelectionState.active = true;
   dragSelectionState.justDragged = false;
   dragSelectionState.emp = emp;
+  dragSelectionState.startEmp = emp;
+  dragSelectionState.startDay = day;
   dragSelectionState.touched = new Set([day]);
   document.body.classList.add("is-drag-selecting");
   // Im Abwahl-Modus (Start auf markierter Zelle) bleibt die Auswahl bei einem
@@ -1345,20 +1432,29 @@ document.addEventListener("mouseover", (e) => {
 });
 
 document.addEventListener("mouseup", () => {
+  const wasActive = dragSelectionState.active;
   const dragged = dragSelectionState.justDragged;
-  const emp = state.multiEdit?.emp;
-  const days = state.multiEdit?.days || [];
+  const startEmp = dragSelectionState.startEmp;
+  const startDay = dragSelectionState.startDay;
   resetDragSelectionState();
-  // Nach einer Ziehgeste das Schnellmenü an der Ankerzelle zeigen, damit die
-  // Auswahl direkt zugeordnet werden kann.
-  if (dragged && emp && days.length) {
-    const anchorDay = days[days.length - 1];
-    const tbody = document.getElementById("plan-tbody");
-    const cell = tbody?.querySelector(`.td-cell[data-emp="${CSS.escape(emp)}"][data-day="${anchorDay}"]`);
-    if (cell) {
-      cell.focus({ preventScroll: true });
-      showCellQuickPopover(emp, anchorDay, cell);
-    }
+  if (!wasActive) return;
+
+  // Schnellmenü zuverlässig öffnen – sowohl nach einem reinen Klick als auch
+  // nach einer Ziehgeste – verankert an der zuletzt berührten Zelle.
+  const me = state.multiEdit;
+  let anchorEmp = startEmp;
+  let anchorDay = startDay;
+  if (dragged && me?.emp && Array.isArray(me.days) && me.days.length) {
+    anchorEmp = me.emp;
+    anchorDay = me.days[me.days.length - 1];
+  }
+  if (!anchorEmp || !Number.isFinite(anchorDay) || anchorEmp === RBN_ROW_KEY) return;
+
+  const tbody = document.getElementById("plan-tbody");
+  const cell = tbody?.querySelector(`.td-cell[data-emp="${CSS.escape(anchorEmp)}"][data-day="${anchorDay}"]`);
+  if (cell) {
+    cell.focus({ preventScroll: true });
+    showCellQuickPopover(anchorEmp, anchorDay, cell);
   }
 });
 

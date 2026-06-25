@@ -89,6 +89,7 @@ import {
   scrollToToday as doScrollToToday,
   focusCellAfterRender,
   closeCellQuickPopover,
+  openCellQuickPopoverFor,
   initGridKeyboardHandlers,
   openRadialQuickMenu,
   updateRadialHover,
@@ -753,6 +754,7 @@ export function openEditor(emp, day, options = {}) {
       state.multiEdit.anchor = anchor;
     }
     render();
+    openCellQuickPopoverFor(emp, day);
     showToast(`${state.multiEdit.days.length} Tage für ${emp} markiert (Bereich)`);
     return;
   }
@@ -772,6 +774,8 @@ export function openEditor(emp, day, options = {}) {
     }
     state.multiEdit.anchor = day;
     render();
+    if (state.multiEdit.days.length) openCellQuickPopoverFor(emp, day);
+    else closeCellQuickPopover();
     showToast(state.multiEdit.days.length ? `${state.multiEdit.days.length} Tage für ${emp} markiert` : "Mehrfachauswahl aufgehoben");
     return;
   }
