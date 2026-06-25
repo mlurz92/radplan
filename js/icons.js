@@ -1,22 +1,3 @@
-/* ============================================================================
-   ICON-SYSTEM (Task 19)
-   ----------------------------------------------------------------------------
-   Eine einzige, konsistente Quelle für alle Strich-Icons der Anwendung auf
-   Basis des Lucide-Icon-Sets (ISC/MIT-Lizenz, https://lucide.dev). Statt
-   gemischter Emojis und einzeln in Markup eingebetteter SVGs liefert dieses
-   Modul reine 24×24-`stroke`-Pfade, die über `icon()` zu konsistent
-   gestylten SVG-Strings zusammengesetzt werden.
-
-   Verwendung:
-     import { icon, setIcon } from './icons.js';
-     el.innerHTML = icon('printer', { size: 16 });
-     setIcon(buttonEl, 'more-horizontal');
-
-   Alle Icons erben `currentColor`, sodass Farbe ausschließlich über CSS
-   gesteuert wird (Theme-konform).
-   ============================================================================ */
-
-/* Reine Innen-Markup-Fragmente der Lucide-Icons (ohne <svg>-Hülle). */
 export const ICON_PATHS = {
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>',
@@ -51,27 +32,24 @@ export const ICON_PATHS = {
   star: '<path d="M11.5 3.2a.5.5 0 0 1 .9 0l2.2 4.6 5 .7a.5.5 0 0 1 .3.9l-3.6 3.5.9 5a.5.5 0 0 1-.8.5L12 16.6 7.4 19a.5.5 0 0 1-.8-.5l.9-5L3.9 9.9a.5.5 0 0 1 .3-.9l5-.7z"/>',
 };
 
-/**
- * Liefert einen vollständigen SVG-String für das benannte Icon.
- * @param {string} name  Schlüssel aus ICON_PATHS
- * @param {object} [opts]
- * @param {number} [opts.size=16]   Kantenlänge in px
- * @param {number} [opts.stroke=2]  Strichstärke
- * @param {string} [opts.cls='']    zusätzliche CSS-Klasse(n)
- */
+export const ANIMATED_BRAND_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" id="app-logo-animated" width="100%" height="100%"><defs><style>:root{--canvas-top:#18283F;--canvas-mid:#111C2E;--canvas-bot:#0B131F;--border-out:rgba(255,255,255,0.08);--border-in:rgba(255,255,255,0.04);--cal-bg:rgba(17,28,46,0.75);--cal-border:rgba(255,255,255,0.12);--cal-div:rgba(15,23,42,0.25);--ring-str:#0F172A;--grid-dot:#FFFFFF;--gantry-str:rgba(255,255,255,0.08);--core-center:#FFFFFF;--shadow-col:rgba(0,0,0,0.5);--glow-col-1:rgba(14,165,233,0.5);--glow-col-2:rgba(56,189,248,0.8);--trace-op:0.6}@media (prefers-color-scheme: light){:root{--canvas-top:#ECE7DC;--canvas-mid:#F4F1EA;--canvas-bot:#F8FAFC;--border-out:rgba(15,23,42,0.12);--border-in:rgba(15,23,42,0.06);--cal-bg:rgba(255,255,255,0.9);--cal-border:rgba(15,23,42,0.15);--cal-div:rgba(15,23,42,0.15);--ring-str:#475569;--grid-dot:#0F172A;--gantry-str:rgba(15,23,42,0.12);--core-center:#0F172A;--shadow-col:rgba(15,23,42,0.15);--glow-col-1:rgba(14,165,233,0.3);--glow-col-2:rgba(14,165,233,0.6);--trace-op:0.8}}html[data-theme="light"] svg,:host([data-theme="light"]) svg{--canvas-top:#ECE7DC;--canvas-mid:#F4F1EA;--canvas-bot:#F8FAFC;--border-out:rgba(15,23,42,0.12);--border-in:rgba(15,23,42,0.06);--cal-bg:rgba(255,255,255,0.9);--cal-border:rgba(15,23,42,0.15);--cal-div:rgba(15,23,42,0.15);--ring-str:#475569;--grid-dot:#0F172A;--gantry-str:rgba(15,23,42,0.12);--core-center:#0F172A;--shadow-col:rgba(15,23,42,0.15);--glow-col-1:rgba(14,165,233,0.3);--glow-col-2:rgba(14,165,233,0.6);--trace-op:0.8}.theme-canvas{fill:url(#bgGrad);stroke:var(--border-out);stroke-width:3}.theme-inner{fill:none;stroke:var(--border-in);stroke-width:2}.theme-cal{fill:var(--cal-bg);stroke:var(--cal-border);stroke-width:2;filter:drop-shadow(0 12px 16px var(--shadow-col))}.theme-cal-div{stroke:var(--cal-div);stroke-width:2}.theme-ring{fill:url(#metalGrad);stroke:var(--ring-str);stroke-width:1.5}.theme-dot{fill:var(--grid-dot);opacity:0.25}.theme-gantry{fill:none;stroke:var(--gantry-str);stroke-width:12}.theme-core{fill:var(--core-center)}.trace-line{opacity:var(--trace-op)}.orbit-cw{transform-origin:256px 360px;animation:spinCW 14s linear infinite}.orbit-ccw{transform-origin:256px 360px;animation:spinCCW 11s linear infinite}.core-pulse{transform-origin:256px 360px;animation:pulseGlow 2.5s ease-in-out infinite alternate}.data-trace{stroke-dasharray:8 4;animation:traceFlow 1.5s linear infinite}.chip-anim-1{animation:chipPulse 3s ease-in-out infinite 0s}.chip-anim-2{animation:chipPulse 3s ease-in-out infinite 0.4s}.chip-anim-3{animation:chipPulse 3s ease-in-out infinite 0.8s}@keyframes spinCW{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}@keyframes spinCCW{0%{transform:rotate(0deg)}100%{transform:rotate(-360deg)}}@keyframes pulseGlow{0%{transform:scale(0.92);opacity:0.7;filter:drop-shadow(0 0 6px var(--glow-col-1))}100%{transform:scale(1.05);opacity:1;filter:drop-shadow(0 0 16px var(--glow-col-2))}}@keyframes traceFlow{0%{stroke-dashoffset:24}100%{stroke-dashoffset:0}}@keyframes chipPulse{0%,100%{opacity:0.7;filter:brightness(1)}50%{opacity:1;filter:brightness(1.3) drop-shadow(0 0 6px cubic-bezier(0.22,0.61,0.36,1))}}@media (prefers-reduced-motion: reduce){.orbit-cw,.orbit-ccw,.core-pulse,.data-trace,.chip-anim-1,.chip-anim-2,.chip-anim-3{animation:none!important;transform:none!important;opacity:1!important}}</style><linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:var(--canvas-top);"/><stop offset="40%" style="stop-color:var(--canvas-mid);"/><stop offset="100%" style="stop-color:var(--canvas-bot);"/></linearGradient><linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0EA5E9"/><stop offset="100%" stop-color="#6366F1"/></linearGradient><linearGradient id="metalGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#94A3B8"/><stop offset="50%" stop-color="#CBD5E1"/><stop offset="100%" stop-color="#475569"/></linearGradient><filter id="coreGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="8" result="blur"/><feComposite in="SourceGraphic" in2="blur" operator="over"/></filter></defs><rect class="theme-canvas" width="512" height="512" rx="112"/><rect class="theme-inner" x="6" y="6" width="500" height="500" rx="106"/><g><path class="theme-cal" d="M 106,106 A 24,24 0 0 1 130,82 L 382,82 A 24,24 0 0 1 406,106 L 406,356 A 24,24 0 0 1 382,380 L 130,380 A 24,24 0 0 1 106,356 Z"/><path d="M 106,106 A 24,24 0 0 1 130,82 L 382,82 A 24,24 0 0 1 406,106 L 406,146 L 106,146 Z" fill="url(#accentGrad)"/><line class="theme-cal-div" x1="106" y1="146" x2="406" y2="146"/></g><rect class="theme-ring" x="160" y="46" width="20" height="64" rx="10"/><rect class="theme-ring" x="332" y="46" width="20" height="64" rx="10"/><g><circle class="theme-dot" cx="150" cy="185" r="5"/><circle class="theme-dot" cx="206" cy="185" r="5"/><circle class="theme-dot" cx="262" cy="185" r="5"/><circle class="theme-dot" cx="318" cy="185" r="5"/><circle class="theme-dot" cx="374" cy="185" r="5"/><circle class="theme-dot" cx="150" cy="285" r="5"/><circle class="theme-dot" cx="206" cy="285" r="5"/><circle class="theme-dot" cx="262" cy="285" r="5"/><circle class="theme-dot" cx="318" cy="285" r="5"/><circle class="theme-dot" cx="374" cy="285" r="5"/></g><rect class="chip-anim-1" x="134" y="224" width="32" height="24" rx="6" fill="#0EA5E9"/><rect class="chip-anim-2" x="190" y="224" width="32" height="24" rx="6" fill="#F97316"/><rect class="chip-anim-3" x="358" y="224" width="32" height="24" rx="6" fill="#22C55E"/><line class="data-trace trace-line" x1="256" y1="360" x2="150" y2="236" stroke="#0EA5E9" stroke-width="2"/><line class="data-trace trace-line" x1="256" y1="360" x2="206" y2="236" stroke="#F97316" stroke-width="2"/><line class="data-trace trace-line" x1="256" y1="360" x2="374" y2="236" stroke="#22C55E" stroke-width="2"/><g transform="translate(256, 360) scale(1.4)"><circle class="theme-gantry" cx="0" cy="0" r="72"/><circle cx="0" cy="0" r="72" fill="none" stroke="url(#accentGrad)" stroke-width="6" filter="url(#coreGlow)" opacity="0.85"/></g><g class="orbit-cw"><ellipse cx="256" cy="360" rx="128.8" ry="39.2" fill="none" stroke="#38BDF8" stroke-width="3" transform="rotate(-30 256 360)" opacity="0.8"/><circle cx="136" cy="290" r="7" fill="#38BDF8" filter="url(#coreGlow)"/></g><g class="orbit-ccw"><ellipse cx="256" cy="360" rx="128.8" ry="39.2" fill="none" stroke="#6366F1" stroke-width="3" transform="rotate(45 256 360)" opacity="0.8"/><circle cx="347" cy="269" r="7" fill="#6366F1" filter="url(#coreGlow)"/></g><g class="core-pulse"><circle class="theme-core" cx="256" cy="360" r="19.6"/><circle cx="256" cy="360" r="11.2" fill="#0EA5E9"/></g></svg>`;
+
 export function icon(name, opts = {}) {
   const body = ICON_PATHS[name];
-  if (!body) {
-    console.warn(`[icons] Unbekanntes Icon: ${name}`);
-    return '';
-  }
+  if (!body) return '';
   const size = opts.size ?? 16;
   const stroke = opts.stroke ?? 2;
   const cls = opts.cls ? ` class="${opts.cls}"` : '';
   return `<svg${cls} width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 }
 
-/** Setzt das Icon als einzigen Inhalt eines Elements. */
 export function setIcon(el, name, opts) {
   if (el) el.innerHTML = icon(name, opts);
+}
+
+export function injectBrandIcon() {
+  const container = document.getElementById('brand-icon-container');
+  if (container) {
+    container.innerHTML = ANIMATED_BRAND_ICON_SVG;
+  }
 }
