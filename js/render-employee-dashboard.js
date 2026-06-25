@@ -28,6 +28,7 @@ import {
 } from './model.js';
 
 import { openProfileModal } from './render-modals.js';
+import { render } from './render-grid.js';
 
 export function renderEmployeeDashboard() {
   const { year: y, month: m } = state;
@@ -214,40 +215,20 @@ export function renderEmployeeDashboard() {
     }).join("");
     
     gridEl.querySelectorAll("[data-emp]").forEach((card) => {
-      card.addEventListener("click", (e) => {
-        // If clicking the name link → open profile
-        if (e.target.closest("[data-open-profile]")) {
-          const name = e.target.closest("[data-open-profile]").dataset.openProfile;
-          openProfileModal(name);
-          return;
-        }
-        dash.selectedEmp = card.dataset.emp;
-        renderEmployeeDashboard();
+      // Ein Klick irgendwo auf die Karte öffnet den Person-Screen für diese Person.
+      card.addEventListener("click", () => {
+        openProfileModal(card.dataset.emp);
       });
       card.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          dash.selectedEmp = card.dataset.emp;
-          renderEmployeeDashboard();
+          openProfileModal(card.dataset.emp);
         }
       });
     });
   }
-  
-  if (!dash.selectedEmp) {
-    detailEl.innerHTML = `<div class="empdash-empty">Bitte eine Person auswählen.</div>`;
-    if (detailSub) {
-      detailSub.textContent = "Bitte eine Person auswählen.";
-    }
-    return;
-  }
-  
-  renderEmployeeDetailDashboard(dash.selectedEmp, y);
-  
-  if (detailSub) {
-    const viewName = dash.detailView === "months" ? "Monatsverlauf" : dash.detailView === "calendar" ? "Jahreskalender" : "Verwaltung";
-    detailSub.textContent = `${dash.selectedEmp} · Kalenderjahr ${y} · Detailansicht ${viewName}`;
-  }
+  // Die Personen-Detailansicht lebt jetzt im Person-Screen (eigene Tabs) und wird
+  // durch openProfileModal()/applyPersonTab() gerendert – hier nicht mehr nötig.
 }
 
 function getRangeMonths(range, year, month, customStart, customEnd) {
@@ -427,10 +408,7 @@ function renderEmployeeTeamAnalytics(teamPanelEl, teamControlsEl) {
   
   teamPanelEl.querySelectorAll("[data-team-emp]").forEach((row) => {
     row.addEventListener("click", () => {
-      state.employeeDashboard.selectedEmp = row.dataset.teamEmp;
-      renderEmployeeDashboard();
-      const detailPanel = document.getElementById("emp-detail-panel");
-      detailPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+      openProfileModal(row.dataset.teamEmp);
     });
   });
 }
@@ -895,19 +873,18 @@ export function renderEmployeeDetailDashboard(emp, year) {
       addEmployee(state.year, state.month, emp);
     }
     render();
-    renderEmployeeDashboard();
+    renderEmployeeDetailDashboard(emp, year);
   });
-  
+
   document.getElementById('emp-add-btn')?.addEventListener('click', () => {
     const input = document.getElementById('emp-input');
     const name = input.value.trim();
     if (!name) return;
     addEmployee(state.year, state.month, name);
     input.value = '';
-    state.employeeDashboard.selectedEmp = name;
     render();
-    renderEmployeeDashboard();
-    input.focus();
+    renderEmployeeDetailDashboard(emp, year);
+    document.getElementById('emp-input')?.focus();
   });
   
   document.getElementById('emp-input')?.addEventListener('keydown', (e) => {

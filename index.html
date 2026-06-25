@@ -434,54 +434,6 @@
     </div>
   </div>
 
-  <div class="overlay" id="modal-profile" role="dialog" aria-modal="true" aria-labelledby="pm-name" hidden style="display:none">
-    <div class="modal modal-profile">
-      <div class="modal-hd">
-        <div class="profile-hd-inner">
-          <div class="profile-avatar-lg" id="pm-avatar" aria-hidden="true">MA</div>
-          <div>
-            <div class="modal-hd-title" id="pm-name">Mitarbeiter</div>
-            <div class="modal-hd-sub"   id="pm-sub">Monat · Werktage</div>
-            <div class="pm-meta-row"    id="pm-meta-row" role="list" aria-label="Positionsinformationen"></div>
-          </div>
-        </div>
-        <button type="button" class="modal-x" data-close="modal-profile" aria-label="Profil schließen">✕</button>
-      </div>
-      <div class="pm-body" id="pm-body">
-        <div class="pm-today-status" id="pm-today-status" style="display:none" aria-live="polite"></div>
-        <div class="pm-sect-hd">Monatsübersicht</div>
-        <div class="kpi-grid" id="pm-kpi" role="list" aria-label="Kennzahlen aktueller Monat"></div>
-        <div class="pm-sect-hd" id="pm-wp-hd">Arbeitsplatz-Verteilung</div>
-        <div class="pm-dist-layout" id="pm-dist-layout">
-          <div id="pm-wp-chart" class="dist-chart" aria-label="Arbeitsplatz-Statistik aktueller Monat"></div>
-          <div class="pm-donut-wrap" id="pm-donut-wrap" aria-hidden="true">
-            <canvas id="pm-donut-canvas" width="140" height="140"></canvas>
-          </div>
-        </div>
-        <div class="pm-sect-hd" id="pm-st-hd">Abwesenheiten &amp; Status</div>
-        <div id="pm-st-chart" class="dist-chart" aria-label="Status-Statistik aktueller Monat"></div>
-        <div class="pm-sect-hd" id="pm-duty-hd">Dienste &amp; Hintergrund</div>
-        <div id="pm-duty-detail" class="duty-detail-area" aria-label="Dienstdetails aktueller Monat"></div>
-        <div class="pm-sect-hd">Jahresverlauf &amp; Trend</div>
-        <div class="pm-trend-wrap" aria-label="Monatlicher Aktivitätsverlauf">
-          <canvas id="pm-trend-canvas" height="120" aria-hidden="true"></canvas>
-        </div>
-        <div class="pm-sect-hd">Dienste nach Wochentag</div>
-        <div id="pm-duty-dow" class="pm-dow-grid" aria-label="Dienstverteilung nach Wochentag"></div>
-        <div class="pm-sect-hd">
-          Monatskalender
-          <span class="pm-sect-hint">— Klick auf einen Werktag öffnet den Editor</span>
-        </div>
-        <div id="pm-cal" aria-label="Monatskalender"></div>
-        <div class="pm-sect-hd">Jahresauswertung</div>
-        <div id="pm-yearly" aria-label="Jahresauswertung"></div>
-      </div>
-      <div class="modal-ft">
-        <button type="button" class="mbtn mbtn-ghost" data-close="modal-profile">Schließen</button>
-      </div>
-    </div>
-  </div>
-
   <div class="overlay" id="modal-editor" role="dialog" aria-modal="true" aria-labelledby="ed-title" hidden style="display:none">
     <div class="modal modal-editor">
       <div class="modal-hd" id="ed-modal-hd">
@@ -607,11 +559,16 @@
           <div class="empdash-context" id="emp-context-line" aria-live="polite"></div>
         </div>
         <div class="empdash-hd-actions">
+          <div class="emp-screen-switch" role="tablist" aria-label="Ansicht umschalten">
+            <button type="button" class="emp-screen-btn active" data-screen="team" role="tab" aria-selected="true">Team</button>
+            <button type="button" class="emp-screen-btn" data-screen="person" id="emp-screen-person-btn" role="tab" aria-selected="false" disabled>Person</button>
+          </div>
           <button type="button" class="period-inline-btn" id="emp-open-period" aria-label="Zeitraumsteuerung öffnen">Zeitraum</button>
           <button type="button" class="modal-x" data-close="modal-emps" aria-label="Mitarbeitenden-Dashboard schließen">✕</button>
         </div>
       </div>
       <div class="modal-bd empdash-body">
+       <div id="emp-screen-team">
         <section class="empdash-section">
           <div class="empdash-summary-grid" id="emp-summary-grid"></div>
         </section>
@@ -659,21 +616,88 @@
           </div>
           <div class="empdash-card-grid" id="emp-year-grid" role="list" aria-label="Jahresübersicht aller Mitarbeitenden"></div>
         </section>
-        <section class="empdash-section empdash-detail-section">
-          <div class="empdash-detail-head">
-            <div>
-              <div class="empdash-detail-title">Detailansicht Kalenderjahr</div>
-              <div class="empdash-detail-sub" id="emp-detail-sub">Bitte eine Person auswählen.</div>
-            </div>
-            <div class="empdash-view-switch" role="tablist" aria-label="Detailansicht umschalten">
-              <button type="button" class="empdash-view-btn active" id="emp-view-months" data-view="months" role="tab" aria-selected="true">Monatsverlauf</button>
-              <button type="button" class="empdash-view-btn" id="emp-view-calendar" data-view="calendar" role="tab" aria-selected="false">Jahreskalender</button>
-              <button type="button" class="empdash-view-btn" id="emp-view-admin" data-view="admin" role="tab" aria-selected="false">Verwaltung</button>
-              <button type="button" class="empdash-view-btn" id="emp-view-analyse" data-view="analyse" role="tab" aria-selected="false">Analyse</button>
+       </div>
+
+       <div id="emp-screen-person" hidden>
+        <div class="pm-person-head">
+          <button type="button" class="pm-back-btn" id="emp-person-back" aria-label="Zurück zur Teamübersicht">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+            Team
+          </button>
+          <div class="profile-avatar-lg" id="pm-avatar" aria-hidden="true">MA</div>
+          <div class="pm-person-head-copy">
+            <div class="modal-hd-title" id="pm-name">Mitarbeiter</div>
+            <div class="modal-hd-sub" id="pm-sub">Monat · Werktage</div>
+            <div class="pm-meta-row" id="pm-meta-row" role="list" aria-label="Positionsinformationen"></div>
+          </div>
+          <label class="pm-person-select-wrap" for="emp-person-select">
+            <span class="pm-person-select-lbl">Person</span>
+            <select id="emp-person-select" class="empdash-sort" aria-label="Person wechseln"></select>
+          </label>
+        </div>
+        <div class="pm-today-status" id="pm-today-status" style="display:none" aria-live="polite"></div>
+
+        <div class="pm-tabbar" role="tablist" aria-label="Profilbereiche">
+          <button type="button" class="pm-tab active" data-ptab="overview" role="tab" aria-selected="true">Übersicht</button>
+          <button type="button" class="pm-tab" data-ptab="duties" role="tab" aria-selected="false">Dienste &amp; Feiertage</button>
+          <button type="button" class="pm-tab" data-ptab="calendar" role="tab" aria-selected="false">Kalender</button>
+          <button type="button" class="pm-tab" data-ptab="year" role="tab" aria-selected="false">Jahresauswertung</button>
+          <button type="button" class="pm-tab" data-ptab="admin" role="tab" aria-selected="false">Verwaltung</button>
+        </div>
+
+        <div class="pm-tabpanel" data-ptab-panel="overview" role="tabpanel">
+          <div class="pm-sect-hd">Monatsübersicht</div>
+          <div class="kpi-grid" id="pm-kpi" role="list" aria-label="Kennzahlen aktueller Monat"></div>
+          <div class="pm-sect-hd" id="pm-wp-hd">Arbeitsplatz-Verteilung</div>
+          <div class="pm-dist-layout" id="pm-dist-layout">
+            <div id="pm-wp-chart" class="dist-chart" aria-label="Arbeitsplatz-Statistik aktueller Monat"></div>
+            <div class="pm-donut-wrap" id="pm-donut-wrap" aria-hidden="true">
+              <canvas id="pm-donut-canvas" width="140" height="140"></canvas>
             </div>
           </div>
-          <div class="empdash-detail-panel" id="emp-detail-panel" role="tabpanel" aria-live="polite"></div>
-        </section>
+          <div class="pm-sect-hd" id="pm-st-hd">Abwesenheiten &amp; Status</div>
+          <div id="pm-st-chart" class="dist-chart" aria-label="Status-Statistik aktueller Monat"></div>
+        </div>
+
+        <div class="pm-tabpanel" data-ptab-panel="duties" role="tabpanel" hidden>
+          <div class="pm-sect-hd" id="pm-duty-hd">Dienste &amp; Hintergrund</div>
+          <div id="pm-duty-detail" class="duty-detail-area" aria-label="Dienstdetails aktueller Monat"></div>
+          <div class="pm-sect-hd" id="pm-holiday-hd">
+            Feiertagsdienste
+            <span class="pm-sect-hint">— Dienste &amp; Einsätze an gesetzlichen Feiertagen im Jahr</span>
+          </div>
+          <div id="pm-holiday-duty" class="pm-holiday-area" aria-label="Feiertagsdienste im Jahr"></div>
+          <div class="pm-sect-hd">Dienste nach Wochentag</div>
+          <div id="pm-duty-dow" class="pm-dow-grid" aria-label="Dienstverteilung nach Wochentag"></div>
+        </div>
+
+        <div class="pm-tabpanel" data-ptab-panel="calendar" role="tabpanel" hidden>
+          <div class="pm-sect-hd pm-cal-sect-hd">
+            <span id="pm-cal-title">Monatskalender</span>
+            <span class="pm-sect-hint">— Klick auf einen Werktag öffnet den Editor</span>
+            <div class="pm-cal-toggle" role="tablist" aria-label="Kalenderansicht umschalten">
+              <button type="button" class="pm-cal-tab" data-cal-view="month" role="tab">Monat</button>
+              <button type="button" class="pm-cal-tab" data-cal-view="year" role="tab">Jahr</button>
+            </div>
+          </div>
+          <div id="pm-cal" aria-label="Monatskalender"></div>
+          <div id="pm-cal-year" aria-label="Jahreskalender" hidden></div>
+        </div>
+
+        <div class="pm-tabpanel" data-ptab-panel="year" role="tabpanel" hidden>
+          <div class="pm-sect-hd">Jahresverlauf &amp; Trend</div>
+          <div class="pm-trend-wrap" aria-label="Monatlicher Aktivitätsverlauf">
+            <canvas id="pm-trend-canvas" height="120" aria-hidden="true"></canvas>
+          </div>
+          <div class="pm-sect-hd">Jahresauswertung</div>
+          <div id="pm-yearly" aria-label="Jahresauswertung"></div>
+        </div>
+
+        <div class="pm-tabpanel" data-ptab-panel="admin" role="tabpanel" hidden>
+          <div class="empdash-detail-sub" id="emp-detail-sub" style="margin-bottom:10px"></div>
+          <div class="empdash-detail-panel" id="emp-detail-panel" aria-live="polite"></div>
+        </div>
+       </div>
       </div>
       <div class="modal-ft">
         <button type="button" class="mbtn mbtn-ghost" data-close="modal-emps">Schließen</button>
