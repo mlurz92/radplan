@@ -977,7 +977,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     if (isNoBdWeekday(emp, wd)) return false;
     if (hasCTLeadershipConflict(y, m, emp, d, assignments)) return false;
     if (assignments[emp]?.[d]?.assignment === "F") return false;
-    if (isNextDayVacationLike(y, m, emp, d, assignments)) return false;
+    if (isNextDayVacationLike(y, m, emp, d, assignments, externalAssignments)) return false;
 
     const prev = prevCalendarDay(y, m, d);
     const next = nextCalendarDay(y, m, d);
