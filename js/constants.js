@@ -375,19 +375,6 @@ export const EMP_META = {
     phone: "",
     tags: ["Radiologie", "Neuroradiologie"],
   },
-  "Fr. Becker": {
-    // Hinweis: laut Stammdatenpflege identisch mit "Dr. Becker" (Alias).
-    fullName: "Dr. med. Juliane Becker",
-    position: "OÄ",
-    posLabel: "Oberärztin",
-    type: "FÄ für Radiologie · FÄ für Nuklearmedizin",
-    area: "CT",
-    deputy: "Dr. Martin",
-    since: 2019,
-    fte: 100,
-    phone: "4006",
-    tags: ["Radiologie", "Nuklearmedizin", "CT"],
-  },
   "Hr. Faragallah": {
     fullName: "Hr. Faragallah",
     position: "AA",
@@ -482,7 +469,7 @@ export const SPECIAL_RULES = {
   // Komplett dienstbefreite Personen (BD-Ziel 0).
   dutyExempt: ["Prof. Schäfer"],
   // Reduzierte Standard-BD-Ziele (sonst Default 4).
-  reducedBdTarget: { "Dr. Polednia": 3, "Dr. Becker": 3, "Fr. Becker": 3, "Hr. Sebastian": 3 },
+  reducedBdTarget: { "Dr. Polednia": 3, "Dr. Becker": 3, "Hr. Sebastian": 3 },
   // Wochentage (0=So…6=Sa), an denen die Person keinen D leisten darf.
   noBdWeekdays: { "Dr. Polednia": [0, 2, 4] },
   // Wochentage, an denen die Person keinen HG übernehmen darf, WENN der
@@ -490,12 +477,11 @@ export const SPECIAL_RULES = {
   noHgFromAaWeekdays: { "Dr. Polednia": [0, 2, 4] },
   // Personen, die Samstags-D nur als Ultima Ratio (im gelockerten Modus)
   // bekommen und nach einem Samstags-D zwingend einen FZA-Tag erhalten.
-  // ("Fr. Becker" ist ein Alias von "Dr. Becker".)
-  saturdayUltimaRatio: ["Dr. Becker", "Fr. Becker"],
-  saturdayFzaCompensation: ["Dr. Becker", "Fr. Becker"],
+  saturdayUltimaRatio: ["Dr. Becker"],
+  saturdayFzaCompensation: ["Dr. Becker"],
   // Gegenseitiges Vertretungspaar (CT-Leitung): nie gleichzeitig abwesend/F
   // an Werktagen.
-  ctLeadershipPairs: [["Dr. Becker", "Dr. Martin"], ["Fr. Becker", "Dr. Martin"]],
+  ctLeadershipPairs: [["Dr. Becker", "Dr. Martin"]],
   // HG-Konfliktpaare: Person darf an den genannten Wochentagen keinen HG
   // übernehmen, wenn einer der conflictBd-Personen den BD desselben Tages hat.
   hgConflictRules: [
