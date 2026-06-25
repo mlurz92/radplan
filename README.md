@@ -1,541 +1,727 @@
-# RadPlan — Anwendungsdokumentation
+# RadPlan — Digitaler Dienstplan für die Klinik für Radiologie & Nuklearmedizin
 
-## 1. Kurzbeschreibung & Zweck
+> **RadPlan** ist eine vollständig im Browser laufende, hochspezialisierte Dienstplan­anwendung für die **Klinik für Radiologie & Nuklearmedizin am Klinikum St. Georg Leipzig**. Sie verbindet ein dichtes, tabellarisches Monatsraster mit einem regelbasierten, mehrzyklischen Optimierungs­algorithmus (dem *RadPlan Neural Scheduler*), tiefen Mitarbeiter- und Jahresauswertungen, einem isolierten Planungsmodus und einer servergestützten Echtzeit-Synchronisation — verpackt in eine sorgfältig ausgearbeitete, barrierearme und touch-taugliche Oberfläche mit Hell-/Dunkelmodus.
 
-RadPlan ist eine browserbasierte Single-Page-Anwendung zur Personal- und Dienstplanung in einer Klinik für Radiologie & Nuklearmedizin. Die Anwendung bildet einen monatlichen Dienstplan als interaktive Tabelle ab, in der für jede:n Mitarbeitende:n pro Kalendertag ein Arbeitsplatz, ein Abwesenheitsstatus und/oder ein Bereitschafts- bzw. Hintergrunddienst eingetragen werden kann.
+Diese README beschreibt den **vollständigen aktuellen Funktionsstand** der Anwendung bis ins Detail: jede Ansicht, jedes Bedienelement, jede Regel, jeden Datenpfad und jede Tastenkombination.
 
-Die Anwendung deckt folgende fachliche Bereiche ab:
+---
 
-- Tägliche Personaleinsatzplanung über eine rasterbasierte Monatsansicht (Mitarbeitende × Kalendertage).
-- Verwaltung von Abwesenheiten (Urlaub, Krankheit, Fortbildung u. a.) und Arbeitsplätzen (MRT, CT, Sonographie usw.).
-- Verwaltung von Bereitschafts- und Hintergrunddiensten inklusive Wochenend- und Feiertagslogik für Sachsen.
-- Ein regelbasierter Planungsassistent („Auto-Plan“), der einen vollständigen Monat unter Berücksichtigung harter und weicher Regeln automatisch befüllt.
-- Eine separate, isolierte Planungs-Sandbox („Planungsmodus“), in der Entwürfe unabhängig vom produktiven Monatsplan erstellt, automatisch optimiert und erst bei Bedarf übernommen werden.
-- Ein Jahresplaner mit Jahresraster, Fairness-Analyse und Jahresprojektion.
-- Ein Mitarbeitenden-Bereich mit Profilseiten, Kennzahlen, Diagrammen und einer Team-Analytics-Übersicht.
-- Eine Abteilungsansicht mit Tages- und Jahresabdeckung pro Arbeitsplatz.
-- Eine Befehlspalette für die tastaturgestützte Navigation zu Monaten, Mitarbeitenden und Funktionen.
-- Drag-&-Drop-Import sowie JSON-Export und Druckausgabe (PDF via Browser-Druckdialog).
-- Eine Cloud-Synchronisation der Daten über eine Cloudflare-Pages-Function mit Cloudflare-KV-Speicher.
-- Ein eigenständiges, dediziertes mobiles Bedienkonzept mit Listenansicht, Bottom-Sheet-Dialogen und radialem Schnellaktionsmenü.
-- Ein Glasmorphismus-Oberflächendesign mit hellem und dunklem Farbthema, das nahtlos zwischen beiden Modi überblendet, mit abgestufter Material-Tiefe (Elevation-Ebenen), einem zentralen, themenbewussten Chip-Farbsystem und einem optionalen farbenblind-sicheren Modus.
-- Ein entschlacktes Kopfzeilen-Layout mit segmentierten Icon-Gruppen und einem Overflow-Menü für sekundäre Aktionen sowie eine Kreuz-Hervorhebung von Zeile und Spalte in der Rastermatrix.
+## Inhaltsverzeichnis
 
-Die Anwendung ist aktuell als Frontend-Projekt ohne Build-Schritt organisiert: Der Anwendungscode ist in ES6-Modulen unter `js/` geschrieben und wird direkt vom Browser als ES-Module geladen. Dies ist eine pragmatische Ausgangsbasis, **keine** verbindliche Architekturvorgabe — externe Bibliotheken, Frameworks, Plugins oder ein Build-/Bundling-Schritt dürfen jederzeit eingebunden werden, wenn sie einen sinnvollen Zweck erfüllen. Spezialisierte Funktionen werden heute bereits über eingebundene Bibliotheken realisiert (Chart.js, GSAP, jsPDF inkl. AutoTable — siehe Abschnitt 2.1). Persistiert wird primär im `localStorage` des Browsers; optional ergänzt durch eine serverseitige Synchronisation über eine Cloudflare Pages Function mit angebundenem KV-Namensraum.
+1. [Was RadPlan löst — die Domäne](#1-was-radplan-löst--die-domäne)
+2. [Technologie-Stack & Architektur](#2-technologie-stack--architektur)
+3. [Fachliches Datenmodell](#3-fachliches-datenmodell)
+4. [Stammdaten, Rollen & Sonderregeln](#4-stammdaten-rollen--sonderregeln)
+5. [Persistenz & Server-Synchronisation](#5-persistenz--server-synchronisation)
+6. [Gesamtaufbau der Oberfläche](#6-gesamtaufbau-der-oberfläche)
+7. [Das Dienstplan-Raster im Detail](#7-das-dienstplan-raster-im-detail)
+8. [Zell-Interaktion: Editor, Schnellaktionen, Tastatur](#8-zell-interaktion-editor-schnellaktionen-tastatur)
+9. [Der Planungsmodus](#9-der-planungsmodus)
+10. [Der RadPlan Neural Scheduler (Auto-Plan)](#10-der-radplan-neural-scheduler-auto-plan)
+11. [Mitarbeitendenbereich (Team- & Person-Modal)](#11-mitarbeitendenbereich-team--person-modal)
+12. [Jahresplaner](#12-jahresplaner)
+13. [Abteilungsübersicht](#13-abteilungsübersicht)
+14. [Befehlspalette](#14-befehlspalette)
+15. [Drucken & PDF-Export](#15-drucken--pdf-export)
+16. [Import & Export von Daten](#16-import--export-von-daten)
+17. [Darstellung, Theming & Barrierefreiheit](#17-darstellung-theming--barrierefreiheit)
+18. [Mobile- & Responsive-Erfahrung](#18-mobile--responsive-erfahrung)
+19. [Kalender- & Feiertagslogik](#19-kalender--feiertagslogik)
+20. [Vollständige Tastaturkürzel-Referenz](#20-vollständige-tastaturkürzel-referenz)
+21. [Projektstruktur](#21-projektstruktur)
+22. [Entwicklung, Tests & Deployment](#22-entwicklung-tests--deployment)
+23. [Glossar & Codetabellen](#23-glossar--codetabellen)
 
-## 2. Architekturüberblick
+---
 
-### 2.1 Grundprinzip
+## 1. Was RadPlan löst — die Domäne
 
-RadPlan besteht aus einer HTML-Hülle (`index.html`), die alle Dialoge, Container und das semantische Grundgerüst der Oberfläche als statisches Markup enthält, sowie aus einer Reihe von ES6-Modulen unter `js/`, die zur Laufzeit DOM-Inhalte erzeugen, Ereignisse verarbeiten und den Anwendungszustand verwalten. Die visuelle Gestaltung ist vollständig in CSS-Dateien unter `css/` ausgelagert, die über `<link>`-Elemente im `<head>` von `index.html` eingebunden werden. Derzeit werden die Dateien ohne Build-Schritt direkt ausgeliefert; das ist eine Ausgangslage und keine Einschränkung — ein Bundler, Präprozessor oder Framework kann bei Bedarf ergänzt werden.
+Eine radiologische Klinik muss jeden Kalendertag lückenlos zwei Dienste absichern:
 
-Externe Abhängigkeiten werden aktuell über CDN-Skripte eingebunden:
+- **Bereitschaftsdienst (BD / Code „D")** — der Front-Dienst, der vor Ort die Akutversorgung trägt.
+- **Hintergrunddienst (HG)** — die fachärztliche Rückfallebene, die Befunde freigibt und bei Komplikationen einspringt.
 
-- **Chart.js** (`chart.umd.min.js`, Version 4.4.4) — für Donut-Diagramme, Balkendiagramme und Trendkurven in Profil-, Dashboard- und Jahresplaner-Ansichten.
-- **GSAP** (`gsap.min.js`, Version 3.12.2) — für ergänzende Animationseffekte.
-- **jsPDF** (`jspdf.umd.min.js`, Version 2.5.1) — für den nativen PDF-Export des Monatsplans ohne Umweg über den Browser-Druckdialog (Kopfzeile, App-Logo, Seitenzahlen, wählbares Layout).
-- **jsPDF-AutoTable** (`jspdf.plugin.autotable.min.js`, Version 3.8.2) — Tabellen-Plugin für jsPDF, das das Monatsraster seitenübergreifend mit wiederholtem Tabellenkopf und automatischer Skalierung in das PDF setzt.
+Daneben werden die Mitarbeitenden täglich auf **Arbeitsplätze** (Modalitäten wie MRT, CT, Sonographie, Angiographie, Mammographie, Kinder-Ultraschall, Außenstandort Wermsdorf, Teleradiologie) verteilt und führen **Status** (Urlaub, Krankheit, Freizeitausgleich, Weiterbildung …) ein.
 
-Alle vier werden als reguläre `<script>`-Tags vor dem Anwendungsmodul `js/app.js` geladen; die Anwendung prüft an den jeweiligen Einsatzstellen, ob die globalen Objekte (`Chart`, `gsap`, `window.jspdf`) tatsächlich verfügbar sind, und verzichtet andernfalls auf die betroffene Funktion bzw. Visualisierung, ohne dass die Kernfunktion der Seite beeinträchtigt wird.
+Die Schwierigkeit liegt nicht im Eintragen, sondern in der **fairen, regelkonformen Verteilung** der Dienste: gesetzliche Ruhezeiten, Qualifikations­vorbehalte (Samstags- und Hintergrunddienste nur für Fachärzte), personenbezogene Sonderregeln, Feiertagsrotation, gleichmäßige Wochenend-Last und individuelle Dienstziele. RadPlan bildet all dies sowohl **manuell bedienbar** als auch **automatisch optimierbar** ab und macht die Qualität jeder Lösung über den **Neural Fitness Index (NFI)** transparent messbar.
 
-### 2.2 JavaScript-Module (`js/`)
+RadPlan ist eine **Single-Page-Application ohne Build-Schritt**: reines HTML, modernes ES-Modul-JavaScript und CSS, ergänzt um wenige CDN-Bibliotheken. Sie ist als **installierbare PWA** ausgelegt und funktioniert auch offline (lokaler Datenstand), synchronisiert sich aber bei Verbindung automatisch mit einem zentralen Server.
 
-| Datei | Aufgabe |
-|---|---|
-| `constants.js` | Zentrale Konstanten und reine Hilfsfunktionen ohne Zustand: Arbeitsplatz-, Status- und Wunschtyp-Definitionen, Mitarbeitendenstammdaten (`EMP_META`), Feiertagsberechnung für Sachsen, Datums- und Kalenderhilfsfunktionen, Monatsschlüssel-Erzeugung, RBN-Zeilenkonfiguration und die Logik zur Mitarbeitenden-Abgangsbereinigung. |
-| `state.js` | Hält den globalen Laufzeitzustand (`DATA`, `state`, Planungsmodus-Zustand) und kapselt die gesamte Persistenzlogik: Laden/Speichern in `localStorage`, das Debounce-gesteuerte Nachsenden an den Server, den feldweisen Drei-Wege-Merge bei Synchronisationskonflikten sowie das Verwalten unabhängiger Planungsentwürfe je Monat. |
-| `model.js` | Reine Datenzugriffs- und Ableitungsschicht oberhalb von `DATA`/`planData`: Lesen und Schreiben einzelner Zellen, Ermitteln von Dienstinhaber:innen, Zusammenstellen der für ein Jahr aktiven Mitarbeitendenliste, Statistik- und Kennzahlenberechnung für Profile und Dashboards. |
-| `app.js` | Einstiegspunkt und Orchestrierung: Initialisierung der Anwendung, globale Tastaturkürzel (u. a. `Strg/Cmd+Z`/`Strg/Cmd+Y` für Undo/Redo, `Strg/Cmd+P` für die Druckvorschau), Header-Aktionen (Theme, Dichte, Undo/Redo, Export, Import, Druck, Server-Sync), Mehrfachauswahl von Zellen per Strg-/Shift-Klick mit anschließendem Bulk-Edit, Periodensteuerung (Monats-/Jahreswechsel inklusive View-Transition-Choreographie), Verwaltung des Planungsmodus (Start, Speichern, Abbrechen, Übernehmen, Undo/Redo), responsives Layout-Umschalten zwischen Desktop- und Mobilansicht. |
-| `history.js` | Generische Undo/Redo-Historie für den **Normalmodus**: erfasst über das `radplan-save-queued`-Ereignis automatisch jede Datenmutation (Zellenänderungen, RBN-Zeile, Notizen, Import, Löschungen, Mitarbeitenden-Entfernung), fasst schnell aufeinanderfolgende Änderungen zu einem Schritt zusammen, verwaltet Undo-/Redo-Stapel und ein Änderungsprotokoll je Zelle (Grundlage für „letzte Änderung“ in den Tooltips). Der Planungsmodus nutzt weiterhin seine eigene Snapshot-Historie in `app.js`. |
-| `celltooltip.js` | Detail-Tooltip beim Überfahren einer Rasterzelle (nur Maus/Desktop): zeigt Person und Position, eine Vorschau der jüngsten Dienste (D/HG), die Erklärung etwaiger Regelkonflikte, eine vorhandene Notiz sowie Zeitpunkt und Inhalt der letzten erfassten Zellenänderung. |
-| `printpreview.js` | Druckvorschau-Dialog mit Layout-Optionen (Quer-/Hochformat), Ein-/Ausschluss der RD-Neurorad-Zeile, maßstabsgetreuer Seitenvorschau und Seitenumbruch-Hinweis. Bietet zwei Ausgabewege: nativer Browser-Druck (mit dynamisch gesetztem `@page`-Format) sowie native PDF-Generierung via jsPDF/AutoTable. Der **PDF-Export bildet den vollständigen Monat auf einer A4-Seite ab** und teilt das Raster dafür in **zwei gestapelte Bänder** (Tage 1.–15. oben, 16.–Monatsende unten), jeweils mit vorangestellter Namensspalte — dadurch breitere Zellen und größere, gut lesbare Schrift. Eine Auto-Fit-Logik wählt die größte Schriftgröße, bei der jede Beschriftung **einzeilig** passt (kein Umbruch mitten im Wort) und beide Bänder zusammen auf eine Seite passen. **Alle farblichen Grid-Markierungen werden übernommen** — Arbeitsplatz-/Status-Chipfarben (helle, themenunabhängige Druckpalette), Wochenende, Feiertag und die RD-Neurorad-Zeile; **Bereitschaft/Hintergrund** werden als Text-Suffix am Arbeitsplatz geführt (`MR/D`, `MA/AN/HG`) und die jeweilige Zelle zusätzlich **rot (D) bzw. blau (HG) umrandet**. Der heutige Tag wird im PDF nicht hervorgehoben. Kopfzeile mit eingebettetem App-Logo und Titel „Arbeitsplatzverteilung". |
-| `render-grid.js` | Aufbau und Interaktion der zentralen Monatsraster-Tabelle (`#plan-table`): Kopf- und Fußzeilenaufbau, Zellrendering inklusive Wochenend-/Feiertags-/Heute-Markierung, Tastaturnavigation innerhalb des Rasters, Drag-&-Drop von Diensten zwischen Zellen, Desktop-Schnellaktions-Popover, mobiles radiales Schnellaktionsmenü, Konfliktmarkierungen, RBN-Sonderzeile. |
-| `render-modals.js` | Aufbau aller Dialoge mit Ausnahme des Zellen-Editor-Layouts in `index.html`: Editor-Logik (Arbeitsplatz-/Status-/Dienst-/Wunsch-/Fixierungsauswahl, Kommentarfeld), Mitarbeitendenverwaltungs-Dialog (Profil, Anlegen/Entfernen), Auto-Plan-Konfigurationsoberfläche, Auto-Plan-Engine-Ansicht mit Terminal-Log und Neural-Graph-Einbettung, Abschlussbericht, Bewertungsdetail-Dialog (NFI-Score-Dashboard), Import-Dialog. |
-| `render-dept.js` | Abteilungsübersicht: Tagesabdeckung je Arbeitsplatz für den aktuellen Monat sowie Jahresübersicht mit Abdeckungsbalken pro Arbeitsplatz und Monat. |
-| `render-employee-dashboard.js` | Mitarbeitenden-Bereich: Zusammenfassende Kennzahlen-Kacheln, Team-Analytics-Panel mit wählbaren Zeiträumen, durchsuchbares und nach Rolle filterbares Mitarbeitenden-Karten-Raster, Detailansicht je Person mit den Reitern Monatsverlauf, Jahreskalender, Verwaltung und Analyse. |
-| `autoplan.js` | Der Planungsassistent „Auto-Plan“: sämtliche Phasen der automatischen Diensteinteilung, Regelprüfungen (harte und weiche Kriterien), Fairness-Berechnungen, Konfliktprüfung (`computeGridConflicts`), Optimierungsschleifen und die abschließende Berechnung des Qualitätsscores. Siehe Abschnitt 6 für die vollständige Beschreibung. |
-| `yearplan.js` | Logik und Rendering des Jahresplaner-Dialogs: Jahresraster mit allen Mitarbeitenden und Monaten, Fairness-Analyse-Reiter mit umschaltbaren Diagrammmodi, Projektions-Reiter mit Jahresendhochrechnung je Person. |
-| `neuralgraph.js` | Eigenständige Canvas-basierte Visualisierungskomponente (`NeuralGraph`-Klasse), die während des Auto-Plan-Laufs eine graphartige Darstellung des Lösungsprozesses animiert. |
-| `commandpalette.js` | Die Befehlspalette: Zusammenstellung aller statischen Befehle, dynamische Monats- und Mitarbeitenden-Einträge, Filterung per Texteingabe, Tastaturnavigation und Ausführung. Siehe Abschnitt 5.7 für die vollständige Befehlsliste. |
-| `contextmenu.js` | Generische, wiederverwendbare Kontextmenü-Komponente (Singleton), die an verschiedenen Stellen der Oberfläche für Rechtsklick-Menüs eingesetzt wird. |
-| `viewtransition.js` | Steuerung der nativen View-Transition-API für gerichtete Monats-/Jahresübergänge (Vor-/Zurück-Animation) und für den kreisförmigen Enthüllungseffekt beim Wechsel zwischen Hell- und Dunkelmodus, inklusive Fallback für Browser ohne Unterstützung und Berücksichtigung reduzierter Bewegungspräferenzen. |
-| `icons.js` | Zentrales Icon-System auf Basis des Lucide-Icon-Sets (`ICON_PATHS`). Liefert über `icon(name, opts)` einheitlich gestylte 24×24-`stroke`-SVG-Strings (Farbe via `currentColor`, themenkonform) und über `setIcon(el, name)` das direkte Einsetzen. Eine einzige Quelle der Wahrheit für alle Strich-Icons; löst gemischte Emoji-/Inline-SVG-Verwendung ab. |
+---
 
-### 2.3 Backend (`functions/`)
+## 2. Technologie-Stack & Architektur
 
-| Datei | Aufgabe |
-|---|---|
-| `functions/api.js` | Cloudflare-Pages-Function, die unter `/api` erreichbar ist. Stellt die Endpunkte für das Lesen und Schreiben des gesamten Anwendungsdatensatzes über einen an die Function gebundenen Cloudflare-KV-Namensraum (`RADPLAN_KV`) bereit. Siehe Abschnitt 7 für die vollständige Beschreibung. |
+### 2.1 Laufzeit & Sprachen
+- **Reines ES-Modul-JavaScript** (`<script type="module">`), kein Bundler, kein Transpiler, kein `node_modules`-Laufzeitbedarf im Browser.
+- **HTML5** als statisches Grundgerüst (`index.html`, eine Datei, alle Modal-Skelette enthalten).
+- **CSS3** in zehn thematisch getrennten Dateien (siehe [Projektstruktur](#21-projektstruktur)) mit umfangreicher Nutzung von CSS-Custom-Properties für das Theming.
 
-### 2.4 CSS-Dateien (`css/`)
+### 2.2 Externe Bibliotheken (per CDN eingebunden)
+| Bibliothek | Version | Zweck |
+| :--- | :--- | :--- |
+| **Chart.js** | 4.4.4 | Alle Diagramme: Donut (Arbeitsplatzverteilung), Trend-Bar/Line (Jahresverlauf), Fairness-Linienkurven, Projektions-Balken |
+| **GSAP** | 3.12.2 | Bewegungs-Feinschliff / Animationen (u. a. Auto-Plan-Visualisierung) |
+| **jsPDF** | 2.5.1 | Native PDF-Erzeugung des Dienstplans |
+| **jspdf-autotable** | 3.8.2 | Tabellen-Layout im PDF |
+| **IBM Plex Sans / IBM Plex Mono** | — | Typografie (Google Fonts); Mono für Zahlen/Codes, Sans für Fließtext |
 
-| Datei | Aufgabe |
-|---|---|
-| `core.css` | Definiert die zweistufige **Design-Token-Architektur** (primitive Rohwert-Tokens → semantische, themenbewusste Tokens) inklusive Farbskalen, Glasmorphismus-Token, Schattenskalen und abgeleiteter RGB-Tripel. Enthält die **Elevation-/Material-Tiefenleiter** (`--elev-*`, Surface 0–3 mit Glasfüllung, fester Border, oberem Innen-Glanz und gestaffeltem Schatten), das **Motion-System** (`--dur-*`, `--ease-*`), die `[data-theme="light"]`-Überschreibungen, globale Resets, Body-Styling sowie die Keyframe-Animationen für View-Transitions und den Theme-Wechsel-Enthüllungseffekt. |
-| `layout.css` | Strukturelles Layout der Hauptansicht: Kopfzeile, Monatsnavigation, Statistikleiste, Planungsmodus-Leiste, Rasterbereich samt Zellzuständen (Wochenende, Feiertag, Heute, Mehrfachauswahl, Konflikt, Fixierung), Dienst-/Wunsch-/Kommentar-Badges, RBN-Sonderzeile, mobile Navigationsleiste, manueller Dichte-Umschalter sowie sämtliche Breakpoint-Anpassungen dieser Bereiche. |
-| `components.css` | Wiederverwendbare UI-Bausteine: Schaltflächen-Varianten, segmentierte Header-Icon-Gruppen (`.hbtn-group`/`.hbtn-icon`) und das **Header-Overflow-Menü** (`.header-menu`), Auswahl-Chips, Texteingabefelder, Drag-&-Drop-Dropzone, Toast-Benachrichtigung, Tooltipps, Desktop-Schnellaktions-Popover, mobiles radiales Schnellaktionsmenü, Befehlspalette sowie die **Skeleton-Loader-Utilities** (Shimmer) und konsolidierte Motion-Hilfsklassen. |
-| `chips.css` | Zentrales, themenbewusstes **Chip-Farbsystem** für alle Arbeitsplatz-/Status-Codes (`[data-code]`). Ruhige Pastellflächen im Hellmodus, harmonische halbtransparente Sättigungs-Tints mit hellem Text im Dunkelmodus sowie ein optionaler **farbenblind-sicherer Modus** (Okabe-Ito-Palette, `html[data-cb="1"]`) mit zusätzlichen Kanten-/Formreizen. |
-| `modals.css` | Sämtliche Dialogfenster: generische Dialog-Hülle mit Glanzeffekt, Zellen-Editor, Mitarbeitendenverwaltung, Import-Dialog, Abteilungsdialog, die umfangreiche Auto-Plan-Konfigurations- und Engine-Oberfläche (inklusive Terminal-Log-Darstellung und Neural-Graph-Einbettung), Abschlussbericht, NFI-Bewertungsdetail-Dashboard, Jahresplaner-Dialog (Jahresraster, Fairness-Analyse, Projektion) sowie die mobilen Bottom-Sheet-Anpassungen aller Dialoge. |
-| `views.css` | Inhaltliche Gestaltung einzelner Ansichten: Mitarbeitendenprofil (Kennzahlen, Verteilungsdiagramme, Monatskalender, Jahresauswertung, Wochentags-Diagramm), Abteilungsansicht, Zeitraum-Flyout, Mitarbeitenden-Bereich (Zusammenfassung, Team-Analytics, Kartenraster, Detailansicht mit Analyse-Reiter), mobile Monatszusammenfassung und Tageslisten-Karten, mobiler Tages-Bottom-Sheet. |
-| `mobile-optimization.css` | Anpassungen für Smartphones (iPhone-/Android-Klasse): über `@media`-Abfragen für Hoch- und Querformat gekoppelt an grobzeigerbasierte Eingabe (`pointer: coarse`) gesetzte Maßvariablen für Kopfzeile, Namensspalte, Zellbreite, Zeilenhöhe und Overlay-Innenabstand, Berücksichtigung der Safe-Area-Insets im Standalone-/PWA-Modus, eine Mindestgröße von 44×44 Pixel für alle Bedienelemente, iOS-typische Bottom-Sheet-Animationen, das vollständige Aktions-Sheet des mobilen Menüs (Kachelraster `.mm-tile`, Listenzeilen `.mm-row`, Abschnittsbeschriftungen) sowie die Safe-Area-Polster des Jahresplaner-Vollbildes. Diese Datei wird über ein `<link>`-Element in `index.html` eingebunden und ist im Betrieb aktiv. |
-| `enhancements.css` | Gestaltung der ergänzenden Funktionen: Detail-Tooltip beim Überfahren einer Zelle (`celltooltip.js`) sowie der Druckvorschau-Dialog inklusive PDF-Export (`printpreview.js`) mit Layout-Optionen, Seitenvorschau und maßstabsgetreuer Tabellendarstellung. |
-| `print.css` | Ausschließlich über `media="print"` eingebunden. Blendet sämtliche Bedienelemente, Leisten, Dialoge und die mobile Navigation aus und stellt stattdessen einen eigenen Druckkopf (`#print-header`) und Druckfuß (`#print-footer`) sowie eine vereinfachte, kontrastreiche Darstellung der Rastertabelle dar. Das Seitenformat (A4, 8 mm Rand) wird zur Laufzeit über ein dynamisch erzeugtes `#print-page-style`-Element gesetzt, sodass Quer-/Hochformat aus der Druckvorschau steuerbar ist; eine Body-Klasse `print-no-rbn` blendet auf Wunsch die RD-Neurorad-Zeile aus dem Druck aus. |
-| `contextmenu.css` | Gestaltung des generischen Kontextmenüs: schwebendes Glaspanel mit Skalierungs-/Transparenz-Übergang, Menüpunkte mit Hover-/Aktiv-Zuständen, eine optische Sonderkennzeichnung für destruktive Aktionen, Trennlinien sowie rechtsbündige Tastaturkürzel-Hinweise. |
+> Diagramme und PDF degradieren *graceful*: Ist Chart.js bzw. jsPDF nicht erreichbar, bleiben Tabellen und Daten vollständig nutzbar.
 
-### 2.5 Persistenz und Datenfluss
+### 2.3 Backend
+- **Cloudflare Pages Function** (`functions/api.js`) — eine einzige Edge-Funktion unter der Route `/api`.
+- **Persistenter Speicher:** Cloudflare **KV-Namespace** (Binding `RADPLAN_KV`, Schlüssel `RADPLAN_DATA`).
+- **Methoden:** `GET` (liefert den gesamten Datenstand), `POST` (speichert mit Konflikterkennung), `OPTIONS` (CORS-Preflight). Vollständige CORS-Header, strikte `no-store`-Cache-Direktiven.
+- **Optimistische Nebenläufigkeitskontrolle** über einen `lastModified`-Zeitstempel (Details in [Abschnitt 5](#5-persistenz--server-synchronisation)).
 
-Der gesamte Anwendungsdatensatz wird unter dem `localStorage`-Schlüssel `radplan_v3` (Konstante `STORAGE_KEY`) als JSON-Objekt gespeichert. Jede Änderung an einer Zelle löst `saveToStorage()` aus, welches sofort synchron in den `localStorage` schreibt und anschließend, mit einer kurzen Verzögerung (Debounce von 120 ms), einen Schreibvorgang an die Server-Schnittstelle anstößt. Unabhängig davon legt der Planungsmodus seine Entwürfe unter eigenen Schlüsseln der Form `radplan_v3_plan_<monthKey>` ab, sodass produktive Daten und Planungsentwürfe strikt voneinander getrennt bleiben.
-
-## 3. Datenmodell
-
-### 3.1 Grundstruktur von `DATA`
-
-Der zentrale Laufzeitzustand `DATA` (definiert in `state.js`) ist ein Objekt, dessen Schlüssel Monatskennungen im Format `"<Jahr>-<Monatsindex>"` sind (Monatsindex nullbasiert, also Januar = 0). Die Erzeugung dieses Schlüssels erfolgt ausschließlich über die Funktion `monthKey(y, m)` aus `constants.js`. Jeder Eintrag enthält die Daten exakt eines Kalendermonats in folgender Form:
+### 2.4 Modul-Architektur (Frontend)
+RadPlan ist klar in Module mit definierten Verantwortlichkeiten geschnitten. Der zentrale Einstiegspunkt ist `js/app.js`.
 
 ```
-DATA[monthKey(y, m)] = {
-  employees:   string[],                 // aktive Mitarbeitende dieses Monats
-  assignments: { [empName]: { [tag]: Assignment } },
-  rbn:         { [tag]: string },         // RBN-Sonderzeile, siehe 3.4
-  comments:    { [empName]: { [tag]: string } }
-}
+constants.js   → Domänenkonstanten, Codes, Stammdaten, Regel-Engine-Konfiguration, Datums-/Feiertagsmathematik
+state.js       → globaler Zustand, localStorage, Server-Sync, 3-Wege-Merge
+model.js       → Datenzugriff (Zellen, Monate), Statistik-Aggregation, Plan-Sessions
+history.js     → Undo/Redo (delta-basiert) für den Normalmodus
+autoplan.js    → der Neural Scheduler (Constraint-Engine, Optimierung, Bericht)
+neuralgraph.js → die „Orbital Core"-Animation während der Auto-Planung
+render-grid.js → das Monatsraster, Schnell-Popover, Radialmenü, Mobile-Tagesansicht
+render-modals.js → Editor-, Profil-/Person-, Score-Info-Modale, Toast, Overlay-Steuerung
+render-employee-dashboard.js → Mitarbeitendenbereich (Team-Screen + Person-Detail-Tabs)
+render-dept.js → Abteilungsübersicht (Monat/Jahr)
+yearplan.js    → Jahresplaner (5 Tabs)
+printpreview.js → Druckvorschau + jsPDF-Export
+commandpalette.js → die ⌘K-Befehlspalette
+contextmenu.js → Rechtsklick-Kontextmenü
+celltooltip.js → reichhaltige Hover-Tooltips an Zellen
+viewtransition.js → sanfte View-Transitions beim Monatswechsel
+icons.js       → SVG-Icon-Helfer
 ```
 
-Die Funktion `normalizeMonthDataShape(md)` stellt sicher, dass beim Laden eines Monats fehlende Teilstrukturen (`employees`, `assignments`, `rbn`, `comments`) als leere Strukturen ergänzt werden, sodass nachfolgender Code stets von ihrem Vorhandensein ausgehen kann.
-
-### 3.2 Assignment (Tageszelle)
-
-Eine `Assignment` ist eine einzelne Zeichenkette, die den Zustand einer Mitarbeiter:in an einem bestimmten Tag kodiert. Sie kann folgende Bestandteile kombinieren:
-
-- Einen oder mehrere Arbeitsplatz-Codes (siehe Abschnitt 4.1), durch `/` getrennt, wenn an einem Tag mehrere Arbeitsplätze zugewiesen sind (z. B. `"MR/CT"`).
-- Einen Status-Code (siehe Abschnitt 4.2), der exklusiv ist: Ist ein Status gesetzt, schließt dies eine gleichzeitige Arbeitsplatzzuweisung an diesem Tag aus.
-- Einen optionalen Dienst-Zusatz für Bereitschafts- (`D`) oder Hintergrunddienst (`HG`), der unabhängig von Arbeitsplatz oder Status zusätzlich angehängt werden kann.
-
-Zusätzlich zur reinen Zuweisung können im Planungsmodus pro Zelle ein Dienstwunsch (`NO_DUTY`, `BD_WISH`, `HG_WISH`, siehe Abschnitt 4.3) sowie eine Fixierung (Pin) hinterlegt werden, die diese Zelle für die automatische Planung sperrt.
-
-### 3.3 Kommentare
-
-Zu jeder Mitarbeiter:in-Tag-Kombination kann unabhängig von der Zuweisung eine Freitext-Notiz (maximal 200 Zeichen) hinterlegt werden, die im Raster als Kommentar-Indikator angezeigt wird und beim Überfahren bzw. Öffnen des Editors sichtbar ist.
-
-### 3.4 RBN-Sonderzeile
-
-Zusätzlich zur regulären Mitarbeitenden-Matrix existiert eine von den normalen Mitarbeitenden- und Zuweisungsdaten vollständig entkoppelte Sonderzeile für den neuroradiologischen Rufbereitschaftsdienst („RD Neurorad“). Ihre Konfiguration:
-
-- `RBN_ROW_KEY = "__RBN_NEURORAD__"` — interner Schlüssel innerhalb von `md.rbn`.
-- `RBN_ROW_LABEL = "RD Neurorad"` — Anzeigename der Zeile.
-- `RBN_ROW_START = { year: 2025, month: 5 }` — gibt vor, ab welchem Monat die Zeile überhaupt im Raster sichtbar ist; geprüft über `isRbnMonthVisible(y, m)`. Für Monate vor Juni 2025 wird die Zeile nicht angezeigt.
-- `RBN_OPTIONS` — eine feste Liste von acht möglichen Namens-Einträgen für diese Zeile (Prof. Schob, Dr. Maybaum, Dr. Bailis, Dr. Schüngel, Fr. Dalitz, Fr. Thaler, Dr. Martin, Hr. El Houba), unabhängig vom regulären Mitarbeitendenstamm.
-- `RBN_THALER_LAST_MONTH = { year: 2026, month: 2 }` — letzter Monat (März 2026), in dem „Fr. Thaler (RAD)“ als wählbare Option erscheint. Die Funktion `getRbnOptionsForDate(y, m)` filtert diese Option für alle späteren Monate automatisch aus der Auswahlliste heraus.
-
-Die RBN-Zeile wird unabhängig von `employees` und `assignments` im Feld `rbn` des jeweiligen Monatsobjekts als einfache Tag-zu-Name-Zuordnung gespeichert.
-
-### 3.5 Mitarbeitendenstammdaten und Lebenszyklus
-
-Stammdaten zu jeder Mitarbeiter:in werden zentral in `EMP_META` (in `constants.js`) gepflegt: vollständiger Name, Positionscode (z. B. CA, LOA, OA, OÄ, FA, FÄ, AA, AÄ), Positionsbezeichnung, Facharzt-Typ, fachlicher Schwerpunktbereich, Vertretung, Beschäftigungsbeginn, Beschäftigungsgrad (FTE), interne Telefondurchwahl sowie thematische Tags.
-
-Mitarbeitende können über `EMPLOYEE_DEPARTURES` mit einem Austrittsmonat und einem Austrittsgrund versehen werden. Die Funktion `isEmployeeActiveInMonth(name, y, m)` prüft, ob eine Person in einem gegebenen Monat noch aktiv ist; `reconcileEmployeesForMonth(md, y, m)` entfernt beim Laden eines Monats automatisch alle Personen, deren Austrittsmonat erreicht oder überschritten ist, aus den Feldern `employees`, `assignments` und `comments` dieses Monats, sodass ausgeschiedene Mitarbeitende in zukünftigen Monaten nicht mehr erscheinen, in vergangenen Monaten aber unverändert sichtbar bleiben.
-
-### 3.6 Weitere zentrale Konstanten
-
-- `MOBILE_BREAKPOINT = 600` — die JavaScript-seitige Pixel-Schwelle, unterhalb derer die Anwendung in den mobilen Listenmodus wechselt.
-- `ABSENCE_CODES` — die Menge aller Status-Codes, die als Abwesenheit gelten (`U`, `ZU`, `SU`, `FZA`, `K`, `KK`, `§15c`, `WB`).
-- `VACATION_CODES` — die Teilmenge der Abwesenheitscodes, die als Urlaub im engeren Sinn gelten (`U`, `ZU`, `SU`, `§15c`).
-
-## 4. Arbeitsplatz-, Status- und Wunschtyp-Codes
-
-### 4.1 Arbeitsplätze (`WORKPLACES`)
-
-| Code | Bezeichnung | Hintergrundfarbe | Textfarbe |
-|---|---|---|---|
-| `MR` | MRT | `#DBEAFE` | `#1D4ED8` |
-| `CT` | CT | `#FFEDD5` | `#C2410C` |
-| `US` | Sonographie | `#CCFBF1` | `#0F766E` |
-| `AN` | Angiographie | `#F3E8FF` | `#7E22CE` |
-| `MA` | Mammographie | `#FCE7F3` | `#BE185D` |
-| `KUS` | Kinder-US | `#DCFCE7` | `#15803D` |
-| `W` | Wermsdorf | `#FEF9C3` | `#854D0E` |
-| `T` | Teleradiologie | `#E0E7FF` | `#3730A3` |
-
-Mehrere Arbeitsplatz-Codes können an einem Tag gleichzeitig zugewiesen werden (Mehrfachauswahl im Editor, z. B. `MR/CT`).
-
-### 4.2 Status (`STATUSES`)
-
-| Code | Bezeichnung | Hintergrundfarbe | Textfarbe |
-|---|---|---|---|
-| `F` | Frei | `#F1F5F9` | `#475569` |
-| `U` | Urlaub | `#EDE9FE` | `#5B21B6` |
-| `ZU` | Zusatzurlaub | `#DDD6FE` | `#4C1D95` |
-| `SU` | Sonderurlaub | `#C4B5FD` | `#2E1065` |
-| `FZA` | FZA | `#E0E7FF` | `#3730A3` |
-| `K` | Krank | `#FEE2E2` | `#991B1B` |
-| `KK` | Kind Krank | `#FECACA` | `#7F1D1D` |
-| `§15c` | §15c | `#CFFAFE` | `#155E75` |
-| `WB` | Weiterbildung | `#FEF3C7` | `#78350F` |
-
-Ein Status ist exklusiv: Ist für einen Tag ein Status gesetzt, ist an diesem Tag keine Arbeitsplatzzuweisung möglich.
-
-### 4.3 Dienstwunsch-Typen (`WISH_TYPES`)
-
-Dienstwünsche können ausschließlich im Planungsmodus pro Zelle hinterlegt werden und fließen als weiche Präferenz in die automatische Planung ein.
-
-| Code | Bezeichnung | Symbol | Hintergrundfarbe | Textfarbe | Rahmenfarbe |
-|---|---|---|---|---|---|
-| `NO_DUTY` | Kein Dienst | `✗` | `#FEE2E2` | `#991B1B` | `#FCA5A5` |
-| `BD_WISH` | BD Wunsch | `D` | `#FEE2E2` | `#B91C1C` | `#F87171` |
-| `HG_WISH` | HG Wunsch | `H` | `#E0F2FE` | `#0369A1` | `#7DD3FC` |
-
-### 4.4 Dienst-Zusätze
-
-Unabhängig von Arbeitsplatz und Status kann jeder Tageszelle einer diensthabenden Person einer von zwei Dienst-Zusätzen angehängt werden:
-
-- `D` — Bereitschaftsdienst.
-- `HG` — Hintergrunddienst.
-
-## 5. UI/UX im Detail
-
-### 5.1 Hauptraster (Monatsansicht)
-
-Das Hauptraster (`#plan-table`) zeigt alle aktiven Mitarbeitenden des gewählten Monats als Zeilen und alle Kalendertage des Monats als Spalten. Jede Zelle zeigt die kombinierte Zuweisung (Arbeitsplatz und/oder Status, Dienst-Zusatz, Wunsch-Symbol im Planungsmodus, Fixierungs-Symbol, Kommentar-Indikator) in farbcodierter Form gemäß Abschnitt 4. Wochenend- und Feiertagsspalten sind optisch hervorgehoben, ebenso die Spalte des aktuellen Tages. Konflikte, die der Planungsassistent oder die Live-Prüfung erkennt (siehe Abschnitt 6.3), werden direkt am betroffenen Zellpaar markiert.
-
-**Mehrfachauswahl und Bulk-Edit:** Mehrere Zellen einer Person lassen sich gezielt auswählen und anschließend gemeinsam bearbeiten. `Strg`/`Cmd`+Klick fügt einzelne Tage zur Auswahl hinzu oder entfernt sie wieder; `Shift`+Klick markiert einen zusammenhängenden Bereich vom zuletzt gesetzten Anker bis zum angeklickten Tag. Die markierten Tage werden im Raster hervorgehoben; das anschließende Öffnen des Zellen-Editors (Doppelklick) wendet die gespeicherte Zuweisung auf alle ausgewählten Tage an. Ergänzend besteht weiterhin die Maus-Drag-Auswahl.
-
-**Detail-Tooltip:** Beim Überfahren einer Zelle mit der Maus erscheint nach kurzer Verzögerung ein informativer Tooltip mit Person und Position, einer Vorschau der jüngsten Dienste (D/HG), der Erklärung etwaiger Regelkonflikte, einer vorhandenen Notiz sowie Zeitpunkt und Inhalt der letzten erfassten Zellenänderung.
-
-**Undo/Redo:** Im Normalmodus lassen sich sämtliche Datenänderungen — Zellenänderungen, RBN-Zeile, Notizen, Import und Löschungen — über die Schaltflächen `#btn-undo`/`#btn-redo` in der Kopfzeile bzw. die Tastenkürzel `Strg`/`Cmd`+`Z` und `Strg`/`Cmd`+`Y` rückgängig machen und wiederherstellen. Der Planungsmodus besitzt eine eigene, davon unabhängige Historie in der Planungsleiste.
-
-Eine schwebende, manuell umschaltbare Rasterdichte (`#btn-density`) verkleinert Namensspalte, Zellbreite und Zeilenhöhe unabhängig von den responsiven Breakpoints, um auf kleineren Fenstern oder Tablets mehr Spalten gleichzeitig sichtbar zu machen.
-
-### 5.2 Zellen-Editor
-
-Der Zellen-Editor (`#modal-editor`) öffnet sich beim Aktivieren einer Zelle und gliedert die Bearbeitung in nummerierte Schritte:
-
-1. **Einsatz** — Mehrfachauswahl der Arbeitsplatz-Chips bzw. exklusive Auswahl eines Status-Chips.
-2. **Dienst** — Auswahl des Dienst-Zusatzes (Bereitschaft/Hintergrund) inklusive Warnhinweis bei Regelkonflikten.
-3. **Planung** (nur im Planungsmodus sichtbar) — Auswahl eines Dienstwunsches und Festlegen einer Fixierung für die automatische Planung.
-4. **Notiz** — Freitextfeld für eine Tageskommentar (maximal 200 Zeichen, mit Zeichenzähler).
-
-Eine Vorschau-Box zeigt die resultierende Kombination, bevor sie gespeichert wird. Der Editor unterstützt vollständige Tastaturbedienung (siehe Abschnitt 8).
-
-### 5.3 Mitarbeitenden-Profil
-
-Das Profilmodal (`#modal-profile`) zu einer einzelnen Person zeigt: eine Statusleiste zum aktuellen Tag, Kennzahlen-Kacheln des aktuellen Monats, eine Arbeitsplatz-Verteilung als Balken- und Donut-Diagramm, eine Status-/Abwesenheits-Verteilung, eine detaillierte Dienst-/Hintergrunddienst-Aufstellung, einen Jahresverlaufstrend als Liniendiagramm, eine Dienstverteilung nach Wochentag als Balkendiagramm, einen anklickbaren Monatskalender (öffnet bei Klick auf einen Werktag direkt den Zellen-Editor) sowie eine Jahresauswertung.
-
-### 5.4 Mitarbeitenden-Bereich (Dashboard)
-
-Der Mitarbeitenden-Bereich (`#modal-emps`) bietet:
-
-- Eine zusammenfassende Kennzahlen-Übersicht über alle Mitarbeitenden.
-- Ein Team-Analytics-Panel mit wählbaren Zeiträumen für Abteilungs- und Mitarbeitendenstatistiken.
-- Ein durchsuchbares (`#emp-search`) und nach Rolle filterbares Kartenraster aller Mitarbeitenden mit Jahresübersicht.
-- Eine Detailansicht je ausgewählter Person mit vier umschaltbaren Reitern: Monatsverlauf (tabellarisch je Monat inklusive Abdeckungsbalken), Jahreskalender (Mini-Monatskarten), Verwaltung (Administrationslayout) und Analyse (Kennzahlen-Kacheln, Kreis- und Verhältnisdiagramme, Abwesenheits-Aufschlüsselung).
-
-### 5.5 Jahresplaner
-
-Der Jahresplaner (`#modal-yearplan`) gliedert sich in drei Reiter:
-
-- **Jahres-Gitter** — tabellarische Übersicht aller Mitarbeitenden über alle zwölf Monate eines Jahres mit Bereitschafts- und Hintergrunddienst-Summen je Zelle, Gesamtspalte je Person und einer Durchschnittszeile.
-- **Fairness-Analyse** — umschaltbarer Diagrammmodus mit horizontalem Balkendiagramm sowie einer tabellarischen Aufstellung der Abweichung jeder Person vom Mittelwert.
-- **Jahresprojektion** — Hochrechnung der bis Jahresende zu erwartenden Dienstzahlen je Person inklusive Fortschrittsbalken und Abweichungsanzeige.
-
-Eine Jahresnavigation erlaubt das Wechseln zwischen Kalenderjahren unabhängig vom aktuell angezeigten Monat in der Hauptansicht.
-
-### 5.6 Abteilungsansicht
-
-Die Abteilungsansicht (`#modal-dept`) zeigt in zwei Reitern die Tagesabdeckung des aktuellen Monats je Arbeitsplatz (mit Abdeckungsbalken) sowie eine Jahresübersicht der Abdeckung je Arbeitsplatz und Monat.
-
-### 5.7 Befehlspalette
-
-Die Befehlspalette (`#modal-command-palette`) wird über `Strg+K` bzw. `Cmd+K` geöffnet oder erneut geschlossen, alternativ über die Lupen-Schaltfläche `#btn-cmdk` in der Kopfzeile. Sie bietet eine textbasierte Filterung über drei Gruppen von Einträgen:
-
-**Statische Befehle (Gruppe „Funktionen“, vollständig):**
-
-1. Jahresplan öffnen
-2. Mitarbeitende verwalten
-3. Daten exportieren (JSON)
-4. Daten importieren (JSON)
-5. Monatsplan drucken / als PDF speichern
-6. Planungsmodus starten
-7. Auto-Plan ausführen (nur im Planungsmodus verfügbar)
-8. Zum heutigen Monat springen
-9. Hell-/Dunkelmodus umschalten
-10. Spaltendichte umschalten (kompakt/normal)
-
-**Dynamische Befehle:**
-
-- Gruppe „Monat“ — ein Eintrag pro Kalendermonat für das Vorjahr, das aktuelle Jahr und das Folgejahr (36 Einträge), die direkt zum gewählten Monat springen.
-- Gruppe „Mitarbeitende“ — ein Eintrag pro im aktuellen Jahr aktiver Mitarbeiter:in, der das jeweilige Profil öffnet.
-
-Die Navigation innerhalb der Ergebnisliste erfolgt über die Pfeiltasten, die Ausführung über die Eingabetaste, das Schließen über Escape.
-
-### 5.8 Kontextmenü
-
-An mehreren Stellen der Oberfläche steht ein Rechtsklick-Kontextmenü zur Verfügung, das über die generische `ContextMenu`-Komponente (`contextmenu.js`) realisiert ist: ein schwebendes Glaspanel mit Menüpunkten, optionalen Tastaturkürzel-Hinweisen, einer optischen Hervorhebung für destruktive Aktionen und Trennlinien zwischen logischen Gruppen.
-
-### 5.9 Mobiles Bedienkonzept (iPhone-optimiert)
-
-Unterhalb des in Abschnitt 9 beschriebenen Breakpoints wechselt RadPlan von der für Maus und Tastatur ausgelegten Rastertabelle auf ein eigenständiges, vollständig fingerbedienbares Bedienkonzept. Es ist gezielt auf moderne Vollbild-Smartphones mit Notch/Dynamic Island und abgerundeten Display-Ecken (Referenzgerät: **iPhone 14 Pro Max**, 430 × 932 CSS-px, Safe-Areas oben/unten) zugeschnitten. Leitprinzipien: **keine horizontal scrollende Tabelle**, **alle Desktop-Funktionen erreichbar**, **Daumen-freundliche Trefferflächen ≥ 44 px**, **Bottom-Sheet-Dialoge** statt zentrierter Modale sowie **konsequente Beachtung der `env(safe-area-inset-*)`-Werte**, damit niemals Inhalt unter Notch, Home-Indikator oder Display-Rundung verschwindet.
-
-**Tagesliste statt Raster.** Die Hauptansicht wird zur vertikalen Tagesliste (`#mobile-day-list`): eine nach Kalenderwochen gruppierte Folge von Tageskarten, jede mit Wochentags-, Datums- und Wochenend-/Feiertags-/Heute-Kennzeichnung sowie den zugehörigen Dienst-, Zuweisungs- und Wunsch-Badges. Eine Zusammenfassungsleiste (`#mobile-month-summary`) oberhalb der Liste zeigt aggregierte, horizontal scrollbare Monatskennzahlen.
-
-**Tagesdetail als Bottom-Sheet.** Ein Tippen auf eine Karte öffnet einen von unten einfahrenden Dialog (`#modal-mobile-day`) mit Zieh-Griff (`.mday-handle`), Dienst-Badges in der Kopfzeile, scrollbarem Körper und einer nach Sektionen gegliederten, editierbaren Mitarbeitendenliste. Horizontale Wischgesten innerhalb des Sheets blättern tagweise vor/zurück, ohne den Dialog zu schließen.
-
-**Untere Navigationsleiste.** Eine feste, an der Safe-Area unten ausgerichtete Leiste (`#mobile-nav`) ersetzt die Kopfzeilen-Aktionen durch drei großflächige Ziele: **Mitarbeitende**, **Planung** (mit hervorgehobenem Mittel-Button, der im aktiven Planungsmodus farblich umschaltet) und **Menü**.
-
-**Vollständiges Aktions-Sheet (Menü).** Die Schaltfläche „Menü“ öffnet ein Bottom-Sheet (`#modal-mobile-menu`), das jede Funktion der Desktop-Kopfzeile auf das Telefon bringt — bewusst kein reduziertes Untermenü. Es ist in beschriftete Abschnitte gegliedert:
-
-- **Ansicht & Navigation** (3-spaltiges Kachelraster, `.mm-tile`): **Heute** (springt zum aktuellen Tag), **Suche** (öffnet die Befehlspalette), **Design** (Hell-/Dunkelmodus, mit live umschaltendem Sonne-/Mond-Icon), **Rückgängig** und **Wiederholen** (spiegeln den Aktivierungszustand der Verlaufsschaltflächen).
-- **Module** (Kachelraster): **Mitarbeitende** (Dashboard), **Jahresplan** (Jahresplaner-Modal) und **Drucken / PDF** (Druckvorschau).
-- **Daten** (beschriftete Listenzeilen mit Untertiteln, `.mm-row`): **Daten exportieren**, **Daten importieren** sowie — visuell als destruktiv markiert — **Vom Server neu laden** (verwirft lokale Entwürfe und holt den Server-Stand).
-
-Alle Sheets schließen mit einer nach unten gerichteten Animation, respektieren `prefers-reduced-motion` und polstern ihren unteren Rand um `env(safe-area-inset-bottom)`, sodass Aktionsschaltflächen stets oberhalb des Home-Indikators liegen.
-
-### 5.10 Drag-&-Drop-Import
-
-Der Import-Dialog (`#modal-import`) bietet eine Dropzone für JSON-Dateien (Ziehen-und-Ablegen oder Klick zum Durchsuchen) sowie alternativ ein Textfeld zum direkten Einfügen von JSON-Text. Fehlerhafte Eingaben werden mit einer Inline-Fehlermeldung zurückgewiesen.
-
-### 5.11 Export und Druck
-
-Der Export (`#btn-export`, Tastenkürzel `Strg/Cmd+S` außerhalb des Planungsmodus) erzeugt eine herunterladbare JSON-Datei des gesamten Datenbestands.
-
-Der Druck (`#btn-print`, Tastenkürzel `Strg/Cmd+P`) öffnet zunächst eine **Druckvorschau** (`#modal-print-preview`, `printpreview.js`). Diese zeigt eine maßstabsgetreue Seitenvorschau der aktuellen Monatstabelle samt Druckkopf und bietet folgende Optionen:
-
-- **Ausrichtung** — Quer- oder Hochformat. Die Auswahl setzt zur Laufzeit das `@page`-Format für den Browser-Druck.
-- **RD-Neurorad-Zeile** — wahlweise im Ausdruck enthalten oder ausgeblendet.
-- **Seitenumbruch-Hinweis** — eine grobe Schätzung der benötigten Seitenzahl.
-
-Aus der Vorschau führen zwei Ausgabewege:
-
-1. **Drucken** — nutzt die in `print.css` definierte, kontrastreiche Druckdarstellung über den nativen Browser-Druckdialog (inklusive automatischer Skalierung, damit das Raster vollständig auf die Seite passt).
-2. **Als PDF speichern** — erzeugt über **jsPDF** und das **AutoTable**-Plugin direkt ein PDF des Monatsrasters, ohne den Browser-Druckdialog. Das PDF enthält eine Kopfzeile mit Titel und eingebettetem App-Logo (img/icon.svg), den gewählten Monatszeitraum, seitenübergreifend wiederholte Tabellenköpfe sowie eine Fußzeile mit Erstellungsdatum und Seitenzahlen im gewählten Layout.
-
-### 5.12 Theme-Umschaltung
-
-Die Schaltfläche `#btn-theme` wechselt zwischen Hell- und Dunkelmodus. Der gewählte Modus wird in `localStorage` unter dem Schlüssel `radplan_v3_theme` gespeichert und beim nächsten Laden der Seite bereits vor dem ersten Rendering über ein Inline-Skript im `<head>` von `index.html` angewendet, um ein Aufblitzen des falschen Themas zu vermeiden. Ohne gespeicherte Präferenz wird die Systemeinstellung (`prefers-color-scheme`) herangezogen. Der Wechsel selbst wird, sofern der Browser die View-Transitions-API unterstützt und keine reduzierte Bewegungspräferenz vorliegt, als kreisförmiger Enthüllungseffekt animiert, der vom Klickpunkt der Schaltfläche ausgehend über die gesamte Seite expandiert.
-
-### 5.13 Periodensteuerung (Zeitraum-Flyout)
-
-Über die Monatsbezeichnung in der Kopfzeile öffnet sich ein Flyout (`#period-flyout`) zur unabhängigen Auswahl von Monat und Jahr (Dropdown für den Monat, nummerisches Eingabefeld mit Schrittschaltflächen für das Jahr), ergänzt um Schnellsprung-Schaltflächen für den vorigen/nächsten Monat sowie eine „Heute“-Schaltfläche. Die Anwendung der Auswahl löst eine gerichtete View-Transition-Animation aus, deren Richtung (vorwärts/rückwärts) sich aus dem Vergleich von Ziel- und Ausgangsmonat ergibt.
-
-### 5.14 Planungsmodus
-
-Der Planungsmodus (`#btn-plan`) öffnet eine vom Hauptdatenbestand vollständig isolierte Sandbox (`planData`) für den aktuell gewählten Monat, in der Änderungen unabhängig von den produktiven Daten vorgenommen werden können. Eine eigene Leiste (`#plan-bar`) zeigt den aktiven Zustand, den bearbeiteten Monat sowie Schaltflächen für Rückgängig/Vorwärts (mit eigener Historie, `Strg/Cmd+Z` bzw. `Strg/Cmd+Shift+Z`/`Strg/Cmd+Y`), Auto-Plan-Start, Verwerfen, Speichern als Entwurf, Schließen und Übernahme in den Hauptplan. Entwürfe werden separat unter `radplan_v3_plan_<monthKey>` im `localStorage` abgelegt.
-
-## 6. Der Planungsassistent „Auto-Plan“
-
-### 6.1 Überblick
-
-Der Auto-Plan-Algorithmus (`autoplan.js`) befüllt einen Monat im Planungsmodus automatisch mit Bereitschafts- und Hintergrunddienstzuweisungen. Er kombiniert einen mehrphasigen, regelbasierten Greedy-Ansatz mit anschließenden lokalen Suchverfahren (Tausch-Optimierung), um eine möglichst faire und regelkonforme Verteilung zu erreichen. Konfigurierbar sind unter anderem individuelle Zieldienstzahlen je Mitarbeiter:in sowie eines von drei Gewichtungsprofilen:
-
-| Profil | Bezeichnung | Beschreibung |
-|---|---|---|
-| `standard` | Ausgewogen | Solver-Standardgewichtung aus harter Regelkonformität, Fairness und Wunscherfüllung. |
-| `fairness` | Fairness-optimiert | Gewichtet die gleichmäßige Verteilung von Wochenend-/Samstags-/Hintergrunddiensten stärker; Wünsche treten zurück. |
-| `wish` | Wunscherfüllung-optimiert | Gewichtet erfüllte Dienstwünsche deutlich stärker; der Fairness-Ausgleich tritt zurück. |
-
-Von der Bereitschaftsdienst-Planung grundsätzlich ausgenommen ist die in `DUTY_EXEMPT` gelistete Person (Prof. Schäfer).
-
-### 6.2 Phasenmodell
-
-Der Algorithmus arbeitet die folgenden Phasen sequenziell ab:
-
-1. **Bedarfsermittlung und Vorbereitung** — Sammlung historischer Diensthäufigkeiten (`collectHistoricalDutyStats`) zur Berücksichtigung bisheriger Belastung über mehrere Monate hinweg.
-2. **Bereitschaftsdienst-Zuweisung** — initiale Verteilung der Bereitschaftsdienste auf alle Tage des Monats unter Beachtung der harten Regeln (siehe 6.3).
-3. **`runPhase4_BDOptimize`** — lokale Tausch-Optimierung der Bereitschaftsdienst-Zuweisungen über bis zu `BD_MAX_PASSES = 80` Durchläufe, um die Verteilung zwischen den Mitarbeitenden auszugleichen.
-4. **`runPhase5_HGBundle`** — Bündelung zusammenhängender Hintergrunddienst-Zeiträume.
-5. **`runPhase6_HGAssign`** — initiale Zuweisung der Hintergrunddienste.
-6. **`runPhase7_HGOptimize`** — lokale Tausch-Optimierung der Hintergrunddienst-Zuweisungen über bis zu `HG_MAX_PASSES = 120` Durchläufe.
-7. **`runPhase8_DeepOptimize`** — übergreifende, tiefere Tausch-Optimierung über beide Dienstarten gemeinsam, über bis zu `DEEP_MAX_PASSES = 150` Durchläufe je Zyklus.
-8. **`runCoverageRepair`** — abschließende Reparaturphase, die verbleibende Abdeckungslücken (Tage ohne gültige Zuweisung) gezielt schließt.
-
-Die Phasen 4, 7 und 8 werden gemeinsam innerhalb einer Multi-Zyklus-Schleife von bis zu `MAX_OPTIMIZATION_CYCLES = 25` Wiederholungen ausgeführt, wobei jeder Zyklus erneut Bereitschaftsdienst-, Hintergrunddienst- und Tiefenoptimierung durchläuft, bis entweder keine weiteren Verbesserungen gefunden werden oder die maximale Zyklenzahl erreicht ist.
-
-### 6.3 Harte Regeln (Constraints)
-
-Folgende harte Regeln werden während der Zuweisung und in der eigenständigen Konfliktprüfung (`computeGridConflicts`) durchgesetzt bzw. geprüft:
-
-- **Abwesenheitsausschluss** — eine Person mit einem Abwesenheitsstatus (`isAbsentOnDay`, basierend auf `ABSENCE_CODES`) kann an diesem Tag keinen Dienst übernehmen.
-- **Urlaubsausschluss am Folgetag** (`isNextDayVacation`) — eine Person, die am nächsten Kalendertag in Urlaub geht, wird für bestimmte Dienstkombinationen am Vortag ausgeschlossen.
-- **Doppel-Frei-Doppel-Frei-Vermeidung** (`wouldCreateDFDF`) — verhindert die Entstehung ungünstiger Frei-Dienst-Muster über aufeinanderfolgende Tage.
-- **Wochenend-Dienst-Begrenzung** — die Zielgröße für Wochenend-Bereitschaftsdienste je Person beträgt `TARGET_WEEKEND_DUTY = 1` pro Bezugszeitraum, mit einer aufgeweichten Obergrenze `RELAXED_WEEKEND_DUTY_LIMIT = 1.5` für Ausnahmefälle.
-- **Vermeidung aufeinanderfolgender Wochenend-Dienste** (`wouldCreateConsecutiveWeekendDuty`) — eine Person soll nicht an zwei direkt aufeinanderfolgenden Wochenenden zum Bereitschaftsdienst eingeteilt werden.
-- **CT-Leitungskonflikt** — eine speziell auf das CT-Leitungstandem (Dr. Becker und Dr. Martin) bezogene Regel: Hält eine der beiden Personen an einem Tag tatsächlich einen Bereitschaftsdienst (`D`), während die andere Person am nächsten Werktag abwesend ist (z. B. in Urlaub), wird dies als Konflikt markiert. Die Regel greift ausschließlich für dieses Personenpaar, ausschließlich bei einem tatsächlich gehaltenen Bereitschaftsdienst (nicht bei einer bloßen Planung ohne Dienst) und ausschließlich über eine Werktag-zu-Werktag-Grenze hinweg.
-- **Fixierungen (Pins)** — im Planungsmodus markierte Zellen werden von jeder automatischen Änderung ausgenommen.
-
-### 6.4 Weiche Regeln (Fairness-Kriterien)
-
-Neben den harten Regeln optimiert der Algorithmus folgende weiche Kriterien, gemessen über Streuungskennzahlen (`computeFairnessSpread`, `averageFromArray`):
-
-- Ausgeglichene Gesamtzahl an Bereitschaftsdiensten je Person (`bdSpread`).
-- Ausgeglichene Gesamtzahl an Hintergrunddiensten je Person (`hgSpread`).
-- Ausgeglichene Verteilung von Wochenend-Diensten je Person (`weekendSpread`), ermittelt unter anderem über `countWeekendDuties`, `getWeekendDutyKWs`, `getWeekendStateForKW` und `projectedWeekendDutyCount`.
-- Erfüllung der im Planungsmodus hinterlegten Dienstwünsche (`wishFulfillmentRate`).
-- Berücksichtigung der historischen Vorbelastung aus vorangegangenen Monaten, getrennt nach Fachärzten (`isFacharzt`) und Assistenzärzten (`isAssistenzarzt`), da für beide Gruppen unterschiedliche Erwartungswerte an Hintergrunddiensten gelten.
-
-### 6.5 Qualitätsscore (NFI-Score)
-
-Nach Abschluss aller Phasen berechnet der Algorithmus einen Qualitätsscore nach folgender Formel:
-
-```
-rawScore = 100.0
-  − (dutyCoverageMisses × 15.0)
-  − (hgCoverageMisses  × 10.0)
-  − (bdSpread           × 2.5)
-  − (hgSpread           × 1.5)
-  − (weekendSpread      × 2.0)
-  + (wishFulfillmentRate × 5.0)
-  − (deepMoves          × 0.005)
-
-qualityScore = clamp(rawScore, 0, 100)
-```
-
-Dabei zählt `dutyCoverageMisses` die Anzahl der Tage ohne gültige Bereitschaftsdienst-Abdeckung, `hgCoverageMisses` die entsprechende Zahl für Hintergrunddienste, `deepMoves` die Anzahl der in Phase 8 vorgenommenen Tauschoperationen. Der berechnete Score wird sowohl im Abschlussbericht als auch im eigenständigen Bewertungsdetail-Dialog (`#modal-score-info`) identisch dargestellt, letzterer ergänzt um eine textuelle Begründung der einzelnen Score-Bestandteile.
-
-### 6.6 Abschlussbericht
-
-Nach einem abgeschlossenen Lauf steht ein Abschlussbericht (`#modal-ap-report`) zur Verfügung, der unter anderem auflistet: die Gesamtzahl an Tauschoperationen je Phase, erkannte und nicht behebbare Abdeckungslücken, erfüllte und nicht erfüllte Dienstwünsche samt Begründung („Warum?“-Erklärungen je Zuweisung), sowie bei Bedarf eine vergleichende Darstellung alternativer Zuweisungen, die der Algorithmus während der Optimierung verworfen hat.
-
-### 6.7 Bekannte Grenzen
-
-Die automatische Planung arbeitet ausschließlich innerhalb eines einzelnen Kalendermonats und bezieht historische Daten nur lesend zur Gewichtung der Fairness ein, ohne rückwirkend bereits gespeicherte Monate zu verändern. Die Tausch-Optimierung ist heuristisch (lokale Suche über eine begrenzte Zahl an Durchläufen) und garantiert keine global optimale Lösung; bei sehr restriktiven Ausgangslagen (z. B. einer hohen Zahl gleichzeitig fixierter Zellen oder Abwesenheiten) können Abdeckungslücken bestehen bleiben, die im Abschlussbericht ausgewiesen werden, anstatt automatisch eine regelwidrige Zuweisung zu erzeugen.
-
-## 7. Cloud-Synchronisation & Backend
-
-### 7.1 Architektur
-
-Die serverseitige Komponente besteht aus einer einzigen Cloudflare-Pages-Function (`functions/api.js`), die unter der Route `/api` erreichbar ist und über einen gebundenen Cloudflare-KV-Namensraum (`env.RADPLAN_KV`) den vollständigen Anwendungsdatensatz unter dem Schlüssel `RADPLAN_DATA` als JSON-Zeichenkette persistiert.
-
-### 7.2 Endpunkte
-
-- **`OPTIONS`** — beantwortet CORS-Preflight-Anfragen mit den freigegebenen Methoden `GET`, `POST`, `OPTIONS` und den freigegebenen Headern `Content-Type`, `Pragma`, `Cache-Control`, `Authorization`. Alle Antworten werden mit `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate` versehen.
-- **`GET`** — liefert den unter `RADPLAN_DATA` gespeicherten Datensatz unverändert zurück. Existiert noch kein Datensatz, wird eine leere Grundstruktur (`{ main: {}, plans: {}, lastModified: 0 }`) mit Status 200 zurückgegeben. Bei einem KV-Lesefehler wird Status 500 mit einer Fehlermeldung zurückgegeben.
-- **`POST`** — übernimmt einen vom Client übermittelten Datensatz inklusive eines Zeitstempelfeldes `lastModified`. Vor dem Schreiben wird der aktuell gespeicherte Stand gelesen: Weicht dessen `lastModified`-Wert von dem im Request übermittelten ab (und ist größer als 0), wird der Schreibvorgang mit Status 409 und dem Antwortkörper `{ error: "Conflict", latestData }` abgelehnt, wobei `latestData` den aktuellen Serverstand enthält. Stimmen die Zeitstempel überein (oder existiert noch kein Serverstand), wird `lastModified` auf die aktuelle Serverzeit gesetzt, der Datensatz unter `RADPLAN_DATA` gespeichert und mit Status 200 sowie dem neuen Zeitstempel bestätigt. Ungültiges JSON oder ein KV-Schreibfehler führt zu Status 400.
-- Alle übrigen HTTP-Methoden werden mit Status 405 zurückgewiesen.
-
-### 7.3 Konfliktauflösung auf Client-Seite
-
-Die eigentliche Konfliktauflösung findet nicht im Backend, sondern im Client statt (`state.js`). Erhält der Client beim Speichern eine 409-Antwort, führt er einen feldweisen Drei-Wege-Merge (`mergeThreeWay`) zwischen dem zuletzt bekannten Serverstand (Basis), den eigenen ungespeicherten lokalen Änderungen und dem soeben empfangenen aktuellen Serverstand durch. Der Merge rekursiert dabei durch die verschachtelte Objektstruktur (Monat → Mitarbeiter:in → Tag → Zelle) und behandelt nur jene einzelnen Felder als echten Konflikt, die seit der Basis auf beiden Seiten unterschiedlich verändert wurden; alle anderen Felder werden automatisch und verlustfrei zusammengeführt. Bei einem echten Feldkonflikt gewinnt der lokale Stand, und die Anwendung zeigt dem Benutzer über das Ereignis `radplan-sync-conflict` eine Benachrichtigung mit der Anzahl der betroffenen Felder.
-
-Planungsentwürfe (`plans`) werden beim Zusammenführen gesondert behandelt (`mergePlanDrafts`): Der lokal aktive Entwurf des aktuell bearbeiteten Monats bleibt erhalten, alle übrigen Entwürfe werden vom Serverstand übernommen.
-
-Neben dem automatischen Sync-Versuch nach jedem 409 steht über die Schaltfläche „Server-Sync“ (`#btn-force-sync`, rot hervorgehoben) eine manuelle Funktion zur Verfügung, die jeglichen lokalen Stand verwirft und den aktuellen Serverstand vollständig und ohne Merge übernimmt (`forceSyncWithServer`).
-
-## 8. Tastaturbedienung & Barrierefreiheit
-
-### 8.1 Globale Tastaturkürzel
-
-| Tastenkombination | Wirkung |
-|---|---|
-| `Strg/Cmd+K` | Befehlspalette öffnen bzw. schließen |
-| `Strg/Cmd+S` | Außerhalb des Planungsmodus: Daten als JSON exportieren. Im Planungsmodus: aktuellen Planungsentwurf speichern |
-| `Strg/Cmd+P` | Druckvorschau öffnen (Drucken bzw. PDF-Export) |
-| `Strg/Cmd+Z` | Letzte Änderung rückgängig machen — im Normalmodus auf den Hauptdaten, im Planungsmodus auf dem Entwurf |
-| `Strg/Cmd+Shift+Z` oder `Strg/Cmd+Y` | Zuvor rückgängig gemachte Änderung wiederherstellen (Normal- bzw. Planungsmodus) |
-| `Alt+←` | Zum vorherigen Monat wechseln |
-| `Alt+→` | Zum nächsten Monat wechseln |
-
-### 8.2 Tastaturkürzel innerhalb des Rasters (fokussierte Zelle)
-
-| Taste | Wirkung |
-|---|---|
-| `←` `↑` `→` `↓` | Fokus zur jeweils benachbarten Zelle bewegen |
-| `1`–`8` | Den der Ziffer entsprechenden Arbeitsplatz-Code direkt zuweisen |
-| `D` | Bereitschaftsdienst für die fokussierte Zelle umschalten |
-| `H` | Hintergrunddienst für die fokussierte Zelle umschalten |
-| `Entf` / `Rücktaste` | Eintrag der fokussierten Zelle löschen |
-| `Eingabe` | Zellen-Editor für die fokussierte Zelle öffnen |
-
-### 8.3 Tastaturkürzel innerhalb des Zellen-Editors
-
-| Taste | Wirkung |
-|---|---|
-| `D` | Bereitschaftsdienst umschalten (sofern kein Konflikt mit einer bereits diensthabenden Person besteht) |
-| `H` | Hintergrunddienst umschalten (sofern kein Konflikt mit einer bereits diensthabenden Person besteht) |
-| `S` | Editor speichern |
-| `Eingabe` | Editor speichern (sofern der Fokus nicht auf einer abbrechenden Schaltfläche liegt) |
-| `Esc` | Editor bzw. aktives Dialogfenster schließen |
-
-### 8.4 Tastaturkürzel innerhalb der Befehlspalette
-
-| Taste | Wirkung |
-|---|---|
-| `↑` / `↓` | Auswahl in der Ergebnisliste bewegen |
-| `Eingabe` | Ausgewählten Befehl ausführen |
-| `Esc` | Befehlspalette schließen |
-
-### 8.5 Barrierefreiheit
-
-Interaktive Elemente sind durchgehend mit ARIA-Attributen versehen (`role="dialog"`, `aria-modal`, `aria-label`, `aria-live`, `role="tablist"`/`role="tab"`, `role="grid"`, `role="listbox"` u. a.). Dialoge tragen `aria-labelledby`-Referenzen auf ihre jeweilige Titelüberschrift. Statusänderungen wie Periodenwechsel, Synchronisationsmeldungen oder Suchergebniszahlen werden über `aria-live="polite"`-Regionen für Screenreader angekündigt. Ein sichtbarer Fokusring (`:focus-visible`) erscheint ausschließlich bei Tastaturfokus, nicht bei Mausklick. Bewegungsintensive Effekte (View-Transitions, Theme-Wechsel-Animation) werden vollständig deaktiviert, wenn die Betriebssystemeinstellung `prefers-reduced-motion: reduce` aktiv ist.
-
-## 9. Responsives Verhalten
-
-### 9.1 Breakpoints
-
-Die folgenden Breakpoints kommen, teils in mehreren der CSS-Dateien gleichzeitig, zur Anpassung von Layout, Schriftgrößen und Sichtbarkeit einzelner Elemente zum Einsatz:
-
-| Breakpoint | Verwendet in |
-|---|---|
-| `max-width: 1200px` | `layout.css`, `components.css`, `views.css` |
-| `max-width: 980px` / `max-width: 900px` | `views.css`, `modals.css` |
-| `max-width: 768px` | `layout.css`, `modals.css`, `views.css`, `mobile-optimization.css` |
-| `max-width: 720px` | `views.css` |
-| `max-width: 700px` | `modals.css`, `mobile-optimization.css` (mobile Anpassungen des Jahresplaner-Dialogs inkl. Safe-Area-Polster) |
-| `max-width: 480px` (portrait, coarse) / `max-height: 480px` (landscape, coarse) | `mobile-optimization.css` (gerätegenaue Telefon-Profile, Aktions-Sheet, Touch-Targets) |
-| `max-width: 640px` | `views.css` (Analyse-Reiter des Mitarbeitenden-Bereichs) |
-| `max-width: 600px` | `layout.css` (mobiler Wechsel von Rastertabelle zu Tagesliste) |
-| `max-width: 560px` | `views.css` |
-| `max-width: 480px` | `modals.css`, `views.css` |
-| `max-width: 420px` | `views.css` |
-
-Der mobile Wechsel von der Rastertabelle zur Tagesliste erfolgt sowohl CSS-seitig (`max-width: 600px` in `layout.css`) als auch JavaScript-seitig über die Konstante `MOBILE_BREAKPOINT = 600` in `constants.js`, die zur Laufzeit den Zustand `IS_MOBILE` in `state.js` steuert.
-
-### 9.2 Eingabe- und Bewegungs-bezogene Media Features
-
-- `@media (hover: none) and (pointer: coarse)` (`core.css`) — unterdrückt Hover-Effekte auf Geräten ohne echten Mauszeiger.
-- `@media (pointer: coarse)` (`mobile-optimization.css`, in `index.html` eingebunden) — erzwingt eine Mindestgröße von 44×44 Pixel für sämtliche Bedienelemente (Schaltflächen, Chips, Navigations- und Modal-Schaltflächen, Tabellenzellen) sowie einen vergrößerten Zieh-Griff der Bottom-Sheets.
-- `@media only screen and (max-width: 480px) and (orientation: portrait) and (pointer: coarse)` bzw. `… (orientation: landscape) and (max-height: 480px) …` (`mobile-optimization.css`) — gerätegenaue Hoch- und Querformat-Profile für Telefone (u. a. Header-Höhe, Namensspalten- und Zellbreite, Zeilenhöhe per `dvh`-`clamp()`, Safe-Area-Polster), bewusst auf `pointer: coarse` und kurze Kantenlängen begrenzt, damit schmale Desktop-Fenster nie fälschlich als Telefon behandelt werden.
-- `@media (prefers-reduced-motion: no-preference)` (`core.css`) — aktiviert sanftes Scroll-Verhalten nur, wenn keine reduzierte Bewegungspräferenz vorliegt.
-- `@media (prefers-reduced-motion: reduce)` (`core.css`, `modals.css`) — deaktiviert View-Transition- und Modal-Animationen vollständig.
-- `@media (prefers-contrast: more)` (`core.css`) — verstärkt für Nutzer mit erhöhter Kontrastpräferenz die feinen Rasterlinien (Tages- und Zeilentrenner) der Planungstabelle und verdickt den Tastatur-Fokusring. Da farbcodierte Zellen stets zusätzlich ihr Textkürzel (CT, MR, …) tragen, hängt die Bedeutung nie allein von der Farbe ab.
-
-### 9.3 Mobile Bedienkonzepte
-
-Auf mobilen Bildschirmen werden sämtliche inhaltsreichen Dialoge — Zellen-Editor, Mitarbeitenden-Dashboard, Abteilungsübersicht, Mitarbeitenden-Profil, Import, Auto-Plan, Abschlussbericht, Score-Detail — als vollflächige Bottom-Sheets mit Slide-up-/Slide-down-Animation dargestellt statt als zentriertes Overlay (`body.is-mobile`-Regeln in `modals.css`). Ihre Kopf-/Körper-/Fußbereiche sind als Flex-Spalte aufgebaut: feste Kopf- und Fußzeile, dazwischen ein eigenständig scrollbarer Körper (`overflow-y: auto`, `-webkit-overflow-scrolling: touch`). Dadurch bleiben Titel und primäre Schaltflächen stets sichtbar und kein Inhalt wird abgeschnitten, gleich wie lang er ist. Die maximale Sheet-Höhe ist an `var(--app-vh)` abzüglich der oberen Safe-Area gekoppelt, der Jahresplaner-Dialog läuft als echtes Vollbild (`100svh`) mit oberem und unterem Safe-Area-Polster.
-
-**Überlauf-Schutzschicht.** Eine eigene Schutzschicht in `mobile-optimization.css` verhindert das früher mögliche horizontale Abschneiden von Modal-Inhalten auf schmalen Telefonen. Hintergrund: Flex- und Grid-Kinder besitzen standardmäßig `min-width: auto`, sodass breite Blattknoten (Chart.js-Canvas, nicht umbrechende Texte, Datentabellen) das Layout über die Viewport-Breite hinaus aufblähen — der Dialog mit `overflow: hidden` schneidet den Überhang dann rechts ab. Die Schicht setzt alle Layout-Container (`div, section, article, table, span, …`) innerhalb mobiler Dialoge und der mobilen Tagesansicht per `:where(...)`-Selektor (Spezifität 0) auf `min-width: 0` zurück; Medien (`canvas, img, video`) erhalten `max-width: 100%`. Da der Selektor keine Spezifität beiträgt, behalten die 44-px-Touch-Target-Regeln für Schaltflächen, Chips und Zellen Vorrang. Datentabellen (Abteilungs-, Jahresplaner-, Soll/Ist- und Projektionstabellen) werden dadurch nicht gestaucht, sondern scrollen innerhalb ihres `overflow-x: auto`-Wrappers horizontal; die Reiterleiste des Jahresplaners scrollt analog (`.yp-tab { flex: 0 0 auto }`), statt dass die Beschriftungen kollidieren.
-
-Anstelle des Desktop-Schnellaktions-Popovers steht ein Schnellaktionsmenü zur Verfügung; die zentrale Bedienung läuft über die untere Navigationsleiste und das in 5.9 beschriebene, funktional vollständige Aktions-Sheet. Die Bedienelemente nutzen system-eigene Sicherheitsabstände (`env(safe-area-inset-*)`), die über CSS-Variablen (`--safe-top`, `--safe-left`, `--safe-right`, `--safe-bottom`) durchgängig berücksichtigt werden. Die Variablen `--app-vw`, `--app-vh` und `--kb-inset` werden zur Laufzeit synchronisiert (`syncViewportCssVars` in `render-grid.js`, gebunden an `resize` und `visualViewport`), um Browser-Adressleisten-Einblendungen und die Bildschirmtastatur korrekt im Layout zu berücksichtigen. Die Klasse `is-standalone` wird gesetzt, sobald die App als PWA im Vollbild läuft, und aktiviert dann die zusätzlichen Notch-Polster der Kopfzeile. Touch-Interaktionen sind über `touch-action: manipulation` von doppelten Zoom-Gesten befreit, und `-webkit-tap-highlight-color: transparent` unterdrückt die native Tap-Hervorhebung auf iOS/Android. Aktionskacheln und Listenzeilen des Aktions-Sheets quittieren Berührungen mit einer dezenten `scale()`-Press-Animation.
-
-## 10. Entwicklung & Tests
-
-### 10.1 Projektstruktur und Ausführung
-
-RadPlan besitzt keine Build-Pipeline. Die Datei `package.json` definiert weder Produktions- noch Entwicklungsabhängigkeiten:
-
-```json
-{
-  "name": "radplan",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "test": "node --test test/**/*.test.js"
+---
+
+## 3. Fachliches Datenmodell
+
+### 3.1 Grundstruktur `DATA`
+Der gesamte Plan ist ein einziges JavaScript-Objekt `DATA`, dessen Schlüssel **Monate** im Format `"<Jahr>-<MonatIndex>"` sind (Monat 0-basiert, z. B. `"2026-5"` = Juni 2026).
+
+```jsonc
+DATA = {
+  "2026-5": {
+    "employees": ["Prof. Schäfer", "Dr. Lurz", …],   // Reihenfolge = Anzeigereihenfolge
+    "assignments": {
+      "Dr. Martin": {
+        "3":  { "assignment": "CT",     "duty": "HG" },  // Tag 3: Arbeitsplatz CT, Hintergrunddienst
+        "12": { "assignment": "MR/US",  "duty": "D"  },  // Mehrfach-Arbeitsplatz + Bereitschaft
+        "13": { "assignment": "F" }                       // Tag 13: Frei (z. B. Ruhetag nach D)
+      }
+    },
+    "rbn": { "5": "Dr. Maybaum (NRAD)" },                // Neurorad-Rufdienst je Tag
+    "comments": { "Dr. Martin": { "12": "Vertretung" } } // freie Tagesnotizen
   }
 }
 ```
 
-Für die lokale Entwicklung genügt ein beliebiger statischer HTTP-Server, der das Projektverzeichnis ausliefert (die Anwendung lädt ihre Module über reguläre `<script type="module">`-Importe relativ zu `index.html`). Für den Betrieb der Cloud-Synchronisation wird zusätzlich eine Cloudflare-Pages-Umgebung mit gebundenem KV-Namensraum `RADPLAN_KV` benötigt; ohne diese Bindung liefert `/api` einen Fehler mit Status 500, während die restliche Anwendung auf Basis von `localStorage` uneingeschränkt funktionsfähig bleibt.
+**Eine Zelle** (`assignments[emp][day]`) ist ein schlankes Objekt mit bis zu zwei Feldern:
+- `assignment` — ein String, der **Arbeitsplatz(e) oder einen Status** trägt. Mehrere Arbeitsplätze werden mit `/` getrennt (`"MR/CT"`). Status sind exklusiv (kein `/`).
+- `duty` — `"D"` (Bereitschaft) oder `"HG"` (Hintergrund) oder fehlt.
 
-### 10.2 Tests
+Leere Felder werden konsequent **entfernt** (keine `null`-Reste); eine vollständig leere Zelle wird aus dem Objekt gelöscht. Das hält den Datenbestand minimal und JSON-Diffs sauber.
 
-Das Verzeichnis `test/` enthält genau eine Testdatei, `test/autoplan.test.js`, geschrieben gegen den in Node.js integrierten Testrunner (`node:test`) und das integrierte Assertion-Modul (`node:assert/strict`). Die Tests decken ausschließlich reine, zustandsfreie Hilfs- und Regelfunktionen aus `autoplan.js` ab, unter anderem: `isDutyExempt`, `dutyKey`, `computeFairnessSpread`, `averageFromArray`, `listDutyAssignments`, `cleanupAssignmentCell`, `isAbsentOnDay`, `isVacationOnDay`, `isNextDayVacation`, `hasCTLeadershipConflict`, `countWeekendDuties`, `getWeekendDutyKWs`, `wouldCreateDFDF`, `getWeekendStateForKW`, `projectedWeekendDutyCount`, `wouldCreateConsecutiveWeekendDuty` und `computeGridConflicts`. Ergänzend werden Hilfsfunktionen aus `constants.js` (`daysInMonth`, `weekday`, `isoWeekNumber`, `isWorkday`, `getSaxonyHolidaysCached`, `monthKey`) sowie der Datenzustand aus `state.js` (`DATA`) importiert und für Testfixturen verwendet. Als Referenzmonat dient durchgehend Juni 2026, da dieser Monat in Sachsen feiertagsfrei ist und somit eine eindeutige, von Feiertagslogik unbeeinflusste Wochentagsrechnung erlaubt.
+### 3.2 Arbeitsplätze (8 Modalitäten)
+| Code | Bezeichnung | Farbwelt |
+| :--- | :--- | :--- |
+| `MR` | MRT | Blau |
+| `CT` | CT | Orange |
+| `US` | Sonographie | Türkis |
+| `AN` | Angiographie | Violett |
+| `MA` | Mammographie | Pink |
+| `KUS` | Kinder-Ultraschall | Grün |
+| `W` | Wermsdorf (Außenstandort) | Gelb |
+| `T` | Teleradiologie | Indigo |
 
-Die Tests werden über `npm test` bzw. direkt über `node --test test/**/*.test.js` ausgeführt.
+### 3.3 Status (9 Codes)
+| Code | Bedeutung | Gruppe |
+| :--- | :--- | :--- |
+| `F` | Frei (inkl. automatischer Ruhetag nach Dienst) | — |
+| `U` | Urlaub | Urlaub |
+| `ZU` | Zusatzurlaub | Urlaub |
+| `SU` | Sonderurlaub | Urlaub |
+| `§15c` | Freistellung nach §15c | Urlaub |
+| `FZA` | Freizeitausgleich | Abwesenheit |
+| `K` | Krank | Abwesenheit |
+| `KK` | Kind krank | Abwesenheit |
+| `WB` | Weiterbildung | Abwesenheit |
 
-## 11. Bekannte Grenzen und Nicht-Ziele
+Abgeleitete Gruppen (in `constants.js`):
+- **`VACATION_CODES`** = `U, ZU, SU, §15c` — „echter" Urlaub (zählt nicht als Werktagsbelegung).
+- **`ABSENCE_CODES`** = `U, ZU, SU, FZA, K, KK, §15c, WB` — alle dienstausschließenden Abwesenheiten.
+- **`VACATION_LIKE_CODES`** = Urlaub + `FZA` + `WB` — „urlaubsähnlich"; sperrt u. a. einen BD am Vortag.
 
-- Die automatische Planung (Auto-Plan) operiert ausschließlich innerhalb eines einzelnen Kalendermonats; eine monatsübergreifende Optimierung über mehrere Monate hinweg in einem einzigen Lauf ist nicht vorgesehen.
-- Die Tausch-Optimierung des Planungsassistenten ist heuristisch und arbeitet mit einer begrenzten Zahl an Durchläufen; sie garantiert keine global optimale, sondern eine innerhalb der gesetzten Iterationsgrenzen bestmögliche Lösung.
-- Die serverseitige Konfliktbehandlung in `functions/api.js` erkennt Konflikte ausschließlich über einen Vergleich des Zeitstempelfeldes `lastModified`; die inhaltliche, feldweise Zusammenführung konkurrierender Änderungen erfolgt vollständig im Client.
-- Die Anwendung verfügt über keine serverseitige Benutzerauthentifizierung oder Mandantentrennung; die Cloudflare-Pages-Function ist auf einen einzigen, gemeinsam genutzten Datensatz unter einem festen KV-Schlüssel ausgelegt.
-- Es existiert genau eine automatisierte Testdatei, die sich auf die reinen Hilfs- und Regelfunktionen des Planungsassistenten beschränkt; UI-Rendering, Persistenzlogik und die Cloudflare-Pages-Function selbst sind nicht durch automatisierte Tests abgedeckt.
-- Die Feiertagsberechnung ist fest auf die gesetzlichen Feiertage des Bundeslandes Sachsen ausgelegt und nicht für andere Bundesländer oder Länder konfigurierbar.
+### 3.4 Dienste
+- **`D`** — Bereitschaftsdienst (BD). Erzeugt zwingend einen Ruhetag `F` am Folge-Werktag.
+- **`HG`** — Hintergrunddienst. Ausschließlich Fachärzten vorbehalten.
+- Pro Person und Kalendertag ist **maximal ein** Dienst zulässig (Dienst-Exklusivität).
+
+### 3.5 Dienstwünsche (nur Planungsmodus)
+Wünsche steuern die Auto-Planung und werden je Zelle gespeichert:
+| Code | Bedeutung | Wirkung |
+| :--- | :--- | :--- |
+| `NO_DUTY` | „Kein Dienst" | **Hartes** Ausschlusskriterium — die Person wird an diesem Tag nie verplant. |
+| `BD_WISH` | „BD-Wunsch" | Erhöht die Priorität für einen D an diesem Tag (Bonus im Score). |
+| `HG_WISH` | „HG-Wunsch" | Erhöht die Priorität für einen HG an diesem Tag. |
+
+### 3.6 Fixierungen / Pins (nur Planungsmodus)
+Eine **fixierte Zelle (Pin)** wird von der Auto-Planung als unveränderlich behandelt — manuell gesetzte Dienste bleiben erhalten, der Algorithmus plant um sie herum.
+
+### 3.7 Die RBN-Zeile (Neuroradiologie-Rufdienst)
+Zusätzlich zur personenbezogenen Matrix führt RadPlan eine eigene Zeile **„RD Neurorad"** (Rufdienst Neuroradiologie), gespeichert in `md.rbn[day]`:
+- Sichtbar **ab Juni 2025** (`RBN_ROW_START`).
+- Auswahl aus einer kuratierten Liste von Neuroradiolog:innen und unterstützenden Radiolog:innen (`RBN_OPTIONS`), z. B. *Prof. Schob (NRAD)*, *Dr. Maybaum (NRAD)*, *Dr. Bailis (NRAD)*, *Dr. Schüngel (NRAD)* sowie *Fr. Dalitz/Fr. Thaler/Dr. Martin/Hr. El Houba (RAD)*.
+- **Zeitliche Gültigkeit:** *Fr. Thaler* steht nur **bis einschließlich März 2026** zur Auswahl (`RBN_THALER_LAST_MONTH`) und wird danach automatisch aus der Optionsliste entfernt.
+- Im PDF-Export optional ein-/ausblendbar.
+
+### 3.8 Personalabgänge
+`EMPLOYEE_DEPARTURES` modelliert befristete Zugehörigkeit. Beispiel: **Hr. Torki** ist bis Juni 2026 aktiv (Abgang Juli 2026). Die Funktion `isEmployeeActiveInMonth()` blendet abgegangene Personen ab dem Abgangsmonat aus; beim Laden/Speichern **bereinigt** `reconcileEmployeesForMonth()` Mitarbeiterlisten, Zuweisungen und Kommentare automatisch.
+
+---
+
+## 4. Stammdaten, Rollen & Sonderregeln
+
+### 4.1 Mitarbeiter-Stammdaten (`EMP_META`)
+Jede Person trägt ein reiches Stammdatenblatt: **vollständiger Name**, **Position** (Kürzel + Klartext), **Facharzttyp**, **Schwerpunkt/Bereich**, **Vertreter (Deputy)**, **Zugehörigkeit seit**, **Beschäftigungsgrad (FTE)**, **Telefon-Kürzel** und **Tags**. Diese Daten speisen das Profil, die Avatare (Initialen + positionsabhängige Farbverläufe), Rollenfilter und Tooltips.
+
+**Positions-Hierarchie** (mit eigener Farbcodierung in `posColor`):
+`CA` (Chefarzt) → `LOA` (Leitender Oberarzt) → `OA`/`OÄ` (Ober­arzt/-ärztin) → `FA`/`FÄ` (Facharzt/-ärztin) → `AA`/`AÄ` (Assistenzarzt/-ärztin).
+
+### 4.2 Rollenklassifikation für die Engine
+- **Facharzt (`isFacharzt`)**: alle Positionen außer AA/AÄ. Nur Fachärzte dürfen **HG** und **Samstags-BD** leisten.
+- **Assistenzarzt (`isAssistenzarzt`)**: AA/AÄ — und als **Fallback** jede Person ohne hinterlegte Rolle (mit Hinweis, die Stammdaten zu ergänzen).
+- **`EMP_ROLE_OVERRIDES`**: optionale, datengetriebene Rollen-Übersteuerung für Personen ohne `EMP_META`.
+- **`hasKnownRole`**: meldet, ob eine Person rollentechnisch bekannt ist.
+
+### 4.3 Datengetriebene Sonderregeln (`SPECIAL_RULES`)
+Alle personen- und paarbezogenen Ausnahmen sind **zentral und konfigurierbar** hinterlegt (keine im Code verstreute Namenslogik):
+
+| Regel | Konfiguration (aktueller Stand) | Wirkung |
+| :--- | :--- | :--- |
+| `dutyExempt` | `Prof. Schäfer` | Komplett dienstbefreit (BD-Ziel 0). |
+| `reducedBdTarget` | `Dr. Polednia: 3`, `Dr. Becker: 3`, `Hr. Sebastian: 3` | Reduziertes monatliches BD-Ziel (Standard sonst **4**). |
+| `noBdWeekdays` | `Dr. Polednia: So/Di/Do` | Absolutes BD-Verbot an diesen Wochentagen. |
+| `noHgFromAaWeekdays` | `Dr. Polednia: So/Di/Do` | Kein HG für einen AA an diesen Tagen (Kollision mit Kinder-US am Folgetag). |
+| `saturdayUltimaRatio` | `Dr. Becker` | Samstags-BD nur als Notlösung (gelockerter Modus). |
+| `saturdayFzaCompensation` | `Dr. Becker` | Nach Samstags-BD zwingend ein FZA-Tag. |
+| `ctLeadershipPairs` | `[Dr. Becker, Dr. Martin]` | CT-Leitungspaar: nie gleichzeitig abwesend/frei an Werktagen. |
+| `hgConflictRules` | `Fr. Dalitz` (So/Mo) ↔ BD-Halter `Hr. Torki`/`Hr. Sebastian` | Kein HG für Dalitz, wenn an So/Mo einer der genannten den BD hält. |
+
+Zugriffshelfer (`getReducedBdTarget`, `isNoBdWeekday`, `isSaturdayUltimaRatio`, `getCtLeadershipPartner`, `getHgConflictBd` …) kapseln diese Tabelle für die Engine.
+
+---
+
+## 5. Persistenz & Server-Synchronisation
+
+RadPlan verfolgt eine **Offline-First-, Server-Truth-Strategie**: lokal sofort, Server als Quelle der Wahrheit, robuste Konfliktauflösung.
+
+### 5.1 Lokale Speicherung (`localStorage`)
+| Schlüssel | Inhalt |
+| :--- | :--- |
+| `radplan_v3` | der gesamte Hauptdatenstand (`DATA`) |
+| `radplan_v3_plan_<Jahr>-<Monat>` | gespeicherte Planungsentwürfe je Monat |
+| `radplan_v3_theme` | `light` / `dark` |
+| `radplan_v3_colorblind` | `1`, wenn Farbenblind-Modus aktiv |
+
+### 5.2 Lade-Sequenz (`loadFromStorage`)
+1. **`GET /api`** versuchen → bei Erfolg wird der Server-Snapshot übernommen, normalisiert und um Personalabgänge bereinigt.
+2. **Fällt der Server aus**, wird transparent auf den `localStorage`-Stand zurückgefallen (Offline-Betrieb).
+
+### 5.3 Speicher-Sequenz (`saveToStorage` → `flushSaveToServer`)
+- Jede Mutation schreibt **sofort** nach `localStorage` und stößt eine **entprellte** (120 ms) Server-Übertragung an.
+- Vor dem ersten Schreiben wird sichergestellt, dass ein gültiger Server-Stand vorliegt (sonst `forceSync`).
+- **Statusereignisse** (`radplan-save-queued/-start/-success/-error`) werden als CustomEvents gefeuert und in der UI angezeigt.
+- **In-Flight-Schutz:** Während ein Speichervorgang läuft, werden weitere zu einem einzigen Folge-Flush zusammengefasst (`saveQueuedWhileInFlight`).
+
+### 5.4 Optimistische Nebenläufigkeit & 3-Wege-Merge
+- Der Server vergibt bei jedem `POST` einen frischen `lastModified`-Zeitstempel. Stimmt der vom Client mitgesendete Zeitstempel **nicht** mit dem Serverstand überein, antwortet die Edge-Funktion mit **HTTP 409** und liefert den aktuellen Serverdatenstand mit.
+- Der Client führt dann einen **feldgenauen 3-Wege-Merge** (`mergeThreeWay`) durch: `base` (zuletzt bekannter Serverstand) × `local` (eigene ungespeicherte Änderungen) × `server` (verlorenes Rennen). Der Merge rekursiert in die Baumstruktur *Monat → Mitarbeiter → Tag → Zelle*, sodass nur tatsächlich auf beiden Seiten geänderte Felder als Konflikt gelten — alles andere wird **verlustfrei** zusammengeführt. Eine Konfliktstatistik (`localWins`, `serverWins`, `conflicts`) wird per Event gemeldet.
+- Planungsentwürfe werden separat gemerged (`mergePlanDrafts`); der gerade aktive Entwurf gewinnt.
+
+### 5.5 Manuelle Synchronisation
+- **„Server-Sync erzwingen"** (Mehr-Menü) verwirft lokale Stände und holt den Server-Stand frisch (`forceSyncWithServer`).
+- Beim Hintergrund-Sync (`syncWithServer`) wird nur übernommen, wenn der Server einen **neueren** Zeitstempel trägt.
+
+---
+
+## 6. Gesamtaufbau der Oberfläche
+
+Die Desktop-Oberfläche besteht aus festen Zonen (oben → unten):
+
+1. **Kopfzeile (`#app-header`)** — Markenlogo (animiertes SVG), Monatsnavigation, Aktionsleiste.
+2. **Planungsleiste (`#plan-bar`)** — nur sichtbar im Planungsmodus.
+3. **Statistikleiste (`#stats-bar`)** — Live-Kennzahlen des Monats.
+4. **Hauptbereich (`<main>`)** — das scrollbare Dienstplan-Raster plus Tastatur-Hinweiszeile.
+5. **Mobile-Ansicht / Mobile-Navigation** — auf schmalen Viewports anstelle des Rasters.
+
+### 6.1 Kopfzeile & Monatsnavigation
+- **Marke** „RadPlan" mit animiertem Icon.
+- **Monats-Navigation:** ‹ / › für Vor-/Zurück, dazwischen ein **Monats-Label-Button** (`Januar 2026 ▾`), der die **Zeitraumsteuerung** öffnet.
+- **Aktionsleiste** (gruppiert):
+  - *Verlauf:* Rückgängig / Wiederherstellen (mit Aktiv-/Inaktiv-Zustand).
+  - *Werkzeuge:* „Heute"-Sprung, Befehlspalette (Lupe), Theme-Umschalter (Mond/Sonne).
+  - *Module:* **Planung**, **Mitarbeitende**, **Jahresplan**.
+  - *Mehr-Menü* (Drei-Punkte): Rasterdichte, Farbenblind-Modus, Exportieren, Importieren, Drucken/PDF, Server-Sync erzwingen. (Das Menü wird bewusst außerhalb des `contain`-Headers positioniert und per JS unter dem Button verankert.)
+
+### 6.2 Zeitraumsteuerung (Period-Flyout)
+Ein eigenes Flyout zum **unabhängigen** Umschalten von Monat und Jahr — bewusst auch nutzbar **bei offenem Modal** und **im aktiven Planungsmodus**:
+- Monats-Dropdown + Jahres-Eingabe mit −/+-Schritten.
+- Schnellsprünge „← Monat" / „Monat →".
+- „Zeitraum anwenden" und „Heute".
+- Kontextzeile mit Live-Rückmeldung.
+- Aus dem Mitarbeitenden-Modal heraus über den „Zeitraum"-Knopf erreichbar.
+
+### 6.3 Statistikleiste
+Aggregiert den aktuellen Monat in Echtzeit: Anzahl Mitarbeitender sowie pro Code (`MR, CT, US, …, D, HG, U, K, F, WB, FZA, ZU, SU, KK, §15c`) die Gesamtzahl der Vorkommen — jeweils als farbiges Code-Chip mit Zähler. Bei leerem Monat erscheint „Keine Daten".
+
+---
+
+## 7. Das Dienstplan-Raster im Detail
+
+Das Herzstück ist eine dichte Tabelle (`#plan-table`): **Zeilen = Mitarbeitende**, **Spalten = Kalendertage** des Monats.
+
+### 7.1 Tabellenkopf (`renderThead`)
+Jede Tagesspalte zeigt gestapelt:
+- **Kalenderwoche** (`KW##`) — nur am Wochenbeginn (Montag bzw. Monatsanfang), ISO-konform berechnet (`isoWeekNumber`).
+- **Tageszahl** und **Wochentagskürzel** (Mo–So).
+- **Feiertagsname** (z. B. „Pfingstmontag"), falls zutreffend.
+- Eine **Abdeckungs-Statusleiste** (farbiger Streifen) unter dem Tag:
+  - **Grün** = D **und** HG besetzt,
+  - **Gelb** = genau einer von beiden besetzt,
+  - **Rot** = beide unbesetzt (an Wochenende/Feiertag abgeschwächtes Orange).
+- Wochenenden (`we`), Feiertage (`hol`), Freitage (`is-fri`) und der **heutige Tag** (`today`) sind eigens markiert. Ein `title`-Tooltip nennt den Besetzungsstand von D und HG.
+
+### 7.2 Tabellenkörper (`renderTbody`)
+- **Rollenbänder:** Wechselt die Rollenkategorie zwischen aufeinanderfolgenden Zeilen (Leitung → FA → AA), zieht das Raster einen sichtbaren Trenner und einen dezenten Bandton ein — **ohne** die Datenreihenfolge zu verändern.
+- **Namensspalte:** Name + Positions-Chip + Profil-Icon; ein farbiger linker Rand codiert die Position. Ein **Klick** öffnet das Personenprofil, ein **Rechtsklick** das Kontextmenü („Profil öffnen", „Aus Monat entfernen", „Ab hier dauerhaft entfernen").
+- **Tageszellen** sind in der Arbeitsplatzfarbe hinterlegt; Status/Dienst werden als Text bzw. Badge dargestellt. Besondere Zustände:
+  - `empty-wd` — leerer Werktag (visuell zurückhaltend),
+  - `auto-f-rest` — automatisch gesetzter Ruhetag `F` an Wochenende/Feiertag,
+  - `pinned` — fixierte Zelle (nur Planungsmodus),
+  - `cell-conflict` — Live-Regelkonflikt (siehe 7.5).
+- **Tagesnotizen** werden als kleiner Punkt-Indikator angezeigt; der volle Text erscheint im Tooltip.
+
+### 7.3 Die RBN-Zeile
+Unterhalb der Mitarbeitenden (ab Juni 2025) erscheint die Zeile **„RD Neurorad"** mit der tagesweisen Auswahl des Neuroradiologie-Rufdienstes aus der zeitlich gefilterten Optionsliste.
+
+### 7.4 Tabellenfuß (`renderTfoot`)
+Spaltenweise Summen/Abdeckungs-Indikatoren je Tag, die den Besetzungsstand zusätzlich verdichten.
+
+### 7.5 Live-Konflikterkennung
+Bereits **während der manuellen Bearbeitung** prüft das Raster (`computeGridConflicts`) auf Regelverstöße (z. B. unzulässige Dienstfolgen, Doppelbelegungen, Paar-Konflikte) und markiert betroffene Zellen mit einer **⚠-Flagge** und einem erläuternden `data-conflict`-Tooltip. So werden Probleme sichtbar, lange bevor der Auto-Plan läuft.
+
+### 7.6 Cross-Highlight & Scrollverhalten
+- Beim Überfahren/Fokussieren einer Zelle werden **Zeile und Spalte** dezent hervorgehoben (`initGridCrossHighlight`), was die Orientierung in der dichten Matrix erleichtert.
+- Das Mausrad scrollt horizontal durch die Tage; mit **Shift** oder über der Namensspalte vertikal (`wheel`-Handler).
+- „Heute" zentriert die aktuelle Tagesspalte sanft im Viewport.
+
+---
+
+## 8. Zell-Interaktion: Editor, Schnellaktionen, Tastatur
+
+RadPlan bietet **vier** sich ergänzende Wege, eine Zelle zu bearbeiten — vom schnellsten Tastendruck bis zum vollständigen Editor.
+
+### 8.1 Der Zuweisungs-Editor (`#modal-editor`)
+Ein vierstufiges Modal mit Live-Vorschau:
+1. **Einsatz** — Arbeitsplatz-Chips (Mehrfachauswahl, z. B. „MR/CT") **oder** ein exklusiver Status-Chip (deaktiviert die Arbeitsplatzwahl).
+2. **Dienst** — D / HG, mit Warnhinweis bei Konflikten (z. B. wenn der Slot bereits besetzt ist).
+3. **Planung** *(nur im Planungsmodus)* — Dienstwunsch (`NO_DUTY`/`BD_WISH`/`HG_WISH`) und Fixierung/Pin.
+4. **Notiz** — freie Tagesnotiz (max. 200 Zeichen, Live-Zähler).
+
+Eine **Vorschau-Box** zeigt fortlaufend das resultierende Zellbild und die Dienste. Fußaktionen: **Löschen**, **Abbrechen**, **Speichern**. Im Planungsmodus markiert ein „PLANUNG"-Badge den Editor.
+
+**Editor-Tastatur:** Tasten `1`–`8` schalten Arbeitsplätze, `D`/`H` schalten Dienste, `S` oder `Enter` speichert, `Esc` schließt. Dienst-Tasten respektieren bereits vergebene Slots.
+
+### 8.2 Desktop-Schnell-Popover (`showCellQuickPopover`)
+Beim Fokussieren einer Zelle erscheint ein an die Zelle **angedocktes** Popover mit Arbeitsplatz-Buttons, D/HG, „Löschen" und „Vollständig bearbeiten…". Es positioniert sich automatisch ober-/unterhalb je nach Platz.
+
+### 8.3 Mobile-Radialmenü (`openRadialQuickMenu`)
+Per **Langdruck** auf eine Zelle öffnet sich ein radiales Schnellmenü; durch Ziehen wird die Aktion ausgewählt und beim Loslassen ausgeführt (`updateRadialHover`/`releaseRadialMenu`).
+
+### 8.4 Mehrfachauswahl & Drag
+- **Strg/Cmd-Klick** fügt einzelne Tage zu einer Mehrfachauswahl hinzu/entfernt sie.
+- **Shift-Klick** wählt einen **zusammenhängenden Bereich** vom Anker bis zum Zieltag.
+- **Ziehen** über mehrere Zellen erzeugt eine Drag-Auswahl (`applyDragSelection`).
+  So lassen sich z. B. ganze Urlaubswochen in einem Zug setzen.
+
+### 8.5 Raster-Tastaturnavigation (`handleGridKeydown`)
+Bei fokussierter Zelle (Desktop):
+- **Pfeiltasten** — Navigation zur Nachbarzelle,
+- **`1`–`8`** — Arbeitsplatz direkt umschalten,
+- **`D` / `H`** — Bereitschaft/Hintergrund umschalten,
+- **Entf / Rücktaste** — Zelle leeren,
+- **Enter** — vollständigen Editor öffnen.
+
+### 8.6 Reichhaltige Tooltips (`celltooltip.js`)
+Beim Verweilen über einer Zelle zeigt ein Tooltip: Datum/Status, die **jüngste Diensthistorie** der Person (letzte D-/HG-Dienste über aktuellen und Vormonat), etwaige **Konflikte** und die **Tagesnotiz**.
+
+---
+
+## 9. Der Planungsmodus
+
+Der Planungsmodus erlaubt **risikofreies Experimentieren**: ein vollständig **isolierter Entwurf**, der den Hauptplan nicht berührt, bis er explizit übernommen wird.
+
+### 9.1 Konzept der Plan-Sessions
+- Beim Betreten wird je Monat eine **Plan-Session** erzeugt (`createPlanSession`): eine tiefe Kopie von Mitarbeitenden, Zuweisungen, RBN, plus leere **Wünsche** und **Pins**, sowie eine **Baseline** und ein **History-Stack**.
+- Entwürfe werden lokal als `radplan_v3_plan_<Monat>` gehalten und beim Server-Sync separat zusammengeführt.
+- Der Wechsel des Zeitraums im Planungsmodus persistiert die aktuelle Session und lädt/erzeugt die Ziel-Session.
+
+### 9.2 Die Planungsleiste (`#plan-bar`)
+Erscheint oben, sobald der Modus aktiv ist:
+- **Links:** pulsierendes „Planungsmodus aktiv"-Badge, betroffener Monat, Hinweis „Änderungen sind unabhängig vom Hauptplan".
+- **Mitte:** Rückgängig / Vorwärts (eigener Plan-History-Stack).
+- **Rechts:** **Auto-Plan**, **Abbrechen** (verwirft Änderungen), **Speichern** (Entwurf sichern), **Schließen** (Modus verlassen), **Übernehmen** (Entwurf in den Hauptplan überführen).
+
+### 9.3 Undo/Redo
+Zwei getrennte Verlaufssysteme:
+- **Normalmodus:** delta-basierter Undo/Redo-Stack (`history.js`, bis zu 80 Schritte) für direkte Bearbeitungen am Hauptplan.
+- **Planungsmodus:** ein sessiongebundener History-Stack je Entwurf.
+Beide sind per Tastatur (Strg/Cmd+Z, Strg/Cmd+Y bzw. +Shift+Z) und über die jeweiligen Buttons bedienbar; die Aktiv-Zustände der Buttons spiegeln die Verfügbarkeit.
+
+---
+
+## 10. Der RadPlan Neural Scheduler (Auto-Plan)
+
+Der Auto-Planer (`autoplan.js`) ist eine **regelbasierte Optimierungs-Engine**, die im Planungsmodus auf Knopfdruck einen vollständigen, fairen Monatsplan erzeugt. Er kombiniert deterministische Regeln, probabilistisches Scoring und eine mehrzyklische Swap-Metaheuristik und macht das Ergebnis über den **Neural Fitness Index (NFI)** messbar.
+
+### 10.1 Gewichtungs-Profile
+Vor dem Lauf wählbar (`AUTO_PLAN_WEIGHT_PROFILES`):
+| Profil | Label | Charakter |
+| :--- | :--- | :--- |
+| `standard` | Ausgewogen | Standardbalance aus Regelkonformität, Fairness und Wunscherfüllung. |
+| `fairness` | Fairness-optimiert | Gewichtet gleichmäßige WE-/Samstags-/HG-Verteilung stärker; Wünsche treten zurück. |
+| `wish` | Wunscherfüllung-optimiert | Gewichtet erfüllte Dienstwünsche deutlich stärker; Fairness tritt zurück. |
+
+Zusätzlich lassen sich **individuelle BD-Monatsziele** je Person vor dem Lauf übersteuern.
+
+### 10.2 Die Optimierungs-Pipeline
+1. **Initialisierung** — Aggregation historischer Kennzahlen **seit dem 1. Januar des Zieljahres** (`collectHistoricalDutyStats`: BD, HG, WE-Dienste, Feiertagslast, Donnerstag-BD, HG-für-AA, HG-für-FA, Samstags-BD), Sicherung manuell gesetzter/fixierter Dienste, Auto-Reparatur fehlender Ruhetage.
+2. **Konstruktive Phase (Greedy)** — Erstverteilung der BDs zuerst an Wochenenden/Feiertagen, dann an Werktagen, unter strikter Beachtung harter Ausschlüsse.
+3. **HG-Bundling** — deterministische Kopplung von HG an BD-Szenarien (s. u.).
+4. **HG-Rhythmisierung** — Verteilung der HG-Lücken unter Anti-Clustering-Logik.
+5. **Multi-Zyklus-Optimierung — 25 Zyklen**, je Zyklus:
+   - **BD-Swap-Pass** (Verfeinerung der BD-Gerechtigkeit),
+   - **HG-Swap-Pass** (Aufbrechen von HG-Clustern, Rhythmus-Glättung),
+   - **Globaler Deep-Optimize-Pass** (rollenübergreifende Cross-Swaps, z. B. CT-Leitung),
+   - **Coverage-Repair** (Zwangszuweisung an die am wenigsten belastete Person zum Lückenschluss).
+6. **Validierung** — Dienst-Exklusivität (max. ein Dienst/Tag) und Datenkonsistenz.
+
+### 10.3 Harte Constraints (K.-o.-Kriterien)
+- **Abwesenheits-Integrität** — kein Dienst bei `U/ZU/SU/§15c/K/KK/FZA/WB`.
+- **Wunsch `NO_DUTY`** — hartes Ausschlusskriterium.
+- **Gesetzliche Ruhezeit** — nach jedem BD ist der Folge-Werktag zwingend `F`.
+- **Dienst-Exklusivität** — max. ein D/HG pro Person/Tag.
+- **Qualifikations-Sperre** — Samstags- und HG-Dienste nur für Fachärzte.
+- **BD-Folge-Sperre** — kein BD an zwei aufeinanderfolgenden Tagen (D-D-Verbot).
+- **HG-Vortag-Sperre (AA-Regel)** — ein FA leistet keinen HG für einen AA, wenn der FA am Folgetag selbst BD hat.
+- **Spezial-Sperre Dr. Polednia** — absolutes BD-Verbot So/Di/Do; ebenso HG-für-AA-Verbot an diesen Tagen.
+- **CT-Leitungs-Interdependenz** — Dr. Becker & Dr. Martin nie gleichzeitig abwesend/frei an Werktagen.
+- **Urlaubs-Puffer** — kein BD am Tag direkt vor Urlaubsantritt.
+- **Feiertags-Alternanz** — wer Ostern Dienst hat, wird für Pfingsten gesperrt (und umgekehrt).
+
+### 10.4 Anti-Clustering & Rhythmus (HG-Fokus)
+- **Abstands-Malus (3-Tage):** HG innerhalb 3 Tagen nach einem anderen HG wird stark bestraft.
+- **Direkt-Folge-Malus:** Back-to-back-HG (außer Kopplungen) massiv abgewertet.
+- **Dichte-Prüfung (Rolling 7-Tage-Fenster):** mehr als 1 HG pro Fenster (ohne Kopplung) wird bestraft.
+
+### 10.5 Kopplungs-Modelle (Bundling)
+- **Freitags-Support:** Hat ein AA am Freitag BD, übernimmt der FA des Samstags-BD zwingend den Freitag-HG.
+- **Wochenend-Kette:** Ein FA mit Samstags-BD übernimmt zwingend den Sonntag-HG (HG-D-HG-Kette).
+- **Feiertags-Vortag:** Hat ein AA am Vortag eines Feiertags BD, übernimmt der FA des Feiertags-BD den Vortags-HG.
+
+### 10.6 Workload-Fairness-Kalkül
+Die HG-Last wird mathematisch an die BD-Last gekoppelt:
+`Ideal_HG = Ø_HG + (Ø_BD_der_FAs − individuelle_BD) × 1.0`
+— wer einen BD weniger als der Schnitt leistet, übernimmt exakt einen HG mehr. Vorjahresdaten dienen nur als minimaler Tie-Breaker bei Punktgleichstand.
+
+### 10.7 Eskalation / Lockerung
+Lässt sich keine Vollbesetzung unter allen Regeln erzielen, werden gezielt **weiche** Restriktionen gelockert (vor allem Wochenendabstände, Distanzanforderungen, punktuelle Notlösungen bei engem Kandidatenfeld) — Ziel: Vollbesetzung bei minimalem Fairness-Verlust.
+
+### 10.8 Die „Orbital Core"-Visualisierung (`neuralgraph.js`)
+Während der Berechnung läuft eine vollflächige Canvas-Animation mit Phasen (`init` → Konstruktion → Optimierung → `success`/`error`) und einem Live-Fortschrittslog (`phase`, `icon`, `msg`, `pct`). Der Lauf wird bewusst über **~22 Sekunden** gestreckt, um Rechentiefe und Kombinationsvolumen erlebbar zu machen; Fehlerzustände werden visuell abgesetzt.
+
+### 10.9 Ergebnis, Bericht & Score-Erklärung
+- **Abschlussbericht** (`#modal-ap-report`): tagesweise Begründungen je Vergabe inkl. Score, Tags und den besten **Alternativ-Kandidaten** — vollständig nachvollziehbar.
+- **Übernehmen:** Das Ergebnis wird in den **aktiven Planungsentwurf** übernommen (nicht direkt in den Hauptplan).
+- **Neural Fitness Index (NFI, 0–100):** gewichtet aus **BD-Abdeckung (36 %)**, **HG-Abdeckung (24 %)**, **BD-Gerechtigkeit (16 %)**, **HG-Gerechtigkeit (10 %)**, **WE-Fairness (8 %)**, **Wunscherfüllung (6 %)** sowie einem winzigen Deep-Move-Feinabzug.
+- **Qualitäts-Detailmodal** (`#modal-score-info`): visualisiert den NFI als Ring, schlüsselt jede Metrik als Karte mit Punktewirkung auf und erläutert die Penalty-Mathematik (Basis 100; harte Verstöße = ∞-Penalty; weiche Verstöße gewichtet) in lesbaren Begründungs-Zeilen.
+
+---
+
+## 11. Mitarbeitendenbereich (Team- & Person-Modal)
+
+Das zusammengeführte Mitarbeiter-Modal (`#modal-emps`) vereint **Teamübersicht** und **Personendetail** in **einem** Modal mit einem Kopf-Umschalter **Team / Person**.
+
+### 11.1 Team-Screen
+- **KPI-Leiste:** Mitarbeitende im Jahr (mit Aktivität), aktueller Monatsbestand, Dienste im Jahr (D+HG), Rollenmix (Leitung/FA/AA).
+- **Team-Analytics:** Abteilungskennzahlen für **dynamische Zeiträume** — Monat / Quartal / Jahr / Rolling 12M / **Custom** (frei wählbarer Von-Bis-Bereich). Liefert Team-Abdeckung, Dienste D/HG, Ausfalltage, „Top-Aktivität", „Dienst-Fokus", offene Abdeckung sowie eine Top-8-Mitarbeitertabelle (klickbar → Personendetail).
+- **Werkzeugleiste:** Volltext-Filter, **Rollenfilter-Pills** (Alle/Chefärzte/Oberärzte/Fachärzte/Assistenz/Ohne Profil, je mit Zähler), „Nur Aktive", **Sortierung** (Name/Position/Dienste/Urlaub/Krank/aktive Monate) und **CSV-Export** der sichtbaren Auswahl (UTF-8-BOM, Excel-/de-locale-freundlich).
+- **Karten-Gitter:** je Person eine Karte mit Avatar (Initialen, positionsfarbig), Position, KPIs (Aktiv/D/HG/Urlaub/Krank/FZA), **Abdeckungsbalken**, „X/12 Monate aktiv", Top-Arbeitsplätzen und — beim Betrachten des laufenden Monats — einem **Heute-Badge**. Ein Klick öffnet den Person-Screen.
+
+### 11.2 Person-Screen
+Kopf mit Zurück-Button („Team"), Avatar, Name/Meta-Chips (Position, Typ, Bereich, Telefon, Vertreter, Tags) und einem **Personen-Dropdown** zum direkten Wechsel. Darunter ggf. ein **Heute-Status**. Der Inhalt ist in **fünf Tabs** gegliedert:
+
+1. **Übersicht** — Monats-KPIs (Werktage/aktiv/Abdeckung, Nicht geplant, D-/HG-Dienste mit Tagesliste, Urlaub, Krank, FZA, Weiterbildung — jeweils mit **Trendpfeil** zum Vormonat und **Jahres-Summe**), **Arbeitsplatz-Verteilung** als Balken + Donut, **Abwesenheiten & Status**.
+2. **Dienste & Feiertage** — Dienst-Detailtabelle (D/HG-Tage als Badges, Wochenend-/Feiertagstage hervorgehoben), der Abschnitt **Feiertagsdienste** (alle gesetzlichen Feiertage des Jahres mit echtem Dienst/Einsatz inkl. Kurzbilanz; reine Abwesenheiten ausgeklammert) und **Dienste nach Wochentag** (gestapeltes Balkenprofil Arbeitstage/HG/D mit Legende).
+3. **Kalender** — umschaltbar zwischen **Monatskalender** (klickbare Werktage öffnen den Editor) und **Jahreskalender** (alle 12 Monate kompakt: Tageszellen arbeitsplatzfarbig, D/HG-Marker, Feiertage hervorgehoben, aktueller Monat und heutiger Tag markiert; Klick auf einen Werktag wechselt in den Monat und öffnet den Editor).
+4. **Jahresauswertung** — **Jahresverlauf & Trend** (Chart.js: aktive Tage als Balken, D/HG/Urlaub als Linien) plus die **Jahres-Tabelle** (je Monat: Aktiv, Urlaub, Krank, FZA, WB, D, HG, Abdeckung; mit Gesamtzeile).
+5. **Verwaltung** — Person dem aktuellen Monat hinzufügen/entfernen, plus die **Monatsliste** mit Hinzufügen/Entfernen beliebiger Personen.
+
+> Charts in zunächst verborgenen Tabs werden nach dem Einblenden korrekt neu vermessen. Das Personenprofil ist außerdem aus dem Raster (Namensklick/Kontextmenü) und aus der Befehlspalette direkt erreichbar.
+
+---
+
+## 12. Jahresplaner
+
+Der Jahresplaner (`#modal-yearplan`, `yearplan.js`) blickt über das ganze Kalenderjahr und besitzt eine eigene Jahresnavigation (‹ Jahr ›) sowie **fünf Tabs**:
+
+1. **Jahres-Gitter** — eine **Heatmap** (Mitarbeitende × Monate). Jede Zelle zeigt BD-Zahl (und HG für FÄ); die Hintergrundfarbe codiert die **Abweichung vom monatlichen Kollegiums-Durchschnitt** (fünfstufige Skala „deutlich unter Ø" bis „deutlich über Ø"). Eine `Ø BD`-Zeile zeigt den Monatsdurchschnitt, eine `Σ Jahr`-Spalte die Jahressumme. Fachärzte und Assistenzärzte sind gruppiert; künftige Monate sind markiert; ein Zellklick navigiert in den jeweiligen Monat.
+2. **Fairness-Analyse** — **kumulierte Abweichungskurven** je Person vom monatlichen Ø (Chart.js-Liniendiagramm mit Ideallinie bei 0), umschaltbar zwischen **BD** und **HG**, plus eine begleitende Heatmap-Tabelle mit Σ und Gesamtabweichung.
+3. **Dienst Soll/Ist** — je dienstfähiger Person: Monatsziel, aktive Monate, Soll Σ, Ist Σ, Δ und Erfüllungsquote (%); mit Rollenfilter, Sortierung und CSV-Export.
+4. **Abwesenheiten** — Urlaub, Krank, FZA, Weiterbildung, Frei und Σ-Abwesenheit je Person; mit Rollenfilter, Sortierung und CSV-Export.
+5. **Jahresprojektion** — Hochrechnung des Jahresendstands aus den vorhandenen Monaten (individuelle Monatsrate × Restmonate), Vergleich gegen das Jahresziel (Monatsziel × 12), mit Abweichung und Fortschrittsbalken sowie einem horizontalen Ist-/Projektions-Balkendiagramm.
+
+Die Auswertungs-Tabs teilen sich eine gemeinsame Werkzeugleiste (Rollenfilter-Pills, Sortierung, CSV) im Stil des Mitarbeitenden-Modals.
+
+---
+
+## 13. Abteilungsübersicht
+
+Die Abteilungsübersicht (`#modal-dept`, `render-dept.js`) verdichtet das **gesamte Team** in zwei Tabs:
+- **Aktueller Monat** — Abdeckungs-KPIs (u. a. D-/HG-Besetzung als Prozentanteil der Tage) und eine Mitarbeitertabelle mit Aktiv-Tagen, D-/HG-Zahlen und Abwesenheiten.
+- **Jahresübersicht** — Jahres-KPIs (D/HG, Abdeckung) und je Person die Jahressummen.
+
+---
+
+## 14. Befehlspalette
+
+Die Befehlspalette (`#modal-command-palette`, `commandpalette.js`) öffnet sich mit **Strg/Cmd+K** (oder über die Lupe) und bietet eine **Fuzzy-Suche** über:
+- **Funktionsbefehle:** Jahresplan öffnen, Mitarbeitende verwalten, Daten exportieren/importieren, Drucken/PDF, Planungsmodus starten, Auto-Plan ausführen, „Heute", Theme umschalten, Spaltendichte umschalten.
+- **Monate** (springt zum gewählten Zeitraum).
+- **Mitarbeitende** (öffnet direkt das Personenprofil).
+
+Bedienbar vollständig per Tastatur (Tippen filtert, ↑/↓ navigiert, Enter führt aus, Esc schließt).
+
+---
+
+## 15. Drucken & PDF-Export
+
+`printpreview.js` bietet zwei Ausgabewege über eine **Druckvorschau** (Strg/Cmd+P oder Mehr-Menü):
+- **Browser-Druck** — eine für Papier optimierte, in Tagesbänder gebrochene Darstellung (`print.css`), Quer- oder Hochformat.
+- **Native PDF-Erzeugung** — via **jsPDF + autotable** als A4 (Quer-/Hochformat), inklusive eingebettetem, gerastertem App-Logo. Spalten werden in Bänder aufgeteilt (Querformat ~46, Hochformat ~64 Tage pro Bandlogik) und sauber paginiert.
+- **Optionen:** Ausrichtung (Quer-/Hochformat) und **RBN-Zeile ein-/ausblenden**.
+
+---
+
+## 16. Import & Export von Daten
+
+- **Export (Strg/Cmd+S außerhalb des Planungsmodus oder Mehr-Menü):** der komplette Datenbestand als **JSON-Datei**.
+- **Import (`#modal-import`):** per **Drag & Drop** einer `.json`-Datei, Dateiauswahl **oder** direktem Einfügen von JSON-Text. Eingaben werden validiert; Fehler werden inline gemeldet.
+
+---
+
+## 17. Darstellung, Theming & Barrierefreiheit
+
+### 17.1 Hell-/Dunkelmodus
+- Voll ausgearbeitete **Light-** und **Dark-Themes** (CSS-Custom-Properties, Attribut `data-theme`).
+- **Automatische Erstwahl** nach `prefers-color-scheme`; manuelle Wahl wird in `radplan_v3_theme` persistiert. Ein **Inline-Skript im `<head>`** setzt das Theme **vor** dem ersten Paint, sodass kein Aufblitzen entsteht. Die `theme-color`-Metaangabe wird mitgeführt.
+
+### 17.2 Farbenblind-Modus
+Umschaltbar (Attribut `data-cb`, persistiert in `radplan_v3_colorblind`): maximal unterscheidbare Arbeitsplatzfarben für eingeschränktes Farbsehen. Eine `contrast-audit.mjs`-Routine begleitet die Farbqualität.
+
+### 17.3 Rasterdichte
+Umschaltbar zwischen **kompakter** und **komfortabler** Zeilendichte für unterschiedliche Bildschirmgrößen und Vorlieben.
+
+### 17.4 Barrierefreiheit
+- Durchgängige **ARIA-Rollen** (`dialog`, `grid`, `tablist`/`tab`/`tabpanel`, `listbox`, `toolbar`, `status`, `alert`), `aria-modal`, `aria-live`-Regionen für dynamische Bereiche.
+- Vollständige **Tastaturbedienbarkeit** (Navigation, Editor, Modale, Befehlspalette).
+- Sichtbare Fokus-Stile, sinnvolle `title`/`aria-label`, Skip-freundliche Strukturen.
+- Sanfte **View-Transitions** (`viewtransition.js`) und reduzierte Bewegungspfade.
+
+### 17.5 Feinschliff („perfekter Touch")
+Viele kleine, fachspezifische Details machen RadPlan für den Klinikalltag passgenau: die **Abdeckungs-Statusleiste** im Spaltenkopf signalisiert Lücken auf einen Blick; **automatische Ruhetage** nach Diensten verhindern stille Regelverstöße; die **Live-Konfliktflaggen** warnen während des Tippens; **Rollenbänder** strukturieren die dichte Matrix; **Trendpfeile** und **Jahres-Summen** im Profil setzen jeden Monat in Relation; die **Feiertagsdienst-Liste** macht die faire Feiertagslast nachvollziehbar; die **Heatmap** und **Fairness-Kurven** übersetzen Gerechtigkeit in Bilder; und der **NFI** macht abstrakte Planqualität zu einer einzigen, erklärbaren Zahl.
+
+---
+
+## 18. Mobile- & Responsive-Erfahrung
+
+Unterhalb des Breakpoints (Touch-/Schmalgeräte, `MOBILE_BREAKPOINT`) ersetzt RadPlan das Raster durch eine **mobile Ansicht**:
+- **Monats-Zusammenfassung** + **Tagesliste** als Karten (heutige Karte hervorgehoben, automatisches Zentrieren).
+- **Untere Navigationsleiste** mit drei Zielen: **Mitarbeitende**, **Planung** (zentral hervorgehoben), **Menü**.
+- **Tages-Sheet** (Bottom-Sheet, `#modal-mobile-day`) mit Dienst-Badges und scrollbarem Inhalt zum Bearbeiten eines Tages.
+- **Mobile-Menü-Sheet** (`#modal-mobile-menu`) mit allen Aktionen (Ansicht/Navigation, Module, Darstellung, Daten).
+- **Radial-Schnellmenü** per Langdruck (siehe 8.3).
+- Modale werden auf Mobilgeräten als randlose, bildschirmfüllende Sheets dargestellt; Layouts reagieren live auf `visualViewport` (Tastatur-Overlays).
+
+Die responsive Schicht (`refreshResponsiveLayout`, `mobile-optimization.css`) schaltet Klassen (`is-mobile`), schließt nicht passende Overlays und hält Modal-Layouts (`updateModalLayout`) konsistent.
+
+---
+
+## 19. Kalender- & Feiertagslogik
+
+- **Feiertage Sachsens** werden vollständig berechnet (`getSaxonyHolidays`, gecached), inkl. **beweglicher** Feiertage über die **Gauß'sche Osterformel** (`easterDate`): Neujahr, Karfreitag, Ostermontag, Tag der Arbeit, Christi Himmelfahrt, Pfingstmontag, Tag der Deutschen Einheit, **Reformationstag**, **Buß- und Bettag** (korrekt auf den Mittwoch vor dem 23. November berechnet), 1. & 2. Weihnachtstag.
+- **Werktagslogik:** `isWorkday` = kein Wochenende und kein Feiertag; Statistiken trennen Werktage, aktive Tage, Abwesenheiten und Frei sauber.
+- **ISO-Kalenderwochen** (`isoWeekNumber`) für die Spaltenköpfe.
+- **Monatsgrenzen-Übergänge** (`nextCalendarDay`/`prevCalendarDay`) werden korrekt behandelt — u. a. beim automatischen Setzen des Ruhetags, wenn ein Dienst am Monatsletzten liegt.
+
+---
+
+## 20. Vollständige Tastaturkürzel-Referenz
+
+### Global
+| Taste | Aktion |
+| :--- | :--- |
+| `Alt` + `←` / `→` | Vorheriger / nächster Monat |
+| `Strg/Cmd` + `K` | Befehlspalette öffnen |
+| `Strg/Cmd` + `S` | Daten exportieren (im Planungsmodus: Entwurf speichern) |
+| `Strg/Cmd` + `P` | Druckvorschau / PDF |
+| `Strg/Cmd` + `Z` | Rückgängig |
+| `Strg/Cmd` + `Y` *oder* `Strg/Cmd` + `Shift` + `Z` | Wiederherstellen |
+| `Esc` | Offenes Modal / Flyout schließen |
+
+### Raster (fokussierte Zelle, Desktop)
+| Taste | Aktion |
+| :--- | :--- |
+| `←` `↑` `→` `↓` | Zur Nachbarzelle navigieren |
+| `1`–`8` | Arbeitsplatz umschalten (MR, CT, US, AN, MA, KUS, W, T) |
+| `D` | Bereitschaftsdienst umschalten |
+| `H` | Hintergrunddienst umschalten |
+| `Entf` / `Rücktaste` | Zelle leeren |
+| `Enter` | Editor öffnen |
+| `Strg/Cmd`-Klick | Tag zur Mehrfachauswahl hinzufügen/entfernen |
+| `Shift`-Klick | Bereich vom Anker bis Zieltag auswählen |
+
+### Editor
+| Taste | Aktion |
+| :--- | :--- |
+| `1`–`8` | Arbeitsplatz umschalten |
+| `D` / `H` | Bereitschaft / Hintergrund umschalten |
+| `S` / `Enter` | Speichern |
+| `Esc` | Schließen |
+
+---
+
+## 21. Projektstruktur
+
+```
+radplan/
+├── index.html              # SPA-Grundgerüst, alle Modal-Skelette, CDN-Einbindungen
+├── manifest.json           # PWA-Manifest (standalone, Icons, Theme-Farben)
+├── package.json            # type:module, Test-Skript (node --test)
+├── img/
+│   ├── icon.svg            # App-Icon
+│   └── icon_animated.svg   # animiertes Markenlogo
+├── functions/
+│   └── api.js              # Cloudflare Pages Function (KV-Persistenz, /api)
+├── js/
+│   ├── app.js              # Einstiegspunkt: Verdrahtung, Editor, Tastatur, Lebenszyklus
+│   ├── constants.js        # Codes, Stammdaten, Sonderregeln, Datums-/Feiertagsmathematik
+│   ├── state.js            # Zustand, localStorage, Server-Sync, 3-Wege-Merge
+│   ├── model.js            # Datenzugriff, Statistik-Aggregation, Plan-Sessions
+│   ├── history.js          # Undo/Redo (Normalmodus)
+│   ├── autoplan.js         # Neural Scheduler (Constraints, Optimierung, Bericht)
+│   ├── neuralgraph.js      # „Orbital Core"-Animation der Auto-Planung
+│   ├── render-grid.js      # Monatsraster, Schnell-Popover, Radialmenü, Mobile-Tagesansicht
+│   ├── render-modals.js    # Editor-/Person-/Score-Modale, Toast, Overlay-Steuerung
+│   ├── render-employee-dashboard.js  # Mitarbeitendenbereich (Team + Person-Tabs)
+│   ├── render-dept.js      # Abteilungsübersicht (Monat/Jahr)
+│   ├── yearplan.js         # Jahresplaner (5 Tabs)
+│   ├── printpreview.js     # Druckvorschau + jsPDF-Export
+│   ├── commandpalette.js   # ⌘K-Befehlspalette
+│   ├── contextmenu.js      # Rechtsklick-Kontextmenü
+│   ├── celltooltip.js      # reichhaltige Zell-Tooltips
+│   ├── viewtransition.js   # View-Transitions beim Monatswechsel
+│   └── icons.js            # SVG-Icon-Helfer
+├── css/
+│   ├── core.css            # Custom-Properties, Theme-Variablen, Basis
+│   ├── layout.css          # Header, Hauptlayout, Grid-Wrapper
+│   ├── components.css       # Buttons, Badges, Chips, Karten
+│   ├── chips.css           # Code-/Status-Chips
+│   ├── modals.css          # Overlay- & Modal-System
+│   ├── views.css           # Mitarbeiter-/Jahres-/Abteilungs-Ansichten, Kalender, Tabs
+│   ├── contextmenu.css     # Kontextmenü
+│   ├── mobile-optimization.css  # responsive/mobile Schicht
+│   ├── enhancements.css    # Feinschliff/Animationen
+│   └── print.css           # Druck-Stylesheet
+├── test/
+│   ├── autoplan.test.js    # Engine-Tests
+│   ├── history.test.js     # Undo/Redo-Tests
+│   └── contrast-audit.mjs  # Farbkontrast-Audit
+├── algorithm_rules.md          # algorithmische Spezifikation (v3.2)
+├── Algorithmus-Kriterien.txt   # Vergabekatalog / Kriterien
+├── Algorithmusregeln.txt       # Regelwerk
+└── radplan.json                # Beispiel-/Produktivdatenstand (Snapshot)
+```
+
+---
+
+## 22. Entwicklung, Tests & Deployment
+
+### 22.1 Lokal ausführen
+RadPlan benötigt **keinen Build**. Es genügt, das Verzeichnis über einen beliebigen statischen Webserver auszuliefern (die `/api`-Route ist nur für die Server-Synchronisation nötig; ohne sie läuft RadPlan offline gegen `localStorage`). Beispiel:
+
+```bash
+# irgendein statischer Server, z. B.:
+npx serve .
+# oder
+python3 -m http.server 8000
+```
+
+> Die App lädt ES-Module und externe CDN-Skripte — sie muss über `http(s)://` (nicht `file://`) ausgeliefert werden.
+
+### 22.2 Tests
+```bash
+npm test        # node --test test/**/*.test.js
+```
+Die Tests decken die Auto-Plan-Engine und das Undo/Redo-System ab; `contrast-audit.mjs` prüft die Farbkontraste.
+
+### 22.3 Deployment
+- Auslieferung als **Cloudflare Pages**-Projekt: statische Assets + `functions/api.js` als Pages Function.
+- **KV-Binding** `RADPLAN_KV` muss konfiguriert sein (Schlüssel `RADPLAN_DATA`). Fehlt das Binding, antwortet `/api` mit HTTP 500 und einem klaren Fehlertext.
+- Als **PWA** installierbar (Manifest „standalone", Apple-Touch-Meta, Theme-Farben, maskable Icon).
+
+---
+
+## 23. Glossar & Codetabellen
+
+### Dienste & Abkürzungen
+| Begriff | Bedeutung |
+| :--- | :--- |
+| **BD / D** | Bereitschaftsdienst (Front-Dienst vor Ort) |
+| **HG** | Hintergrunddienst (fachärztliche Rückfallebene; nur FÄ) |
+| **RBN / „RD Neurorad"** | Rufdienst Neuroradiologie (eigene Planzeile) |
+| **NFI** | Neural Fitness Index — Planqualität 0–100 |
+| **FZA** | Freizeitausgleich |
+| **WB** | Weiterbildung |
+| **KW** | Kalenderwoche (ISO) |
+| **FTE** | Beschäftigungsgrad (Voll­zeitäquivalent) |
+| **Pin** | fixierte Zelle, von der Auto-Planung unangetastet |
+
+### Positionen
+| Kürzel | Bedeutung | Dienstrelevanz |
+| :--- | :--- | :--- |
+| `CA` | Chefarzt | i. d. R. dienstbefreit (konfigurierbar) |
+| `LOA` | Leitender Oberarzt | Facharzt (D + HG) |
+| `OA` / `OÄ` | Oberarzt/-ärztin | Facharzt (D + HG) |
+| `FA` / `FÄ` | Facharzt/-ärztin | D + HG + Samstags-BD |
+| `AA` / `AÄ` | Assistenzarzt/-ärztin | nur BD (kein HG, kein Samstags-BD) |
+
+### Arbeitsplätze (Tastenkürzel 1–8)
+`1 MR` · `2 CT` · `3 US` · `4 AN` · `5 MA` · `6 KUS` · `7 W` · `8 T`
+
+### Status
+`F` Frei · `U` Urlaub · `ZU` Zusatzurlaub · `SU` Sonderurlaub · `§15c` Freistellung · `FZA` Freizeitausgleich · `K` Krank · `KK` Kind krank · `WB` Weiterbildung
+
+---
+
+<div align="center">
+
+**RadPlan** — entwickelt für die **Klinik für Radiologie & Nuklearmedizin, Klinikum St. Georg Leipzig**.
+Faire Dienste, transparente Regeln, ein Klick zum perfekten Monat.
+
+</div>
