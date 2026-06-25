@@ -128,7 +128,7 @@ import { withViewTransition, withThemeViewTransition } from './viewtransition.js
 import { initNormalHistory, normalUndo, normalRedo, updateNormalHistoryUI } from './history.js';
 import { initCellTooltips } from './celltooltip.js';
 import { openPrintPreview } from './printpreview.js';
-import { icon, setIcon } from './icons.js';
+import { icon, setIcon, injectBrandIcon } from './icons.js';
 
 let localAutoPlanResult = null;
 let localAutoPlanTargets = {};
@@ -159,12 +159,17 @@ export function applyTheme(theme) {
   const mSun = document.getElementById("mbtn-theme-sun");
   if (mMoon) mMoon.style.display = theme === "light" ? "none" : "";
   if (mSun) mSun.style.display = theme === "light" ? "" : "none";
+  
+  const favicon = document.querySelector('link[rel="icon"]');
+  if (favicon) {
+    favicon.setAttribute('href', `img/icon.svg?update=${Date.now()}&theme=${theme}`);
+  }
 }
 
 export function setTheme(theme, persist = true) {
   applyTheme(theme);
   if (persist) {
-    try { localStorage.setItem(THEME_STORAGE_KEY, theme); } catch (e) { /* localStorage unavailable */ }
+    try { localStorage.setItem(THEME_STORAGE_KEY, theme); } catch (e) {}
   }
 }
 
@@ -177,12 +182,12 @@ export function toggleTheme(originEvent) {
 export function initTheme() {
   applyTheme(getTheme());
   let explicitPreference = false;
-  try { explicitPreference = localStorage.getItem(THEME_STORAGE_KEY) !== null; } catch (e) { /* ignore */ }
+  try { explicitPreference = localStorage.getItem(THEME_STORAGE_KEY) !== null; } catch (e) {}
   if (!explicitPreference && window.matchMedia) {
     const mq = window.matchMedia("(prefers-color-scheme: light)");
     mq.addEventListener?.("change", (e) => {
       let stillExplicit = false;
-      try { stillExplicit = localStorage.getItem(THEME_STORAGE_KEY) !== null; } catch (err) { /* ignore */ }
+      try { stillExplicit = localStorage.getItem(THEME_STORAGE_KEY) !== null; } catch (err) {}
       if (!stillExplicit) setTheme(e.matches ? "light" : "dark", false);
     });
   }
@@ -207,7 +212,7 @@ export function applyDensity(density) {
 export function setDensity(density, persist = true) {
   applyDensity(density);
   if (persist) {
-    try { localStorage.setItem(DENSITY_STORAGE_KEY, density); } catch (e) { /* localStorage unavailable */ }
+    try { localStorage.setItem(DENSITY_STORAGE_KEY, density); } catch (e) {}
   }
   refreshResponsiveLayout({ forceRender: true });
 }
@@ -218,16 +223,10 @@ export function toggleDensity() {
 
 export function initDensity() {
   let saved = null;
-  try { saved = localStorage.getItem(DENSITY_STORAGE_KEY); } catch (e) { /* ignore */ }
+  try { saved = localStorage.getItem(DENSITY_STORAGE_KEY); } catch (e) {}
   applyDensity(saved === "compact" ? "compact" : "cozy");
 }
 
-/* ── Header-Overflow-Menü (Task 6) ──────────────────────────────────────────
-   Bündelt sekundäre Aktionen (Export/Import/Druck/Sync, Ansichtsoptionen)
-   hinter einem Drei-Punkte-Button. Die eigentlichen Aktions-Handler bleiben
-   an den ursprünglichen Button-IDs gebunden — hier wird nur Sichtbarkeit,
-   Tastatur- und Außenklick-Verhalten verwaltet sowie die Icons aus dem
-   zentralen Icon-System (Task 19) eingesetzt. */
 let headerMenuOutsideHandler = null;
 
 export function isHeaderMenuOpen() {
@@ -255,8 +254,6 @@ export function openHeaderMenu() {
   const wrap = document.querySelector(".header-more");
   const btn = document.getElementById("btn-more");
   if (!menu || !menu.hasAttribute("hidden")) return;
-  // Das Menü liegt außerhalb des Headers (Paint-Containment) und wird per
-  // fixed-Position unter dem Drei-Punkte-Button verankert.
   if (btn) {
     const r = btn.getBoundingClientRect();
     menu.style.setProperty("--hmenu-top", `${Math.round(r.bottom + 8)}px`);
@@ -265,7 +262,6 @@ export function openHeaderMenu() {
   menu.removeAttribute("hidden");
   wrap?.classList.add("open");
   btn?.setAttribute("aria-expanded", "true");
-  // Fokus auf das erste Menüelement für Tastaturbedienung.
   menu.querySelector(".hmenu-item")?.focus();
   headerMenuOutsideHandler = (e) => {
     if (e.type === "keydown") {
@@ -285,7 +281,6 @@ function initHeaderOverflowMenu() {
   const menu = document.getElementById("header-menu");
   if (!btn || !menu) return;
 
-  // Icons aus dem zentralen Set in die Menüeinträge setzen.
   menu.querySelectorAll(".hmenu-item[data-icon]").forEach((item) => {
     const ico = item.querySelector(".hmenu-ico");
     if (ico && !ico.childElementCount) setIcon(ico, item.dataset.icon, { size: 16 });
@@ -296,9 +291,6 @@ function initHeaderOverflowMenu() {
     isHeaderMenuOpen() ? closeHeaderMenu() : openHeaderMenu();
   });
 
-  // Schließt das Menü, nachdem eine normale Aktion ausgelöst wurde — die
-  // Aktion selbst läuft über den ursprünglichen ID-Handler. Der
-  // Farbenblind-Umschalter hält das Menü bewusst offen (Mehrfach-Vergleich).
   menu.addEventListener("click", (e) => {
     const item = e.target.closest(".hmenu-item");
     if (!item) return;
@@ -306,7 +298,6 @@ function initHeaderOverflowMenu() {
     closeHeaderMenu();
   });
 
-  // Pfeiltasten-Navigation innerhalb des Menüs.
   menu.addEventListener("keydown", (e) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
     e.preventDefault();
@@ -319,7 +310,6 @@ function initHeaderOverflowMenu() {
   });
 }
 
-/* ── Farbenblind-sicherer Modus (Task 4) ────────────────────────────────── */
 const COLORBLIND_STORAGE_KEY = "radplan_v3_colorblind";
 
 export function isColorblind() {
@@ -329,7 +319,6 @@ export function isColorblind() {
 export function applyColorblind(on) {
   if (on) document.documentElement.setAttribute("data-cb", "1");
   else document.documentElement.removeAttribute("data-cb");
-  // Beide Schalter (Header-Overflow-Menü + mobiles Menü) synchron halten.
   ["btn-colorblind", "mbtn-colorblind"].forEach((id) => {
     document.getElementById(id)?.setAttribute("aria-checked", on ? "true" : "false");
   });
@@ -338,7 +327,7 @@ export function applyColorblind(on) {
 export function setColorblind(on, persist = true) {
   applyColorblind(on);
   if (persist) {
-    try { localStorage.setItem(COLORBLIND_STORAGE_KEY, on ? "1" : "0"); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(COLORBLIND_STORAGE_KEY, on ? "1" : "0"); } catch (e) {}
   }
 }
 
@@ -738,7 +727,6 @@ export function openEditor(emp, day, options = {}) {
   const { ctrlKey = false, shiftKey = false } = options;
   const isRbnRow = emp === RBN_ROW_KEY;
 
-  // Shift+Klick → zusammenhängender Bereich vom Anker bis zum geklickten Tag.
   if (shiftKey && !isRbnRow) {
     if (state.multiEdit.emp !== emp || !state.multiEdit.days.length) {
       state.multiEdit.emp = emp;
@@ -759,7 +747,6 @@ export function openEditor(emp, day, options = {}) {
     return;
   }
 
-  // Strg/Cmd+Klick → einzelne Tage zur Auswahl hinzufügen/entfernen.
   if (ctrlKey && !isRbnRow) {
     if (state.multiEdit.emp !== emp) {
       state.multiEdit.emp = emp;
@@ -850,7 +837,6 @@ export function openEditor(emp, day, options = {}) {
     if (planBadge) planBadge.style.display = "none";
   }
   
-  // Kommentar laden
   const commentTa = document.getElementById("ed-comment-ta");
   const commentCount = document.getElementById("ed-comment-count");
   const commentSection = document.getElementById("ed-comment-section");
@@ -891,7 +877,7 @@ export function refreshEditorChips() {
     if (dutyWarn) dutyWarn.style.display = "none";
   } else {
     if (wpLabel) wpLabel.textContent = "Arbeitsplatz";
-    if (wpHint) wpHint.textContent = "— Mehrfachauswahl möglich, z. B. MR/CT";
+    if (wpHint) wpHint.textContent = "— Mehrfachauswahl möglich, z. B. MR/CT";
     if (stSection) stSection.style.display = "";
     if (dutySection) dutySection.style.display = "";
     if (dutySection?.parentElement?.classList.contains("ed-step")) {
@@ -1183,7 +1169,6 @@ export function saveEditor() {
   
   if (planMode) recordPlanHistory();
 
-  // Kommentar speichern (nur für den primären Tag, nicht für alle Multi-Edit-Tage)
   if (!isRbnRow) {
     const commentTa = document.getElementById("ed-comment-ta");
     if (commentTa) {
@@ -1218,10 +1203,8 @@ export function confirmRemoveEmployee(name, refreshList = false) {
 export function confirmRemoveEmployeeFuture(name) {
   const { year: y, month: m } = state;
   if (confirm(`„${name}" ab ${MONTHS[m]} ${y} dauerhaft (auch aus allen Folgemonaten) entfernen?\n\nACHTUNG: Dies löscht den Mitarbeiter und alle seine Dienste unwiderruflich aus der Datenbank für die Zukunft.`)) {
-    // 1. Current month removal
     removeEmployee(y, m, name);
 
-    // 2. Clear from DATA for all future months
     const currentKey = monthKey(y, m);
     const [cY, cM] = currentKey.split('-').map(Number);
     Object.keys(DATA).forEach(key => {
@@ -1233,7 +1216,6 @@ export function confirmRemoveEmployeeFuture(name) {
       }
     });
 
-    // 3. Clear from active Plan-Sessions if applicable
     if (planMode && planSessions) {
       Object.keys(planSessions).forEach(key => {
         if (key >= currentKey && planSessions[key]) {
@@ -1488,16 +1470,10 @@ export function printPlan() {
   }
   document.title = `RadPlan — ${MONTHS[month]} ${year}`;
 
-  // Guarantee the whole grid fits ONE landscape-A4 page vertically too.
-  // The print stylesheet already fits the width (table-layout:fixed), but a
-  // large department can still overflow downward. Estimate the printed height
-  // from the row count and derive a uniform scale that the print stylesheet
-  // applies via transform — with an inverse width so the page stays full-bleed.
   const table = document.getElementById("plan-table");
   const rows = table ? table.querySelectorAll("tr").length : 0;
-  // A4 landscape @96dpi, 8mm margins, minus print header/footer ≈ usable px.
   const USABLE_H = 680;
-  const PRINT_ROW_H = 15; // matches the compact print row metrics
+  const PRINT_ROW_H = 15;
   const estHeight = rows * PRINT_ROW_H + 24;
   const scale = Math.min(1, USABLE_H / Math.max(estHeight, 1));
   document.documentElement.style.setProperty("--print-scale", scale.toFixed(4));
@@ -1512,8 +1488,7 @@ export function doExport() {
     if (k && k.startsWith("radplan_v3_plan_")) {
       try {
         plans[k.replace("radplan_v3_plan_", "")] = JSON.parse(localStorage.getItem(k));
-      } catch (e) {
-      }
+      } catch (e) {}
     }
   }
   
@@ -2530,11 +2505,6 @@ export function applyAutoPlan() {
   localAutoPlanResult = null;
 }
 
-/**
- * Liefert die Tage, auf die eine Schnellaktion wirkt: Bei aktiver
- * Mehrfachauswahl derselben Person (und sofern die geklickte Zelle Teil
- * der Auswahl ist) die gesamte Auswahl, sonst nur den geklickten Tag.
- */
 export function clearMultiSelection() {
   state.multiEdit = { emp: null, days: [], anchor: null };
   closeCellQuickPopover();
@@ -2560,7 +2530,6 @@ export function quickToggleWorkplace(emp, day, wpCode) {
   const multi = days.length > 1;
   const wp = WORKPLACES.find(w => w.code === wpCode);
 
-  // Absicht aus der geklickten Ankerzelle ableiten → einheitlich auf alle anwenden.
   const anchorParts = (getCell(y, m, emp, day).assignment || "").split("/").map(x => x.trim()).filter(Boolean);
   const anchorHasStatus = anchorParts.some(p => STATUSES.find(s => s.code === p));
   if (!multi && anchorHasStatus) {
@@ -2599,7 +2568,6 @@ export function quickToggleDuty(emp, day, dutyCode) {
   const days = quickTargetDays(emp, day);
   const multi = days.length > 1;
 
-  // Absicht aus der Ankerzelle: hat sie den Dienst bereits, wird überall entfernt.
   const remove = getCell(y, m, emp, day).duty === dutyCode;
 
   if (!multi) {
@@ -2699,7 +2667,6 @@ export function quickSetStatus(emp, day, statusCode) {
   const days = quickTargetDays(emp, day);
   const multi = days.length > 1;
 
-  // Absicht aus der Ankerzelle: ist der Status dort gesetzt, wird überall entfernt.
   const remove = getCell(y, m, emp, day).assignment === statusCode;
 
   if (planMode) recordPlanHistory();
@@ -2800,7 +2767,6 @@ export function wireEvents() {
     renderEmployeeDashboard(); 
   });
   
-  // Zusammengeführtes Modal: Team/Person-Screen, Profil-Tabs, Personenwechsel.
   document.querySelectorAll("#modal-emps .emp-screen-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       if (btn.dataset.screen === "person") showPersonScreen();
@@ -3061,7 +3027,6 @@ export function wireEvents() {
         if (el && !el.hasAttribute("hidden")) { hideOverlay(id); handled = true; }
       });
       if (isPeriodFlyoutOpen()) { closePeriodFlyout(); handled = true; }
-      // Nichts offen → bestehende Mehrfachauswahl der Rasterzellen aufheben.
       if (!handled && state.multiEdit?.days?.length) {
         clearMultiSelection();
       }
@@ -3188,11 +3153,9 @@ export function wireEvents() {
   const gridWrapper = document.getElementById("grid-wrapper");
   if (gridWrapper) {
     gridWrapper.addEventListener("wheel", (e) => { 
-      // Handle wheel events explicitly for predictable UX
       const isEmployeeCol = e.target.closest('.td-name, .th-corner');
       const scrollingVertical = e.shiftKey || isEmployeeCol;
       
-      // Use the maximum delta to support high-res mice and trackpads
       const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
       
       if (delta !== 0) {
@@ -3216,6 +3179,7 @@ export function wireEvents() {
 }
 
 export async function init() {
+  injectBrandIcon();
   initTheme();
   initDensity();
   await loadFromStorage();
@@ -3241,7 +3205,6 @@ export async function init() {
   initNormalHistory();
   initCellTooltips();
 
-  // Jahresplan-Navigation: Klick auf Gitterzelle springt zum Monat
   window.addEventListener('radplan-navigate', (e) => {
     const { year, month } = e.detail || {};
     if (Number.isFinite(year) && Number.isFinite(month)) {
@@ -3250,7 +3213,6 @@ export async function init() {
     }
   });
 
-  // Jahresplan aufräumen wenn Modal geschlossen wird
   const ypModal = document.getElementById('modal-yearplan');
   if (ypModal) {
     new MutationObserver(mutations => {
