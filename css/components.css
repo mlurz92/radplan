@@ -1145,12 +1145,44 @@ body.is-mobile .plan-btn-auto span {
 /* Kopfzeile + Abschnitts-Label im Schnellmenü */
 .cqp-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 1px 2px 5px;
+  padding: 1px 1px 5px 2px;
   margin-bottom: 1px;
   border-bottom: 1px solid var(--glass-light-border);
+}
+
+.cqp-header-right {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.cqp-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(var(--gray-900-rgb), .55);
+  transition: background .14s, color .14s, transform .14s, border-color .14s;
+}
+
+.cqp-close:hover {
+  background: var(--red-bg, rgba(239,68,68,.12));
+  border-color: var(--glass-light-border);
+  color: var(--red-dark, #b91c1c);
+  transform: rotate(90deg);
+}
+
+.cqp-close:active {
+  transform: rotate(90deg) scale(.9);
 }
 
 .cqp-header-emp {
