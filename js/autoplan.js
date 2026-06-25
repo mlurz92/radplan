@@ -1002,6 +1002,17 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     }
     return true;
   }
+  function hasVacationInFollowingWeek(emp, d) {
+    const start = addDays(new Date(y, m, d), 4); // Next Monday
+    for (let i = 0; i < 7; i++) {
+      const dt = addDays(start, i);
+      const cell = getCell(dt.getFullYear(), dt.getMonth(), emp, dt.getDate());
+      if (cell.assignment && cell.assignment.split("/").map((x) => x.trim()).some((c) => VACATION_CODES.includes(c))) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   function scoreBDCandidate(emp, d, relaxed, phaseKey) {
     relaxed = relaxed || false;
