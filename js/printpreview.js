@@ -94,14 +94,16 @@ function extractGrid(includeRbn) {
         meta.push({ name: true });
         return;
       }
-      const assign = c.querySelector('.cell-assign, .cell-assign-rbn')?.textContent || '';
-      const duty = c.querySelector('.cell-duty')?.textContent || '';
-      // Belegung als Zelltext; der Dienst (D/HG) wird separat als farbiges
-      // Badge gezeichnet (nicht in den Text gemischt).
-      row.push(collapse(assign));
+      const assign = collapse(c.querySelector('.cell-assign, .cell-assign-rbn')?.textContent || '');
+      const duty = collapse(c.querySelector('.cell-duty')?.textContent || '');
+      // Dienst wird wie ein eigener Arbeitsplatz an die Belegung angehängt
+      // (z. B. "MR/D", "MA/AN/HG"); zusätzlich erhält die Zelle einen roten
+      // (D) bzw. blauen (HG) Rahmen — gezeichnet in didDrawCell.
+      const text = duty ? (assign ? `${assign}/${duty}` : duty) : assign;
+      row.push(text);
       meta.push({
         code: c.dataset.code || '',
-        duty: collapse(duty),
+        duty,
         we: c.classList.contains('we'),
         hol: c.classList.contains('hol'),
         conflict: c.classList.contains('cell-conflict'),
@@ -130,8 +132,8 @@ function hexToRgb(hex) {
 const PRINT_COLORS = {
   weFill: [238, 242, 247],     // Wochenende — sehr helles Slate
   holFill: [254, 243, 199],    // Feiertag — helles Amber
-  dutyDBadge: [239, 68, 68],   // D-Dienst-Badge — Rot (wie im Raster)
-  dutyHGBadge: [14, 165, 233], // HG-Dienst-Badge — Blau (wie im Raster)
+  dutyD: [220, 38, 38],        // D-Dienst — roter Zellrahmen
+  dutyHG: [2, 132, 199],       // HG-Dienst — blauer Zellrahmen
   conflict: [220, 38, 38],     // Konflikt-Rahmen
   rbnFill: [14, 116, 144],     // RD-Neurorad-Zeile
   headFill: [30, 41, 59],      // Tabellenkopf
@@ -139,6 +141,23 @@ const PRINT_COLORS = {
   headHol: [120, 53, 15],      // Tabellenkopf Feiertag
   ink: [15, 23, 42],
 };
+
+// Teilt das Gesamtraster in ein Spaltenband (Tage dayFrom..dayTo) inkl. der
+// vorangestellten Namensspalte (Index 0). So entstehen die beiden gestapelten
+// Bänder „1.–15." und „16.–Monatsende", jeweils mit Namen links.
+function sliceGridByDays(full, dayFrom, dayTo) {
+  const cols = [0];
+  for (let d = dayFrom; d <= dayTo; d++) cols.push(d);
+  return {
+    head: cols.map((c) => full.head[c]),
+    headMeta: cols.map((c) => full.headMeta[c] || {}),
+    body: full.body.map((r) => ({
+      isRbn: r.isRbn,
+      cells: cols.map((c) => r.cells[c]),
+      meta: cols.map((c) => r.meta[c]),
+    })),
+  };
+}
 
 // ── Vorschau-Render ────────────────────────────────────────────────────────────
 function renderPreview() {
@@ -236,22 +255,24 @@ const PDF_LAYOUT = {
   bottom: 12,
 };
 
-// Baut die autoTable-Konfiguration für eine gegebene Schriftgröße.
-function buildAutoTableConfig(grid, fontSize, geom, generatedAt, doc) {
+// Baut die autoTable-Konfiguration für ein Spaltenband (Tabelle) mit gegebener
+// Schriftgröße und vertikaler Startposition. Das Seiten-Chrome (Kopf/Fuß) wird
+// einmalig außerhalb gezeichnet, nicht je Tabelle.
+function buildAutoTableConfig(grid, fontSize, geom, doc, startY) {
   const cellPadding = Math.max(0.25, Math.min(0.9, fontSize * 0.14));
-  // Feste Spaltenbreiten für ALLE Spalten: Namensspalte + gleich breite
-  // Tagesspalten füllen exakt die nutzbare Seitenbreite (kein Überlauf).
+  // Feste Spaltenbreiten: Namensspalte + gleich breite Tagesspalten.
   const columnStyles = { 0: { halign: 'left', cellWidth: geom.nameW, fontStyle: 'bold' } };
   for (let c = 1; c < grid.head.length; c++) {
     columnStyles[c] = { cellWidth: geom.dayColW };
   }
+  const tableWidth = geom.nameW + (grid.head.length - 1) * geom.dayColW;
   return {
     head: [grid.head],
     body: grid.body.map((r) => r.cells),
-    startY: PDF_LAYOUT.top,
+    startY,
     margin: { top: PDF_LAYOUT.top, left: PDF_LAYOUT.marginX, right: PDF_LAYOUT.marginX, bottom: PDF_LAYOUT.bottom },
     theme: 'grid',
-    tableWidth: geom.tableWidth,
+    tableWidth,
     pageBreak: 'auto',
     rowPageBreak: 'avoid',
     styles: {
@@ -293,9 +314,7 @@ function buildAutoTableConfig(grid, fontSize, geom, generatedAt, doc) {
       const cm = rowMeta.meta?.[col];
       if (!cm || cm.name) return;
 
-      // Priorität der Flächenfarbe: Belegungs-Chip > Feiertag > Wochenende.
-      // (Der Dienst wird NICHT als Fläche, sondern als Badge gezeichnet; der
-      // heutige Tag wird bewusst nicht markiert.)
+      // Flächenfarbe: Belegungs-Chip > Feiertag > Wochenende.
       const meta = cm.code ? CODE_MAP[cm.code] : null;
       if (meta) {
         const bg = hexToRgb(meta.bg);
@@ -308,58 +327,36 @@ function buildAutoTableConfig(grid, fontSize, geom, generatedAt, doc) {
       } else if (cm.we) {
         data.cell.styles.fillColor = PRINT_COLORS.weFill;
       }
-
-      // Konfliktzellen erhalten einen kräftigen roten Rahmen.
-      if (cm.conflict) {
-        data.cell.styles.lineColor = PRINT_COLORS.conflict;
-        data.cell.styles.lineWidth = 0.4;
-      }
     },
     didDrawCell: (data) => {
-      // Dienst-Badges: kleine farbige Pillen (D = rot, HG = blau) wie im
-      // Raster. Bei vorhandener Belegung oben rechts in der Ecke, andernfalls
-      // mittig zentriert.
+      // Dienst-Rahmen: Zellen mit Bereitschaft (D) bzw. Hintergrund (HG)
+      // erhalten einen kräftigen roten bzw. blauen Rahmen — der Code selbst
+      // steht als Text-Suffix in der Zelle ("MR/D", "MA/AN/HG").
+      // Konfliktzellen erhalten ebenfalls einen roten Rahmen (sofern kein
+      // Dienst-Rahmen vorliegt).
       if (data.section !== 'body') return;
       const rowMeta = grid.body[data.row.index];
       if (!rowMeta || rowMeta.isRbn) return;
       const cm = rowMeta.meta?.[data.column.index];
-      if (!cm || cm.name || !cm.duty) return;
+      if (!cm || cm.name) return;
 
-      const isHG = cm.duty === 'HG';
-      const fill = isHG ? PRINT_COLORS.dutyHGBadge : PRINT_COLORS.dutyDBadge;
-      const label = isHG ? 'HG' : 'D';
+      let color = null;
+      if (cm.duty === 'HG') color = PRINT_COLORS.dutyHG;
+      else if (cm.duty === 'D') color = PRINT_COLORS.dutyD;
+      else if (cm.conflict) color = PRINT_COLORS.conflict;
+      if (!color) return;
+
+      const inset = 0.35;
       const { x, y, width, height } = data.cell;
-
-      const bf = Math.max(3.2, fontSize * 0.78);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(bf);
-      const tw = doc.getTextWidth(label);
-      const bw = tw + 1.2;
-      const bh = bf * 0.3528 + 0.9;
-
-      let bx;
-      let by;
-      if (cm.code) {
-        bx = x + width - bw - 0.5;
-        by = y + 0.5;
-      } else {
-        bx = x + (width - bw) / 2;
-        by = y + (height - bh) / 2;
-      }
-
-      doc.setFillColor(fill[0], fill[1], fill[2]);
-      doc.roundedRect(bx, by, bw, bh, 0.5, 0.5, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.text(label, bx + bw / 2, by + bh / 2, { align: 'center', baseline: 'middle' });
-    },
-    didDrawPage: (data) => {
-      drawPageChrome(doc, geom, generatedAt, data);
+      doc.setDrawColor(color[0], color[1], color[2]);
+      doc.setLineWidth(0.6);
+      doc.roundedRect(x + inset, y + inset, width - inset * 2, height - inset * 2, 0.6, 0.6, 'S');
     },
   };
 }
 
-// Zeichnet Kopf- (Logo, Titel, Zeitraum) und Fußzeile (Seitenzahl).
-function drawPageChrome(doc, geom, generatedAt, data) {
+// Zeichnet Kopf- (Logo, Titel, Zeitraum) und Fußzeile — einmalig pro Seite.
+function drawPageChrome(doc, geom, generatedAt) {
   if (logoDataUrl) {
     try {
       doc.addImage(logoDataUrl, 'PNG', 8, 6.5, 9, 9);
@@ -389,11 +386,22 @@ function drawPageChrome(doc, geom, generatedAt, data) {
   doc.setLineWidth(0.3);
   doc.line(8, 19.4, geom.pageW - 8, 19.4);
 
-  const totalPages = doc.internal.getNumberOfPages();
   doc.setFontSize(7);
   doc.setTextColor(100, 116, 139);
   doc.text(`RadPlan · Klinik für Radiologie & Nuklearmedizin · erstellt am ${generatedAt}`, 8, geom.pageH - 5);
-  doc.text(`Seite ${data.pageNumber} / ${totalPages}`, geom.pageW - 8, geom.pageH - 5, { align: 'right' });
+  doc.text('Tage 1.–15. (oben) · 16.–Monatsende (unten)', geom.pageW - 8, geom.pageH - 5, { align: 'right' });
+}
+
+// Rendert die (ein oder zwei) Spaltenbänder gestapelt und meldet die untere
+// Abschlusskante zurück. Bei zwei Bändern steht die Namensspalte links erneut.
+function renderBands(doc, bands, fontSize, geom, gap) {
+  let y = PDF_LAYOUT.top;
+  bands.forEach((band) => {
+    const cfg = buildAutoTableConfig(band, fontSize, geom, doc, y);
+    doc.autoTable(cfg);
+    y = doc.lastAutoTable.finalY + gap;
+  });
+  return y - gap;
 }
 
 async function doPdfExport() {
@@ -421,80 +429,85 @@ async function doPdfExport() {
   const pageH = probe.internal.pageSize.getHeight();
   const generatedAt = new Date().toLocaleDateString('de-DE');
 
-  // Geometrie: Namensspalte + gleich breite Tagesspalten füllen exakt die
-  // nutzbare Seitenbreite → kein horizontaler Überlauf, keine zweite Seite quer.
+  // Monat in zwei Bänder teilen: Tage 1.–15. (oben) und 16.–Monatsende (unten),
+  // beide mit vorangestellter Namensspalte. Dadurch hat jedes Band nur ~16
+  // Spalten → deutlich breitere Zellen und größere, besser lesbare Schrift bei
+  // vollständiger Monatsübersicht auf einer Seite.
   const numDays = Math.max(1, grid.head.length - 1);
+  const SPLIT_DAY = 15;
+  const bands = numDays > SPLIT_DAY
+    ? [sliceGridByDays(grid, 1, SPLIT_DAY), sliceGridByDays(grid, SPLIT_DAY + 1, numDays)]
+    : [grid];
+  // Breite anhand des größten Bandes, damit beide Bänder dieselbe Spaltenbreite
+  // und damit ein bündiges Raster erhalten.
+  const maxBandDays = Math.max(...bands.map((b) => b.head.length - 1));
+
   const usableW = pageW - PDF_LAYOUT.marginX * 2;
-  const nameW = Math.max(18, Math.min(34, usableW * 0.11));
-  const dayColW = (usableW - nameW) / numDays;
-  // Tagesspaltenbreite global setzen (Spalte 0 wird per columnStyles überschrieben).
-  const geom = { pageW, pageH, tableWidth: usableW, nameW, dayColW };
+  const nameW = Math.max(20, Math.min(38, usableW * 0.12));
+  const dayColW = (usableW - nameW) / maxBandDays;
+  const geom = { pageW, pageH, nameW, dayColW };
 
-  const usableH = pageH - PDF_LAYOUT.top - PDF_LAYOUT.bottom;
+  const BAND_GAP = 6;   // vertikaler Abstand zwischen den beiden Bändern
 
-  const FONT_MAX = 8;
+  const FONT_MAX = 11;
   const FONT_MIN = 2.4;
   const FONT_STEP = 0.25;
 
-  // 1) Horizontale Grenze: die größte Schriftgröße, bei der JEDE Beschriftung
-  //    einzeilig in ihre Spaltenbreite passt (kein Umbruch, kein Abschnitt
-  //    mitten im Wort). Wir messen die Textbreite bei Schriftgröße 1 (skaliert
-  //    linear) und leiten daraus die maximal mögliche Schriftgröße ab.
+  // 1) Horizontale Grenze: größte Schrift, bei der JEDE Beschriftung einzeilig
+  //    in ihre Spalte passt (kein Umbruch, kein Abschnitt mitten im Wort).
   function horizontalFontLimit() {
     probe.setFont('helvetica', 'bold');   // fett = breiteste Variante (worst case)
     probe.setFontSize(1);
     let limit = FONT_MAX;
-    const hPad = 1.4;   // horizontaler Innenabstand (beide Seiten) in mm
-    const consider = (text, colW, reserve) => {
-      const avail = colW - hPad - (reserve || 0);
+    const hPad = 1.4;
+    const consider = (text, colW) => {
+      const avail = colW - hPad;
       String(text).split('\n').forEach((line) => {
         const w1 = probe.getTextWidth(line);
         if (w1 > 0) limit = Math.min(limit, avail / w1);
       });
     };
-    grid.head.forEach((txt, i) => consider(txt, i === 0 ? nameW : dayColW, 0));
-    grid.body.forEach((r) => {
-      r.cells.forEach((txt, i) => {
-        if (!txt) return;
-        // In belegten Zellen sitzt evtl. ein Dienst-Badge oben rechts —
-        // etwas Breite reservieren, damit Text und Badge nicht kollidieren.
-        const reserve = (i > 0 && r.meta?.[i]?.duty && r.meta?.[i]?.code) ? dayColW * 0.32 : 0;
-        consider(txt, i === 0 ? nameW : dayColW, reserve);
-      });
-    });
-    // Sicherheitsmarge gegen Rundung; auf den sinnvollen Bereich begrenzen.
+    // Köpfe + Zellen über das Gesamtraster (Spaltenbreiten sind in beiden
+    // Bändern identisch).
+    grid.head.forEach((txt, i) => consider(txt, i === 0 ? nameW : dayColW));
+    grid.body.forEach((r) => r.cells.forEach((txt, i) => {
+      if (txt) consider(txt, i === 0 ? nameW : dayColW);
+    }));
     return Math.max(FONT_MIN, Math.min(FONT_MAX, limit * 0.92));
   }
 
-  // 2) Vertikale Grenze: größte Schriftgröße, bei der die gesamte Tabelle auf
-  //    eine Seite passt — gemessen über einen stillen autoTable-Probelauf.
-  function measuredHeight(fontSize) {
+  // 2) Vertikale Grenze: größte Schrift, bei der BEIDE Bänder zusammen auf eine
+  //    Seite passen — über einen stillen Probelauf gemessen.
+  function measureBands(fontSize) {
     const tmp = new jsPDF({ orientation: options.orientation, unit: 'mm', format: 'a4' });
-    const cfg = buildAutoTableConfig(grid, fontSize, geom, generatedAt, tmp);
-    cfg.didDrawPage = () => {};
-    cfg.didDrawCell = () => {};
-    tmp.autoTable(cfg);
-    return { height: tmp.lastAutoTable.finalY - PDF_LAYOUT.top, pages: tmp.internal.getNumberOfPages() };
+    let y = PDF_LAYOUT.top;
+    bands.forEach((band) => {
+      const cfg = buildAutoTableConfig(band, fontSize, geom, tmp, y);
+      cfg.didDrawCell = () => {};
+      tmp.autoTable(cfg);
+      y = tmp.lastAutoTable.finalY + BAND_GAP;
+    });
+    return { bottom: y - BAND_GAP, pages: tmp.internal.getNumberOfPages() };
   }
 
   const hLimit = horizontalFontLimit();
   let chosenFont = FONT_MIN;
   for (let fs = Math.min(FONT_MAX, hLimit); fs >= FONT_MIN - 0.001; fs -= FONT_STEP) {
-    const { height, pages } = measuredHeight(fs);
-    if (pages === 1 && height <= usableH) {
+    const { bottom, pages } = measureBands(fs);
+    if (pages === 1 && bottom <= pageH - PDF_LAYOUT.bottom) {
       chosenFont = fs;
       break;
     }
     chosenFont = fs; // Fallback: kleinste getestete Größe
   }
 
-  // Finales Dokument mit gewählter Schriftgröße + vollständigem Chrome/Farben.
+  // Finales Dokument: Bänder rendern, danach das Seiten-Chrome einmalig.
   const doc = new jsPDF({ orientation: options.orientation, unit: 'mm', format: 'a4' });
-  const finalCfg = buildAutoTableConfig(grid, chosenFont, geom, generatedAt, doc);
-  doc.autoTable(finalCfg);
+  renderBands(doc, bands, chosenFont, geom, BAND_GAP);
+  drawPageChrome(doc, geom, generatedAt);
 
   doc.save(`radplan_${state.year}-${String(state.month + 1).padStart(2, '0')}.pdf`);
-  showToast('PDF erstellt — auf eine A4-Seite skaliert');
+  showToast('PDF erstellt — vollständiger Monat auf einer A4-Seite');
 }
 
 // ── Modal-Aufbau ────────────────────────────────────────────────────────────────
