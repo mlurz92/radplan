@@ -1335,7 +1335,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
 
         // Punkt 17: Donnerstags-D als Urlaubsverlängerer auch im Objective
         // belohnen, damit Optimierungs-Swaps den Vorteil nicht wegtauschen.
-        if (wdObj === 4 && hasVacationInWeek(y, m, emp, isoWeekNumber(y, m, day) + 1)) {
+        if (wdObj === 4 && hasVacationInFollowingWeek(emp, day)) {
           score -= 3000;
         }
       }
