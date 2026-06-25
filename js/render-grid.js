@@ -65,6 +65,7 @@ import { renderEmployeeDashboard } from './render-employee-dashboard.js';
 const dragSelectionState = {
   active: false,
   emp: null,
+  mode: "add", // "add" | "remove"
   justDragged: false,
   touched: new Set(),
 };
@@ -72,20 +73,55 @@ const dragSelectionState = {
 function resetDragSelectionState() {
   dragSelectionState.active = false;
   dragSelectionState.emp = null;
+  dragSelectionState.mode = "add";
   dragSelectionState.touched = new Set();
   document.body.classList.remove("is-drag-selecting");
 }
 
+/** Setzt den Auswahlzustand eines Tages; gibt true zurück, wenn sich etwas änderte. */
+function setDaySelected(emp, day, selected) {
+  if (!emp || !Number.isFinite(day) || emp === RBN_ROW_KEY) return false;
+  const me = state.multiEdit;
+  if (me.emp !== emp) {
+    me.emp = emp;
+    me.days = [];
+    me.anchor = null;
+  }
+  const idx = me.days.indexOf(day);
+  if (selected && idx < 0) {
+    me.days.push(day);
+    me.days.sort((a, b) => a - b);
+    me.anchor = day;
+    return true;
+  }
+  if (!selected && idx >= 0) {
+    me.days.splice(idx, 1);
+    if (me.anchor === day) me.anchor = me.days[me.days.length - 1] ?? null;
+    return true;
+  }
+  return false;
+}
+
 function applyDragSelection(emp, day) {
-  if (!emp || !Number.isFinite(day) || emp === RBN_ROW_KEY) return;
-  if (state.multiEdit.emp !== emp) {
-    state.multiEdit.emp = emp;
-    state.multiEdit.days = [];
-  }
-  if (!state.multiEdit.days.includes(day)) {
-    state.multiEdit.days.push(day);
-    state.multiEdit.days.sort((a, b) => a - b);
-  }
+  setDaySelected(emp, day, dragSelectionState.mode === "add");
+}
+
+/**
+ * Synchronisiert nur die `.multi-selected`-Klassen der vorhandenen Zellen,
+ * ohne das gesamte Raster neu zu zeichnen. Das hält Ziehgesten flüssig.
+ */
+function syncSelectionClasses() {
+  const tbody = document.getElementById("plan-tbody");
+  if (!tbody) return;
+  const me = state.multiEdit;
+  const emp = me?.emp || null;
+  const days = Array.isArray(me?.days) ? me.days : [];
+  // Markierung erst ab zwei Zellen sichtbar machen (Einzelzelle → Fokusring genügt).
+  const show = days.length > 1;
+  tbody.querySelectorAll(".td-cell").forEach((cell) => {
+    const sel = show && cell.dataset.emp === emp && days.includes(parseInt(cell.dataset.day, 10));
+    cell.classList.toggle("multi-selected", sel);
+  });
 }
 
 export function getViewportWidth() {
@@ -358,27 +394,53 @@ export function closeCellQuickPopover() {
   document.body.classList.remove('cell-popover-open');
 }
 
+// Kuratiertes Status-Schnellset für das Popover (häufigste Codes zuerst).
+const QUICK_STATUS_CODES = ["F", "U", "K", "FZA", "ZU", "WB"];
+
 function buildQuickPopoverHtml(emp, day) {
   const { year: y, month: m } = state;
   const cell = getCell(y, m, emp, day);
   const parts = (cell.assignment || "").split("/").map(x => x.trim()).filter(Boolean);
+
+  const me = state.multiEdit;
+  const selCount = (me?.emp === emp && Array.isArray(me.days) && me.days.includes(day))
+    ? me.days.length : 1;
+  const multi = selCount > 1;
+
+  const headerHtml = `
+    <div class="cqp-header">
+      <span class="cqp-header-emp">${emp}</span>
+      <span class="cqp-header-meta">${multi ? `${selCount} Tage` : `${day}. ${MONTHS[m]}`}</span>
+    </div>
+  `;
 
   const wpHtml = WORKPLACES.map(wp => {
     const active = parts.includes(wp.code);
     return `<button type="button" class="cqp-wp${active ? " active" : ""}" data-wp="${wp.code}" style="${active ? `background:${wp.bg};color:${wp.fg};border-color:${wp.bg};` : ""}" title="${wp.label}">${wp.code}</button>`;
   }).join("");
 
+  const stHtml = QUICK_STATUS_CODES.map(code => {
+    const st = STATUSES.find(s => s.code === code);
+    if (!st) return "";
+    const active = parts.includes(code);
+    return `<button type="button" class="cqp-status${active ? " active" : ""}" data-status="${code}" style="${active ? `background:${st.bg};color:${st.fg};border-color:${st.bg};` : `--st-bg:${st.bg};--st-fg:${st.fg};`}" title="${st.label}">${code}</button>`;
+  }).join("");
+
   return `
-    <div class="cell-quick-popover-inner">
+    <div class="cell-quick-popover-inner${multi ? " cqp-multi" : ""}">
+      ${headerHtml}
+      <div class="cqp-section-label">Arbeitsplatz</div>
       <div class="cqp-row cqp-wps">${wpHtml}</div>
+      <div class="cqp-section-label">Status</div>
+      <div class="cqp-row cqp-statuses">${stHtml}</div>
       <div class="cqp-row cqp-duties">
         <button type="button" class="cqp-duty badge-D${cell.duty === "D" ? " active" : ""}" data-duty="D" title="Bereitschaftsdienst">D</button>
         <button type="button" class="cqp-duty badge-HG${cell.duty === "HG" ? " active" : ""}" data-duty="HG" title="Hintergrunddienst">HG</button>
-        <button type="button" class="cqp-clear" data-action="clear" title="Zelle löschen">
+        <button type="button" class="cqp-clear" data-action="clear" title="${multi ? "Auswahl leeren" : "Zelle löschen"}">
           <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>
       </div>
-      <button type="button" class="cqp-more" data-action="more">Vollständig bearbeiten…</button>
+      <button type="button" class="cqp-more" data-action="more">${multi ? "Auswahl bearbeiten…" : "Vollständig bearbeiten…"}</button>
     </div>
   `;
 }
@@ -421,6 +483,12 @@ export function showCellQuickPopover(emp, day, anchorEl) {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       quickToggleWorkplace(emp, day, btn.dataset.wp);
+    });
+  });
+  el.querySelectorAll('.cqp-status').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      quickSetStatus(emp, day, btn.dataset.status);
     });
   });
   el.querySelectorAll('.cqp-duty').forEach(btn => {
@@ -1090,7 +1158,7 @@ export function renderTbody(y, m, dim, hols, md) {
           ], tdEl);
         });
       }
-      if (state.multiEdit?.emp === emp && Array.isArray(state.multiEdit.days) && state.multiEdit.days.includes(d)) {
+      if (state.multiEdit?.emp === emp && Array.isArray(state.multiEdit.days) && state.multiEdit.days.length > 1 && state.multiEdit.days.includes(d)) {
         tdEl.classList.add("multi-selected");
       }
       tr.appendChild(tdEl);
@@ -1223,17 +1291,43 @@ export function renderTfoot(y, m, dim, md) {
 document.addEventListener("mousedown", (e) => {
   if (e.button !== 0) return;
   if (e.target.closest?.(".cell-duty")) return;
+  // Strg/Cmd/Shift werden vom Klick-Handler (Toggle/Bereich) verarbeitet.
+  if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
   const cell = e.target.closest?.("#plan-tbody .td-cell");
   if (!cell) return;
   const emp = cell.dataset.emp;
   const day = parseInt(cell.dataset.day || "", 10);
   if (!emp || !Number.isFinite(day) || emp === RBN_ROW_KEY) return;
+
+  const me = state.multiEdit;
+  const isSelected = me.emp === emp && Array.isArray(me.days) && me.days.includes(day);
+  const multi = isSelected && me.days.length > 1;
+
+  // Auf einer bereits markierten Zelle innerhalb einer Mehrfachauswahl startet
+  // eine Abwahl-Geste; sonst beginnt eine frische additive Auswahl.
+  if (multi) {
+    dragSelectionState.mode = "remove";
+  } else {
+    dragSelectionState.mode = "add";
+    if (!isSelected) {
+      state.multiEdit.emp = emp;
+      state.multiEdit.days = [];
+      state.multiEdit.anchor = null;
+    }
+  }
+
   dragSelectionState.active = true;
   dragSelectionState.justDragged = false;
   dragSelectionState.emp = emp;
   dragSelectionState.touched = new Set([day]);
   document.body.classList.add("is-drag-selecting");
-  applyDragSelection(emp, day);
+  // Im Abwahl-Modus (Start auf markierter Zelle) bleibt die Auswahl bei einem
+  // reinen Klick erhalten – erst das Ziehen entfernt Zellen. Im Add-Modus wird
+  // die Startzelle sofort aufgenommen.
+  if (dragSelectionState.mode === "add") {
+    setDaySelected(emp, day, true);
+    syncSelectionClasses();
+  }
 });
 
 document.addEventListener("mouseover", (e) => {
@@ -1247,11 +1341,25 @@ document.addEventListener("mouseover", (e) => {
   dragSelectionState.touched.add(day);
   applyDragSelection(emp, day);
   dragSelectionState.justDragged = true;
-  render();
+  syncSelectionClasses();
 });
 
 document.addEventListener("mouseup", () => {
+  const dragged = dragSelectionState.justDragged;
+  const emp = state.multiEdit?.emp;
+  const days = state.multiEdit?.days || [];
   resetDragSelectionState();
+  // Nach einer Ziehgeste das Schnellmenü an der Ankerzelle zeigen, damit die
+  // Auswahl direkt zugeordnet werden kann.
+  if (dragged && emp && days.length) {
+    const anchorDay = days[days.length - 1];
+    const tbody = document.getElementById("plan-tbody");
+    const cell = tbody?.querySelector(`.td-cell[data-emp="${CSS.escape(emp)}"][data-day="${anchorDay}"]`);
+    if (cell) {
+      cell.focus({ preventScroll: true });
+      showCellQuickPopover(emp, anchorDay, cell);
+    }
+  }
 });
 
 window.addEventListener("blur", () => {

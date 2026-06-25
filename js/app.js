@@ -88,6 +88,7 @@ import {
   queueResponsiveRefresh,
   scrollToToday as doScrollToToday,
   focusCellAfterRender,
+  closeCellQuickPopover,
   initGridKeyboardHandlers,
   openRadialQuickMenu,
   updateRadialHover,
@@ -2525,67 +2526,120 @@ export function applyAutoPlan() {
   localAutoPlanResult = null;
 }
 
+/**
+ * Liefert die Tage, auf die eine Schnellaktion wirkt: Bei aktiver
+ * Mehrfachauswahl derselben Person (und sofern die geklickte Zelle Teil
+ * der Auswahl ist) die gesamte Auswahl, sonst nur den geklickten Tag.
+ */
+export function clearMultiSelection() {
+  state.multiEdit = { emp: null, days: [], anchor: null };
+  closeCellQuickPopover();
+  render();
+  showToast("Auswahl aufgehoben");
+}
+
+export function quickTargetDays(emp, day) {
+  const me = state.multiEdit;
+  if (me?.emp === emp && Array.isArray(me.days) && me.days.length > 1 && me.days.includes(day)) {
+    return [...me.days].sort((a, b) => a - b);
+  }
+  return [day];
+}
+
+function suffixForSkips(skipped) {
+  return skipped ? ` · ${skipped} übersprungen` : "";
+}
+
 export function quickToggleWorkplace(emp, day, wpCode) {
   const { year: y, month: m } = state;
-  const cell = getCell(y, m, emp, day);
+  const days = quickTargetDays(emp, day);
+  const multi = days.length > 1;
+  const wp = WORKPLACES.find(w => w.code === wpCode);
 
-  const existingParts = (cell.assignment || "").split("/").map(x => x.trim()).filter(Boolean);
-  const hasStatus = existingParts.some(p => STATUSES.find(s => s.code === p));
-  if (hasStatus) {
+  // Absicht aus der geklickten Ankerzelle ableiten → einheitlich auf alle anwenden.
+  const anchorParts = (getCell(y, m, emp, day).assignment || "").split("/").map(x => x.trim()).filter(Boolean);
+  const anchorHasStatus = anchorParts.some(p => STATUSES.find(s => s.code === p));
+  if (!multi && anchorHasStatus) {
     showToast("Status aktiv — Editor öffnen zum Bearbeiten");
     return;
   }
-
-  const existingWPs = existingParts.filter(p => WORKPLACES.find(w => w.code === p));
-  const newWPs = existingWPs.includes(wpCode)
-    ? existingWPs.filter(w => w !== wpCode)
-    : [...existingWPs, wpCode];
-
-  const newAssignment = newWPs.length ? newWPs.join("/") : null;
+  const remove = anchorParts.includes(wpCode);
 
   if (planMode) recordPlanHistory();
-  setCell(y, m, emp, day, { assignment: newAssignment, duty: cell.duty || null });
+  let changed = 0;
+  let skipped = 0;
+  days.forEach(d => {
+    const cell = getCell(y, m, emp, d);
+    const parts = (cell.assignment || "").split("/").map(x => x.trim()).filter(Boolean);
+    if (parts.some(p => STATUSES.find(s => s.code === p))) { skipped++; return; }
+    const wps = parts.filter(p => WORKPLACES.find(w => w.code === p));
+    const next = remove
+      ? wps.filter(w => w !== wpCode)
+      : (wps.includes(wpCode) ? wps : [...wps, wpCode]);
+    setCell(y, m, emp, d, { assignment: next.length ? next.join("/") : null, duty: cell.duty || null });
+    changed++;
+  });
   if (planMode) recordPlanHistory();
 
-  const wp = WORKPLACES.find(w => w.code === wpCode);
-  showToast(newWPs.includes(wpCode)
-    ? `${wp?.label || wpCode} gesetzt`
-    : `${wp?.label || wpCode} entfernt`);
+  const label = wp?.label || wpCode;
+  const verb = remove ? "entfernt" : "gesetzt";
+  showToast(multi
+    ? `${label} ${verb} · ${changed} ${changed === 1 ? "Tag" : "Tage"}${suffixForSkips(skipped)}`
+    : `${label} ${verb}`);
   render();
   focusCellAfterRender(emp, day);
 }
 
 export function quickToggleDuty(emp, day, dutyCode) {
   const { year: y, month: m } = state;
-  const cell = getCell(y, m, emp, day);
+  const days = quickTargetDays(emp, day);
+  const multi = days.length > 1;
 
-  const owner = dutyOwner(y, m, day, dutyCode);
-  if (owner && owner !== emp) {
-    showToast(`${dutyCode} bereits vergeben an: ${owner}`);
-    return;
-  }
+  // Absicht aus der Ankerzelle: hat sie den Dienst bereits, wird überall entfernt.
+  const remove = getCell(y, m, emp, day).duty === dutyCode;
 
-  const newDuty = cell.duty === dutyCode ? null : dutyCode;
-
-  if (planMode) recordPlanHistory();
-  setCell(y, m, emp, day, { assignment: cell.assignment || null, duty: newDuty });
-
-  if (newDuty === "D") {
-    const next = nextCalendarDay(y, m, day);
-    const ex = getCell(next.y, next.m, emp, next.d);
-    if (!ex.assignment) {
-      setCell(next.y, next.m, emp, next.d, { assignment: "F", duty: ex.duty || null });
-      showToast("Bereitschaftsdienst gesetzt · F automatisch für Folgetag");
-    } else {
-      showToast("Bereitschaftsdienst gesetzt");
+  if (!multi) {
+    const owner = dutyOwner(y, m, day, dutyCode);
+    if (!remove && owner && owner !== emp) {
+      showToast(`${dutyCode} bereits vergeben an: ${owner}`);
+      return;
     }
-  } else if (newDuty === "HG") {
-    showToast("Hintergrunddienst gesetzt");
-  } else {
-    showToast(`${dutyCode === "HG" ? "HG" : "BD"} entfernt`);
   }
 
   if (planMode) recordPlanHistory();
+  let changed = 0;
+  let skipped = 0;
+  let autoFreeDay = false;
+  days.forEach(d => {
+    const cell = getCell(y, m, emp, d);
+    if (!remove) {
+      const owner = dutyOwner(y, m, d, dutyCode);
+      if (owner && owner !== emp) { skipped++; return; }
+    }
+    const newDuty = remove ? null : dutyCode;
+    setCell(y, m, emp, d, { assignment: cell.assignment || null, duty: newDuty });
+    changed++;
+
+    if (newDuty === "D") {
+      const next = nextCalendarDay(y, m, d);
+      const ex = getCell(next.y, next.m, emp, next.d);
+      if (!ex.assignment) {
+        setCell(next.y, next.m, emp, next.d, { assignment: "F", duty: ex.duty || null });
+        autoFreeDay = true;
+      }
+    }
+  });
+  if (planMode) recordPlanHistory();
+
+  const name = dutyCode === "HG" ? "Hintergrunddienst" : "Bereitschaftsdienst";
+  if (multi) {
+    showToast(`${dutyCode} ${remove ? "entfernt" : "gesetzt"} · ${changed} ${changed === 1 ? "Tag" : "Tage"}${suffixForSkips(skipped)}`);
+  } else if (remove) {
+    showToast(`${dutyCode === "HG" ? "HG" : "BD"} entfernt`);
+  } else {
+    showToast(autoFreeDay ? `${name} gesetzt · F automatisch für Folgetag` : `${name} gesetzt`);
+  }
+
   render();
   focusCellAfterRender(emp, day);
 }
@@ -2624,26 +2678,39 @@ export function moveDutyBadge(srcEmp, srcDay, dstEmp, dstDay) {
 
 export function quickClearCell(emp, day) {
   const { year: y, month: m } = state;
+  const days = quickTargetDays(emp, day);
+  const multi = days.length > 1;
+
   if (planMode) recordPlanHistory();
-  clearCell(y, m, emp, day);
+  days.forEach(d => clearCell(y, m, emp, d));
   if (planMode) recordPlanHistory();
-  showToast("Eintrag gelöscht");
+
+  showToast(multi ? `${days.length} Tage geleert` : "Eintrag gelöscht");
   render();
   focusCellAfterRender(emp, day);
 }
 
 export function quickSetStatus(emp, day, statusCode) {
   const { year: y, month: m } = state;
-  const cell = getCell(y, m, emp, day);
-  const isActive = cell.assignment === statusCode;
-  const newAssignment = isActive ? null : statusCode;
+  const days = quickTargetDays(emp, day);
+  const multi = days.length > 1;
+
+  // Absicht aus der Ankerzelle: ist der Status dort gesetzt, wird überall entfernt.
+  const remove = getCell(y, m, emp, day).assignment === statusCode;
 
   if (planMode) recordPlanHistory();
-  setCell(y, m, emp, day, { assignment: newAssignment, duty: cell.duty || null });
+  days.forEach(d => {
+    const cell = getCell(y, m, emp, d);
+    setCell(y, m, emp, d, { assignment: remove ? null : statusCode, duty: cell.duty || null });
+  });
   if (planMode) recordPlanHistory();
 
   const st = STATUSES.find(s => s.code === statusCode);
-  showToast(isActive ? `${st?.label || statusCode} entfernt` : `${st?.label || statusCode} gesetzt`);
+  const label = st?.label || statusCode;
+  const verb = remove ? "entfernt" : "gesetzt";
+  showToast(multi
+    ? `${label} ${verb} · ${days.length} ${days.length === 1 ? "Tag" : "Tage"}`
+    : `${label} ${verb}`);
   render();
   focusCellAfterRender(emp, day);
 }
@@ -2980,15 +3047,20 @@ export function wireEvents() {
   
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
+      let handled = false;
       [
         "modal-editor", "modal-emps", "modal-import", "modal-dept",
         "modal-yearplan", "modal-autoplan", "modal-ap-report", "modal-mobile-menu",
         "modal-mobile-day", "modal-score-info", "modal-command-palette", "modal-print-preview"
       ].forEach((id) => {
         const el = document.getElementById(id);
-        if (el && !el.hasAttribute("hidden")) hideOverlay(id);
+        if (el && !el.hasAttribute("hidden")) { hideOverlay(id); handled = true; }
       });
-      if (isPeriodFlyoutOpen()) closePeriodFlyout();
+      if (isPeriodFlyoutOpen()) { closePeriodFlyout(); handled = true; }
+      // Nichts offen → bestehende Mehrfachauswahl der Rasterzellen aufheben.
+      if (!handled && state.multiEdit?.days?.length) {
+        clearMultiSelection();
+      }
       return;
     }
     
