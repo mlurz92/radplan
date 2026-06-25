@@ -27,6 +27,7 @@ export let state = {
     month: new Date().getMonth()
   },
   profileEmp: null,
+  profileCalView: "month",
   multiEdit: {
     emp: null,
     days: [],

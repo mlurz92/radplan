@@ -462,17 +462,27 @@
         <div id="pm-st-chart" class="dist-chart" aria-label="Status-Statistik aktueller Monat"></div>
         <div class="pm-sect-hd" id="pm-duty-hd">Dienste &amp; Hintergrund</div>
         <div id="pm-duty-detail" class="duty-detail-area" aria-label="Dienstdetails aktueller Monat"></div>
+        <div class="pm-sect-hd" id="pm-holiday-hd">
+          Feiertagsdienste
+          <span class="pm-sect-hint">— Dienste &amp; Einsätze an gesetzlichen Feiertagen im Jahr</span>
+        </div>
+        <div id="pm-holiday-duty" class="pm-holiday-area" aria-label="Feiertagsdienste im Jahr"></div>
         <div class="pm-sect-hd">Jahresverlauf &amp; Trend</div>
         <div class="pm-trend-wrap" aria-label="Monatlicher Aktivitätsverlauf">
           <canvas id="pm-trend-canvas" height="120" aria-hidden="true"></canvas>
         </div>
         <div class="pm-sect-hd">Dienste nach Wochentag</div>
         <div id="pm-duty-dow" class="pm-dow-grid" aria-label="Dienstverteilung nach Wochentag"></div>
-        <div class="pm-sect-hd">
-          Monatskalender
+        <div class="pm-sect-hd pm-cal-sect-hd">
+          <span id="pm-cal-title">Monatskalender</span>
           <span class="pm-sect-hint">— Klick auf einen Werktag öffnet den Editor</span>
+          <div class="pm-cal-toggle" role="tablist" aria-label="Kalenderansicht umschalten">
+            <button type="button" class="pm-cal-tab" data-cal-view="month" role="tab">Monat</button>
+            <button type="button" class="pm-cal-tab" data-cal-view="year" role="tab">Jahr</button>
+          </div>
         </div>
         <div id="pm-cal" aria-label="Monatskalender"></div>
+        <div id="pm-cal-year" aria-label="Jahreskalender" hidden></div>
         <div class="pm-sect-hd">Jahresauswertung</div>
         <div id="pm-yearly" aria-label="Jahresauswertung"></div>
       </div>

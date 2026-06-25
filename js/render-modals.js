@@ -20,7 +20,7 @@ import {
 
 import { state, TOD_Y, TOD_M, TOD_D } from './state.js';
 import { getCell, buildProfileStats, buildYearlyStats } from './model.js';
-import { openEditor } from './app.js';
+import { openEditor, switchPeriod } from './app.js';
 import { autoPlanResult } from './autoplan.js';
 import { closeCellQuickPopover, updateModalLayout } from './render-grid.js';
 
@@ -34,6 +34,25 @@ function _destroyChart(id) {
     _pmCharts[id].destroy();
     delete _pmCharts[id];
   }
+}
+
+// Schaltet im Profil-Modal zwischen Monats- und Jahreskalender um und hält die
+// Tab-Buttons/Überschrift synchron. Wird bei jedem Öffnen sowie bei Klick auf
+// die Umschalter aufgerufen.
+let _profileCalWired = false;
+function applyProfileCalView() {
+  const view = state.profileCalView === "year" ? "year" : "month";
+  const monthEl = document.getElementById("pm-cal");
+  const yearEl = document.getElementById("pm-cal-year");
+  const titleEl = document.getElementById("pm-cal-title");
+  if (monthEl) monthEl.hidden = view !== "month";
+  if (yearEl) yearEl.hidden = view !== "year";
+  if (titleEl) titleEl.textContent = view === "year" ? "Jahreskalender" : "Monatskalender";
+  document.querySelectorAll("#modal-profile [data-cal-view]").forEach((btn) => {
+    const active = btn.dataset.calView === view;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-selected", active ? "true" : "false");
+  });
 }
 
 export function openProfileModal(empName) {
@@ -348,6 +367,66 @@ export function openProfileModal(empName) {
     }
   }
 
+  // === FEIERTAGSDIENSTE (gesamtes Jahr) ===
+  // Listet alle gesetzlichen Feiertage des Jahres auf, an denen die Person
+  // einen Dienst (D/HG) oder Arbeitsplatz-Einsatz hatte – inkl. Kurzbilanz.
+  const holDutyEl = document.getElementById("pm-holiday-duty");
+  if (holDutyEl) {
+    const yearHols = getSaxonyHolidaysCached(y);
+    const holEntries = [];
+    Object.keys(yearHols).forEach((key) => {
+      const parts = key.split("-");
+      const km = parseInt(parts[1], 10) - 1;
+      const kd = parseInt(parts[2], 10);
+      if (!Number.isFinite(km) || !Number.isFinite(kd)) return;
+      if (!ys.months[km] || !ys.months[km].hasData) return;
+      const cell = getCell(y, km, empName, kd);
+      // Nur echte Einsätze zählen als Feiertagsdienst: ein Dienst (D/HG) oder ein
+      // tatsächlicher Arbeitsplatz. Reine Abwesenheiten/Status (U, K, FZA, F …)
+      // werden bewusst ausgeklammert.
+      const baseCode = cell.assignment ? cell.assignment.split("/")[0].trim() : "";
+      const isWorkplace = baseCode && WORKPLACES.some((w) => w.code === baseCode);
+      if (!cell.duty && !isWorkplace) return;
+      holEntries.push({
+        mon: km,
+        d: kd,
+        wd: weekday(y, km, kd),
+        name: yearHols[key],
+        assignment: cell.assignment || "",
+        duty: cell.duty || "",
+      });
+    });
+    holEntries.sort((a, b) => a.mon - b.mon || a.d - b.d);
+
+    if (holEntries.length) {
+      const dCount = holEntries.filter((e) => e.duty === "D").length;
+      const hgCount = holEntries.filter((e) => e.duty === "HG").length;
+      holDutyEl.innerHTML = `
+        <div class="pm-holiday-summary">
+          <span class="pm-holiday-stat"><strong>${holEntries.length}</strong> Feiertag(e) im Einsatz</span>
+          ${dCount ? `<span class="pm-holiday-stat d"><strong>${dCount}</strong>× Bereitschaftsdienst</span>` : ""}
+          ${hgCount ? `<span class="pm-holiday-stat hg"><strong>${hgCount}</strong>× Hintergrunddienst</span>` : ""}
+        </div>
+        <div class="pm-holiday-list">
+          ${holEntries.map((e) => {
+            const cm = e.assignment ? CODE_MAP[e.assignment.split("/")[0].trim()] : null;
+            const dutyBadge = e.duty ? `<span class="pm-holiday-duty-badge badge-${e.duty}" title="${e.duty === "D" ? "Bereitschaftsdienst" : "Hintergrunddienst"}">${e.duty}</span>` : "";
+            const assignBadge = e.assignment ? `<span class="pm-holiday-assign" style="background:${cm?.bg || "#F1F5F9"};color:${cm?.fg || "#475569"}">${e.assignment}</span>` : "";
+            return `
+              <div class="pm-holiday-row">
+                <span class="pm-holiday-date">${DOW_ABBR[e.wd]} ${e.d}. ${MONTHS_SHORT[e.mon]}</span>
+                <span class="pm-holiday-name" title="${e.name}">${e.name}</span>
+                <span class="pm-holiday-tags">${dutyBadge}${assignBadge}</span>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `;
+    } else {
+      holDutyEl.innerHTML = `<div class="pm-empty-hint">Keine Dienste oder Einsätze an gesetzlichen Feiertagen in ${y}.</div>`;
+    }
+  }
+
   // === ANNUAL TREND CHART ===
   const trendCanvas = document.getElementById("pm-trend-canvas");
   if (trendCanvas && typeof Chart !== "undefined") {
@@ -553,6 +632,83 @@ export function openProfileModal(empName) {
         });
       }
     });
+  }
+
+  // === YEAR CALENDAR (alle 12 Monate kompakt) ===
+  const calYearEl = document.getElementById("pm-cal-year");
+  if (calYearEl) {
+    let yHtml = `<div class="pyc-grid-wrap">`;
+    for (let mon = 0; mon < 12; mon++) {
+      const dim = daysInMonth(y, mon);
+      const firstWd = weekday(y, mon, 1);
+      const hasData = ys.months[mon] && ys.months[mon].hasData;
+
+      yHtml += `<div class="pyc-month${mon === m ? " is-current" : ""}${!hasData ? " no-data" : ""}">`;
+      yHtml += `<div class="pyc-month-hd">${MONTHS[mon]}</div>`;
+      yHtml += `<div class="pyc-days">`;
+      DOW_ABBR.forEach((dn, i) => {
+        yHtml += `<div class="pyc-dow${(i === 0 || i === 6) ? " is-we" : ""}">${dn[0]}</div>`;
+      });
+      for (let i = 0; i < firstWd; i++) yHtml += `<div class="pyc-ph"></div>`;
+
+      for (let d = 1; d <= dim; d++) {
+        const wd = weekday(y, mon, d);
+        const hol = isHoliday(y, mon, d, hols);
+        const holName = hols[dateKey(y, mon, d)];
+        const cell = getCell(y, mon, empName, d);
+        const assign = cell.assignment || "";
+        const duty = cell.duty || "";
+        const { bg: cbg, fg: cfg } = cellColor(assign);
+
+        let cls = "pyc-day";
+        if (hol) cls += " is-hol";
+        else if (wd === 0 || wd === 6) cls += " is-we";
+        else if (!assign && !duty) cls += " is-empty";
+        if (isTodayCol(y, mon, d, TOD_Y, TOD_M, TOD_D)) cls += " is-today";
+
+        const interactive = (!hol && wd !== 0 && wd !== 6) ? ` role="button" tabindex="0"` : "";
+        const bgStyle = assign ? `background:${cbg};color:${cfg}` : "";
+        const titleAttr = ` title="${DOW_LONG[wd]}, ${d}. ${MONTHS[mon]}${hol ? " – " + holName : ""}${assign ? " · " + assign : ""}${duty ? " · " + duty : ""}"`;
+
+        yHtml += `
+          <div class="${cls}" style="${bgStyle}"${interactive} data-day="${d}" data-mon="${mon}"${titleAttr}>
+            <span class="pyc-num">${d}</span>
+            ${duty ? `<span class="pyc-duty badge-${duty}">${duty}</span>` : ""}
+          </div>
+        `;
+      }
+      yHtml += `</div></div>`;
+    }
+    yHtml += `</div>`;
+    calYearEl.innerHTML = yHtml;
+
+    calYearEl.querySelectorAll('.pyc-day[role="button"]').forEach((el) => {
+      const d = parseInt(el.dataset.day, 10);
+      const mon = parseInt(el.dataset.mon, 10);
+      const open = () => {
+        hideOverlay("modal-profile");
+        setTimeout(() => {
+          if (mon !== state.month || y !== state.year) switchPeriod(y, mon);
+          openEditor(empName, d);
+        }, 180);
+      };
+      el.addEventListener("click", open);
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+      });
+    });
+  }
+
+  // === CALENDAR VIEW TOGGLE (Monat / Jahr) ===
+  applyProfileCalView();
+  if (!_profileCalWired) {
+    document.querySelectorAll("#modal-profile [data-cal-view]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.profileCalView = btn.dataset.calView;
+        applyProfileCalView();
+      });
+    });
+    _profileCalWired = true;
   }
 
   // === YEARLY SUMMARY ===

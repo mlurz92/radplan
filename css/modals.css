@@ -18,6 +18,12 @@
   transition: opacity .25s ease, backdrop-filter .25s ease;
 }
 
+/* Das Profil-Modal wird häufig aus dem Mitarbeiter-Modal heraus (per Klick auf
+   einen Namen) geöffnet. Da alle Overlays dieselbe Basis-z-index teilen und das
+   Profil im DOM vor dem Mitarbeiter-Modal steht, würde es sonst dahinter
+   erscheinen – deshalb hier explizit anheben. */
+.overlay#modal-profile { z-index: 1300; }
+
 .modal {
   /* .98 (was .92): keeps the frosted feel while lifting muted sublabel text
      (gray-500) clear of WCAG AA on the modal surface in the dark theme. */
