@@ -99,7 +99,10 @@ import {
   hideOverlay,
   showToast,
   openProfileModal,
-  openScoreInfoModal
+  openScoreInfoModal,
+  showTeamScreen,
+  showPersonScreen,
+  applyPersonTab
 } from './render-modals.js';
 
 import { renderDeptContent } from './render-dept.js';
@@ -2663,8 +2666,8 @@ export function wireEvents() {
     if (empSub) {
       empSub.textContent = `Kalenderjahr ${y}`;
     }
-    renderEmployeeDashboard();
     showOverlay("modal-emps");
+    showTeamScreen();
     setTimeout(() => document.getElementById("emp-search")?.focus(), 80);
   });
   
@@ -2726,11 +2729,22 @@ export function wireEvents() {
     renderEmployeeDashboard(); 
   });
   
-  document.querySelectorAll(".empdash-view-btn").forEach((btn) => {
+  // Zusammengeführtes Modal: Team/Person-Screen, Profil-Tabs, Personenwechsel.
+  document.querySelectorAll("#modal-emps .emp-screen-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state.employeeDashboard.detailView = btn.dataset.view;
-      renderEmployeeDashboard();
+      if (btn.dataset.screen === "person") showPersonScreen();
+      else showTeamScreen();
     });
+  });
+
+  document.getElementById("emp-person-back")?.addEventListener("click", showTeamScreen);
+
+  document.querySelectorAll("#modal-emps .pm-tab").forEach((btn) => {
+    btn.addEventListener("click", () => applyPersonTab(btn.dataset.ptab));
+  });
+
+  document.getElementById("emp-person-select")?.addEventListener("change", (e) => {
+    openProfileModal(e.target.value);
   });
 
   const empSortEl = document.getElementById("emp-sort");
@@ -2967,7 +2981,7 @@ export function wireEvents() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       [
-        "modal-editor", "modal-emps", "modal-import", "modal-profile", "modal-dept",
+        "modal-editor", "modal-emps", "modal-import", "modal-dept",
         "modal-yearplan", "modal-autoplan", "modal-ap-report", "modal-mobile-menu",
         "modal-mobile-day", "modal-score-info", "modal-command-palette", "modal-print-preview"
       ].forEach((id) => {

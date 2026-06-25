@@ -2548,3 +2548,120 @@ body.is-mobile .mcd {
   .pyc-grid-wrap { grid-template-columns: repeat(2, 1fr); }
   .pm-holiday-name { white-space: normal; }
 }
+
+/* ============================================================
+   ZUSAMMENGEFÜHRTES MITARBEITER-MODAL — Screens & Profil-Tabs
+   ============================================================ */
+
+#emp-screen-team[hidden],
+#emp-screen-person[hidden],
+.pm-tabpanel[hidden] { display: none; }
+
+/* --- Header: Team/Person-Umschalter --- */
+.emp-screen-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--gray-100);
+  border-radius: var(--radius-sm);
+}
+.emp-screen-btn {
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gray-500);
+  padding: 5px 14px;
+  border-radius: calc(var(--radius-sm) - 2px);
+  cursor: pointer;
+  transition: background .15s, color .15s, box-shadow .15s;
+}
+.emp-screen-btn:hover:not(:disabled) { color: var(--gray-700); }
+.emp-screen-btn.active {
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.emp-screen-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* --- Person-Screen: Kopfbereich --- */
+.pm-person-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 0 14px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--gray-150);
+  flex-wrap: wrap;
+}
+.pm-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--gray-200);
+  background: #fff;
+  color: var(--gray-600);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+  flex-shrink: 0;
+}
+.pm-back-btn:hover { background: var(--gray-50); color: var(--accent); border-color: var(--accent); }
+.pm-person-head-copy { min-width: 0; flex: 1; }
+.pm-person-select-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.pm-person-select-lbl {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--gray-400);
+}
+.pm-person-select-wrap select { min-width: 180px; }
+
+/* --- Person-Screen: Tab-Leiste --- */
+.pm-tabbar {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1.5px solid var(--gray-150);
+  margin: 4px 0 16px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.pm-tab {
+  position: relative;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-500);
+  padding: 9px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: -1.5px;
+  transition: color .15s, border-color .15s;
+}
+.pm-tab:hover { color: var(--gray-800); }
+.pm-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.pm-tabpanel { animation: pmTabFade .2s ease; }
+@keyframes pmTabFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 720px) {
+  .pm-person-head { gap: 10px; }
+  .pm-person-select-wrap { width: 100%; }
+  .pm-person-select-wrap select { width: 100%; }
+}

@@ -246,12 +246,12 @@ export function refreshOpenContextPanels() {
   
   const empModal = document.getElementById("modal-emps");
   if (empModal && !empModal.hasAttribute("hidden")) {
-    renderEmployeeDashboard();
-  }
-  
-  const profileModal = document.getElementById("modal-profile");
-  if (profileModal && !profileModal.hasAttribute("hidden") && state.profileEmp) {
-    openProfileModal(state.profileEmp);
+    // Person-Screen offen → Personendetails neu rendern, sonst Teamübersicht.
+    if (state.empScreen === "person" && state.profileEmp) {
+      openProfileModal(state.profileEmp);
+    } else {
+      renderEmployeeDashboard();
+    }
   }
 }
 

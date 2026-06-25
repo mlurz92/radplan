@@ -19,8 +19,9 @@ import {
 } from './constants.js';
 
 import { state, TOD_Y, TOD_M, TOD_D } from './state.js';
-import { getCell, buildProfileStats, buildYearlyStats } from './model.js';
+import { getCell, buildProfileStats, buildYearlyStats, getEmployeesForYear } from './model.js';
 import { openEditor, switchPeriod } from './app.js';
+import { renderEmployeeDetailDashboard, renderEmployeeDashboard } from './render-employee-dashboard.js';
 import { autoPlanResult } from './autoplan.js';
 import { closeCellQuickPopover, updateModalLayout } from './render-grid.js';
 
@@ -48,10 +49,87 @@ function applyProfileCalView() {
   if (monthEl) monthEl.hidden = view !== "month";
   if (yearEl) yearEl.hidden = view !== "year";
   if (titleEl) titleEl.textContent = view === "year" ? "Jahreskalender" : "Monatskalender";
-  document.querySelectorAll("#modal-profile [data-cal-view]").forEach((btn) => {
+  document.querySelectorAll("#modal-emps [data-cal-view]").forEach((btn) => {
     const active = btn.dataset.calView === view;
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-selected", active ? "true" : "false");
+  });
+}
+
+// --- Zusammengeführtes Mitarbeiter-Modal: Screen- und Tab-Steuerung ---------
+// Das frühere Profil-Modal ist jetzt der "Person"-Screen innerhalb des
+// Mitarbeiter-Modals. Die folgenden Helfer schalten zwischen Team-/Person-Screen
+// und zwischen den Profil-Tabs (Übersicht/Dienste/Kalender/Jahr/Verwaltung) um.
+
+function _setScreenButtons(active) {
+  document.querySelectorAll("#modal-emps .emp-screen-btn").forEach((b) => {
+    const on = b.dataset.screen === active;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+}
+
+function populatePersonSelect(empName) {
+  const sel = document.getElementById("emp-person-select");
+  if (!sel) return;
+  const emps = getEmployeesForYear(state.year).slice();
+  if (empName && !emps.includes(empName)) emps.unshift(empName);
+  sel.innerHTML = emps
+    .map((e) => `<option value="${e}"${e === empName ? " selected" : ""}>${e}</option>`)
+    .join("");
+}
+
+function ensurePersonScreen(empName) {
+  const overlay = document.getElementById("modal-emps");
+  if (overlay && overlay.hasAttribute("hidden")) showOverlay("modal-emps");
+  state.empScreen = "person";
+  const team = document.getElementById("emp-screen-team");
+  const person = document.getElementById("emp-screen-person");
+  if (team) team.hidden = true;
+  if (person) person.hidden = false;
+  const personBtn = document.getElementById("emp-screen-person-btn");
+  if (personBtn) personBtn.disabled = false;
+  _setScreenButtons("person");
+  populatePersonSelect(empName);
+}
+
+export function showTeamScreen() {
+  state.empScreen = "team";
+  const team = document.getElementById("emp-screen-team");
+  const person = document.getElementById("emp-screen-person");
+  if (team) team.hidden = false;
+  if (person) person.hidden = true;
+  _setScreenButtons("team");
+  renderEmployeeDashboard();
+}
+
+export function showPersonScreen() {
+  if (state.profileEmp) {
+    openProfileModal(state.profileEmp);
+  }
+}
+
+export function applyPersonTab(tab) {
+  const valid = ["overview", "duties", "calendar", "year", "admin"];
+  if (!valid.includes(tab)) tab = "overview";
+  state.profileTab = tab;
+  document.querySelectorAll("#modal-emps .pm-tab").forEach((b) => {
+    const on = b.dataset.ptab === tab;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  document.querySelectorAll("#modal-emps .pm-tabpanel").forEach((p) => {
+    p.hidden = p.dataset.ptabPanel !== tab;
+  });
+  if (tab === "admin" && state.profileEmp) {
+    state.employeeDashboard.detailView = "admin";
+    renderEmployeeDetailDashboard(state.profileEmp, state.year);
+  }
+  // Charts in zuvor versteckten Panels haben beim Aufbau evtl. keine Maße –
+  // nach dem Einblenden neu vermessen.
+  requestAnimationFrame(() => {
+    if (tab === "overview") _pmCharts["donut"]?.resize();
+    if (tab === "year") _pmCharts["trend"]?.resize();
   });
 }
 
@@ -74,6 +152,11 @@ export function openProfileModal(empName) {
   _destroyChart("trend");
 
   state.profileEmp = empName;
+  state.employeeDashboard.selectedEmp = empName;
+
+  // Modal öffnen + auf den Person-Screen umschalten, bevor gerendert wird, damit
+  // sichtbare Panels (z. B. Donut) korrekte Maße haben.
+  ensurePersonScreen(empName);
 
   // === HEADER ===
   const avatarEl = document.getElementById("pm-avatar");
@@ -702,7 +785,7 @@ export function openProfileModal(empName) {
   // === CALENDAR VIEW TOGGLE (Monat / Jahr) ===
   applyProfileCalView();
   if (!_profileCalWired) {
-    document.querySelectorAll("#modal-profile [data-cal-view]").forEach((btn) => {
+    document.querySelectorAll("#modal-emps [data-cal-view]").forEach((btn) => {
       btn.addEventListener("click", () => {
         state.profileCalView = btn.dataset.calView;
         applyProfileCalView();
@@ -810,7 +893,8 @@ export function openProfileModal(empName) {
     yrEl.innerHTML = yrHtml;
   }
 
-  showOverlay("modal-profile");
+  // Aktiven Profil-Tab anwenden (zeigt das passende Panel + vermisst Charts neu).
+  applyPersonTab(state.profileTab || "overview");
 }
 
 export function showOverlay(id) {
