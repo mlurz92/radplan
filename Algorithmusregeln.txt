@@ -2,7 +2,7 @@ Regeln und Kriterien für den RadPlan Neural Scheduler (v3.2):
 
 GRUNDPRINZIPIEN & DATENBASIS:
 - Als relevante Dienste zählen ausschließlich der Bereitschaftsdienst (D) und der Hintergrunddienst (HG).
-- Der Algorithmus arbeitet mit einer extremen Iterationstiefe: Er führt 15 Optimierungszyklen durch, in denen bis zu 150 Cross-Role-Tauschvorgänge (Swaps) pro Phase simuliert und auf Fairness getestet werden.
+- Der Algorithmus arbeitet mit einer extremen Iterationstiefe: Er führt 25 Optimierungszyklen durch, in denen bis zu 150 Cross-Role-Tauschvorgänge (Swaps) pro Phase simuliert und auf Fairness getestet werden.
 - Die Verteilung wird primär durch die Ausgewogenheit innerhalb des aktuellen Monats diktiert.
 - Historische Daten (seit 01.01. des Jahres) werden protokolliert, fungieren aber nur noch als "Tie-Breaker" bei absolut gleichwertigen Kandidaten im aktuellen Monat.
 - Manuell gesetzte Dienste (Fix-Dienste) haben absolute Priorität. Der Algorithmus passt sich um diese Anker herum an.
