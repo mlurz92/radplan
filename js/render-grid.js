@@ -70,7 +70,7 @@ const dragSelectionState = {
   touched: new Set(),
   startEmp: null,
   startDay: null,
-  dismissMulti: false,
+  dismissOnClick: false,
 };
 
 function resetDragSelectionState() {
@@ -80,7 +80,7 @@ function resetDragSelectionState() {
   dragSelectionState.touched = new Set();
   dragSelectionState.startEmp = null;
   dragSelectionState.startDay = null;
-  dragSelectionState.dismissMulti = false;
+  dragSelectionState.dismissOnClick = false;
   document.body.classList.remove("is-drag-selecting");
 }
 
@@ -410,6 +410,22 @@ export function closeCellQuickPopover() {
   setTimeout(() => el.remove(), 170);
 }
 
+/**
+ * Vollständiges „Schließen" des Schnellmenüs: blendet das Menü aus, hebt die
+ * (Mehrfach-)Auswahl auf und entfernt deren Hervorhebung. Einheitlicher
+ * Endpunkt für alle Dismiss-Kanäle (×-Button, Esc, Klick außerhalb,
+ * erneuter Klick auf die offene Zelle, Klick außerhalb der Mehrfachauswahl).
+ */
+function dismissQuickMenu({ refocus = false } = {}) {
+  const anchor = quickPopover.anchorEl;
+  state.multiEdit = { emp: null, days: [], anchor: null };
+  closeCellQuickPopover();
+  syncSelectionClasses();
+  if (refocus && anchor && document.contains(anchor)) {
+    anchor.focus({ preventScroll: true });
+  }
+}
+
 // Kuratiertes Status-Schnellset für das Popover (häufigste Codes zuerst).
 const QUICK_STATUS_CODES = ["F", "U", "K", "FZA", "ZU", "WB"];
 
@@ -426,7 +442,12 @@ function buildQuickPopoverHtml(emp, day) {
   const headerHtml = `
     <div class="cqp-header">
       <span class="cqp-header-emp">${emp}</span>
-      <span class="cqp-header-meta">${multi ? `${selCount} Tage` : `${day}. ${MONTHS[m]}`}</span>
+      <span class="cqp-header-right">
+        <span class="cqp-header-meta">${multi ? `${selCount} Tage` : `${day}. ${MONTHS[m]}`}</span>
+        <button type="button" class="cqp-close" data-action="close" title="Schließen (Esc)" aria-label="Schnellmenü schließen">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </span>
     </div>
   `;
 
@@ -472,6 +493,7 @@ function wirePopoverButtons(el, emp, day) {
     btn.addEventListener('click', (e) => { e.stopPropagation(); quickToggleDuty(emp, day, btn.dataset.duty); });
   });
   el.querySelector('.cqp-clear')?.addEventListener('click', (e) => { e.stopPropagation(); quickClearCell(emp, day); });
+  el.querySelector('.cqp-close')?.addEventListener('click', (e) => { e.stopPropagation(); dismissQuickMenu(); });
   el.querySelector('.cqp-more')?.addEventListener('click', (e) => {
     e.stopPropagation();
     closeCellQuickPopover();
@@ -568,16 +590,17 @@ export function showCellQuickPopover(emp, day, anchorEl) {
   quickPopover.outsideHandler = (e) => {
     if (!quickPopover.el) return;
     if (quickPopover.el.contains(e.target)) return;
-    // Klicks auf andere belegbare Rasterzellen schließen nicht hart – die
-    // mouseup-Logik blendet das Menü dort sanft neu ein.
+    // Klicks auf belegbare Rasterzellen werden von der mouseup-Gestenlogik
+    // verarbeitet (Menü versetzen / Auswahl / Schließen). Jeder Klick wirklich
+    // außerhalb des Rasters schließt vollständig (Light-Dismiss).
     if (e.target.closest?.('#plan-tbody .td-cell:not(.td-cell-rbn)')) return;
-    closeCellQuickPopover();
+    dismissQuickMenu();
   };
   quickPopover.keyHandler = (e) => {
     if (e.key === 'Escape') {
-      const anchor = quickPopover.anchorEl;
-      closeCellQuickPopover();
-      anchor?.focus({ preventScroll: true });
+      // Escape schließt das Menü und beendet die Auswahl in einem Schritt.
+      e.stopPropagation();
+      dismissQuickMenu({ refocus: true });
     }
   };
   quickPopover.reposHandler = () => {
@@ -1394,22 +1417,24 @@ document.addEventListener("mousedown", (e) => {
   const isSelected = me.emp === emp && Array.isArray(me.days) && me.days.includes(day);
   const multi = isSelected && me.days.length > 1;
 
-  // Klick auf eine Zelle AUSSERHALB einer bestehenden Mehrfachauswahl: Erst die
-  // Auswahl samt Schnellmenü schließen (Dismiss), NICHT sofort ein neues Menü am
-  // Klickort öffnen. Sonst ließe sich das Menü der Mehrfachauswahl nie schließen.
+  // Dismiss-Gesten (Menü schließen statt versetzen/öffnen):
+  //   1) Erneuter Klick auf die Zelle, deren Menü gerade offen ist  → toggeln zu.
+  //   2) Klick auf eine Zelle AUSSERHALB einer Mehrfachauswahl       → schließen.
+  // Beides nur „scharf schalten"; ausgeführt wird in mouseup (reiner Klick).
+  // Wird stattdessen gezogen, entsteht in mouseover eine frische Auswahl.
   const prevMulti = !!(me.emp && Array.isArray(me.days) && me.days.length > 1);
-  if (prevMulti && !isSelected) {
+  const menuOpenHere = !!quickPopover.el && quickPopover.emp === emp && quickPopover.day === day;
+  const wantsDismiss = (prevMulti && !isSelected) || (!prevMulti && menuOpenHere);
+  if (wantsDismiss) {
     dragSelectionState.active = true;
     dragSelectionState.justDragged = false;
-    dragSelectionState.dismissMulti = true;
+    dragSelectionState.dismissOnClick = true;
     dragSelectionState.mode = "add";
     dragSelectionState.emp = emp;
     dragSelectionState.startEmp = emp;
     dragSelectionState.startDay = day;
     dragSelectionState.touched = new Set([day]);
     document.body.classList.add("is-drag-selecting");
-    // Auswahl bleibt vorerst sichtbar; geräumt wird bei mouseup (reiner Klick)
-    // bzw. in eine frische Auswahl überführt, falls doch gezogen wird.
     return;
   }
 
@@ -1453,8 +1478,8 @@ document.addEventListener("mouseover", (e) => {
 
   // Wird nach einem Außen-Klick (Dismiss-Modus) doch gezogen, so entsteht eine
   // frische additive Auswahl ab der Startzelle statt eines bloßen Schließens.
-  if (dragSelectionState.dismissMulti) {
-    dragSelectionState.dismissMulti = false;
+  if (dragSelectionState.dismissOnClick) {
+    dragSelectionState.dismissOnClick = false;
     state.multiEdit.emp = dragSelectionState.startEmp;
     state.multiEdit.days = [dragSelectionState.startDay];
     state.multiEdit.anchor = dragSelectionState.startDay;
@@ -1469,17 +1494,16 @@ document.addEventListener("mouseover", (e) => {
 document.addEventListener("mouseup", () => {
   const wasActive = dragSelectionState.active;
   const dragged = dragSelectionState.justDragged;
-  const dismiss = dragSelectionState.dismissMulti && !dragged;
+  const dismiss = dragSelectionState.dismissOnClick && !dragged;
   const startEmp = dragSelectionState.startEmp;
   const startDay = dragSelectionState.startDay;
   resetDragSelectionState();
   if (!wasActive) return;
 
-  // Reiner Außen-Klick auf eine Mehrfachauswahl → nur schließen, kein neues Menü.
+  // Dismiss-Klick (erneut auf die offene Zelle bzw. außerhalb der Mehrfach-
+  // auswahl) → Menü schließen und Auswahl beenden; kein neues Menü öffnen.
   if (dismiss) {
-    state.multiEdit = { emp: null, days: [], anchor: null };
-    closeCellQuickPopover();
-    syncSelectionClasses();
+    dismissQuickMenu();
     return;
   }
 
