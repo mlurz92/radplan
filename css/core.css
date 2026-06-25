@@ -1,65 +1,65 @@
 :root {
-  --navy-900: #0b131f;
-  --navy-800: #111c2e;
-  --navy-700: #18283f;
-  --navy-600: #1f3554;
+  --navy-900: #0B131F;
+  --navy-800: #111C2E;
+  --navy-700: #18283F;
+  --navy-600: #1F3554;
   --navy-500: #274468;
   --navy-400: #345484;
-  --steel: #3674a8;
-  --accent: #0ea5e9;
-  --accent-lt: #67d4ff;
-  --accent-xs: #e8f8ff;
-  --accent-dim: rgba(14, 165, 233, 0.1);
-  --white: #ffffff;
-  --gray-50: #f8fafc;
-  --gray-100: #f1f5f9;
-  --gray-150: #e9eff6;
-  --gray-200: #e2e8f0;
-  --gray-300: #cbd5e1;
-  --gray-400: #94a3b8;
-  --gray-500: #64748b;
+  --steel: #3674A8;
+  --accent: #0EA5E9;
+  --accent-lt: #67D4FF;
+  --accent-xs: #E8F8FF;
+  --accent-dim: rgba(14,165,233,.10);
+  --white: #FFFFFF;
+  --gray-50: #F8FAFC;
+  --gray-100: #F1F5F9;
+  --gray-150: #E9EFF6;
+  --gray-200: #E2E8F0;
+  --gray-300: #CBD5E1;
+  --gray-400: #94A3B8;
+  --gray-500: #64748B;
   --gray-600: #475569;
   --gray-700: #334155;
-  --gray-800: #1e293b;
-  --gray-900: #0f172a;
-  --red: #ef4444;
-  --red-dark: #b91c1c;
-  --red-lt: #fef2f2;
-  --red-bg: #fee2e2;
-  --blue-d: #0ea5e9;
-  --green: #22c55e;
-  --green-lt: #f0fdf4;
-  --orange: #f97316;
+  --gray-800: #1E293B;
+  --gray-900: #0F172A;
+  --red: #EF4444;
+  --red-dark: #B91C1C;
+  --red-lt: #FEF2F2;
+  --red-bg: #FEE2E2;
+  --blue-d: #0EA5E9;
+  --green: #22C55E;
+  --green-lt: #F0FDF4;
+  --orange: #F97316;
   --header-h: 54px;
   --statsbar-h: 38px;
   --name-w: 155px;
   --cell-w: 48px;
   --row-h: clamp(40px, 4.5vh, 60px);
   --foot-h: 30px;
-  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", "Courier New", monospace;
-  --border: 1px solid rgba(var(--ink-rgb), 0.08);
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  --border: 1px solid rgba(var(--ink-rgb),.08);
   --radius-xs: 4px;
   --radius-sm: 6px;
   --radius: 10px;
   --radius-lg: 14px;
   --radius-xl: 18px;
-  --glass-bg: rgba(var(--ink-rgb), 0.04);
-  --glass-bg-hover: rgba(var(--ink-rgb), 0.08);
-  --glass-border: rgba(var(--ink-rgb), 0.08);
-  --glass-border-h: rgba(var(--ink-rgb), 0.14);
+  --glass-bg: rgba(var(--ink-rgb),.04);
+  --glass-bg-hover: rgba(var(--ink-rgb),.08);
+  --glass-border: rgba(var(--ink-rgb),.08);
+  --glass-border-h: rgba(var(--ink-rgb),.14);
   --glass-blur: 16px;
   --glass-blur-lg: 24px;
-  --glass-light: rgba(var(--ink-rgb), 0.65);
-  --glass-light-hover: rgba(var(--ink-rgb), 0.78);
-  --glass-light-border: rgba(var(--ink-rgb), 0.12);
-  --glass-light-bg: rgba(var(--ink-rgb), 0.45);
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
-  --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.2), 0 8px 20px rgba(0, 0, 0, 0.1);
-  --shadow-glow: 0 0 20px rgba(14, 165, 233, 0.15), 0 0 60px rgba(14, 165, 233, 0.05);
+  --glass-light: rgba(var(--ink-rgb),.65);
+  --glass-light-hover: rgba(var(--ink-rgb),.78);
+  --glass-light-border: rgba(var(--ink-rgb),.12);
+  --glass-light-bg: rgba(var(--ink-rgb),.45);
+  --shadow-xs: 0 1px 2px rgba(0,0,0,.04);
+  --shadow-sm: 0 1px 4px rgba(0,0,0,.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+  --shadow-lg: 0 10px 30px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.06);
+  --shadow-xl: 0 24px 64px rgba(0,0,0,.2), 0 8px 20px rgba(0,0,0,.1);
+  --shadow-glow: 0 0 20px rgba(14,165,233,.15), 0 0 60px rgba(14,165,233,.05);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
@@ -74,21 +74,21 @@
      Dark mode (default): light tint over a dark canvas. Light mode overrides below
      invert the relationship without touching any of the alpha values used throughout
      the stylesheet, so every "glass" surface keeps its depth in both themes. */
-  --ink-rgb: 255, 255, 255;
-  --ink-strong: #ffffff;
-  --app-ink-rgb: 255, 255, 255;
-  --app-ink-strong: #ffffff;
-  --navy-800-rgb: 10, 21, 37;
-  --navy-900-rgb: 6, 13, 22;
-  --navy-700-rgb: 15, 29, 50;
-  --gray-900-rgb: 15, 23, 42;
+  --ink-rgb: 255,255,255;
+  --ink-strong: #FFFFFF;
+  --app-ink-rgb: 255,255,255;
+  --app-ink-strong: #FFFFFF;
+  --navy-800-rgb: 10,21,37;
+  --navy-900-rgb: 6,13,22;
+  --navy-700-rgb: 15,29,50;
+  --gray-900-rgb: 15,23,42;
 
   /* --glass-light-bg/-border are deliberately a light-tinted surface in BOTH
      themes (a frosted panel raised above the canvas). --ink-strong tracks the
      canvas (white in dark mode) and would sit near-white-on-near-white on top
      of it, so content placed on a --glass-light-* surface must use this fixed,
      always-dark token instead. */
-  --ink-on-glass-light: #0f172a;
+  --ink-on-glass-light: #0F172A;
 
   /* Semantic, theme-aware text tiers — always legible on the app canvas because
      they derive from --ink-rgb (white in dark, slate in light) at fixed alphas.
@@ -96,9 +96,9 @@
      that sits on the themed canvas (the gray scale stays correct for fixed
      light surfaces such as the dept/year tables). */
   --text-1: var(--ink-strong);
-  --text-2: rgba(var(--ink-rgb), 0.84);
-  --text-3: rgba(var(--ink-rgb), 0.7);
-  --text-faint: rgba(var(--ink-rgb), 0.62);
+  --text-2: rgba(var(--ink-rgb),.84);
+  --text-3: rgba(var(--ink-rgb),.70);
+  --text-faint: rgba(var(--ink-rgb),.62);
 
   /* ============================================================
      DESIGN-TOKEN-ARCHITEKTUR (Task 18)
@@ -109,23 +109,23 @@
      ============================================================ */
 
   /* --- PRIMITIVE: Akzent als RGB-Tripel (für rgba() in jeder Deckkraft) --- */
-  --accent-rgb: 14, 165, 233;
-  --accent-2-rgb: 99, 102, 241; /* Indigo-Sekundärakzent */
-  --accent-strong: #38bdf8;
-  --accent-soft: rgba(var(--accent-rgb), 0.14);
-  --accent-soft-hover: rgba(var(--accent-rgb), 0.22);
-  --accent-ring: rgba(var(--accent-rgb), 0.45);
-  --accent-grad: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+  --accent-rgb: 14,165,233;
+  --accent-2-rgb: 99,102,241;          /* Indigo-Sekundärakzent */
+  --accent-strong: #38BDF8;
+  --accent-soft: rgba(var(--accent-rgb),.14);
+  --accent-soft-hover: rgba(var(--accent-rgb),.22);
+  --accent-ring: rgba(var(--accent-rgb),.45);
+  --accent-grad: linear-gradient(135deg, #0EA5E9 0%, #6366F1 100%);
 
   /* --- SEMANTIC: status hues (single source of truth) --- */
   --hue-success: 152;
   --hue-warning: 32;
   --hue-danger: 0;
   --hue-info: 199;
-  --c-success: #22c55e;
-  --c-warning: #f59e0b;
-  --c-danger: #ef4444;
-  --c-info: #38bdf8;
+  --c-success: #22C55E;
+  --c-warning: #F59E0B;
+  --c-danger: #EF4444;
+  --c-info: #38BDF8;
 
   /* ============================================================
      ELEVATION / MATERIAL-TIEFE (Task 3)
@@ -135,129 +135,122 @@
      vom darunterliegenden Material ab. Alle Werte basieren auf
      --ink-rgb und sind damit automatisch themenbewusst.
      ============================================================ */
-  --elev-0-bg: rgba(var(--ink-rgb), 0.02);
-  --elev-1-bg: rgba(var(--ink-rgb), 0.045);
-  --elev-2-bg: rgba(var(--ink-rgb), 0.07);
-  --elev-3-bg: rgba(var(--ink-rgb), 0.1);
-  --elev-1-bg-hover: rgba(var(--ink-rgb), 0.075);
-  --elev-2-bg-hover: rgba(var(--ink-rgb), 0.105);
+  --elev-0-bg: rgba(var(--ink-rgb),.02);
+  --elev-1-bg: rgba(var(--ink-rgb),.045);
+  --elev-2-bg: rgba(var(--ink-rgb),.07);
+  --elev-3-bg: rgba(var(--ink-rgb),.10);
+  --elev-1-bg-hover: rgba(var(--ink-rgb),.075);
+  --elev-2-bg-hover: rgba(var(--ink-rgb),.105);
 
-  --elev-border: rgba(var(--ink-rgb), 0.08);
-  --elev-border-1: rgba(var(--ink-rgb), 0.1);
-  --elev-border-2: rgba(var(--ink-rgb), 0.13);
-  --elev-border-3: rgba(var(--ink-rgb), 0.17);
+  --elev-border: rgba(var(--ink-rgb),.08);
+  --elev-border-1: rgba(var(--ink-rgb),.10);
+  --elev-border-2: rgba(var(--ink-rgb),.13);
+  --elev-border-3: rgba(var(--ink-rgb),.17);
 
   /* Oberer Innen-Glanz + unterer Innen-Schatten = plastische Kante */
-  --elev-hi: inset 0 1px 0 rgba(var(--ink-rgb), 0.07);
-  --elev-hi-strong: inset 0 1px 0 rgba(var(--ink-rgb), 0.1);
-  --elev-lo: inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+  --elev-hi: inset 0 1px 0 rgba(var(--ink-rgb),.07);
+  --elev-hi-strong: inset 0 1px 0 rgba(var(--ink-rgb),.10);
+  --elev-lo: inset 0 -1px 0 rgba(0,0,0,.18);
 
-  --elev-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.18), var(--elev-hi);
-  --elev-shadow-2: 0 6px 18px rgba(0, 0, 0, 0.28), var(--elev-hi);
-  --elev-shadow-3:
-    0 18px 48px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.24), var(--elev-hi-strong);
+  --elev-shadow-1: 0 1px 3px rgba(0,0,0,.18), var(--elev-hi);
+  --elev-shadow-2: 0 6px 18px rgba(0,0,0,.28), var(--elev-hi);
+  --elev-shadow-3: 0 18px 48px rgba(0,0,0,.40), 0 4px 12px rgba(0,0,0,.24), var(--elev-hi-strong);
 
   /* Opake Surface-Farben (für Backdrops, die echte Deckung brauchen) */
   --surface-canvas: var(--navy-900);
-  --surface-raised: rgba(var(--navy-800-rgb), 0.72);
-  --surface-overlay: rgba(var(--navy-800-rgb), 0.86);
+  --surface-raised: rgba(var(--navy-800-rgb),.72);
+  --surface-overlay: rgba(var(--navy-800-rgb),.86);
 
   /* ============================================================
      MOTION-SYSTEM (Task 8) — eine einheitliche Bewegungssprache.
      ============================================================ */
-  --dur-1: 0.12s; /* Mikro: Hover, Tap */
-  --dur-2: 0.2s; /* Standard: Farb-/Transformwechsel */
-  --dur-3: 0.32s; /* Übergänge, Enthüllungen */
-  --dur-4: 0.5s; /* große Choreographien */
-  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-spring: cubic-bezier(0.34, 1.32, 0.64, 1); /* leichtes Überschwingen */
-  --ease-spring-soft: cubic-bezier(0.34, 1.12, 0.64, 1);
+  --dur-1: .12s;          /* Mikro: Hover, Tap */
+  --dur-2: .2s;           /* Standard: Farb-/Transformwechsel */
+  --dur-3: .32s;          /* Übergänge, Enthüllungen */
+  --dur-4: .5s;           /* große Choreographien */
+  --ease-out: cubic-bezier(.22,.61,.36,1);
+  --ease-in-out: cubic-bezier(.4,0,.2,1);
+  --ease-spring: cubic-bezier(.34,1.32,.64,1);   /* leichtes Überschwingen */
+  --ease-spring-soft: cubic-bezier(.34,1.12,.64,1);
 }
 
 [data-theme="light"] {
-  --navy-900: #f4f1ea;
-  --navy-800: #ece7dc;
-  --navy-700: #e2dccc;
-  --navy-600: #d8cfb8;
-  --navy-500: #c9bc9c;
-  --navy-400: #b3a37c;
-  --steel: #6b8aae;
-  --border: 1px solid rgba(15, 23, 42, 0.08);
-  --glass-bg: rgba(15, 23, 42, 0.035);
-  --glass-bg-hover: rgba(15, 23, 42, 0.07);
-  --glass-border: rgba(15, 23, 42, 0.09);
-  --glass-border-h: rgba(15, 23, 42, 0.16);
-  --glass-light: rgba(255, 255, 255, 0.82);
-  --glass-light-hover: rgba(255, 255, 255, 0.92);
-  --glass-light-border: rgba(15, 23, 42, 0.08);
-  --glass-light-bg: rgba(255, 255, 255, 0.62);
-  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-sm: 0 1px 4px rgba(15, 23, 42, 0.07);
-  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 10px 30px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06);
-  --shadow-xl: 0 24px 64px rgba(15, 23, 42, 0.18), 0 8px 20px rgba(15, 23, 42, 0.08);
-  --shadow-glow: 0 0 20px rgba(14, 165, 233, 0.18), 0 0 60px rgba(14, 165, 233, 0.07);
+  --navy-900: #F4F1EA;
+  --navy-800: #ECE7DC;
+  --navy-700: #E2DCCC;
+  --navy-600: #D8CFB8;
+  --navy-500: #C9BC9C;
+  --navy-400: #B3A37C;
+  --steel: #6B8AAE;
+  --border: 1px solid rgba(15,23,42,.08);
+  --glass-bg: rgba(15,23,42,.035);
+  --glass-bg-hover: rgba(15,23,42,.07);
+  --glass-border: rgba(15,23,42,.09);
+  --glass-border-h: rgba(15,23,42,.16);
+  --glass-light: rgba(255,255,255,.82);
+  --glass-light-hover: rgba(255,255,255,.92);
+  --glass-light-border: rgba(15,23,42,.08);
+  --glass-light-bg: rgba(255,255,255,.62);
+  --shadow-xs: 0 1px 2px rgba(15,23,42,.05);
+  --shadow-sm: 0 1px 4px rgba(15,23,42,.07);
+  --shadow-md: 0 4px 12px rgba(15,23,42,.08);
+  --shadow-lg: 0 10px 30px rgba(15,23,42,.12), 0 2px 8px rgba(15,23,42,.06);
+  --shadow-xl: 0 24px 64px rgba(15,23,42,.18), 0 8px 20px rgba(15,23,42,.08);
+  --shadow-glow: 0 0 20px rgba(14,165,233,.18), 0 0 60px rgba(14,165,233,.07);
 
-  --ink-rgb: 15, 23, 42;
-  --ink-strong: #0f172a;
-  --app-ink-rgb: 15, 23, 42;
-  --app-ink-strong: #0f172a;
-  --navy-800-rgb: 236, 231, 220;
-  --navy-900-rgb: 244, 241, 234;
-  --navy-700-rgb: 226, 220, 204;
-  --gray-900-rgb: 15, 23, 42;
+  --ink-rgb: 15,23,42;
+  --ink-strong: #0F172A;
+  --app-ink-rgb: 15,23,42;
+  --app-ink-strong: #0F172A;
+  --navy-800-rgb: 236,231,220;
+  --navy-900-rgb: 244,241,234;
+  --navy-700-rgb: 226,220,204;
+  --gray-900-rgb: 15,23,42;
 
   /* The light canvas is a warm cream, so dark ink needs a higher alpha than in
      dark mode to clear WCAG AA for secondary/faint label tiers. */
-  --text-2: rgba(var(--ink-rgb), 0.88);
-  --text-3: rgba(var(--ink-rgb), 0.74);
-  --text-faint: rgba(var(--ink-rgb), 0.68);
+  --text-2: rgba(var(--ink-rgb),.88);
+  --text-3: rgba(var(--ink-rgb),.74);
+  --text-faint: rgba(var(--ink-rgb),.68);
 
   /* Light-Mode-Anpassung der Elevation-Tokens: auf hellem Cream-Canvas
      erzeugt dunkle Tinte die Tiefe, der obere Glanz wird hingegen weiß. */
-  --elev-0-bg: rgba(var(--ink-rgb), 0.015);
-  --elev-1-bg: rgba(255, 255, 255, 0.55);
-  --elev-2-bg: rgba(255, 255, 255, 0.72);
-  --elev-3-bg: rgba(255, 255, 255, 0.86);
-  --elev-1-bg-hover: rgba(255, 255, 255, 0.68);
-  --elev-2-bg-hover: rgba(255, 255, 255, 0.82);
-  --elev-hi: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  --elev-hi-strong: inset 0 1px 0 rgba(255, 255, 255, 0.85);
-  --elev-lo: inset 0 -1px 0 rgba(15, 23, 42, 0.05);
-  --elev-shadow-1: 0 1px 3px rgba(15, 23, 42, 0.08), var(--elev-hi);
-  --elev-shadow-2: 0 6px 18px rgba(15, 23, 42, 0.12), var(--elev-hi);
-  --elev-shadow-3:
-    0 18px 48px rgba(15, 23, 42, 0.18), 0 4px 12px rgba(15, 23, 42, 0.1), var(--elev-hi-strong);
-  --accent-soft: rgba(var(--accent-rgb), 0.11);
-  --accent-soft-hover: rgba(var(--accent-rgb), 0.18);
+  --elev-0-bg: rgba(var(--ink-rgb),.015);
+  --elev-1-bg: rgba(255,255,255,.55);
+  --elev-2-bg: rgba(255,255,255,.72);
+  --elev-3-bg: rgba(255,255,255,.86);
+  --elev-1-bg-hover: rgba(255,255,255,.68);
+  --elev-2-bg-hover: rgba(255,255,255,.82);
+  --elev-hi: inset 0 1px 0 rgba(255,255,255,.7);
+  --elev-hi-strong: inset 0 1px 0 rgba(255,255,255,.85);
+  --elev-lo: inset 0 -1px 0 rgba(15,23,42,.05);
+  --elev-shadow-1: 0 1px 3px rgba(15,23,42,.08), var(--elev-hi);
+  --elev-shadow-2: 0 6px 18px rgba(15,23,42,.12), var(--elev-hi);
+  --elev-shadow-3: 0 18px 48px rgba(15,23,42,.18), 0 4px 12px rgba(15,23,42,.10), var(--elev-hi-strong);
+  --accent-soft: rgba(var(--accent-rgb),.11);
+  --accent-soft-hover: rgba(var(--accent-rgb),.18);
 }
 
-*,
-*::before,
-*::after {
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-html,
-body {
+html, body {
   height: var(--app-vh);
   min-height: var(--app-vh);
   overflow: hidden;
   touch-action: manipulation;
-  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+  scrollbar-color: rgba(148,163,184,.4) transparent;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  html {
-    scroll-behavior: smooth;
-  }
+  html { scroll-behavior: smooth; }
 }
 
 ::selection {
-  background: rgba(14, 165, 233, 0.25);
+  background: rgba(14,165,233,.25);
   color: inherit;
 }
 
@@ -269,37 +262,24 @@ body {
   flex-direction: column;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  transition:
-    background-color 0.35s ease,
-    color 0.35s ease;
+  transition: background-color .35s ease, color .35s ease;
 }
 
 body::before {
-  content: "";
+  content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(14, 165, 233, 0.07) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 85% 80%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
-    radial-gradient(
-      ellipse 70% 40% at 50% 50%,
-      rgba(var(--navy-900-rgb), 0.9) 0%,
-      transparent 100%
-    ),
+    radial-gradient(ellipse 80% 60% at 15% 20%, rgba(14,165,233,.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 85% 80%, rgba(99,102,241,.06) 0%, transparent 50%),
+    radial-gradient(ellipse 70% 40% at 50% 50%, rgba(var(--navy-900-rgb),.9) 0%, transparent 100%),
     linear-gradient(160deg, var(--navy-900) 0%, var(--navy-800) 40%, var(--navy-700) 100%);
   pointer-events: none;
-  transition: background 0.35s ease;
+  transition: background .35s ease;
 }
 
-button,
-a,
-.td-cell,
-.td-name,
-.chip-wp,
-.chip-st,
-.chip-duty,
-.chip-wish {
+button, a, .td-cell, .td-name, .chip-wp, .chip-st, .chip-duty, .chip-wish {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
@@ -316,11 +296,7 @@ body.is-drag-selecting {
 button {
   cursor: pointer;
   font-family: inherit;
-  transition:
-    transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1),
-    opacity 0.2s,
-    background-color 0.2s,
-    box-shadow 0.2s;
+  transition: transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1), opacity 0.2s, background-color 0.2s, box-shadow 0.2s;
 }
 
 button:active {
@@ -328,13 +304,12 @@ button:active {
 }
 
 /* Keyboard-only focus ring — invisible on mouse click */
-:focus {
-  outline: none;
-}
+:focus { outline: none; }
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
 
 /* --- GLOBAL UI/UX & RESPONSIVE OPTIMIZATIONS --- */
 
@@ -351,92 +326,39 @@ body.is-mobile .overlay {
 
 /* Suppress sticky hover effects on mobile */
 @media (hover: none) and (pointer: coarse) {
-  .nav-btn:hover {
-    background: none;
-    transform: none;
-  }
-  .month-nav:hover {
-    border-color: var(--glass-border);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  }
-  .td-cell:hover::after {
-    opacity: 0;
-  }
-  .td-name:hover {
-    background: var(--bg-a);
-  }
+  .nav-btn:hover { background: none; transform: none; }
+  .month-nav:hover { border-color: var(--glass-border); box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+  .td-cell:hover::after { opacity: 0; }
+  .td-name:hover { background: var(--bg-a); }
 }
 
 /* Smooth momentum scrolling globally */
-.ap-table-wrap,
-.dept-table-wrap,
-#grid-wrapper,
-.mobile-day-list,
-.empdash-month-table-wrap {
+.ap-table-wrap, .dept-table-wrap, #grid-wrapper, .mobile-day-list, .empdash-month-table-wrap {
   -webkit-overflow-scrolling: touch;
 }
 
 /* Rigorous modal sizing */
 .modal {
-  max-height: min(
-    var(--modal-max-height, calc(100dvh - (2 * var(--overlay-pad)))),
-    calc(100dvh - (2 * var(--overlay-pad)))
-  ) !important;
+  max-height: min(var(--modal-max-height, calc(100dvh - (2 * var(--overlay-pad)))), calc(100dvh - (2 * var(--overlay-pad)))) !important;
 }
 
 /* --- VIEW TRANSITIONS: month/year navigation choreography --- */
 
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 0.32s;
+  animation-duration: .32s;
   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-html[data-vt-direction="forward"]::view-transition-old(root) {
-  animation-name: vt-slide-out-left;
-}
-html[data-vt-direction="forward"]::view-transition-new(root) {
-  animation-name: vt-slide-in-right;
-}
-html[data-vt-direction="backward"]::view-transition-old(root) {
-  animation-name: vt-slide-out-right;
-}
-html[data-vt-direction="backward"]::view-transition-new(root) {
-  animation-name: vt-slide-in-left;
-}
+html[data-vt-direction="forward"]::view-transition-old(root) { animation-name: vt-slide-out-left; }
+html[data-vt-direction="forward"]::view-transition-new(root) { animation-name: vt-slide-in-right; }
+html[data-vt-direction="backward"]::view-transition-old(root) { animation-name: vt-slide-out-right; }
+html[data-vt-direction="backward"]::view-transition-new(root) { animation-name: vt-slide-in-left; }
 
-@keyframes vt-slide-out-left {
-  to {
-    transform: translateX(-2.5%);
-    opacity: 0;
-  }
-}
-@keyframes vt-slide-in-right {
-  from {
-    transform: translateX(2.5%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-@keyframes vt-slide-out-right {
-  to {
-    transform: translateX(2.5%);
-    opacity: 0;
-  }
-}
-@keyframes vt-slide-in-left {
-  from {
-    transform: translateX(-2.5%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
+@keyframes vt-slide-out-left { to { transform: translateX(-2.5%); opacity: 0; } }
+@keyframes vt-slide-in-right { from { transform: translateX(2.5%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes vt-slide-out-right { to { transform: translateX(2.5%); opacity: 0; } }
+@keyframes vt-slide-in-left { from { transform: translateX(-2.5%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
 /* Theme toggle: circular reveal expanding from the click origin, driven via
    the Web Animations API in viewtransition.js. The default UA cross-fade is
@@ -462,9 +384,7 @@ html[data-vt-theme] ::view-transition-new(root) {
    keyboard focus ring. Colour-coded cells already carry a text label (CT, MR,
    …) so meaning never depends on colour alone. */
 @media (prefers-contrast: more) {
-  :root {
-    --border: 1px solid rgba(var(--ink-rgb), 0.24);
-  }
+  :root { --border: 1px solid rgba(var(--ink-rgb),.24); }
   .td-cell,
   .th-day,
   .th-day.is-fri,
@@ -472,9 +392,7 @@ html[data-vt-theme] ::view-transition-new(root) {
   .td-name,
   .tr-stat .td-stat-val,
   .tr-stat .td-stat-lbl {
-    border-color: rgba(var(--ink-rgb), 0.24);
+    border-color: rgba(var(--ink-rgb),.24);
   }
-  :focus-visible {
-    outline-width: 3px;
-  }
+  :focus-visible { outline-width: 3px; }
 }

@@ -20,7 +20,7 @@
 
 /* --- Per-Code-Tints für den DARK-Mode ------------------------------------ */
 [data-theme="dark"] .td-cell[data-code] {
-  background-color: var(--chip-bg, rgba(var(--ink-rgb), 0.06)) !important;
+  background-color: var(--chip-bg, rgba(var(--ink-rgb), .06)) !important;
   background-image: none !important;
 }
 [data-theme="dark"] .td-cell[data-code] .cell-assign {
@@ -28,83 +28,32 @@
 }
 
 /* Arbeitsplätze */
-[data-theme="dark"] .td-cell[data-code="MR"] {
-  --chip-bg: rgba(59, 130, 246, 0.22);
-  --chip-fg: #bfdbfe;
-}
-[data-theme="dark"] .td-cell[data-code="CT"] {
-  --chip-bg: rgba(249, 115, 22, 0.22);
-  --chip-fg: #fed7aa;
-}
-[data-theme="dark"] .td-cell[data-code="US"] {
-  --chip-bg: rgba(20, 184, 166, 0.22);
-  --chip-fg: #99f6e4;
-}
-[data-theme="dark"] .td-cell[data-code="AN"] {
-  --chip-bg: rgba(168, 85, 247, 0.22);
-  --chip-fg: #e9d5ff;
-}
-[data-theme="dark"] .td-cell[data-code="MA"] {
-  --chip-bg: rgba(236, 72, 153, 0.22);
-  --chip-fg: #fbcfe8;
-}
-[data-theme="dark"] .td-cell[data-code="KUS"] {
-  --chip-bg: rgba(34, 197, 94, 0.22);
-  --chip-fg: #bbf7d0;
-}
-[data-theme="dark"] .td-cell[data-code="W"] {
-  --chip-bg: rgba(234, 179, 8, 0.2);
-  --chip-fg: #fde68a;
-}
-[data-theme="dark"] .td-cell[data-code="T"] {
-  --chip-bg: rgba(99, 102, 241, 0.22);
-  --chip-fg: #c7d2fe;
-}
+[data-theme="dark"] .td-cell[data-code="MR"]  { --chip-bg: rgba( 59,130,246,.22); --chip-fg:#BFDBFE; }
+[data-theme="dark"] .td-cell[data-code="CT"]  { --chip-bg: rgba(249,115, 22,.22); --chip-fg:#FED7AA; }
+[data-theme="dark"] .td-cell[data-code="US"]  { --chip-bg: rgba( 20,184,166,.22); --chip-fg:#99F6E4; }
+[data-theme="dark"] .td-cell[data-code="AN"]  { --chip-bg: rgba(168, 85,247,.22); --chip-fg:#E9D5FF; }
+[data-theme="dark"] .td-cell[data-code="MA"]  { --chip-bg: rgba(236, 72,153,.22); --chip-fg:#FBCFE8; }
+[data-theme="dark"] .td-cell[data-code="KUS"] { --chip-bg: rgba( 34,197, 94,.22); --chip-fg:#BBF7D0; }
+[data-theme="dark"] .td-cell[data-code="W"]   { --chip-bg: rgba(234,179,  8,.20); --chip-fg:#FDE68A; }
+[data-theme="dark"] .td-cell[data-code="T"]   { --chip-bg: rgba( 99,102,241,.22); --chip-fg:#C7D2FE; }
 
 /* Status */
-[data-theme="dark"] .td-cell[data-code="F"] {
-  --chip-bg: rgba(148, 163, 184, 0.15);
-  --chip-fg: #cbd5e1;
-}
-[data-theme="dark"] .td-cell[data-code="U"] {
-  --chip-bg: rgba(139, 92, 246, 0.24);
-  --chip-fg: #ddd6fe;
-}
-[data-theme="dark"] .td-cell[data-code="ZU"] {
-  --chip-bg: rgba(124, 58, 237, 0.28);
-  --chip-fg: #ddd6fe;
-}
-[data-theme="dark"] .td-cell[data-code="SU"] {
-  --chip-bg: rgba(109, 40, 217, 0.32);
-  --chip-fg: #e9d5ff;
-}
-[data-theme="dark"] .td-cell[data-code="FZA"] {
-  --chip-bg: rgba(99, 102, 241, 0.22);
-  --chip-fg: #c7d2fe;
-}
-[data-theme="dark"] .td-cell[data-code="K"] {
-  --chip-bg: rgba(239, 68, 68, 0.24);
-  --chip-fg: #fecaca;
-}
-[data-theme="dark"] .td-cell[data-code="KK"] {
-  --chip-bg: rgba(220, 38, 38, 0.3);
-  --chip-fg: #fecaca;
-}
-[data-theme="dark"] .td-cell[data-code="§15c"] {
-  --chip-bg: rgba(6, 182, 212, 0.22);
-  --chip-fg: #a5f3fc;
-}
-[data-theme="dark"] .td-cell[data-code="WB"] {
-  --chip-bg: rgba(245, 158, 11, 0.22);
-  --chip-fg: #fde68a;
-}
+[data-theme="dark"] .td-cell[data-code="F"]    { --chip-bg: rgba(148,163,184,.15); --chip-fg:#CBD5E1; }
+[data-theme="dark"] .td-cell[data-code="U"]    { --chip-bg: rgba(139, 92,246,.24); --chip-fg:#DDD6FE; }
+[data-theme="dark"] .td-cell[data-code="ZU"]   { --chip-bg: rgba(124, 58,237,.28); --chip-fg:#DDD6FE; }
+[data-theme="dark"] .td-cell[data-code="SU"]   { --chip-bg: rgba(109, 40,217,.32); --chip-fg:#E9D5FF; }
+[data-theme="dark"] .td-cell[data-code="FZA"]  { --chip-bg: rgba( 99,102,241,.22); --chip-fg:#C7D2FE; }
+[data-theme="dark"] .td-cell[data-code="K"]    { --chip-bg: rgba(239, 68, 68,.24); --chip-fg:#FECACA; }
+[data-theme="dark"] .td-cell[data-code="KK"]   { --chip-bg: rgba(220, 38, 38,.30); --chip-fg:#FECACA; }
+[data-theme="dark"] .td-cell[data-code="§15c"] { --chip-bg: rgba(  6,182,212,.22); --chip-fg:#A5F3FC; }
+[data-theme="dark"] .td-cell[data-code="WB"]   { --chip-bg: rgba(245,158, 11,.22); --chip-fg:#FDE68A; }
 
 /* --- FARBENBLIND-SICHERER MODUS (Okabe-Ito) ------------------------------ */
 /* Aktiviert über html[data-cb="1"]. Die acht Arbeitsplätze erhalten maximal
    unterscheidbare Farben; zusätzlich eine kräftige linke Kante als Formreiz.
    Greift in beiden Themes, daher kein [data-theme]-Vorsatz. */
 html[data-cb="1"] .td-cell[data-code] {
-  background-color: var(--cb-bg, rgba(var(--ink-rgb), 0.08)) !important;
+  background-color: var(--cb-bg, rgba(var(--ink-rgb), .08)) !important;
   background-image: none !important;
   box-shadow: inset 3px 0 0 0 var(--cb-edge, transparent);
 }
@@ -113,46 +62,14 @@ html[data-cb="1"] .td-cell[data-code] .cell-assign {
 }
 /* In Light-Mode wird die jeweils optimal kontrastierende Textfarbe aus --cb-fg verwendet */
 
-html[data-cb="1"] .td-cell[data-code="MR"] {
-  --cb-bg: #0072b2;
-  --cb-edge: #004c7a;
-  --cb-fg: #eaf4fb;
-}
-html[data-cb="1"] .td-cell[data-code="CT"] {
-  --cb-bg: #d55e00;
-  --cb-edge: #8f3f00;
-  --cb-fg: #fff1e8;
-}
-html[data-cb="1"] .td-cell[data-code="US"] {
-  --cb-bg: #009e73;
-  --cb-edge: #006b4e;
-  --cb-fg: #e8fbf4;
-}
-html[data-cb="1"] .td-cell[data-code="AN"] {
-  --cb-bg: #cc79a7;
-  --cb-edge: #8e5274;
-  --cb-fg: #fceef5;
-}
-html[data-cb="1"] .td-cell[data-code="MA"] {
-  --cb-bg: #e69f00;
-  --cb-edge: #9c6c00;
-  --cb-fg: #2a1c00;
-}
-html[data-cb="1"] .td-cell[data-code="KUS"] {
-  --cb-bg: #56b4e9;
-  --cb-edge: #2e7ca8;
-  --cb-fg: #06243a;
-}
-html[data-cb="1"] .td-cell[data-code="W"] {
-  --cb-bg: #f0e442;
-  --cb-edge: #a8a000;
-  --cb-fg: #2a2800;
-}
-html[data-cb="1"] .td-cell[data-code="T"] {
-  --cb-bg: #999999;
-  --cb-edge: #5f5f5f;
-  --cb-fg: #15181d;
-}
+html[data-cb="1"] .td-cell[data-code="MR"]  { --cb-bg:#0072B2; --cb-edge:#004C7A; --cb-fg:#EAF4FB; }
+html[data-cb="1"] .td-cell[data-code="CT"]  { --cb-bg:#D55E00; --cb-edge:#8F3F00; --cb-fg:#FFF1E8; }
+html[data-cb="1"] .td-cell[data-code="US"]  { --cb-bg:#009E73; --cb-edge:#006B4E; --cb-fg:#E8FBF4; }
+html[data-cb="1"] .td-cell[data-code="AN"]  { --cb-bg:#CC79A7; --cb-edge:#8E5274; --cb-fg:#FCEEF5; }
+html[data-cb="1"] .td-cell[data-code="MA"]  { --cb-bg:#E69F00; --cb-edge:#9C6C00; --cb-fg:#2A1C00; }
+html[data-cb="1"] .td-cell[data-code="KUS"] { --cb-bg:#56B4E9; --cb-edge:#2E7CA8; --cb-fg:#06243A; }
+html[data-cb="1"] .td-cell[data-code="W"]   { --cb-bg:#F0E442; --cb-edge:#A8A000; --cb-fg:#2A2800; }
+html[data-cb="1"] .td-cell[data-code="T"]   { --cb-bg:#999999; --cb-edge:#5F5F5F; --cb-fg:#15181D; }
 
 /* Status im CB-Modus: einheitlich neutralisiert (Schrift trägt Bedeutung),
    Abwesenheiten klar von Arbeitsplätzen abgesetzt. */
@@ -161,25 +78,15 @@ html[data-cb="1"] .td-cell[data-code="U"],
 html[data-cb="1"] .td-cell[data-code="ZU"],
 html[data-cb="1"] .td-cell[data-code="SU"],
 html[data-cb="1"] .td-cell[data-code="FZA"],
-html[data-cb="1"] .td-cell[data-code="WB"] {
-  --cb-bg: rgba(var(--ink-rgb), 0.1);
-  --cb-edge: rgba(var(--ink-rgb), 0.35);
-  --cb-fg: var(--text-2);
-}
+html[data-cb="1"] .td-cell[data-code="WB"] { --cb-bg:rgba(var(--ink-rgb),.10); --cb-edge:rgba(var(--ink-rgb),.35); --cb-fg:var(--text-2); }
 html[data-cb="1"] .td-cell[data-code="K"],
-html[data-cb="1"] .td-cell[data-code="KK"] {
-  --cb-bg: #d55e00;
-  --cb-edge: #8f3f00;
-  --cb-fg: #fff1e8;
-}
+html[data-cb="1"] .td-cell[data-code="KK"]  { --cb-bg:#D55E00; --cb-edge:#8F3F00; --cb-fg:#FFF1E8; }
 html[data-cb="1"][data-theme="light"] .td-cell[data-code="F"] .cell-assign,
 html[data-cb="1"][data-theme="light"] .td-cell[data-code="U"] .cell-assign,
 html[data-cb="1"][data-theme="light"] .td-cell[data-code="ZU"] .cell-assign,
 html[data-cb="1"][data-theme="light"] .td-cell[data-code="SU"] .cell-assign,
 html[data-cb="1"][data-theme="light"] .td-cell[data-code="FZA"] .cell-assign,
-html[data-cb="1"][data-theme="light"] .td-cell[data-code="WB"] .cell-assign {
-  color: var(--text-1) !important;
-}
+html[data-cb="1"][data-theme="light"] .td-cell[data-code="WB"] .cell-assign { color: var(--text-1) !important; }
 
 /* --- Wiederverwendbare Chip-/Badge-Utility -------------------------------- */
 /* Einheitlicher Baustein für Legenden, Filter-Pills und zukünftige UI.
@@ -195,9 +102,9 @@ html[data-cb="1"][data-theme="light"] .td-cell[data-code="WB"] .cell-assign {
   line-height: 1;
   padding: 3px 7px;
   border-radius: var(--radius-xs);
-  letter-spacing: 0.01em;
-  background: var(--chip-bg, rgba(var(--ink-rgb), 0.08));
+  letter-spacing: .01em;
+  background: var(--chip-bg, rgba(var(--ink-rgb), .08));
   color: var(--chip-fg, var(--text-1));
-  border: 1px solid rgba(var(--ink-rgb), 0.08);
+  border: 1px solid rgba(var(--ink-rgb), .08);
   white-space: nowrap;
 }

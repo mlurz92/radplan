@@ -4,17 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint \"js/**/*.js\"",
-    "format": "prettier --write \"js/**/*.js\" \"css/**/*.css\" index.html",
-    "test": "node --test test/**/*.test.js",
-    "coverage": "c8 node --test test/**/*.test.js"
-  },
-  "devDependencies": {
-    "c8": "^10.1.2",
-    "eslint": "^8.57.0",
-    "prettier": "^3.3.3",
-    "vite": "^5.4.1"
+    "test": "node --test test/**/*.test.js"
   }
 }
