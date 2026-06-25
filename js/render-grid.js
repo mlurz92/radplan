@@ -70,6 +70,7 @@ const dragSelectionState = {
   touched: new Set(),
   startEmp: null,
   startDay: null,
+  dismissMulti: false,
 };
 
 function resetDragSelectionState() {
@@ -79,6 +80,7 @@ function resetDragSelectionState() {
   dragSelectionState.touched = new Set();
   dragSelectionState.startEmp = null;
   dragSelectionState.startDay = null;
+  dragSelectionState.dismissMulti = false;
   document.body.classList.remove("is-drag-selecting");
 }
 
@@ -1221,7 +1223,11 @@ export function renderTbody(y, m, dim, hols, md) {
         // Nur „mitführen", wenn bereits ein Menü offen ist (Tastatur-Navigation,
         // Re-Fokus nach Schnellaktion). Das erstmalige Öffnen erfolgt bewusst
         // über Klick/Ziehen (mouseup) – kein Flackern beim Pfeiltasten-Browsen.
-        if (!IS_MOBILE && quickPopover.el) showCellQuickPopover(emp, d, tdEl);
+        // Während einer laufenden Zeigergeste übernimmt mouseup die Steuerung,
+        // damit ein Dismiss-Klick das Menü nicht kurz am Klickort aufblitzen lässt.
+        if (!IS_MOBILE && quickPopover.el && !dragSelectionState.active) {
+          showCellQuickPopover(emp, d, tdEl);
+        }
       });
       tdEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -1388,6 +1394,25 @@ document.addEventListener("mousedown", (e) => {
   const isSelected = me.emp === emp && Array.isArray(me.days) && me.days.includes(day);
   const multi = isSelected && me.days.length > 1;
 
+  // Klick auf eine Zelle AUSSERHALB einer bestehenden Mehrfachauswahl: Erst die
+  // Auswahl samt Schnellmenü schließen (Dismiss), NICHT sofort ein neues Menü am
+  // Klickort öffnen. Sonst ließe sich das Menü der Mehrfachauswahl nie schließen.
+  const prevMulti = !!(me.emp && Array.isArray(me.days) && me.days.length > 1);
+  if (prevMulti && !isSelected) {
+    dragSelectionState.active = true;
+    dragSelectionState.justDragged = false;
+    dragSelectionState.dismissMulti = true;
+    dragSelectionState.mode = "add";
+    dragSelectionState.emp = emp;
+    dragSelectionState.startEmp = emp;
+    dragSelectionState.startDay = day;
+    dragSelectionState.touched = new Set([day]);
+    document.body.classList.add("is-drag-selecting");
+    // Auswahl bleibt vorerst sichtbar; geräumt wird bei mouseup (reiner Klick)
+    // bzw. in eine frische Auswahl überführt, falls doch gezogen wird.
+    return;
+  }
+
   // Auf einer bereits markierten Zelle innerhalb einer Mehrfachauswahl startet
   // eine Abwahl-Geste; sonst beginnt eine frische additive Auswahl.
   if (multi) {
@@ -1425,6 +1450,16 @@ document.addEventListener("mouseover", (e) => {
   const day = parseInt(cell.dataset.day || "", 10);
   if (emp !== dragSelectionState.emp || !Number.isFinite(day)) return;
   if (dragSelectionState.touched.has(day)) return;
+
+  // Wird nach einem Außen-Klick (Dismiss-Modus) doch gezogen, so entsteht eine
+  // frische additive Auswahl ab der Startzelle statt eines bloßen Schließens.
+  if (dragSelectionState.dismissMulti) {
+    dragSelectionState.dismissMulti = false;
+    state.multiEdit.emp = dragSelectionState.startEmp;
+    state.multiEdit.days = [dragSelectionState.startDay];
+    state.multiEdit.anchor = dragSelectionState.startDay;
+  }
+
   dragSelectionState.touched.add(day);
   applyDragSelection(emp, day);
   dragSelectionState.justDragged = true;
@@ -1434,10 +1469,19 @@ document.addEventListener("mouseover", (e) => {
 document.addEventListener("mouseup", () => {
   const wasActive = dragSelectionState.active;
   const dragged = dragSelectionState.justDragged;
+  const dismiss = dragSelectionState.dismissMulti && !dragged;
   const startEmp = dragSelectionState.startEmp;
   const startDay = dragSelectionState.startDay;
   resetDragSelectionState();
   if (!wasActive) return;
+
+  // Reiner Außen-Klick auf eine Mehrfachauswahl → nur schließen, kein neues Menü.
+  if (dismiss) {
+    state.multiEdit = { emp: null, days: [], anchor: null };
+    closeCellQuickPopover();
+    syncSelectionClasses();
+    return;
+  }
 
   // Schnellmenü zuverlässig öffnen – sowohl nach einem reinen Klick als auch
   // nach einer Ziehgeste – verankert an der zuletzt berührten Zelle.
