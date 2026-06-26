@@ -1,24 +1,32 @@
 /*
- * RadPlan – "Annealing Field" Visualisierung
+ * RadPlan – "Solver Sequencer" Visualisierung
  * ------------------------------------------------------------------------
- * Konzept: Der Auto-Planer ist ein iterativer Optimierer (25 Kühlzyklen,
- * Minimierung einer Objective-Funktion). Visuell wird er daher als
- * SIMULATED-ANNEALING-FELD dargestellt: der gesamte Monat ist ein
- * dezentrales Gitter aus Tag-Zellen. Jede Zelle besitzt eine eigene
- * "Energie/Temperatur"; früh im Lauf flackert das ganze Feld heiß und
- * chaotisch, mit jeder Phase kühlt es ab und kristallisiert. Vergaben und
- * Swaps zünden lokal an ihrer eigenen Zelle und pflanzen sich als
- * Constraint-Wellen zu den Nachbartagen fort (z. B. D -> Frei am Folgetag).
- * Es gibt KEINEN zentralen Konvergenzpunkt mehr – die Aktivität ist über das
- * ganze Feld verteilt.
+ * GRUNDLEGEND NEUES PARADIGMA (kein Kalenderraster mehr):
+ * Der Auto-Planer entscheidet, WER an WELCHEM Tag Dienst hat. Genau diese
+ * Entscheidungsmatrix wird hier direkt sichtbar – als Mitarbeiter × Tage-
+ * Matrix im Stil eines Audio-/DAW-Sequencers:
  *
+ *   - Zeilen = Mitarbeitende (FÄ oben/eingefärbt, AA darunter),
+ *     Spalten = Tage des Monats.
+ *   - Während der Algorithmus läuft, FÜLLT sich der Dienstplan live:
+ *     jede Vergabe setzt eine leuchtende Kachel (D rot, HG blau) an der
+ *     Kreuzung (Mitarbeiter|Tag).
+ *   - Eine PLAYHEAD-Welle fegt wie ein Sequencer-Abspielkopf über die Tage
+ *     und lässt die Dienste der jeweiligen Spalte aufblitzen.
+ *   - Swaps SPRINGEN sichtbar als Token von der alten in die neue
+ *     Mitarbeiter-Zeile.
+ *   - Rechts zeigt je Zeile ein LOAD-METER die Dienstlast – Fairness wird
+ *     unmittelbar als Balance der Balken ablesbar.
+ *
+ * Alles wird auf einem einzigen Canvas gezeichnet (kein DOM-Zellraster).
  * Die öffentliche API (initData, attachMiniMap, triggerAssignment,
  * triggerSwap, triggerError, setPhase, triggerSuccess, dispose) bleibt
  * unverändert; app.js muss nicht angepasst werden.
  */
 
+import { isFacharzt } from './constants.js';
+
 const STYLE_ID = 'radplan-neural-graph-styles';
-const COLS = 7;
 
 function injectStyles() {
   if (document.getElementById(STYLE_ID)) return;
@@ -28,140 +36,17 @@ function injectStyles() {
     .ng-container {
       position: absolute;
       inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       overflow: hidden;
       background:
-        linear-gradient(180deg, rgba(5,10,24,0.0), rgba(2,5,14,0.55)),
-        radial-gradient(120% 80% at 50% 0%, rgba(30,41,80,0.35), rgba(2,6,18,0.92) 70%);
-      padding: 20px;
-      perspective: 1500px;
+        linear-gradient(180deg, rgba(5,10,24,0), rgba(2,5,14,0.55)),
+        radial-gradient(120% 90% at 50% 0%, rgba(30,41,80,0.30), rgba(2,6,18,0.94) 72%);
     }
-    .ng-canvas {
+    .ng-seq-canvas {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
-      z-index: 1;
-      pointer-events: none;
-    }
-    .ng-matrix-grid {
-      position: relative;
-      display: grid;
-      width: 100%;
-      height: 100%;
-      grid-auto-rows: 1fr;
-      z-index: 2;
-      gap: 8px;
-    }
-    .ng-flat-cell {
-      border-radius: 11px;
-      position: relative;
-      background: rgba(8, 15, 33, 0.30);
-      backdrop-filter: blur(2px);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.04);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      will-change: transform, background-color, box-shadow, border-color;
-      transition:
-        transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-        background-color 0.3s ease,
-        box-shadow 0.35s ease,
-        border-color 0.3s ease;
-    }
-    .ng-flat-cell.rest { transform: none; }
-    .ng-flat-cell.pulse {
-      transform: scale(1.05);
-      z-index: 50;
-      background: rgba(15, 23, 42, 0.66);
-      border-color: var(--pulse-color, rgba(56, 189, 248, 0.5));
-      box-shadow:
-        0 10px 26px rgba(0, 0, 0, 0.45),
-        0 0 22px var(--pulse-color, transparent),
-        inset 0 0 14px var(--pulse-color, transparent);
-    }
-    .ng-flat-cell.error {
-      transform: scale(1.02);
-      background: rgba(127, 29, 29, 0.4);
-      border-color: #ef4444;
-      box-shadow: 0 8px 22px rgba(239, 68, 68, 0.32);
-    }
-    .ng-flat-cell.crystal {
-      border-color: var(--crystal-color, rgba(255,255,255,0.25));
-      box-shadow: 0 0 14px var(--crystal-color, transparent), inset 0 0 8px rgba(255,255,255,0.05);
-    }
-    .ng-day-number {
-      position: absolute;
-      top: 5px;
-      left: 7px;
-      font-family: var(--font-mono, monospace);
-      font-size: 11px;
-      font-weight: 800;
-      color: rgba(255, 255, 255, 0.22);
-      pointer-events: none;
-      z-index: 5;
-    }
-    .ng-slots-container {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 4px;
-      gap: 4px;
-      margin-top: 17px;
-    }
-    .ng-slot {
-      flex: 1;
-      position: relative;
-      background: rgba(0, 0, 0, 0.22);
-      border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.03);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.3s ease;
-      overflow: hidden;
-    }
-    .ng-slot::before {
-      content: attr(data-label);
-      position: absolute;
-      left: 6px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-family: var(--font-mono, monospace);
-      font-size: 8px;
-      font-weight: 900;
-      color: rgba(255, 255, 255, 0.12);
-      letter-spacing: 0.1em;
-    }
-    .ng-slot.active-d {
-      background: rgba(239, 68, 68, 0.16);
-      border-color: rgba(239, 68, 68, 0.32);
-      box-shadow: inset 0 0 12px rgba(239, 68, 68, 0.12);
-    }
-    .ng-slot.active-hg {
-      background: rgba(14, 165, 233, 0.16);
-      border-color: rgba(14, 165, 233, 0.32);
-      box-shadow: inset 0 0 12px rgba(14, 165, 233, 0.12);
-    }
-    .ng-slot-emp {
-      font-family: var(--font-mono, monospace);
-      font-size: 11px;
-      font-weight: 800;
-      color: transparent;
-      text-align: center;
-      letter-spacing: 0.02em;
-      transition: all 0.3s ease;
-    }
-    .ng-slot.has-val .ng-slot-emp {
-      color: #fff;
-      text-shadow: 0 0 8px currentColor;
-    }
-    .ng-slot.is-pulsing {
-      background: rgba(255, 255, 255, 0.1);
-      box-shadow: 0 0 16px var(--pulse-color);
+      display: block;
     }
   `;
   document.head.appendChild(style);
@@ -176,53 +61,45 @@ const PHASE_RGB = {
   error:   [239, 68, 68],
 };
 
-// Ziel-Temperatur je Phase: heiß (chaotisch) -> kalt (kristallin).
-const PHASE_TEMP = {
-  init: 1.0,
-  greedy: 0.82,
-  hg: 0.58,
-  deep: 0.33,
-  success: 0.04,
-  error: 0.7,
-};
+const DUTY_D = [239, 68, 68];
+const DUTY_HG = [14, 165, 233];
 
 export class NeuralGraph {
   constructor(container) {
     this.container = container;
-    this.cells = new Map();
-    this.nodes = new Map();      // pro Tag: {x,y,energy,crystal,color,seed}
     this.employees = [];
-    this.daysCount = 0;
+    this.empIndex = new Map();
+    this.days = 0;
     this.phase = 'init';
     this.basePhase = 'init';
 
-    this.bgCanvas = null;
-    this.bgCtx = null;
+    this.canvas = null;
+    this.ctx = null;
     this.hudCanvas = null;
     this.hudCtx = null;
 
-    this.edgePulses = [];        // dezentrale Constraint-Wellen Zelle->Nachbar
-    this.flow = [];              // ambiente Strömungspartikel (kein Zentrum)
-    this.glitches = [];          // Error-Scanline-Tears
+    // Akkumulierter Plan: key "row|col" -> { duty, glow }
+    this.matrix = new Map();
+    this.rowLoad = [];           // Dienstzahl je Zeile (Fairness-Meter)
 
-    this.temp = 1.0;
-    this.tempTarget = 1.0;
+    this.swaps = [];             // springende Swap-Token
+    this.particles = [];         // Funken am Playhead
+    this.errorFx = [];           // Fehler-Blitze
+    this.playX = 0;
+    this.lastCol = -1;
+    this.successWave = -1;       // -1 = inaktiv, sonst 0..1
 
-    // HUD-Telemetrie: "Systemenergie" mit Kühl-Hüllkurve (Annealing). Sie
-    // pulst bei Aktivität nach oben und sinkt mit fallender Temperatur – so
-    // bleibt die Kurve den ganzen Lauf über lebendig statt auf einen Boden
-    // zu verflachen.
+    // HUD-Telemetrie (Kühl-Hüllkurve + Equalizer + Hex-Ticker)
     this.energyHistory = [];
     this.energyLevel = 0.85;
     this.bars = [];
     this.hexStream = '';
+    this.temp = 1.0;
+    this.tempTarget = 1.0;
 
     this.animId = null;
     this.resizeObserver = null;
-    this.gridFloat = null;
-    this.positionsDirty = true;
     this.t0 = performance.now();
-    this.scanPos = 0;
 
     injectStyles();
     this.buildDOM();
@@ -234,141 +111,50 @@ export class NeuralGraph {
     this.container.innerHTML = '';
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'ng-container';
-
-    this.bgCanvas = document.createElement('canvas');
-    this.bgCanvas.className = 'ng-canvas';
-    this.bgCtx = this.bgCanvas.getContext('2d');
-
-    this.gridFloat = document.createElement('div');
-    this.gridFloat.className = 'ng-matrix-grid';
-
-    this.wrapper.appendChild(this.bgCanvas);
-    this.wrapper.appendChild(this.gridFloat);
+    this.canvas = document.createElement('canvas');
+    this.canvas.className = 'ng-seq-canvas';
+    this.ctx = this.canvas.getContext('2d');
+    this.wrapper.appendChild(this.canvas);
     this.container.appendChild(this.wrapper);
   }
 
   setupResizeObserver() {
     this.resizeObserver = new ResizeObserver(() => {
+      this.resizeCanvas();
       this.resizeHud();
-      this.resizeBgCanvas();
-      this.positionsDirty = true;
     });
     this.resizeObserver.observe(this.container);
   }
 
-  resizeBgCanvas() {
-    if (!this.bgCanvas || !this.wrapper) return;
+  resizeCanvas() {
+    if (!this.canvas || !this.wrapper) return;
     const w = this.wrapper.clientWidth;
     const h = this.wrapper.clientHeight;
     if (w === 0 || h === 0) return;
     const dpr = window.devicePixelRatio || 1;
-    this.bgCanvas.width = w * dpr;
-    this.bgCanvas.height = h * dpr;
-    this.bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this.bgW = w;
-    this.bgH = h;
+    this.canvas.width = w * dpr;
+    this.canvas.height = h * dpr;
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.W = w;
+    this.H = h;
   }
 
   initData(daysCount, employees) {
-    this.daysCount = daysCount;
-    this.employees = employees;
-    this.gridFloat.innerHTML = '';
-    this.cells.clear();
-    this.nodes.clear();
-
-    const rows = Math.ceil(daysCount / COLS);
-    this.gridFloat.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
-    this.gridFloat.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
-
-    for (let d = 1; d <= daysCount; d++) {
-      const cell = document.createElement('div');
-      cell.className = 'ng-flat-cell rest';
-
-      const dayLabel = document.createElement('div');
-      dayLabel.className = 'ng-day-number';
-      dayLabel.textContent = d;
-
-      const slotsContainer = document.createElement('div');
-      slotsContainer.className = 'ng-slots-container';
-
-      const dSlot = document.createElement('div');
-      dSlot.className = 'ng-slot slot-d';
-      dSlot.setAttribute('data-label', 'D');
-      const dEmp = document.createElement('span');
-      dEmp.className = 'ng-slot-emp';
-      dSlot.appendChild(dEmp);
-
-      const hgSlot = document.createElement('div');
-      hgSlot.className = 'ng-slot slot-hg';
-      hgSlot.setAttribute('data-label', 'HG');
-      const hgEmp = document.createElement('span');
-      hgEmp.className = 'ng-slot-emp';
-      hgSlot.appendChild(hgEmp);
-
-      slotsContainer.appendChild(dSlot);
-      slotsContainer.appendChild(hgSlot);
-      cell.appendChild(dayLabel);
-      cell.appendChild(slotsContainer);
-      this.gridFloat.appendChild(cell);
-
-      this.cells.set(d, { el: cell, dSlot, dEmp, hgSlot, hgEmp });
-      this.nodes.set(d, {
-        x: 0, y: 0, w: 0, h: 0,
-        energy: 0.4 + Math.random() * 0.3,
-        crystal: 0,
-        assigned: false,
-        color: PHASE_RGB.init,
-        seed: Math.random() * 1000,
-      });
-    }
-
-    this.positionsDirty = true;
-    this.resizeBgCanvas();
-    this.seedFlow();
+    this.days = daysCount;
+    // Fachärzte zuerst (eingefärbt), dann übrige – sortierte, sinnvolle Lesart.
+    const fa = employees.filter((e) => isFacharzt(e));
+    const aa = employees.filter((e) => !isFacharzt(e));
+    this.employees = [...fa, ...aa];
+    this.empIndex = new Map(this.employees.map((e, i) => [e, i]));
+    this.rowLoad = new Array(this.employees.length).fill(0);
+    this.matrix.clear();
+    this.swaps = [];
+    this.particles = [];
+    this.errorFx = [];
+    this.successWave = -1;
+    this.lastCol = -1;
+    this.resizeCanvas();
   }
-
-  seedFlow() {
-    this.flow = [];
-    const n = 60;
-    for (let i = 0; i < n; i++) {
-      this.flow.push({
-        x: Math.random(),
-        y: Math.random(),
-        a: 0.1 + Math.random() * 0.3,
-        sp: 0.4 + Math.random() * 1.2,
-        seed: Math.random() * 1000,
-      });
-    }
-  }
-
-  computeNodePositions() {
-    if (!this.wrapper) return;
-    const wrapRect = this.wrapper.getBoundingClientRect();
-    if (wrapRect.width === 0) return;
-    for (const [d, node] of this.nodes.entries()) {
-      const cellData = this.cells.get(d);
-      if (!cellData) continue;
-      const r = cellData.el.getBoundingClientRect();
-      node.x = r.left - wrapRect.left + r.width / 2;
-      node.y = r.top - wrapRect.top + r.height / 2;
-      node.w = r.width;
-      node.h = r.height;
-    }
-    this.positionsDirty = false;
-  }
-
-  latticeNeighbors(d) {
-    const i = d - 1;
-    const col = i % COLS;
-    const out = [];
-    if (col > 0 && this.nodes.has(d - 1)) out.push(d - 1);
-    if (col < COLS - 1 && this.nodes.has(d + 1)) out.push(d + 1);
-    if (this.nodes.has(d - COLS)) out.push(d - COLS);
-    if (this.nodes.has(d + COLS)) out.push(d + COLS);
-    return out;
-  }
-
-  // --- HUD --------------------------------------------------------------
 
   attachMiniMap(container) {
     container.innerHTML = '';
@@ -378,10 +164,7 @@ export class NeuralGraph {
     this.hudCanvas.style.display = 'block';
     container.appendChild(this.hudCanvas);
     this.hudCtx = this.hudCanvas.getContext('2d', { alpha: false });
-
-    if (this.resizeObserver) {
-      this.resizeObserver.observe(container);
-    }
+    if (this.resizeObserver) this.resizeObserver.observe(container);
     this.resizeHud();
   }
 
@@ -403,18 +186,9 @@ export class NeuralGraph {
 
   // --- Helpers ----------------------------------------------------------
 
-  phaseColorArr() {
-    return PHASE_RGB[this.phase] || PHASE_RGB.init;
-  }
-
-  getPhaseColor(alpha = 1) {
-    const [r, g, b] = this.phaseColorArr();
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
-
-  dutyColorArr(dutyType) {
-    return dutyType === 'HG' ? [14, 165, 233] : [239, 68, 68];
-  }
+  phaseColorArr() { return PHASE_RGB[this.phase] || PHASE_RGB.init; }
+  getPhaseColor(a = 1) { const [r, g, b] = this.phaseColorArr(); return `rgba(${r},${g},${b},${a})`; }
+  dutyColorArr(d) { return d === 'HG' ? DUTY_HG : DUTY_D; }
 
   getAbbreviation(empId) {
     if (!empId) return '';
@@ -422,115 +196,103 @@ export class NeuralGraph {
       .replace(/^(Herr|Frau|Hr\.|Fr\.|Dr\.\s*(med\.\s*)?|Prof\.\s*(Dr\.\s*(med\.\s*)?|med\.\s*)?|PD\s+Dr\.\s*(med\.\s*)?|Dipl\.\s*\w+\.\s*)/gi, '')
       .trim();
     const parts = stripped.split(/\s+/);
-    if (parts.length <= 1) {
-      return stripped.replace(/\s/g, '').substring(0, 3).toUpperCase();
-    }
-    const surnamePrefixes = ['el', 'al', 'van', 'von', 'de', 'le', 'la', 'di', 'lo', 'del', 'dal', 'bin', 'ben', 'abu'];
-    if (surnamePrefixes.includes(parts[0].toLowerCase())) {
-      return parts.join('').substring(0, 3).toUpperCase();
-    }
+    if (parts.length <= 1) return stripped.replace(/\s/g, '').substring(0, 3).toUpperCase();
+    const pre = ['el', 'al', 'van', 'von', 'de', 'le', 'la', 'di', 'lo', 'del', 'dal', 'bin', 'ben', 'abu'];
+    if (pre.includes(parts[0].toLowerCase())) return parts.join('').substring(0, 3).toUpperCase();
     return parts[parts.length - 1].substring(0, 3).toUpperCase();
   }
 
-  // --- Effekt-Auslöser (dezentral, an der eigenen Zelle) ----------------
+  cellKey(row, col) { return `${row}|${col}`; }
 
-  igniteCell(dayIdx, color, strength) {
-    const node = this.nodes.get(dayIdx);
-    if (!node) return;
-    node.energy = Math.min(1.6, node.energy + strength);
-    node.color = color;
+  setCell(row, col, duty, glow = 1) {
+    if (row < 0 || row >= this.employees.length || col < 1 || col > this.days) return;
+    const key = this.cellKey(row, col);
+    const prev = this.matrix.get(key);
+    if (!prev) this.rowLoad[row] = (this.rowLoad[row] || 0) + 1;
+    this.matrix.set(key, { duty, glow: Math.max(glow, prev ? prev.glow : 0) });
   }
 
-  crystallizeCell(dayIdx, color) {
-    const node = this.nodes.get(dayIdx);
-    if (!node) return;
-    node.crystal = 1;
-    node.assigned = true;
-    node.color = color;
+  clearCell(row, col) {
+    const key = this.cellKey(row, col);
+    if (this.matrix.has(key)) {
+      this.matrix.delete(key);
+      this.rowLoad[row] = Math.max(0, (this.rowLoad[row] || 0) - 1);
+    }
   }
 
-  // Constraint-Welle: zündet die Zelle und schickt Energie zu den
-  // Gitternachbarn (Folgetag etc.). Keine Konvergenz zu einem Zentrum.
-  propagateConstraint(dayIdx, color, intense) {
-    this.igniteCell(dayIdx, color, intense ? 1.1 : 0.7);
-    const neighbors = this.latticeNeighbors(dayIdx);
-    for (const nb of neighbors) {
-      this.edgePulses.push({
-        from: dayIdx, to: nb, progress: 0,
-        speed: 0.05 + Math.random() * 0.04,
-        color,
+  // --- API-Auslöser -----------------------------------------------------
+
+  triggerAssignment(dayIdx, empId, dutyType = 'D') {
+    const row = this.empIndex.get(empId);
+    if (row === undefined) { this.bumpHud(false); return; }
+    this.setCell(row, dayIdx, dutyType, 1.4);
+    this.spawnCellSpark(row, dayIdx, this.dutyColorArr(dutyType));
+    this.bumpHud(false);
+  }
+
+  triggerSwap(dayIdx, oldEmpId, newEmpId, dutyType = 'D') {
+    const fromRow = this.empIndex.get(oldEmpId);
+    const toRow = this.empIndex.get(newEmpId);
+    if (toRow === undefined) { this.bumpHud(false); return; }
+    if (fromRow !== undefined && fromRow !== toRow) {
+      this.clearCell(fromRow, dayIdx);
+      this.swaps.push({ col: dayIdx, fromRow, toRow, progress: 0, color: this.dutyColorArr(dutyType) });
+    }
+    this.setCell(toRow, dayIdx, dutyType, 1.4);
+    this.bumpHud(false);
+  }
+
+  triggerError(dayIdx, empId, dutyType = 'D') {
+    if (this.phase !== 'error') this.basePhase = this.phase;
+    this.phase = 'error';
+    const row = this.empIndex.get(empId);
+    this.errorFx.push({ row: row === undefined ? -1 : row, col: dayIdx, life: 1 });
+    this.bumpHud(true);
+    setTimeout(() => { if (this.phase === 'error') this.phase = this.basePhase || 'init'; }, 320);
+  }
+
+  setPhase(phase) {
+    this.phase = phase;
+    if (phase !== 'error') this.basePhase = phase;
+    const t = { init: 1.0, greedy: 0.82, hg: 0.58, deep: 0.33, success: 0.04, error: 0.7 };
+    if (t[phase] !== undefined) this.tempTarget = t[phase];
+  }
+
+  triggerSuccess(finalAssignments) {
+    this.setPhase('success');
+    this.tempTarget = 0.04;
+    if (finalAssignments) {
+      // Plan komplett (neu) setzen, damit der Endzustand exakt stimmt.
+      this.matrix.clear();
+      this.rowLoad = new Array(this.employees.length).fill(0);
+      for (const [emp, days] of Object.entries(finalAssignments)) {
+        const row = this.empIndex.get(emp);
+        if (row === undefined) continue;
+        for (const [dayStr, data] of Object.entries(days)) {
+          if (data && data.duty) this.setCell(row, parseInt(dayStr, 10), data.duty, 1);
+        }
+      }
+    }
+    this.successWave = 0;
+    for (let p = 0; p < 18; p++) setTimeout(() => this.bumpHud(false), p * 40);
+  }
+
+  // --- Effekte ----------------------------------------------------------
+
+  spawnCellSpark(row, col, color) {
+    const pos = this.cellCenter(row, col);
+    if (!pos) return;
+    for (let i = 0; i < 5; i++) {
+      this.particles.push({
+        x: pos.x, y: pos.y,
+        vx: (Math.random() - 0.5) * 1.4,
+        vy: -0.6 - Math.random() * 1.2,
+        life: 1, color,
       });
     }
   }
 
-  // --- DOM Slot-Pulse (API-kompatibel) ----------------------------------
-
-  pulseCell(dayIdx, empId, isActive, isError = false, dutyType = 'D') {
-    const cellData = this.cells.get(dayIdx);
-    if (!cellData) return;
-
-    const { el, dSlot, dEmp, hgSlot, hgEmp } = cellData;
-    const targetSlot = dutyType === 'HG' ? hgSlot : dSlot;
-    const targetEmp = dutyType === 'HG' ? hgEmp : dEmp;
-
-    if (empId && empId !== 'SWAP') {
-      targetEmp.textContent = this.getAbbreviation(empId);
-      targetSlot.classList.add('has-val');
-    } else if (empId === 'SWAP') {
-      targetEmp.textContent = 'SWP';
-      targetSlot.classList.add('has-val');
-    }
-
-    if (isActive) {
-      const colorArr = isError ? PHASE_RGB.error : this.dutyColorArr(dutyType);
-      const borderColor = `rgba(${colorArr[0]}, ${colorArr[1]}, ${colorArr[2]}, 0.9)`;
-
-      el.classList.remove('rest');
-      el.classList.add(isError ? 'error' : 'pulse');
-      el.style.setProperty('--pulse-color', borderColor);
-      targetSlot.classList.add('is-pulsing');
-      targetSlot.style.setProperty('--pulse-color', borderColor);
-      targetSlot.classList.add(dutyType === 'HG' ? 'active-hg' : 'active-d');
-      targetEmp.style.color = '#fff';
-
-      if (isError) {
-        this.igniteCell(dayIdx, colorArr, 1.4);
-        this.spawnGlitch(dayIdx);
-      } else {
-        this.propagateConstraint(dayIdx, colorArr, true);
-      }
-    } else {
-      el.classList.remove('pulse', 'error');
-      el.classList.add('rest');
-      targetSlot.classList.remove('is-pulsing', 'active-hg', 'active-d');
-
-      const hasVal = targetSlot.classList.contains('has-val');
-      if (dutyType === 'HG') {
-        targetEmp.style.color = hasVal ? '#0EA5E9' : 'transparent';
-      } else {
-        targetEmp.style.color = hasVal ? '#EF4444' : 'transparent';
-      }
-
-      if (hasVal) {
-        el.classList.add('crystal');
-        el.style.setProperty('--crystal-color', dutyType === 'HG' ? 'rgba(14,165,233,0.5)' : 'rgba(239,68,68,0.5)');
-        this.crystallizeCell(dayIdx, this.dutyColorArr(dutyType));
-      }
-
-      if (empId === 'SWAP') {
-        targetEmp.textContent = '';
-        targetSlot.classList.remove('has-val');
-      }
-    }
-  }
-
-  spawnGlitch(dayIdx) {
-    const node = this.nodes.get(dayIdx);
-    this.glitches.push({ y: node ? node.y : (this.bgH || 200) * Math.random(), life: 1 });
-  }
-
-  fireMiniMapPulse(isError = false) {
-    // HUD-Spike: Balken springen, Optimierungs-Kurve fällt ein Stück.
+  bumpHud(isError) {
     const spikes = 2 + Math.floor(Math.random() * 3);
     for (let s = 0; s < spikes; s++) {
       const idx = Math.floor(Math.random() * this.bars.length);
@@ -538,281 +300,260 @@ export class NeuralGraph {
         this.bars[idx] = Math.min(1, this.bars[idx] + (isError ? 1 : 0.6 + Math.random() * 0.4));
       }
     }
-    // Aktivität schlägt als Energiespitze in die Kurve ein (Fehler stärker).
-    this.energyLevel = Math.min(1, this.energyLevel + (isError ? 0.22 : 0.10 + Math.random() * 0.06));
+    this.energyLevel = Math.min(1, this.energyLevel + (isError ? 0.22 : 0.1 + Math.random() * 0.06));
   }
 
-  triggerSwap(dayIdx, oldEmpId, newEmpId, dutyType = 'D') {
-    this.pulseCell(dayIdx, 'SWAP', true, false, dutyType);
-    this.fireMiniMapPulse();
-    setTimeout(() => {
-      if (this.phase !== 'success') this.pulseCell(dayIdx, newEmpId, false, false, dutyType);
-    }, 420);
+  // --- Layout -----------------------------------------------------------
+
+  layout() {
+    const w = this.W || 0;
+    const h = this.H || 0;
+    const nEmp = this.employees.length || 1;
+    const padL = Math.min(58, Math.max(40, w * 0.10));
+    const padR = Math.min(46, Math.max(30, w * 0.07));
+    const padT = 20;
+    const padB = 8;
+    const gridW = Math.max(1, w - padL - padR);
+    const gridH = Math.max(1, h - padT - padB);
+    return {
+      padL, padR, padT, padB, gridW, gridH,
+      cellW: gridW / this.days,
+      rowH: gridH / nEmp,
+    };
   }
 
-  triggerAssignment(dayIdx, empId, dutyType = 'D') {
-    this.pulseCell(dayIdx, empId, true, false, dutyType);
-    this.fireMiniMapPulse();
-    setTimeout(() => {
-      if (this.phase !== 'success') this.pulseCell(dayIdx, empId, false, false, dutyType);
-    }, 420);
+  cellCenter(row, col) {
+    if (!this.W) return null;
+    const L = this.layout();
+    return {
+      x: L.padL + (col - 0.5) * L.cellW,
+      y: L.padT + (row + 0.5) * L.rowH,
+    };
   }
 
-  triggerError(dayIdx, empId, dutyType = 'D') {
-    if (this.phase !== 'error') this.basePhase = this.phase;
-    this.phase = 'error';
-    this.pulseCell(dayIdx, empId, true, true, dutyType);
-    this.fireMiniMapPulse(true);
-    setTimeout(() => {
-      if (this.phase === 'error') this.phase = this.basePhase || 'init';
-      this.pulseCell(dayIdx, empId, false, false, dutyType);
-    }, 340);
-  }
+  // --- Render: Sequencer-Matrix -----------------------------------------
 
-  setPhase(phase) {
-    this.phase = phase;
-    if (phase !== 'error') this.basePhase = phase;
-    if (PHASE_TEMP[phase] !== undefined) this.tempTarget = PHASE_TEMP[phase];
-  }
+  renderMatrix() {
+    const ctx = this.ctx;
+    if (!ctx || !this.W || !this.days || !this.employees.length) return;
+    const w = this.W, h = this.H;
+    const time = (performance.now() - this.t0) / 1000;
+    const [pr, pg, pb] = this.phaseColorArr();
+    this.temp += (this.tempTarget - this.temp) * 0.03;
 
-  triggerSuccess(finalAssignments) {
-    this.setPhase('success');
-    this.tempTarget = 0.04;
+    const L = this.layout();
+    ctx.clearRect(0, 0, w, h);
 
-    if (finalAssignments) {
-      for (const [emp, days] of Object.entries(finalAssignments)) {
-        for (const [dayStr, data] of Object.entries(days)) {
-          const dayIdx = parseInt(dayStr, 10);
-          const cellData = this.cells.get(dayIdx);
-          if (cellData && data.duty) {
-            if (data.duty === 'D') {
-              cellData.dEmp.textContent = this.getAbbreviation(emp);
-              cellData.dSlot.classList.add('has-val');
-              cellData.dEmp.style.color = '#EF4444';
-            }
-            if (data.duty === 'HG') {
-              cellData.hgEmp.textContent = this.getAbbreviation(emp);
-              cellData.hgSlot.classList.add('has-val');
-              cellData.hgEmp.style.color = '#0EA5E9';
-            }
-          }
+    // Spalten-Raster + Tagesnummern
+    ctx.font = `${Math.min(10, L.cellW * 0.7)}px var(--font-mono, monospace)`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    for (let c = 1; c <= this.days; c++) {
+      const x = L.padL + (c - 0.5) * L.cellW;
+      ctx.fillStyle = 'rgba(255,255,255,0.28)';
+      if (L.cellW > 9 || c % 2 === 1) ctx.fillText(String(c), x, L.padT - 7);
+      ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+      ctx.beginPath();
+      ctx.moveTo(L.padL + (c - 1) * L.cellW, L.padT);
+      ctx.lineTo(L.padL + (c - 1) * L.cellW, L.padT + L.gridH);
+      ctx.stroke();
+    }
+
+    // Zeilen: Label, Trennlinie, Hintergrund-Tint nach Rolle
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const labelFont = Math.max(8, Math.min(12, L.rowH * 0.42));
+    for (let r = 0; r < this.employees.length; r++) {
+      const emp = this.employees[r];
+      const yTop = L.padT + r * L.rowH;
+      const yMid = yTop + L.rowH / 2;
+      const fa = isFacharzt(emp);
+      // Zebra + Rollentint
+      ctx.fillStyle = fa ? 'rgba(56,189,248,0.045)' : 'rgba(148,163,184,0.04)';
+      if (r % 2 === 0) ctx.fillRect(L.padL, yTop, L.gridW, L.rowH);
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.beginPath(); ctx.moveTo(L.padL, yTop); ctx.lineTo(L.padL + L.gridW, yTop); ctx.stroke();
+
+      ctx.font = `${fa ? '700 ' : '400 '}${labelFont}px var(--font-mono, monospace)`;
+      ctx.fillStyle = fa ? 'rgba(125,211,252,0.9)' : 'rgba(148,163,184,0.85)';
+      ctx.fillText(this.getAbbreviation(emp), 5, yMid);
+    }
+
+    // Playhead-Position (Sequencer-Abspielkopf, fegt über die Tage)
+    const period = 2.4;
+    this.playX = (time % period) / period;
+    const playCol = Math.min(this.days, Math.floor(this.playX * this.days) + 1);
+    if (playCol !== this.lastCol) {
+      this.lastCol = playCol;
+      // Spalte „abspielen": zugewiesene Kacheln dieser Spalte aufblitzen lassen
+      for (let r = 0; r < this.employees.length; r++) {
+        const cell = this.matrix.get(this.cellKey(r, playCol));
+        if (cell) {
+          cell.glow = Math.max(cell.glow, 1.2);
+          this.spawnCellSpark(r, playCol, this.dutyColorArr(cell.duty));
         }
       }
     }
 
-    // Dezentrale Kühlwelle: Reihe für Reihe kristallisiert das ganze Feld.
-    let delay = 0;
-    const ordered = [...this.cells.keys()].sort((a, b) => a - b);
-    for (const dayIdx of ordered) {
-      const cellData = this.cells.get(dayIdx);
-      const hasVal = cellData.dSlot.classList.contains('has-val') || cellData.hgSlot.classList.contains('has-val');
-      setTimeout(() => {
-        cellData.el.classList.remove('rest', 'error');
-        cellData.el.classList.add('pulse');
-        cellData.el.style.setProperty('--pulse-color', this.getPhaseColor(0.9));
-        this.igniteCell(dayIdx, PHASE_RGB.success, 1.2);
-        if (hasVal) this.crystallizeCell(dayIdx, PHASE_RGB.success);
-      }, delay);
-      setTimeout(() => {
-        cellData.el.classList.remove('pulse');
-        cellData.el.classList.add('rest');
-      }, delay + 640);
-      delay += 14;
-    }
-
-    for (let p = 0; p < 18; p++) setTimeout(() => this.fireMiniMapPulse(), p * 40);
-  }
-
-  startLoop() {
-    if (this.animId) cancelAnimationFrame(this.animId);
-    const loop = () => {
-      this.renderField();
-      this.renderHud();
-      this.animId = requestAnimationFrame(loop);
-    };
-    this.animId = requestAnimationFrame(loop);
-  }
-
-  // --- Hauptfeld (dezentral, ohne Zentrum) ------------------------------
-
-  renderField() {
-    const ctx = this.bgCtx;
-    if (!ctx || !this.bgW || !this.bgH) return;
-    if (this.positionsDirty) this.computeNodePositions();
-
-    const w = this.bgW;
-    const h = this.bgH;
-    const time = (performance.now() - this.t0) / 1000;
-    const [pr, pg, pb] = this.phaseColorArr();
-
-    // Temperatur sanft auf den Phasen-Zielwert ziehen.
-    this.temp += (this.tempTarget - this.temp) * 0.03;
-    const temp = this.temp;
-
-    ctx.clearRect(0, 0, w, h);
-
-    // Ambiente Strömung (über das ganze Feld, kein Konvergenzpunkt)
-    for (const f of this.flow) {
-      // Curl-artiges Strömungsfeld aus überlagerten Sinus.
-      const ang = Math.sin(f.y * 6 + time * 0.5 + f.seed) + Math.cos(f.x * 5 - time * 0.4);
-      f.x += Math.cos(ang) * 0.0006 * f.sp;
-      f.y += Math.sin(ang) * 0.0006 * f.sp;
-      if (f.x < 0) f.x = 1; if (f.x > 1) f.x = 0;
-      if (f.y < 0) f.y = 1; if (f.y > 1) f.y = 0;
-      const flick = 0.5 + 0.5 * Math.sin(time * 3 + f.seed);
-      ctx.beginPath();
-      ctx.arc(f.x * w, f.y * h, 1.1, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${pr}, ${pg}, ${pb}, ${f.a * (0.3 + 0.7 * flick) * (0.4 + temp)})`;
+    // Matrix-Kacheln (akkumulierter Plan)
+    const cw = L.cellW, rh = L.rowH;
+    const tileW = Math.max(2, cw - 2);
+    const tileH = Math.max(2, rh - 2);
+    for (const [key, cell] of this.matrix.entries()) {
+      const [r, c] = key.split('|').map(Number);
+      cell.glow *= 0.93;
+      const x = L.padL + (c - 1) * cw + 1;
+      const y = L.padT + r * rh + 1;
+      const [dr, dg, db] = this.dutyColorArr(cell.duty);
+      const base = 0.4 + Math.min(0.55, cell.glow * 0.45);
+      // Glow-Halo bei frischer Aktivität
+      if (cell.glow > 0.1) {
+        ctx.shadowColor = `rgba(${dr},${dg},${db},0.9)`;
+        ctx.shadowBlur = 4 + cell.glow * 10;
+      }
+      ctx.fillStyle = `rgba(${dr},${dg},${db},${base})`;
+      this.roundRect(ctx, x, y, tileW, tileH, Math.min(3, tileH / 3));
       ctx.fill();
-    }
-
-    // Gitter-Traces zwischen benachbarten Tagen (dezentrales Lattice)
-    ctx.lineWidth = 1;
-    for (const [d, node] of this.nodes.entries()) {
-      if (!node.x) continue;
-      const right = this.nodes.get(d + 1);
-      const sameRow = (d % COLS) !== 0;
-      if (right && sameRow && right.x) {
-        const e = (node.energy + right.energy) * 0.5;
-        ctx.strokeStyle = `rgba(${pr}, ${pg}, ${pb}, ${0.04 + e * 0.12})`;
-        ctx.beginPath(); ctx.moveTo(node.x, node.y); ctx.lineTo(right.x, right.y); ctx.stroke();
-      }
-      const down = this.nodes.get(d + COLS);
-      if (down && down.x) {
-        const e = (node.energy + down.energy) * 0.5;
-        ctx.strokeStyle = `rgba(${pr}, ${pg}, ${pb}, ${0.04 + e * 0.12})`;
-        ctx.beginPath(); ctx.moveTo(node.x, node.y); ctx.lineTo(down.x, down.y); ctx.stroke();
+      ctx.shadowBlur = 0;
+      // Dienst-Buchstabe, wenn groß genug
+      if (cw >= 13 && rh >= 12) {
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        ctx.font = `700 ${Math.min(9, rh * 0.5)}px var(--font-mono, monospace)`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(cell.duty === 'HG' ? 'H' : 'D', x + tileW / 2, y + tileH / 2 + 0.5);
       }
     }
 
-    // Optimierungs-Scan: schnelle vertikale Welle quer über das ganze Feld.
-    this.scanPos = (this.scanPos + 0.008 + 0.01 * (1 - temp)) % 1.3;
-    const scanX = (this.scanPos - 0.15) * w;
-    const scanGrad = ctx.createLinearGradient(scanX - 60, 0, scanX + 60, 0);
-    scanGrad.addColorStop(0, 'rgba(0,0,0,0)');
-    scanGrad.addColorStop(0.5, `rgba(${pr}, ${pg}, ${pb}, ${0.10 + 0.12 * (1 - temp)})`);
-    scanGrad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = scanGrad;
-    ctx.fillRect(scanX - 60, 0, 120, h);
-
-    // Constraint-Wellen entlang der Gitterkanten
-    for (let i = this.edgePulses.length - 1; i >= 0; i--) {
-      const p = this.edgePulses[i];
-      p.progress += p.speed;
-      if (p.progress >= 1) { this.edgePulses.splice(i, 1); continue; }
-      const a = this.nodes.get(p.from);
-      const b = this.nodes.get(p.to);
-      if (!a || !b || !a.x || !b.x) { this.edgePulses.splice(i, 1); continue; }
-      const t = p.progress;
-      const x = a.x + (b.x - a.x) * t;
-      const y = a.y + (b.y - a.y) * t;
-      const [cr, cg, cb] = p.color;
-      // Ziel-Knoten lädt sich beim Eintreffen auf (Fortpflanzung)
-      if (t > 0.92) this.igniteCell(p.to, p.color, 0.05);
+    // Swap-Token (springt zwischen Zeilen)
+    for (let i = this.swaps.length - 1; i >= 0; i--) {
+      const s = this.swaps[i];
+      s.progress += 0.045;
+      if (s.progress >= 1) { this.swaps.splice(i, 1); continue; }
+      const t = s.progress;
+      const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      const x = L.padL + (s.col - 0.5) * cw;
+      const y0 = L.padT + (s.fromRow + 0.5) * rh;
+      const y1 = L.padT + (s.toRow + 0.5) * rh;
+      const y = y0 + (y1 - y0) * ease;
+      const arc = Math.sin(t * Math.PI) * Math.min(40, Math.abs(y1 - y0) * 0.4);
+      const [cr, cg, cb] = s.color;
       ctx.beginPath();
-      ctx.arc(x, y, 2.4 * (1 - t * 0.4), 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${1 - t})`;
-      ctx.shadowColor = `rgba(${cr}, ${cg}, ${cb}, 0.9)`;
+      ctx.arc(x + arc, y, 3.4, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${cr},${cg},${cb},${1 - t})`;
+      ctx.shadowColor = `rgba(${cr},${cg},${cb},0.9)`;
       ctx.shadowBlur = 12;
       ctx.fill();
       ctx.shadowBlur = 0;
     }
 
-    // Tag-Knoten: thermisches Flackern (heiß) -> Kristall (kalt)
-    const scanWorldX = scanX;
-    for (const [, node] of this.nodes.entries()) {
-      if (!node.x) continue;
-      node.energy *= 0.95;
-      node.crystal *= 0.992;
+    // Funken
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.life *= 0.9;
+      if (p.life < 0.05) { this.particles.splice(i, 1); continue; }
+      const [cr, cg, cb] = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 1.4 * p.life + 0.4, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${cr},${cg},${cb},${p.life})`;
+      ctx.fill();
+    }
 
-      // Scan-Resonanz: nahe der Scanlinie kurz aufleuchten
-      const scanBoost = Math.max(0, 1 - Math.abs(node.x - scanWorldX) / 50) * (1 - temp) * 0.5;
+    // Fehler-Blitze (Zeile + Spalte kurz rot)
+    for (let i = this.errorFx.length - 1; i >= 0; i--) {
+      const e = this.errorFx[i];
+      e.life *= 0.86;
+      if (e.life < 0.05) { this.errorFx.splice(i, 1); continue; }
+      ctx.fillStyle = `rgba(239,68,68,${e.life * 0.35})`;
+      if (e.row >= 0) ctx.fillRect(L.padL, L.padT + e.row * rh, L.gridW, rh);
+      ctx.fillRect(L.padL + (e.col - 1) * cw, L.padT, cw, L.gridH);
+    }
 
-      const flicker = temp * (0.5 + 0.5 * Math.sin(time * (6 + node.seed % 4) + node.seed));
-      const jitterX = (Math.sin(time * 9 + node.seed) * 0.5) * temp * 3;
-      const jitterY = (Math.cos(time * 8 + node.seed * 1.3) * 0.5) * temp * 3;
-      const px = node.x + jitterX;
-      const py = node.y + jitterY;
+    // Playhead-Welle
+    const phx = L.padL + this.playX * L.gridW;
+    const pg2 = ctx.createLinearGradient(phx - 26, 0, phx + 8, 0);
+    pg2.addColorStop(0, 'rgba(0,0,0,0)');
+    pg2.addColorStop(1, `rgba(${pr},${pg},${pb},${0.12 + 0.12 * (1 - this.temp)})`);
+    ctx.fillStyle = pg2;
+    ctx.fillRect(phx - 26, L.padT, 34, L.gridH);
+    ctx.strokeStyle = `rgba(${pr},${pg},${pb},0.85)`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(phx, L.padT - 3); ctx.lineTo(phx, L.padT + L.gridH); ctx.stroke();
+    ctx.beginPath(); ctx.arc(phx, L.padT - 3, 2.4, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${pr},${pg},${pb},0.95)`; ctx.fill();
 
-      // Zugewiesene Tage behalten eine kristalline Grundsignatur, damit das
-      // "gelöste" Gitter dauerhaft ablesbar bleibt (Kühl-Metapher).
-      const effCrystal = node.assigned ? Math.max(node.crystal, 0.5) : node.crystal;
-      const level = Math.min(1.4, node.energy + effCrystal * 0.6 + flicker * 0.3 + scanBoost);
-      const [r, g, b] = node.color;
-
-      if (level > 0.05) {
-        const glowR = 4 + level * 14;
-        const halo = ctx.createRadialGradient(px, py, 0, px, py, glowR);
-        halo.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${Math.min(0.6, 0.25 + level * 0.4)})`);
-        halo.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = halo;
-        ctx.beginPath();
-        ctx.arc(px, py, glowR, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Kern: kristalline Raute, wenn kalt/zugewiesen; sonst weicher Punkt
-      if (effCrystal > 0.15) {
-        const s = 3 + effCrystal * 2.5;
-        ctx.save();
-        ctx.translate(px, py);
-        ctx.rotate(Math.PI / 4 + time * 0.2);
-        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.6 + 0.3 * effCrystal})`;
-        ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.9)`;
-        ctx.shadowBlur = 10;
-        ctx.fillRect(-s / 2, -s / 2, s, s);
-        ctx.shadowBlur = 0;
-        ctx.restore();
+    // Erfolgs-Welle (einmaliger heller Durchlauf)
+    if (this.successWave >= 0) {
+      this.successWave += 0.012;
+      if (this.successWave > 1.1) {
+        this.successWave = -1;
       } else {
-        ctx.beginPath();
-        ctx.arc(px, py, 1.8 + level * 1.4, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.4 + 0.5 * Math.min(1, level)})`;
-        ctx.fill();
+        const sx = L.padL + this.successWave * L.gridW;
+        const sg = ctx.createLinearGradient(sx - 40, 0, sx + 40, 0);
+        sg.addColorStop(0, 'rgba(0,0,0,0)');
+        sg.addColorStop(0.5, 'rgba(34,197,94,0.4)');
+        sg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = sg;
+        ctx.fillRect(sx - 40, 0, 80, h);
+        const litCol = Math.floor(this.successWave * this.days) + 1;
+        for (let r = 0; r < this.employees.length; r++) {
+          const cell = this.matrix.get(this.cellKey(r, litCol));
+          if (cell) cell.glow = Math.max(cell.glow, 1.3);
+        }
       }
     }
 
-    // Error-Scanline-Tears
-    for (let i = this.glitches.length - 1; i >= 0; i--) {
-      const gl = this.glitches[i];
-      gl.life *= 0.85;
-      if (gl.life < 0.05) { this.glitches.splice(i, 1); continue; }
-      ctx.fillStyle = `rgba(239, 68, 68, ${gl.life * 0.5})`;
-      const gy = gl.y + (Math.random() - 0.5) * 6;
-      ctx.fillRect(0, gy, w, 2);
+    // Load-Meter je Zeile (Fairness als Balkenbalance, rechts)
+    const maxLoad = Math.max(1, ...this.rowLoad);
+    const meterX = L.padL + L.gridW + 3;
+    const meterW = Math.max(8, L.padR - 6);
+    for (let r = 0; r < this.employees.length; r++) {
+      const yTop = L.padT + r * rh;
+      const frac = (this.rowLoad[r] || 0) / maxLoad;
+      const bh = Math.max(1, (rh - 3) * frac);
+      const fa = isFacharzt(this.employees[r]);
+      const [mr, mg, mb] = fa ? DUTY_HG : [148, 163, 184];
+      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      ctx.fillRect(meterX, yTop + 1.5, meterW, rh - 3);
+      ctx.fillStyle = `rgba(${mr},${mg},${mb},0.75)`;
+      ctx.fillRect(meterX, yTop + 1.5 + (rh - 3 - bh), meterW, bh);
     }
   }
 
-  // --- HUD oben rechts: schnell, digital ---------------------------------
+  roundRect(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // --- Render: HUD oben rechts (schnell, digital) -----------------------
 
   renderHud() {
     const ctx = this.hudCtx;
     if (!ctx || !this.hudCanvas.parentElement) return;
     const parent = this.hudCanvas.parentElement;
-    const w = parent.clientWidth;
-    const h = parent.clientHeight;
+    const w = parent.clientWidth, h = parent.clientHeight;
     if (w === 0 || h === 0) return;
     const time = (performance.now() - this.t0) / 1000;
     const [pr, pg, pb] = this.phaseColorArr();
 
-    // Klar getrennte Bänder, damit nichts überlappt – robust für die echten
-    // Containergrößen (180×85 Desktop, volle Breite×60 Mobil):
-    //   [0 .. curveBot]  Energiekurve + ΔE-Readout (überlagert oben links)
-    //   [hexBaseline]    Hex-Ticker (eine Zeile)
-    //   [barsTop .. h-3] Spektrum-Equalizer
     const pad = 3;
     const curveBot = Math.round(h * 0.48);
     const barsTop = Math.round(h * 0.66);
     const hexBaseline = Math.round((curveBot + barsTop) / 2) + 1;
     const fontPx = h < 70 ? 8 : 9;
 
-    // Hintergrund + feines Scanline-Raster (digitales Display)
     ctx.fillStyle = '#03070F';
     ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = 'rgba(255,255,255,0.03)';
     for (let y = 0; y < h; y += 3) ctx.fillRect(0, y, w, 1);
 
-    // Systemenergie: Kühl-Hüllkurve. Grundpegel folgt der Temperatur, jede
-    // Aktivität schlägt als Spitze ein, danach Decay -> dauerhaft lebendig.
+    // Systemenergie: Kühl-Hüllkurve, pulst bei Aktivität, sinkt mit Temp.
     const envelope = 0.12 + this.temp * 0.55;
     this.energyLevel += (envelope - this.energyLevel) * 0.05;
     this.energyLevel = Math.max(0, this.energyLevel * 0.96);
@@ -835,18 +576,17 @@ export class NeuralGraph {
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Scrollender Hex-Ticker (digital) – eigene Zeile zwischen Kurve & Balken
     if (Math.floor(time * 22) !== this._hexTick) {
       this._hexTick = Math.floor(time * 22);
       const ch = '0123456789ABCDEF'[Math.floor(Math.random() * 16)];
       this.hexStream = (this.hexStream + ch).slice(-Math.max(8, Math.floor(w / 7)));
     }
     ctx.font = `${fontPx}px var(--font-mono, monospace)`;
-    ctx.fillStyle = `rgba(${pr}, ${pg}, ${pb}, 0.5)`;
+    ctx.fillStyle = `rgba(${pr},${pg},${pb},0.5)`;
+    ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(this.hexStream, pad, hexBaseline);
 
-    // Spektrum-Balken (Equalizer) – schnelle Reaktion + Decay, eigenes Band
     const baseY = h - pad;
     const barsH = baseY - barsTop;
     const bw = w / this.bars.length;
@@ -854,24 +594,30 @@ export class NeuralGraph {
       const noise = Math.abs(Math.sin(time * 12 + i * 0.7)) * 0.18 * (0.4 + this.temp);
       this.bars[i] = Math.max(noise, this.bars[i] * 0.86);
       const bh = this.bars[i] * barsH;
-      const x = i * bw;
-      const alpha = 0.35 + this.bars[i] * 0.65;
-      ctx.fillStyle = `rgba(${pr}, ${pg}, ${pb}, ${alpha})`;
-      ctx.fillRect(x + 0.5, baseY - bh, Math.max(1, bw - 1.2), bh);
+      ctx.fillStyle = `rgba(${pr},${pg},${pb},${0.35 + this.bars[i] * 0.65})`;
+      ctx.fillRect(i * bw + 0.5, baseY - bh, Math.max(1, bw - 1.2), bh);
     }
 
-    // Digitaler Readout (ΔE) – blinkt, oben links über der Kurve
     const blink = (Math.sin(time * 8) > -0.3) ? 1 : 0.3;
-    ctx.fillStyle = `rgba(${pr}, ${pg}, ${pb}, ${0.85 * blink})`;
+    ctx.fillStyle = `rgba(${pr},${pg},${pb},${0.85 * blink})`;
     ctx.font = `bold ${fontPx}px var(--font-mono, monospace)`;
     ctx.textBaseline = 'top';
     const e = Math.round(this.energyLevel * 9999).toString(16).toUpperCase().padStart(4, '0');
     ctx.fillText(`ΔE·${e}`, pad, 2);
 
-    // Rahmenglühen
     ctx.strokeStyle = this.getPhaseColor(0.4);
     ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+  }
+
+  startLoop() {
+    if (this.animId) cancelAnimationFrame(this.animId);
+    const loop = () => {
+      this.renderMatrix();
+      this.renderHud();
+      this.animId = requestAnimationFrame(loop);
+    };
+    this.animId = requestAnimationFrame(loop);
   }
 
   dispose() {
@@ -879,11 +625,10 @@ export class NeuralGraph {
     if (this.resizeObserver) { this.resizeObserver.disconnect(); this.resizeObserver = null; }
     if (this.container) this.container.innerHTML = '';
     if (this.hudCanvas && this.hudCanvas.parentElement) this.hudCanvas.parentElement.innerHTML = '';
-    this.cells.clear();
-    this.nodes.clear();
-    this.edgePulses = [];
-    this.flow = [];
-    this.glitches = [];
+    this.matrix.clear();
+    this.swaps = [];
+    this.particles = [];
+    this.errorFx = [];
     this.bars = [];
     this.energyHistory = [];
   }
