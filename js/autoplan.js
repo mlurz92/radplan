@@ -702,6 +702,52 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     }
   });
 
+  const easter = easterDate(y);
+  const easterDays = new Set();
+  const pfingstDays = new Set();
+  
+  [addDays(easter, -2), easter, addDays(easter, 1)].forEach((dt) => { 
+    if (dt.getMonth() === m) easterDays.add(dt.getDate()); 
+  });
+  [addDays(easter, 49), addDays(easter, 50)].forEach((dt) => { 
+    if (dt.getMonth() === m) pfingstDays.add(dt.getDate()); 
+  });
+
+  function hasOsterPfingstDutyInOtherMonth(emp, isEaster) {
+    const targetDates = isEaster ? [addDays(easter, -2), easter, addDays(easter, 1)] : [addDays(easter, 49), addDays(easter, 50)];
+    for (const dt of targetDates) {
+      const tm = dt.getMonth(); 
+      const td = dt.getDate();
+      if (tm === m) continue;
+      const mk = monthKey(y, tm);
+      if (DATA[mk]?.assignments?.[emp]?.[td]?.duty) return true;
+    }
+    return false;
+  }
+
+  function workedEasterOrPfingsten(emp) {
+    let easterWork = false;
+    let pfingstWork = false;
+    
+    for (const d of easterDays) {
+      if (result[emp]?.[d]?.duty) easterWork = true;
+    }
+    for (const d of pfingstDays) {
+      if (result[emp]?.[d]?.duty) pfingstWork = true;
+    }
+    
+    if (!easterWork) easterWork = hasOsterPfingstDutyInOtherMonth(emp, true);
+    if (!pfingstWork) pfingstWork = hasOsterPfingstDutyInOtherMonth(emp, false);
+    
+    return { easterWork, pfingstWork };
+  }
+
+  function hasHolidayBlockConflict(emp, d) {
+    if (easterDays.has(d)) return workedEasterOrPfingsten(emp).pfingstWork;
+    if (pfingstDays.has(d)) return workedEasterOrPfingsten(emp).easterWork;
+    return false;
+  }
+
   emps.forEach((emp) => {
     staticFeasibleBD[emp] = new Array(dim + 1);
     staticFeasibleHG[emp] = new Array(dim + 1);
@@ -923,51 +969,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     if (!emps.some((e) => result[e]?.[d]?.duty === "HG")) hgNeeded.push(d);
   }
 
-  const easter = easterDate(y);
-  const easterDays = new Set();
-  const pfingstDays = new Set();
-  
-  [addDays(easter, -2), easter, addDays(easter, 1)].forEach((dt) => { 
-    if (dt.getMonth() === m) easterDays.add(dt.getDate()); 
-  });
-  [addDays(easter, 49), addDays(easter, 50)].forEach((dt) => { 
-    if (dt.getMonth() === m) pfingstDays.add(dt.getDate()); 
-  });
 
-  function hasOsterPfingstDutyInOtherMonth(emp, isEaster) {
-    const targetDates = isEaster ? [addDays(easter, -2), easter, addDays(easter, 1)] : [addDays(easter, 49), addDays(easter, 50)];
-    for (const dt of targetDates) {
-      const tm = dt.getMonth(); 
-      const td = dt.getDate();
-      if (tm === m) continue;
-      const mk = monthKey(y, tm);
-      if (DATA[mk]?.assignments?.[emp]?.[td]?.duty) return true;
-    }
-    return false;
-  }
-
-  function workedEasterOrPfingsten(emp) {
-    let easterWork = false;
-    let pfingstWork = false;
-    
-    for (const d of easterDays) {
-      if (result[emp]?.[d]?.duty) easterWork = true;
-    }
-    for (const d of pfingstDays) {
-      if (result[emp]?.[d]?.duty) pfingstWork = true;
-    }
-    
-    if (!easterWork) easterWork = hasOsterPfingstDutyInOtherMonth(emp, true);
-    if (!pfingstWork) pfingstWork = hasOsterPfingstDutyInOtherMonth(emp, false);
-    
-    return { easterWork, pfingstWork };
-  }
-
-  function hasHolidayBlockConflict(emp, d) {
-    if (easterDays.has(d)) return workedEasterOrPfingsten(emp).pfingstWork;
-    if (pfingstDays.has(d)) return workedEasterOrPfingsten(emp).easterWork;
-    return false;
-  }
 
   function hasAdjacentHG(emp, d, assignments) {
     const a = assignments || result;
@@ -2130,7 +2132,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
           rebuildCurrentCounters();
           report.push({ day: d, emp: chosen, duty: "D", reason: `Zwangsbelegung (Coverage Repair).${fzaNote}`, tags: ["Coverage Repair"] });
           recordRule("coverage_repair", "BD-Lücke gefüllt", `Tag ${d}: ${chosen}`, "warn");
-          log.push({ phase: "repair", icon: "⚠", msg: `BD-Lücke Tag ${d} gefüllt mit ${chosen}`, dayIdx: d, newEmpId: chosen, pct: cyclePct });
+          log.push({ phase: "repair", icon: "🩹", msg: `BD-Lücke Tag ${d} gefüllt mit ${chosen}`, dayIdx: d, newEmpId: chosen, pct: cyclePct });
         }
       }
 
@@ -2161,7 +2163,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
           rebuildCurrentCounters();
           report.push({ day: d, emp: chosen, duty: "HG", reason: "Zwangsbelegung (Coverage Repair).", tags: ["Coverage Repair"] });
           recordRule("coverage_repair", "HG-Lücke gefüllt", `Tag ${d}: ${chosen}`, "warn");
-          log.push({ phase: "repair", icon: "⚠", msg: `HG-Lücke Tag ${d} gefüllt mit ${chosen}`, dayIdx: d, newEmpId: chosen, pct: cyclePct });
+          log.push({ phase: "repair", icon: "🩹", msg: `HG-Lücke Tag ${d} gefüllt mit ${chosen}`, dayIdx: d, newEmpId: chosen, pct: cyclePct });
         }
       }
     }

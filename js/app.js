@@ -2007,7 +2007,10 @@ export async function streamProgressLogs(result) {
       dutyType = "HG";
     }
 
-    if (entry.icon === "→" || entry.icon === "🟣") {
+    const isAssignment = entry.icon === "→" || entry.icon === "🟣" || entry.icon === "🩹";
+    const isSwap = entry.icon === "🔀" || entry.icon === "🔁" || entry.icon === "🧠";
+
+    if (isAssignment) {
       if (dutyType === "HG") {
         hgCount++; 
       } else {
@@ -2015,21 +2018,14 @@ export async function streamProgressLogs(result) {
       }
     }
     
-    if (entry.icon === "🔀" || entry.icon === "🔁" || entry.icon === "🧠") {
+    if (isSwap) {
       swapCount++;
     }
     
     const bdEl = document.getElementById("ap-ls-bd");
-    if (bdEl) bdEl.textContent = bdCount;
-    
     const hgEl = document.getElementById("ap-ls-hg");
-    if (hgEl) hgEl.textContent = hgCount;
-    
     const swapEl = document.getElementById("ap-ls-swaps");
-    if (swapEl) swapEl.textContent = swapCount;
-    
     const rulesEl = document.getElementById("ap-ls-rules");
-    if (rulesEl) rulesEl.textContent = telemetry.length;
 
     if (logContainer) {
       const div = document.createElement("div");
@@ -2041,11 +2037,11 @@ export async function streamProgressLogs(result) {
     }
 
     if (neuralGraphInstance) {
-      if (entry.icon === "🔀" || entry.icon === "🔁" || entry.icon === "🧠") {
+      if (isSwap) {
         if (entry.dayIdx !== undefined && entry.oldEmpId && entry.newEmpId) {
           neuralGraphInstance.triggerSwap(entry.dayIdx, entry.oldEmpId, entry.newEmpId, dutyType);
         }
-      } else if (entry.icon === "→" || entry.icon === "🟣") {
+      } else if (isAssignment) {
         if (entry.dayIdx !== undefined) {
           if (entry.oldEmpId && entry.newEmpId) {
             neuralGraphInstance.triggerSwap(entry.dayIdx, entry.oldEmpId, entry.newEmpId, dutyType);
@@ -2059,7 +2055,15 @@ export async function streamProgressLogs(result) {
           neuralGraphInstance.triggerError(entry.dayIdx, entry.newEmpId || entry.empId, dutyType);
         }
       }
-      
+
+      // Recalculate filled counts based on neural graph state
+      bdCount = 0;
+      hgCount = 0;
+      for (const [dayIdx, cellData] of neuralGraphInstance.cells.entries()) {
+        if (cellData.dSlot.classList.contains('has-val')) bdCount++;
+        if (cellData.hgSlot.classList.contains('has-val')) hgCount++;
+      }
+
       if (entry.phase === "deep") {
         if (i % 10 === 0) neuralGraphInstance.setPhase("deep");
         if (progTitle && progTitle.textContent !== "Deep-Search Optimierung") {
@@ -2082,6 +2086,11 @@ export async function streamProgressLogs(result) {
         }
       }
     }
+
+    if (bdEl) bdEl.textContent = bdCount;
+    if (hgEl) hgEl.textContent = hgCount;
+    if (swapEl) swapEl.textContent = swapCount;
+    if (rulesEl) rulesEl.textContent = telemetry.length;
 
     if (barEl) barEl.style.width = entry.pct + "%";
     if (pctEl) pctEl.textContent = entry.pct + "%";

@@ -165,12 +165,14 @@ function injectStyles() {
       pointer-events: none;
     }
     .ng-slot.active-d {
-      background: rgba(239, 68, 68, 0.12);
-      border-color: rgba(239, 68, 68, 0.35);
+      background: rgba(239, 68, 68, 0.22);
+      border-color: rgba(239, 68, 68, 0.7);
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
     }
     .ng-slot.active-hg {
-      background: rgba(14, 165, 233, 0.12);
-      border-color: rgba(14, 165, 233, 0.35);
+      background: rgba(14, 165, 233, 0.22);
+      border-color: rgba(14, 165, 233, 0.7);
+      box-shadow: 0 0 10px rgba(14, 165, 233, 0.4);
     }
     .ng-slot-emp {
       font-family: var(--font-mono, monospace);
@@ -416,6 +418,7 @@ export class NeuralGraph {
     this.container.appendChild(this.wrapper);
 
     this.startLoop();
+    window.lastNeuralGraphInstance = this;
   }
 
   setupResizeObserver() {
@@ -758,6 +761,7 @@ export class NeuralGraph {
     }
 
     if (this.positionsDirty) this.computeNodePositions();
+    this.phase = 'success';
 
     // Trigger success animations (slide up slide values and soft checkmark/completed)
     for (const [dayIdx, cellData] of this.cells.entries()) {
@@ -863,7 +867,15 @@ export class NeuralGraph {
       this.coreErrorLevel *= 0.94;
     }
 
-    // 2. Draw connections: thin, semi-transparent grey/blue lines to core
+    // Decay node glow levels
+    for (const [d, fx] of this.nodeFx.entries()) {
+      if (fx.glow > 0) {
+        fx.glow *= 0.92;
+        if (fx.glow < 0.01) fx.glow = 0;
+      }
+    }
+
+    // 2. Draw connections: thin, semi-transparent grey/blue lines to core with glow highlights
     ctx.save();
     for (const [d, fx] of this.nodeFx.entries()) {
       if (!fx.x) continue;
@@ -871,6 +883,7 @@ export class NeuralGraph {
       const cellData = this.cells.get(d);
       const hasError = cellData?.el.classList.contains('error');
       
+      // Base line
       ctx.lineWidth = hasError ? 0.8 : 0.5;
       ctx.strokeStyle = hasError 
         ? `rgba(239, 68, 68, ${this.coreErrorLevel * 0.5 + 0.25})` 
@@ -880,10 +893,46 @@ export class NeuralGraph {
       ctx.moveTo(cx, cy);
       ctx.lineTo(fx.x, fx.y);
       ctx.stroke();
+
+      // Glowing active laser connection
+      if (fx.glow > 0.01) {
+        ctx.save();
+        ctx.lineWidth = 0.5 + fx.glow * 1.5;
+        const [fr, fg, fb] = fx.color;
+        ctx.strokeStyle = `rgba(${fr}, ${fg}, ${fb}, ${fx.glow * 0.4})`;
+        ctx.shadowColor = `rgba(${fr}, ${fg}, ${fb}, 0.8)`;
+        ctx.shadowBlur = 4 + fx.glow * 6;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(fx.x, fx.y);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
     ctx.restore();
 
-    // 3. Draw data packets: sleek blue/grey dot indicators traveling smoothly
+    // 2.5 Draw glowing radar circles/pulses at node locations
+    ctx.save();
+    for (const [d, fx] of this.nodeFx.entries()) {
+      if (!fx.x || fx.glow <= 0.01) continue;
+      const [fr, fg, fb] = fx.color;
+      
+      ctx.shadowColor = `rgba(${fr}, ${fg}, ${fb}, 0.8)`;
+      ctx.shadowBlur = 6 + fx.glow * 8;
+      ctx.fillStyle = `rgba(${fr}, ${fg}, ${fb}, ${fx.glow * 0.6})`;
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, 4 + fx.glow * 4, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.strokeStyle = `rgba(${fr}, ${fg}, ${fb}, ${fx.glow})`;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, 8 + fx.glow * 10, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // 3. Draw data packets: glowing white photons with outer color rings
     ctx.save();
     for (let i = this.dataPackets.length - 1; i >= 0; i--) {
       const p = this.dataPackets[i];
@@ -899,16 +948,24 @@ export class NeuralGraph {
       const px = cx + (fx.x - cx) * p.progress;
       const py = cy + (fx.y - cy) * p.progress;
       
+      // Outer glow ring
+      ctx.beginPath();
+      ctx.arc(px, py, p.size + 1.2, 0, Math.PI * 2);
+      ctx.fillStyle = p.color.replace('0.85', '0.25');
+      ctx.fill();
+
+      // White inner core
       ctx.beginPath();
       ctx.arc(px, py, p.size, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
+      ctx.fillStyle = '#ffffff';
       ctx.fill();
     }
     ctx.restore();
 
-    // 4. Draw Rotating Molecular/Neural Network Core (rotating sphere nodes)
+    // 4. Draw Rotating Molecular/Neural Network Core (rotating sphere nodes) pulsing dynamically
     const coreRotX = time * 0.12;
     const coreRotY = time * 0.18;
+    const corePulse = 1.0 + this.throughputActivity * 0.35;
     const projectedCore = this.coreNodes.map(n => {
       let x1 = n.x * Math.cos(coreRotY) - n.z * Math.sin(coreRotY);
       let z1 = n.x * Math.sin(coreRotY) + n.z * Math.cos(coreRotY);
@@ -916,10 +973,10 @@ export class NeuralGraph {
       let z2 = n.y * Math.sin(coreRotX) + z1 * Math.cos(coreRotX);
       const scale = 200 / (200 + z2);
       return {
-        x: cx + x1 * scale,
-        y: cy + y2 * scale,
+        x: cx + x1 * scale * corePulse,
+        y: cy + y2 * scale * corePulse,
         z: z2,
-        size: n.baseSize * scale
+        size: n.baseSize * scale * (1.0 + this.throughputActivity * 0.2)
       };
     });
 
@@ -1191,7 +1248,7 @@ export class NeuralGraph {
     const hgVal = hgEl ? hgEl.textContent : '0';
     const rulesVal = rulesEl ? rulesEl.textContent : '0';
     const swapsVal = swapEl ? swapEl.textContent : '0';
-    const pctVal = pctEl ? pctEl.textContent : '0%';
+    const pctVal = pctEl ? pctEl.textContent : (this.phase === 'success' ? '100%' : '0%');
 
     ctx.save();
     ctx.font = '7.5px monospace';
