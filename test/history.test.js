@@ -130,7 +130,8 @@ describe("Normal History Stack (Deltas)", () => {
     assert.equal(undoRes, true);
 
     // Verify data is reverted (since it was added, it should be empty under assignments)
-    assert.equal(store.DATA["2026-5"].assignments["Dr. Becker"]["1"], undefined);
+    assert.equal(store.DATA["2026-5"]?.assignments?.["Dr. Becker"]?.["1"], undefined);
+
 
     // Redo should be active
     assert.equal(canNormalUndo(), false);

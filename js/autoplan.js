@@ -378,6 +378,37 @@ export function getWeekendDutyKWs(y, m, emp, assignments) {
       kws.add(isoWeekNumber(y, m, d));
     }
   }
+
+  // Previous month boundary scan
+  const prev = prevCalendarDay(y, m, 1);
+  const prevKey = monthKey(prev.y, prev.m);
+  const prevData = DATA[prevKey];
+  if (prevData?.assignments) {
+    const prevDim = daysInMonth(prev.y, prev.m);
+    for (let d = 1; d <= prevDim; d++) {
+      const wd = weekday(prev.y, prev.m, d);
+      const cell = prevData.assignments[emp]?.[d];
+      if (cell?.duty && (wd === 5 || wd === 6 || wd === 0)) {
+        kws.add(isoWeekNumber(prev.y, prev.m, d));
+      }
+    }
+  }
+
+  // Next month boundary scan
+  const next = nextCalendarDay(y, m, dim);
+  const nextKey = monthKey(next.y, next.m);
+  const nextData = DATA[nextKey];
+  if (nextData?.assignments) {
+    const nextDim = daysInMonth(next.y, next.m);
+    for (let d = 1; d <= nextDim; d++) {
+      const wd = weekday(next.y, next.m, d);
+      const cell = nextData.assignments[emp]?.[d];
+      if (cell?.duty && (wd === 5 || wd === 6 || wd === 0)) {
+        kws.add(isoWeekNumber(next.y, next.m, d));
+      }
+    }
+  }
+
   return kws;
 }
 
@@ -458,7 +489,8 @@ export function wouldCreateConsecutiveWeekendDuty(y, m, emp, assignments, d) {
   
   const ordered = [...kws].sort((a, b) => a - b);
   for (let i = 1; i < ordered.length; i++) {
-    if (ordered[i] - ordered[i - 1] === 1) {
+    const diff = Math.abs(ordered[i] - ordered[i - 1]);
+    if (diff === 1 || diff === 51 || diff === 52) {
       return true;
     }
   }
@@ -550,9 +582,10 @@ export function trackRuleTelemetry(bucket, phase, label, detail, severity = "inf
 
 export function computeFairnessSpread(values) {
   if (!values.length) return 0;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  return max - min;
+  const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
+  const sqDiffs = values.map(v => (v - avg) ** 2);
+  const avgSqDiff = sqDiffs.reduce((sum, v) => sum + v, 0) / sqDiffs.length;
+  return Math.sqrt(avgSqDiff);
 }
 
 export function averageFromArray(values) {
@@ -604,6 +637,11 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
   const autoRestDays = new Set();
   const ruleTelemetry = buildRuleTelemetryBucket();
   const beckerSaturdayFzaWarnings = [];
+  const weCountsCache = {};
+  const bdEmpScoresCache = {};
+  const hgEmpScoresCache = {};
+  const staticFeasibleBD = {};
+  const staticFeasibleHG = {};
 
   function trace(phase, msg) { 
     fluxTraces.push({ phase, msg }); 
@@ -661,6 +699,26 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
         const reduced = getReducedBdTarget(e);
         bdTarget[e] = reduced !== undefined ? reduced : 4;
       }
+    }
+  });
+
+  emps.forEach((emp) => {
+    staticFeasibleBD[emp] = new Array(dim + 1);
+    staticFeasibleHG[emp] = new Array(dim + 1);
+    for (let d = 1; d <= dim; d++) {
+      const isAbsent = isAbsentOnDay(y, m, emp, d, planData.assignments);
+      const isPinnedEmptyCell = isPinnedEmpty(emp, d);
+      const wishesNoDuty = wishes[emp]?.[d] === "NO_DUTY";
+      const holConflict = hasHolidayBlockConflict(emp, d);
+
+      const bdExempt = isDutyExempt(emp) || bdTarget[emp] === 0;
+      const bdRole = (weekday(y, m, d) === 6 && !isFacharzt(emp)) || isNoBdWeekday(emp, weekday(y, m, d));
+
+      staticFeasibleBD[emp][d] = !(bdExempt || isAbsent || isPinnedEmptyCell || wishesNoDuty || bdRole || holConflict);
+
+      const hgExempt = isDutyExempt(emp) || !isFacharzt(emp);
+
+      staticFeasibleHG[emp][d] = !(hgExempt || isAbsent || isPinnedEmptyCell || wishesNoDuty || holConflict);
     }
   });
 
@@ -959,6 +1017,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
   }
 
   function canDoBD(emp, d, relaxed, assignments, options) {
+    if (staticFeasibleBD[emp] && !staticFeasibleBD[emp][d]) return false;
     relaxed = relaxed || false;
     assignments = assignments || result;
     options = options || {};
@@ -1258,23 +1317,239 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     }
   }
 
+  function updateHgCountersForDay(day, oldBdHolder, newBdHolder) {
+    const hgHolder = emps.find(e => result[e]?.[day]?.duty === "HG");
+    if (!hgHolder) return;
+    
+    // Remove effect of oldBdHolder
+    if (oldBdHolder) {
+      if (isAssistenzarzt(oldBdHolder)) {
+        currentHGForAA[hgHolder]--;
+      } else {
+        currentHGForFA[hgHolder]--;
+      }
+    }
+    // Add effect of newBdHolder
+    if (newBdHolder) {
+      if (isAssistenzarzt(newBdHolder)) {
+        currentHGForAA[hgHolder]++;
+      } else {
+        currentHGForFA[hgHolder]++;
+      }
+    }
+  }
+
+  function computeBDEmpScore(emp) {
+    let score = 0;
+    const diff = currentBD[emp] - bdTarget[emp];
+    score += (diff * diff * 25000 + Math.abs(diff) * 10000) * W.fairness;
+
+    const surplusRank = getSurplusBdPreferenceRank(emp);
+    if (surplusRank >= 0 && diff === 1) {
+      score -= 8000 - surplusRank * 500;
+    }
+
+    const weCountEmp = weCountsCache[emp] || 0;
+    const weDiff = weCountEmp - TARGET_WEEKEND_DUTY;
+    score += weDiff * weDiff * 10000 * W.fairness;
+
+    const weekendKws = [...getWeekendDutyKWs(y, m, emp, result)].sort((a, b) => a - b);
+    for (let i = 1; i < weekendKws.length; i++) {
+      const diffVal = Math.abs(weekendKws[i] - weekendKws[i - 1]);
+      if (diffVal === 1 || diffVal === 51 || diffVal === 52) {
+        score += 15000;
+      }
+    }
+
+    if (isFacharzt(emp)) {
+      if (currentSatBD[emp] > 1) {
+        score += 80000 * currentSatBD[emp];
+      }
+    }
+
+    for (let day = 1; day <= dim; day++) {
+      if (result[emp]?.[day]?.duty !== "D") continue;
+
+      if (wishes[emp]?.[day] === "BD_WISH") {
+        score -= 600 * W.wish;
+      }
+
+      const nxt = nextCalendarDay(y, m, day);
+      if (getScheduledDuty(nxt.y, nxt.m, emp, nxt.d, result) === "D") {
+        score += 100000;
+      }
+
+      const minDistD = minDistanceForDuty(emp, day, "D", result);
+      if (minDistD < 3) {
+        score += (3 - minDistD) * 15000;
+      }
+      if (minDistD < 5) {
+        score += (5 - minDistD) * 800;
+      }
+
+      if (wouldCreateDFDF(emp, day, result)) {
+        score += 1200;
+      }
+
+      const wdObj = weekday(y, m, day);
+      if (wdObj === 6 && isSaturdayUltimaRatio(emp)) {
+        score += 40000;
+      }
+
+      if (wdObj === 4 && hasVacationInFollowingWeek(emp, day)) {
+        score -= 3000;
+      }
+    }
+    return score;
+  }
+
+  function computeHGEmpScore(emp) {
+    if (!isFacharzt(emp)) return 0;
+    let score = 0;
+    for (let day = 1; day <= dim; day++) {
+      if (result[emp]?.[day]?.duty !== "HG") continue;
+
+      if (wishes[emp]?.[day] === "HG_WISH") {
+        score -= 900 * W.wish;
+      }
+
+      const wd = weekday(y, m, day);
+      const conflictBd = getHgConflictBd(emp, wd);
+      if (conflictBd) {
+        const bdHolder = emps.find(e => result[e]?.[day]?.duty === "D");
+        if (bdHolder && conflictBd.includes(bdHolder)) {
+          score += 100000;
+        }
+      }
+
+      const isBundled = bundledHGKeys.has(dutyKey(emp, day));
+      if (hasAdjacentHG(emp, day, result)) {
+        score += isBundled ? 5000 : 45000;
+      }
+
+      const minDistHG = minDistanceForDuty(emp, day, "HG", result);
+      if (minDistHG < 3 && !isBundled) {
+        score += (3 - minDistHG) * 18000;
+      }
+      if (minDistHG < 5 && !isBundled) {
+        score += (5 - minDistHG) * 2500;
+      }
+
+      if (!isBundled) {
+        let density = 0;
+        for (let j = Math.max(1, day - 3); j <= Math.min(dim, day + 3); j++) {
+          if (j !== day && result[emp]?.[j]?.duty === "HG") density++;
+        }
+        if (density >= 1) score += density * 12000;
+      }
+
+      const nxtObj = nextCalendarDay(y, m, day);
+      if (getScheduledDuty(nxtObj.y, nxtObj.m, emp, nxtObj.d, result) === "D" && wd !== 5) {
+        score += 60000;
+      }
+    }
+    return score;
+  }
+
+  function updateHgScoreForDay(day) {
+    const hgHolder = hgFAs.find(e => result[e]?.[day]?.duty === "HG");
+    if (hgHolder && hgEmpScoresCache[hgHolder] !== undefined) {
+      hgEmpScoresCache[hgHolder] = computeHGEmpScore(hgHolder);
+    }
+  }
+
+  function initWeCountsCache() {
+    dutyEmps.forEach(e => {
+      weCountsCache[e] = countWeekendDuties(y, m, e, result);
+    });
+  }
+
+  function initBDEmpScoresCache() {
+    dutyEmps.forEach(e => {
+      bdEmpScoresCache[e] = computeBDEmpScore(e);
+    });
+  }
+
+  function initHgEmpScoresCache() {
+    hgFAs.forEach(e => {
+      hgEmpScoresCache[e] = computeHGEmpScore(e);
+    });
+  }
+
   function setDutyAssignment(emp, day, dutyCode) {
     if (!result[emp]) result[emp] = {};
     if (!result[emp][day]) result[emp][day] = {};
     result[emp][day].duty = dutyCode;
+    
+    // Incremental counter updates
     if (dutyCode === "D") {
+      const oldBdHolder = null;
+      currentBD[emp]++;
+      if (weekday(y, m, day) === 6) {
+        currentSatBD[emp]++;
+      }
+      updateHgCountersForDay(day, oldBdHolder, emp);
       updateAutoF(emp, day);
+    } else if (dutyCode === "HG") {
+      currentHG[emp]++;
+      const bdHolder = emps.find((e2) => result[e2]?.[day]?.duty === "D");
+      if (bdHolder && isAssistenzarzt(bdHolder)) {
+        currentHGForAA[emp]++;
+      } else {
+        currentHGForFA[emp]++;
+      }
+    }
+
+    // Update caches if they are initialized
+    if (weCountsCache[emp] !== undefined) {
+      if (dutyEmps.includes(emp)) {
+        weCountsCache[emp] = countWeekendDuties(y, m, emp, result);
+        bdEmpScoresCache[emp] = computeBDEmpScore(emp);
+      }
+      if (isFacharzt(emp)) {
+        hgEmpScoresCache[emp] = computeHGEmpScore(emp);
+      }
+      if (dutyCode === "D") {
+        updateHgScoreForDay(day);
+      }
     }
   }
 
   function clearDutyAssignment(emp, day, dutyCode) {
     if (dutyCode === "D") {
       clearAutoF(emp, day);
+      currentBD[emp]--;
+      if (weekday(y, m, day) === 6) {
+        currentSatBD[emp]--;
+      }
+      updateHgCountersForDay(day, emp, null);
+    } else if (dutyCode === "HG") {
+      currentHG[emp]--;
+      const bdHolder = emps.find((e2) => result[e2]?.[day]?.duty === "D");
+      if (bdHolder && isAssistenzarzt(bdHolder)) {
+        currentHGForAA[emp]--;
+      } else {
+        currentHGForFA[emp]--;
+      }
     }
     if (result[emp]?.[day]?.duty === dutyCode) {
       delete result[emp][day].duty;
     }
     cleanupAssignmentCell(result, emp, day);
+
+    // Update caches if they are initialized
+    if (weCountsCache[emp] !== undefined) {
+      if (dutyEmps.includes(emp)) {
+        weCountsCache[emp] = countWeekendDuties(y, m, emp, result);
+        bdEmpScoresCache[emp] = computeBDEmpScore(emp);
+      }
+      if (isFacharzt(emp)) {
+        hgEmpScoresCache[emp] = computeHGEmpScore(emp);
+      }
+      if (dutyCode === "D") {
+        updateHgScoreForDay(day);
+      }
+    }
   }
 
   function computeBDObjective() {
@@ -1288,20 +1563,16 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       if (dCount > 1) score += 50000 * dCount;
     }
     
+    // Sum of cached individual employee scores
+    dutyEmps.forEach(e => {
+      score += bdEmpScoresCache[e] || 0;
+    });
+
     const satAvg = hgFAs.length > 0 ? hgFAs.reduce((sum, e) => sum + currentSatBD[e], 0) / hgFAs.length : 0;
-    // Wochenend-Äquivalente einmalig je Person berechnen und für Mittelwert
-    // UND personenbezogene Strafe wiederverwenden (vermeidet doppelte
-    // countWeekendDuties-Läufe – dieses Objective wird sehr häufig evaluiert).
-    const weCounts = {};
     let weSum = 0;
     dutyEmps.forEach((e) => {
-      const c = countWeekendDuties(y, m, e, result);
-      weCounts[e] = c;
-      weSum += c;
+      weSum += weCountsCache[e] || 0;
     });
-    // Durchschnittliches Wochenend-Äquivalent als Basis der zusätzlichen
-    // personenübergreifenden Wochenend-Fairness (Spread um den Mittelwert,
-    // nicht nur Abweichung vom festen Ziel 1.0).
     const weAvg = dutyEmps.length > 0 ? weSum / dutyEmps.length : 0;
     let deficitSum = 0;
     let surplusSum = 0;
@@ -1311,87 +1582,16 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       if (diff < 0) deficitSum += -diff;
       if (diff > 0) surplusSum += diff;
 
-      score += (diff * diff * 25000 + Math.abs(diff) * 10000) * W.fairness;
-
-      // Überhang-Präferenz (siehe scoreBDCandidate): Muss ein unvermeidbarer
-      // Dienst über dem Monatsziel vergeben werden, wird Dr. Lurz mit exakt
-      // einem Dienst über dem Ziel (diff === 1) leicht belohnt, damit die
-      // Optimierungs-Swaps den fünften Dienst bei ihm belassen. Der Bonus ist
-      // klein gegen die quadratische Abweichungsstrafe und erzwingt daher
-      // keinen unnötigen Überhang.
-      const surplusRank = getSurplusBdPreferenceRank(emp);
-      if (surplusRank >= 0 && diff === 1) {
-        score -= 8000 - surplusRank * 500;
-      }
-
-      // Punkt 16: Historie fließt NICHT mehr additiv in das Monats-Objective
-      // ein; sie wirkt ausschließlich als Tie-Breaker in der Kandidatenwahl.
-
-      const weCountEmp = weCounts[emp];
-      const weDiff = weCountEmp - TARGET_WEEKEND_DUTY;
-      score += weDiff * weDiff * 10000 * W.fairness;
-
-      // Personenübergreifende Wochenend-Fairness: zusätzlich zur Abweichung vom
-      // festen Ziel 1.0 wird die Streuung um den tatsächlichen Gruppendurch-
-      // schnitt bestraft. So wird verhindert, dass eine Person deutlich mehr
-      // Wochenend-Äquivalente trägt als die anderen, auch wenn das absolute
-      // Ziel 1.0 in einem engen Monat nicht für alle exakt erreichbar ist.
+      const weCountEmp = weCountsCache[emp] || 0;
       const weSpreadDiff = weCountEmp - weAvg;
       score += weSpreadDiff * weSpreadDiff * 9000 * W.fairness;
 
-      const weProjected = weCountEmp;
-      if (weProjected > RELAXED_WEEKEND_DUTY_LIMIT) {
-        score += (weProjected - RELAXED_WEEKEND_DUTY_LIMIT) * 30000 * W.fairness;
-      }
-
-      const weekendKws = [...getWeekendDutyKWs(y, m, emp, result)].sort((a, b) => a - b);
-      for (let i = 1; i < weekendKws.length; i++) {
-        if (weekendKws[i] - weekendKws[i - 1] === 1) {
-          score += 15000;
-        }
+      if (weCountEmp > RELAXED_WEEKEND_DUTY_LIMIT) {
+        score += (weCountEmp - RELAXED_WEEKEND_DUTY_LIMIT) * 30000 * W.fairness;
       }
 
       if (isFacharzt(emp)) {
-        if (currentSatBD[emp] > 1) {
-          score += 80000 * currentSatBD[emp];
-        }
         score += (currentSatBD[emp] - satAvg) * (currentSatBD[emp] - satAvg) * 12000 * W.fairness;
-      }
-
-      for (let day = 1; day <= dim; day++) {
-        if (result[emp]?.[day]?.duty !== "D") continue;
-
-        if (wishes[emp]?.[day] === "BD_WISH") {
-          score -= 600 * W.wish;
-        }
-
-        const nxt = nextCalendarDay(y, m, day);
-        if (getScheduledDuty(nxt.y, nxt.m, emp, nxt.d, result) === "D") {
-          score += 100000;
-        }
-
-        const minDistD = minDistanceForDuty(emp, day, "D", result);
-        if (minDistD < 3) {
-          score += (3 - minDistD) * 15000;
-        }
-        if (minDistD < 5) {
-          score += (5 - minDistD) * 800;
-        }
-
-        if (wouldCreateDFDF(emp, day, result)) {
-          score += 1200;
-        }
-
-        const wdObj = weekday(y, m, day);
-        if (wdObj === 6 && isSaturdayUltimaRatio(emp)) {
-          score += 40000;
-        }
-
-        // Punkt 17: Donnerstags-D als Urlaubsverlängerer auch im Objective
-        // belohnen, damit Optimierungs-Swaps den Vorteil nicht wegtauschen.
-        if (wdObj === 4 && hasVacationInFollowingWeek(emp, day)) {
-          score -= 3000;
-        }
       }
     });
     
@@ -1405,10 +1605,10 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
   let hgMoves = 0;
   let deepMoves = 0;
 
-  const MAX_OPTIMIZATION_CYCLES = 25;
-  const BD_MAX_PASSES = 80;
-  const HG_MAX_PASSES = 120;
-  const DEEP_MAX_PASSES = 150;
+  const MAX_OPTIMIZATION_CYCLES = 8;
+  const BD_MAX_PASSES = 20;
+  const HG_MAX_PASSES = 30;
+  const DEEP_MAX_PASSES = 40;
 
   function assignBundledHG(emp, d, bindReason, options) {
     options = options || {};
@@ -1435,6 +1635,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
   }
 
   function canDoHG(emp, d, relaxed, assignments, options) {
+    if (staticFeasibleHG[emp] && !staticFeasibleHG[emp][d]) return false;
     relaxed = relaxed || false;
     assignments = assignments || result;
     options = options || {};
@@ -1571,18 +1772,19 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       if (hgCount > 1) score += 40000 * hgCount;
     }
     
+    // Sum of cached individual employee scores
+    hgFAs.forEach(e => {
+      score += hgEmpScoresCache[e] || 0;
+    });
+
     const avgHG = averageFromArray(hgFAs.map((emp) => currentHG[emp]));
     const avgBDforFAs = averageFromArray(hgFAs.map((emp) => currentBD[emp]));
     const avgHGForAA = averageFromArray(hgFAs.map((emp) => currentHGForAA[emp]));
     const avgHGForFA = averageFromArray(hgFAs.map((emp) => currentHGForFA[emp]));
-    // Wochenend-Äquivalente der Fachärzte einmalig berechnen und für Mittelwert
-    // und personenbezogene Strafe wiederverwenden (kein doppelter Lauf).
-    const weCountsFA = {};
+    
     let weSumFA = 0;
     hgFAs.forEach((emp) => {
-      const c = countWeekendDuties(y, m, emp, result);
-      weCountsFA[emp] = c;
-      weSumFA += c;
+      weSumFA += weCountsCache[emp] || 0;
     });
     const weAvgFA = hgFAs.length > 0 ? weSumFA / hgFAs.length : 0;
 
@@ -1592,60 +1794,15 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       score += Math.pow(currentHGForAA[emp] - avgHGForAA, 2) * 15000 * W.fairness;
       score += Math.pow(currentHGForFA[emp] - avgHGForFA, 2) * 8000 * W.fairness;
 
-      const weCount = weCountsFA[emp];
+      const weCount = weCountsCache[emp] || 0;
       score += Math.pow(weCount - TARGET_WEEKEND_DUTY, 2) * 5000 * W.fairness;
       // Personenübergreifende WE-Fairness unter den Fachärzten (Streuung um den
       // FA-Gruppendurchschnitt), analog zum BD-Objective.
-      score += Math.pow(weCount - weAvgFA, 2) * 4500 * W.fairness;
+      const diffVal = weCount - weAvgFA;
+      score += diffVal * diffVal * 4500 * W.fairness;
 
       if (weCount > RELAXED_WEEKEND_DUTY_LIMIT) {
         score += (weCount - RELAXED_WEEKEND_DUTY_LIMIT) * 20000 * W.fairness;
-      }
-
-      for (let day = 1; day <= dim; day++) {
-        if (result[emp]?.[day]?.duty !== "HG") continue;
-
-        if (wishes[emp]?.[day] === "HG_WISH") {
-          score -= 900 * W.wish;
-        }
-
-        const wd = weekday(y, m, day);
-        const conflictBd = getHgConflictBd(emp, wd);
-        if (conflictBd) {
-          const bdHolder = emps.find(e => result[e]?.[day]?.duty === "D");
-          if (bdHolder && conflictBd.includes(bdHolder)) {
-            score += 100000;
-          }
-        }
-
-        const isBundled = bundledHGKeys.has(dutyKey(emp, day));
-        if (hasAdjacentHG(emp, day, result)) {
-          score += isBundled ? 5000 : 45000;
-        }
-
-        const minDistHG = minDistanceForDuty(emp, day, "HG", result);
-        if (minDistHG < 3 && !isBundled) {
-          score += (3 - minDistHG) * 18000;
-        }
-        if (minDistHG < 5 && !isBundled) {
-          score += (5 - minDistHG) * 2500;
-        }
-
-        // Punkt 12: rollierendes 7-Tage-Fenster (±3 Tage). Bereits ein weiterer
-        // HG im Fenster (mehr als 1 HG/Woche) wird unterdrückt; Kopplungen sind
-        // ausgenommen.
-        if (!isBundled) {
-          let density = 0;
-          for (let j = Math.max(1, day - 3); j <= Math.min(dim, day + 3); j++) {
-            if (j !== day && result[emp]?.[j]?.duty === "HG") density++;
-          }
-          if (density >= 1) score += density * 12000;
-        }
-
-        const nxtObj = nextCalendarDay(y, m, day);
-        if (getScheduledDuty(nxtObj.y, nxtObj.m, emp, nxtObj.d, result) === "D" && wd !== 5) {
-          score += 60000;
-        }
       }
     });
     return score;
@@ -1694,16 +1851,13 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
           if (candidate === currentEmp) continue;
           
           clearDutyAssignment(currentEmp, day, "D");
-          rebuildCurrentCounters();
           
           if (!canDoBD(candidate, day, true, result)) { 
             setDutyAssignment(currentEmp, day, "D"); 
-            rebuildCurrentCounters(); 
             continue; 
           }
           
           setDutyAssignment(candidate, day, "D");
-          rebuildCurrentCounters();
           
           const newBD = computeBDObjective();
           if (newBD + 0.01 < bestBD) { 
@@ -1716,7 +1870,6 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
           
           clearDutyAssignment(candidate, day, "D");
           setDutyAssignment(currentEmp, day, "D");
-          rebuildCurrentCounters();
         }
       }
       if (!improved) break;
@@ -1730,8 +1883,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       const emp = key.substring(0, atIdx);
       const day = parseInt(key.substring(atIdx + 2), 10);
       if (!fixedDutyKeys.has(`HG:${key}`) && result[emp]?.[day]?.duty === "HG") {
-        delete result[emp][day].duty;
-        cleanupAssignmentCell(result, emp, day);
+        clearDutyAssignment(emp, day, "HG");
       }
     }
     
@@ -1859,16 +2011,13 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
           if (candidate === currentEmp) continue;
           
           clearDutyAssignment(currentEmp, day, "HG");
-          rebuildCurrentCounters();
           
           if (!canDoHG(candidate, day, true, result)) {
             setDutyAssignment(currentEmp, day, "HG");
-            rebuildCurrentCounters();
             continue;
           }
           
           setDutyAssignment(candidate, day, "HG");
-          rebuildCurrentCounters();
           
           const newHG = computeHGObjective();
           if (newHG + 0.01 < bestHG) {
@@ -1881,7 +2030,6 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
           
           clearDutyAssignment(candidate, day, "HG");
           setDutyAssignment(currentEmp, day, "HG");
-          rebuildCurrentCounters();
         }
       }
       if (!improved) break;
@@ -1916,16 +2064,13 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
         if (candidate === currentEmp) continue;
         
         clearDutyAssignment(currentEmp, day, dutyCode);
-        rebuildCurrentCounters();
         
         if (!canDo(candidate, day, true, result)) {
           setDutyAssignment(currentEmp, day, dutyCode);
-          rebuildCurrentCounters();
           continue;
         }
         
         setDutyAssignment(candidate, day, dutyCode);
-        rebuildCurrentCounters();
         
         const newGlobal = computeGlobalObjective();
         if (newGlobal + 0.01 < bestGlobal) {
@@ -1937,7 +2082,6 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
         
         clearDutyAssignment(candidate, day, dutyCode);
         setDutyAssignment(currentEmp, day, dutyCode);
-        rebuildCurrentCounters();
       }
       return false;
     }
@@ -2029,6 +2173,10 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
   log.push({ phase: "hg_assign", icon: "📞", msg: "Initiale HG-Verteilung...", pct: 65 });
   runPhase6_HGAssign(65);
   rebuildCurrentCounters();
+
+  initWeCountsCache();
+  initBDEmpScoresCache();
+  initHgEmpScoresCache();
 
   log.push({ phase: "optimize", icon: "⚙️", msg: `Starte Multi-Zyklus-Optimierung (${MAX_OPTIMIZATION_CYCLES} Zyklen, BD:${BD_MAX_PASSES}/HG:${HG_MAX_PASSES}/Deep:${DEEP_MAX_PASSES} Passes)...`, pct: 68 });
 
@@ -2232,12 +2380,93 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
   let wishCount = 0;
   for (let d = 1; d <= dim; d++) {
     dutyEmps.forEach(e => {
-      if (wishes[e]?.[d]) {
+      const w = wishes[e]?.[d];
+      if (w === "BD_WISH" || w === "HG_WISH") {
         wishCount++;
       }
     });
   }
-  const wishFulfillmentRate = wishCount > 0 ? (report.filter(r => r.tags && r.tags.includes("Wunsch")).length / wishCount) : 1;
+
+  // Re-map the report at the end to match the actual result assignments
+  const finalReport = [];
+  for (let d = 1; d <= dim; d++) {
+    // Check D duty
+    const dEmp = emps.find(e => result[e]?.[d]?.duty === "D");
+    if (dEmp) {
+      const existing = report.find(r => r.day === d && r.duty === "D");
+      const isPinnedCell = pins[dEmp]?.[d];
+      const evalResult = scoreBDCandidate(dEmp, d, true, "validate_report");
+      const tags = [...evalResult.tags];
+      if (isPinnedCell) tags.push("Fixiert");
+      
+      let reason = existing ? existing.reason : "Bester Score.";
+      if (!existing || existing.emp !== dEmp) {
+        if (isPinnedCell) {
+          reason = "Vom Benutzer fixiert.";
+        } else if (wishes[dEmp]?.[d] === "BD_WISH") {
+          reason = "Wunschdienst berücksichtigt.";
+        } else {
+          reason = "Durch Optimierung zugewiesen (Bester Score).";
+        }
+      }
+      
+      let fzaNote = "";
+      if (weekday(y, m, d) === 6 && needsSaturdayFza(dEmp)) {
+        const nextWorkday = findNextWorkdayFrom(y, m, d);
+        if (nextWorkday) {
+          fzaNote = ` Samstags-Dienst unvermeidbar -> FZA am nächsten Werktag (${nextWorkday.d}. ${MONTHS_SHORT[nextWorkday.m]}) eingetragen.`;
+        }
+      }
+      if (fzaNote && !reason.includes("FZA")) {
+        reason += fzaNote;
+      }
+
+      finalReport.push({
+        day: d,
+        emp: dEmp,
+        duty: "D",
+        reason: reason,
+        tags: tags,
+        alternatives: existing ? existing.alternatives : []
+      });
+    }
+
+    // Check HG duty
+    const hgEmp = emps.find(e => result[e]?.[d]?.duty === "HG");
+    if (hgEmp) {
+      const existing = report.find(r => r.day === d && r.duty === "HG");
+      const isPinnedCell = pins[hgEmp]?.[d];
+      const isBundled = bundledHGKeys.has(dutyKey(hgEmp, d));
+      const evalResult = scoreHGCandidate(hgEmp, d, true, "validate_report");
+      const tags = [...evalResult.tags];
+      if (isPinnedCell) tags.push("Fixiert");
+      if (isBundled) tags.push("Gekoppelt");
+
+      let reason = existing ? existing.reason : "Gleichmäßige Verteilung.";
+      if (!existing || existing.emp !== hgEmp) {
+        if (isPinnedCell) {
+          reason = "Vom Benutzer fixiert.";
+        } else if (isBundled) {
+          reason = "Gekoppelt an Wochenend-/Feiertagsdienst.";
+        } else if (wishes[hgEmp]?.[d] === "HG_WISH") {
+          reason = "Wunschdienst berücksichtigt.";
+        } else {
+          reason = "Durch Optimierung zugewiesen (Gleichmäßige Verteilung).";
+        }
+      }
+
+      finalReport.push({
+        day: d,
+        emp: hgEmp,
+        duty: "HG",
+        reason: reason,
+        tags: tags,
+        alternatives: existing ? existing.alternatives : []
+      });
+    }
+  }
+
+  const wishFulfillmentRate = wishCount > 0 ? (finalReport.filter(r => r.tags && r.tags.includes("Wunsch")).length / wishCount) : 1;
   
   const rawScore = 100.0 
     - (dutyCoverageMisses * 15.0) 
@@ -2252,8 +2481,8 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
   
   summary.quality = { score: qualityScore, dutyCoverageMisses, hgCoverageMisses, bdSpread, hgSpread, weekendSpread, wishFulfillmentRate, deepMoves, swaps, hgMoves };
 
-  report.sort((a, b) => a.day - b.day || (a.duty === "D" ? -1 : 1));
+  finalReport.sort((a, b) => a.day - b.day || (a.duty === "D" ? -1 : 1));
   
   rebuildCurrentCounters();
-  return { assignments: result, summary, log, report, externalAssignments, ruleTelemetry, fluxTraces };
+  return { assignments: result, summary, log, report: finalReport, externalAssignments, ruleTelemetry, fluxTraces };
 }

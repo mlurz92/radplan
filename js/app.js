@@ -93,7 +93,10 @@ import {
   initGridKeyboardHandlers,
   openRadialQuickMenu,
   updateRadialHover,
-  releaseRadialMenu
+  releaseRadialMenu,
+  updateGridCell,
+  updateAllConflicts,
+  updateGridStatsAndHeader
 } from './render-grid.js';
 
 import {
@@ -2556,11 +2559,25 @@ export function quickToggleWorkplace(emp, day, wpCode) {
 
   const label = wp?.label || wpCode;
   const verb = remove ? "entfernt" : "gesetzt";
-  showToast(multi
+  const msg = multi
     ? `${label} ${verb} · ${changed} ${changed === 1 ? "Tag" : "Tage"}${suffixForSkips(skipped)}`
-    : `${label} ${verb}`);
-  render();
-  focusCellAfterRender(emp, day);
+    : `${label} ${verb}`;
+  showToast(msg);
+  announceToScreenReader(msg);
+
+  if (IS_MOBILE) {
+    render();
+    focusCellAfterRender(emp, day);
+  } else {
+    days.forEach(d => {
+      const cell = getCell(y, m, emp, d);
+      const parts = (cell.assignment || "").split("/").map(x => x.trim()).filter(Boolean);
+      if (parts.some(p => STATUSES.find(s => s.code === p))) return;
+      updateGridCell(emp, d);
+    });
+    updateAllConflicts();
+    updateGridStatsAndHeader();
+  }
 }
 
 export function quickToggleDuty(emp, day, dutyCode) {
@@ -2582,6 +2599,7 @@ export function quickToggleDuty(emp, day, dutyCode) {
   let changed = 0;
   let skipped = 0;
   let autoFreeDay = false;
+  const affectedCells = [];
   days.forEach(d => {
     const cell = getCell(y, m, emp, d);
     if (!remove) {
@@ -2591,6 +2609,7 @@ export function quickToggleDuty(emp, day, dutyCode) {
     const newDuty = remove ? null : dutyCode;
     setCell(y, m, emp, d, { assignment: cell.assignment || null, duty: newDuty });
     changed++;
+    affectedCells.push({ emp, day: d });
 
     if (newDuty === "D") {
       const next = nextCalendarDay(y, m, d);
@@ -2598,22 +2617,34 @@ export function quickToggleDuty(emp, day, dutyCode) {
       if (!ex.assignment) {
         setCell(next.y, next.m, emp, next.d, { assignment: "F", duty: ex.duty || null });
         autoFreeDay = true;
+        if (next.y === y && next.m === m) {
+          affectedCells.push({ emp, day: next.d });
+        }
       }
     }
   });
   if (planMode) recordPlanHistory();
 
   const name = dutyCode === "HG" ? "Hintergrunddienst" : "Bereitschaftsdienst";
+  let msg = "";
   if (multi) {
-    showToast(`${dutyCode} ${remove ? "entfernt" : "gesetzt"} · ${changed} ${changed === 1 ? "Tag" : "Tage"}${suffixForSkips(skipped)}`);
+    msg = `${dutyCode} ${remove ? "entfernt" : "gesetzt"} · ${changed} ${changed === 1 ? "Tag" : "Tage"}${suffixForSkips(skipped)}`;
   } else if (remove) {
-    showToast(`${dutyCode === "HG" ? "HG" : "BD"} entfernt`);
+    msg = `${dutyCode === "HG" ? "HG" : "BD"} entfernt`;
   } else {
-    showToast(autoFreeDay ? `${name} gesetzt · F automatisch für Folgetag` : `${name} gesetzt`);
+    msg = autoFreeDay ? `${name} gesetzt · F automatisch für Folgetag` : `${name} gesetzt`;
   }
+  showToast(msg);
+  announceToScreenReader(msg);
 
-  render();
-  focusCellAfterRender(emp, day);
+  if (IS_MOBILE) {
+    render();
+    focusCellAfterRender(emp, day);
+  } else {
+    affectedCells.forEach(c => updateGridCell(c.emp, c.day));
+    updateAllConflicts();
+    updateGridStatsAndHeader();
+  }
 }
 
 export function moveDutyBadge(srcEmp, srcDay, dstEmp, dstDay) {
@@ -2643,9 +2674,19 @@ export function moveDutyBadge(srcEmp, srcDay, dstEmp, dstDay) {
   setCell(y, m, dstEmp, dstDay, { assignment: dstCell.assignment || null, duty: dutyCode });
   if (planMode) recordPlanHistory();
 
-  showToast(`${dutyCode}-Dienst verschoben: ${srcEmp} (${srcDay}.) → ${dstEmp} (${dstDay}.)`);
-  render();
-  focusCellAfterRender(dstEmp, dstDay);
+  const msg = `${dutyCode}-Dienst verschoben: ${srcEmp} (${srcDay}.) → ${dstEmp} (${dstDay}.)`;
+  showToast(msg);
+  announceToScreenReader(msg);
+
+  if (IS_MOBILE) {
+    render();
+    focusCellAfterRender(dstEmp, dstDay);
+  } else {
+    updateGridCell(srcEmp, srcDay);
+    updateGridCell(dstEmp, dstDay);
+    updateAllConflicts();
+    updateGridStatsAndHeader();
+  }
 }
 
 export function quickClearCell(emp, day) {
@@ -2657,9 +2698,18 @@ export function quickClearCell(emp, day) {
   days.forEach(d => clearCell(y, m, emp, d));
   if (planMode) recordPlanHistory();
 
-  showToast(multi ? `${days.length} Tage geleert` : "Eintrag gelöscht");
-  render();
-  focusCellAfterRender(emp, day);
+  const msg = multi ? `${days.length} Tage geleert` : "Eintrag gelöscht";
+  showToast(msg);
+  announceToScreenReader(msg);
+
+  if (IS_MOBILE) {
+    render();
+    focusCellAfterRender(emp, day);
+  } else {
+    days.forEach(d => updateGridCell(emp, d));
+    updateAllConflicts();
+    updateGridStatsAndHeader();
+  }
 }
 
 export function quickSetStatus(emp, day, statusCode) {
@@ -2679,11 +2729,20 @@ export function quickSetStatus(emp, day, statusCode) {
   const st = STATUSES.find(s => s.code === statusCode);
   const label = st?.label || statusCode;
   const verb = remove ? "entfernt" : "gesetzt";
-  showToast(multi
+  const msg = multi
     ? `${label} ${verb} · ${days.length} ${days.length === 1 ? "Tag" : "Tage"}`
-    : `${label} ${verb}`);
-  render();
-  focusCellAfterRender(emp, day);
+    : `${label} ${verb}`;
+  showToast(msg);
+  announceToScreenReader(msg);
+
+  if (IS_MOBILE) {
+    render();
+    focusCellAfterRender(emp, day);
+  } else {
+    days.forEach(d => updateGridCell(emp, d));
+    updateAllConflicts();
+    updateGridStatsAndHeader();
+  }
 }
 
 export function wireEvents() {
@@ -3309,3 +3368,13 @@ window.openScoreInfoModal = () => {
     openScoreInfoModal(localAutoPlanResult);
   }
 };
+
+export function announceToScreenReader(message) {
+  const announcer = document.getElementById("aria-announcer");
+  if (announcer) {
+    announcer.textContent = "";
+    setTimeout(() => {
+      announcer.textContent = message;
+    }, 50);
+  }
+}

@@ -415,3 +415,11 @@ export function setIsMobile(val) {
 export function setResponsiveLayoutRaf(val) { 
   responsiveLayoutRaf = val; 
 }
+
+export const store = {
+  get DATA() { return DATA; },
+  set DATA(val) { DATA = val; },
+  get serverFetchSuccessful() { return serverFetchSuccessful; },
+  set serverFetchSuccessful(val) { serverFetchSuccessful = val; }
+};
+

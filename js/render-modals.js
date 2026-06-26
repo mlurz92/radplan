@@ -897,6 +897,50 @@ export function openProfileModal(empName) {
   applyPersonTab(state.profileTab || "overview");
 }
 
+let activeFocusTrap = null;
+
+function setupFocusTrap(el) {
+  if (activeFocusTrap) {
+    window.removeEventListener("keydown", activeFocusTrap);
+  }
+
+  activeFocusTrap = (e) => {
+    if (e.key !== "Tab") return;
+
+    const focusables = Array.from(
+      el.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
+    ).filter(item => {
+      return !!(item.offsetWidth || item.offsetHeight || item.getClientRects().length);
+    });
+
+    if (!focusables.length) return;
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        last.focus();
+        e.preventDefault();
+      }
+    } else {
+      if (document.activeElement === last) {
+        first.focus();
+        e.preventDefault();
+      }
+    }
+  };
+
+  window.addEventListener("keydown", activeFocusTrap);
+}
+
+function removeFocusTrap() {
+  if (activeFocusTrap) {
+    window.removeEventListener("keydown", activeFocusTrap);
+    activeFocusTrap = null;
+  }
+}
+
 export function showOverlay(id) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -914,6 +958,8 @@ export function showOverlay(id) {
   updateModalLayout(el);
   setTimeout(() => updateModalLayout(el), 60);
   
+  setupFocusTrap(el);
+  
   const first = el.querySelector('[autofocus],[tabindex="0"],button:not([disabled]),input,textarea');
   if (first) {
     setTimeout(() => first.focus(), 60);
@@ -923,6 +969,13 @@ export function showOverlay(id) {
 export function hideOverlay(id) {
   const el = document.getElementById(id);
   if (!el) return;
+  
+  removeFocusTrap();
+  
+  const otherOverlay = Array.from(document.querySelectorAll(".overlay:not([hidden])")).find(o => o !== el);
+  if (otherOverlay) {
+    setupFocusTrap(otherOverlay);
+  }
   
   const mEl = el.querySelector(".modal");
   if (mEl) {

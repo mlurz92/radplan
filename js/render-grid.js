@@ -959,6 +959,7 @@ export function renderThead(y, m, dim, hols, md) {
   const tr = document.createElement("tr");
   const thC = document.createElement("th");
   thC.className = "th-corner";
+  thC.setAttribute("scope", "col");
   thC.innerHTML = '<div class="th-corner-inner">Mitarbeitende</div>';
   tr.appendChild(thC);
   
@@ -979,6 +980,7 @@ export function renderThead(y, m, dim, hols, md) {
     
     const hn = hols[dateKey(y, m, d)] || "";
     const th = document.createElement("th");
+    th.setAttribute("scope", "col");
 
     let cls = "th-day ";
     cls += hol ? "hol" : we ? "we" : "wd";
@@ -1009,6 +1011,9 @@ export function renderThead(y, m, dim, hols, md) {
       const dLabel  = dCount  > 0 ? `${dCount}× besetzt` : "fehlt";
       const hgLabel = hgCount > 0 ? `${hgCount}× besetzt` : "fehlt";
       th.title = `${d}. ${MONTHS[m]} · D: ${dLabel} · HG: ${hgLabel}`;
+      th.setAttribute("aria-label", `${d}. ${MONTHS[m]} ${DOW_ABBR[wd]} · Bereitschaftsdienst: ${dLabel} · Hintergrunddienst: ${hgLabel}`);
+    } else {
+      th.setAttribute("aria-label", `${d}. ${MONTHS[m]} ${DOW_ABBR[wd]}`);
     }
 
     th.innerHTML = `
@@ -1023,6 +1028,208 @@ export function renderThead(y, m, dim, hols, md) {
     tr.appendChild(th);
   }
   thead.appendChild(tr);
+}
+
+function bindCellListeners(tdEl, emp, d) {
+  if (emp === RBN_ROW_KEY) {
+    tdEl.addEventListener("click", (e) => openEditor(RBN_ROW_KEY, d, { ctrlKey: e.ctrlKey || e.metaKey }));
+    tdEl.addEventListener("keydown", (e) => { 
+      if (e.key === "Enter" || e.key === " ") { 
+        e.preventDefault(); 
+        openEditor(RBN_ROW_KEY, d); 
+      } 
+    });
+    return;
+  }
+
+  if (!IS_MOBILE) {
+    const dutyBadge = tdEl.querySelector(".cell-duty");
+    if (dutyBadge) {
+      dutyBadge.draggable = true;
+      dutyBadge.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("text/plain", JSON.stringify({ emp, day: d }));
+        e.dataTransfer.effectAllowed = "move";
+      });
+    }
+
+    tdEl.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      tdEl.classList.add("drag-over");
+    });
+    tdEl.addEventListener("dragleave", () => {
+      tdEl.classList.remove("drag-over");
+    });
+    tdEl.addEventListener("drop", (e) => {
+      e.preventDefault();
+      tdEl.classList.remove("drag-over");
+      let payload;
+      try {
+        payload = JSON.parse(e.dataTransfer.getData("text/plain"));
+      } catch {
+        return;
+      }
+      if (!payload || !payload.emp || !Number.isFinite(payload.day)) return;
+      moveDutyBadge(payload.emp, payload.day, emp, d);
+    });
+  }
+
+  tdEl.addEventListener("click", (e) => {
+    if (dragSelectionState.justDragged) {
+      dragSelectionState.justDragged = false;
+      return;
+    }
+    if (e.shiftKey) {
+      closeCellQuickPopover();
+      openEditor(emp, d, { shiftKey: true });
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) {
+      closeCellQuickPopover();
+      openEditor(emp, d, { ctrlKey: true });
+    }
+  });
+  tdEl.addEventListener("dblclick", () => {
+    closeCellQuickPopover();
+    openEditor(emp, d);
+  });
+  tdEl.addEventListener("focus", () => {
+    if (!IS_MOBILE && quickPopover.el && !dragSelectionState.active) {
+      showCellQuickPopover(emp, d, tdEl);
+    }
+  });
+  tdEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openEditor(emp, d);
+    }
+  });
+  if (planMode) {
+    tdEl.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      const pinnedNow = isPinned(emp, d);
+      contextMenu.show(e.clientX, e.clientY, [
+        {
+          label: pinnedNow ? "Fixierung aufheben" : "Für Auto-Plan fixieren",
+          sub: pinnedNow ? "Solver darf diese Zelle wieder ändern" : "Solver lässt diese Zelle unverändert",
+          icon: '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 17v5M9 10.76a2 2 0 0 1 1.11-1.79l1.78-.9a2 2 0 0 1 1.78 0l1.78.9A2 2 0 0 1 17.56 11l.3 4.94a1 1 0 0 1-1 1.06H7.14a1 1 0 0 1-1-1.06L9 10.76Z"/></svg>',
+          action: () => togglePinned(emp, d)
+        }
+      ], tdEl);
+    });
+  }
+}
+
+function createGridCellElement(y, m, emp, d, hols, gridConflicts) {
+  const we = isWeekend(y, m, d);
+  const hol = isHoliday(y, m, d, hols);
+  const isT = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
+  const fri = isFriday(y, m, d);
+  const tdEl = document.createElement("td");
+  tdEl.tabIndex = 0;
+  tdEl.setAttribute("role", "gridcell");
+  tdEl.dataset.emp = emp;
+  tdEl.dataset.day = String(d);
+
+  let cls = "td-cell";
+  if (hol) cls += " hol";
+  if (we) cls += " we";
+  if (isT) cls += " today";
+  if (fri) cls += " is-fri";
+
+  if (emp === RBN_ROW_KEY) {
+    cls += " td-cell-rbn";
+    tdEl.className = cls;
+    const rbnValue = getRbnValue(y, m, d);
+    tdEl.innerHTML = `
+      <div class="cell-inner">
+        <span class="cell-assign cell-assign-rbn">${formatRbnDisplay(rbnValue)}</span>
+      </div>
+    `;
+    tdEl.setAttribute("aria-label", `Rufbereitschaft Tag ${d}: ${formatRbnDisplay(rbnValue) || "Kein Dienst"}`);
+    
+    tdEl.addEventListener("click", (e) => openEditor(RBN_ROW_KEY, d, { ctrlKey: e.ctrlKey || e.metaKey }));
+    tdEl.addEventListener("keydown", (e) => { 
+      if (e.key === "Enter" || e.key === " ") { 
+        e.preventDefault(); 
+        openEditor(RBN_ROW_KEY, d); 
+      } 
+    });
+    return tdEl;
+  }
+
+  const cell = getCell(y, m, emp, d);
+  const emptyWd = !we && !hol && !cell.assignment && !cell.duty;
+  const isAutoFRest = cell.assignment === "F" && (we || hol);
+  const { bg, fg } = cellColor(cell.assignment);
+
+  if (emptyWd) cls += " empty-wd";
+  if (isAutoFRest) cls += " auto-f-rest";
+  if (planMode && isPinned(emp, d)) cls += " pinned";
+
+  const cellConflicts = gridConflicts.get(dutyKey(emp, d));
+  if (cellConflicts?.length) cls += " cell-conflict";
+
+  tdEl.className = cls;
+  if (cell.assignment && !isAutoFRest) {
+    tdEl.dataset.code = cell.assignment.split("/")[0].trim();
+  }
+  
+  let ariaLabel = `Tag ${d}: `;
+  if (cell.assignment && !isAutoFRest) {
+    ariaLabel += `${cell.assignment} `;
+  } else {
+    ariaLabel += `Frei `;
+  }
+  if (cell.duty) {
+    ariaLabel += `, ${cell.duty === "D" ? "Bereitschaftsdienst" : "Hintergrunddienst"}`;
+  }
+  const cellComment = getComment(y, m, emp, d);
+  if (cellComment) {
+    ariaLabel += `, Notiz: ${cellComment}`;
+  }
+  if (cellConflicts?.length) {
+    ariaLabel += `, Konflikt: ${cellConflicts.join(" · ")}`;
+  }
+  tdEl.setAttribute("aria-label", ariaLabel);
+
+  if (cellConflicts?.length) {
+    tdEl.setAttribute("data-conflict", cellConflicts.join(" · "));
+  }
+  
+  if (cell.assignment && !isAutoFRest) {
+    tdEl.style.backgroundColor = bg;
+  }
+  
+  let innerHtml = `<div class="cell-inner">`;
+  innerHtml += `<span class="cell-assign"${isAutoFRest ? "" : ` style="color:${fg}"`}>${cell.assignment || ""}</span>`;
+  if (cell.duty) {
+    innerHtml += `<span class="cell-duty badge-${cell.duty}">${cell.duty}</span>`;
+  }
+  if (planMode && getWish(emp, d)) {
+    const wishCode = getWish(emp, d);
+    const icon = WISH_MAP[wishCode]?.icon || "";
+    innerHtml += `<span class="cell-wish wish-${wishCode}">${icon}</span>`;
+  }
+  const cellPinned = planMode && isPinned(emp, d);
+  if (cellPinned) {
+    innerHtml += `<span class="cell-pin" title="Für Auto-Plan fixiert">📌</span>`;
+  }
+  if (cellComment) {
+    const escapedComment = cellComment.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    innerHtml += `<span class="cell-comment-dot" title="${escapedComment}" aria-label="Notiz: ${escapedComment}"></span>`;
+  }
+  if (cellConflicts?.length) {
+    innerHtml += `<span class="cell-conflict-flag" aria-hidden="true">⚠</span>`;
+  }
+  innerHtml += `</div>`;
+  tdEl.innerHTML = innerHtml;
+  if (cellConflicts?.length) {
+    tdEl.title = `Regelkonflikt: ${cellConflicts.join(" · ")}`;
+  }
+
+  bindCellListeners(tdEl, emp, d);
+
+  return tdEl;
 }
 
 export function renderTbody(y, m, dim, hols, md) {
@@ -1040,13 +1247,9 @@ export function renderTbody(y, m, dim, hols, md) {
     return;
   }
 
-  // Use the original sequence from data (filter only to avoid collisions)
   const employeesToRender = md.employees.filter(e => e !== RBN_ROW_LABEL && e !== RBN_ROW_KEY);
   const gridConflicts = computeGridConflicts(y, m);
 
-  // Role-band grouping: classify each row so the grid gets visual structure
-  // (a firm divider + a subtle per-band tint) whenever the role category
-  // changes between consecutive rows — without reordering the source sequence.
   const roleBand = (pos) => {
     if (["CA", "LOA", "OA", "OÄ"].includes(pos)) return "lead";
     if (["FA", "FÄ"].includes(pos)) return "fa";
@@ -1070,7 +1273,8 @@ export function renderTbody(y, m, dim, hols, md) {
     tdN.className = "td-name";
     tdN.style.borderLeft = `3px solid ${pc.border}`;
     tdN.style.paddingLeft = "11px";
-    tdN.setAttribute("role", "button");
+    tdN.setAttribute("role", "rowheader");
+    tdN.setAttribute("aria-label", emp);
     tdN.setAttribute("tabindex", "0");
     
     let tdNHtml = `<span class="emp-label">${emp}</span>`;
@@ -1087,7 +1291,6 @@ export function renderTbody(y, m, dim, hols, md) {
     `;
     tdN.innerHTML = tdNHtml;
     
-    // Modern Context Menu on Right Click (Secondary Click)
     tdN.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       contextMenu.show(e.clientX, e.clientY, [
@@ -1125,160 +1328,10 @@ export function renderTbody(y, m, dim, hols, md) {
     tr.appendChild(tdN);
     
     for (let d = 1; d <= dim; d++) {
-      const cell = md.assignments?.[emp]?.[d] || {};
-      const we = isWeekend(y, m, d);
-      const hol = isHoliday(y, m, d, hols);
-      const isT = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
-      const fri = isFriday(y, m, d);
-      
-      const emptyWd = !we && !hol && !cell.assignment && !cell.duty;
-      const isAutoFRest = cell.assignment === "F" && (we || hol);
-      const { bg, fg } = cellColor(cell.assignment);
-      
-      const tdEl = document.createElement("td");
-      let cls = "td-cell";
-      if (hol) cls += " hol";
-      if (we) cls += " we";
-      if (isT) cls += " today";
-      if (fri) cls += " is-fri";
-      if (emptyWd) cls += " empty-wd";
-      if (isAutoFRest) cls += " auto-f-rest";
-      if (planMode && isPinned(emp, d)) cls += " pinned";
-
-      const cellConflicts = gridConflicts.get(dutyKey(emp, d));
-      if (cellConflicts?.length) cls += " cell-conflict";
-
-      tdEl.className = cls;
-      tdEl.dataset.emp = emp;
-      tdEl.dataset.day = String(d);
-      if (cell.assignment && !isAutoFRest) {
-        tdEl.dataset.code = cell.assignment.split("/")[0].trim();
-      }
-      tdEl.tabIndex = 0;
-      if (cellConflicts?.length) {
-        tdEl.setAttribute("data-conflict", cellConflicts.join(" · "));
-      }
-      
-      if (cell.assignment && !isAutoFRest) {
-        tdEl.style.backgroundColor = bg;
-      }
-      
-      const cellComment = getComment(y, m, emp, d);
-      let innerHtml = `<div class="cell-inner">`;
-      innerHtml += `<span class="cell-assign"${isAutoFRest ? "" : ` style="color:${fg}"`}>${cell.assignment || ""}</span>`;
-      if (cell.duty) {
-        innerHtml += `<span class="cell-duty badge-${cell.duty}">${cell.duty}</span>`;
-      }
-      if (planMode && getWish(emp, d)) {
-        const wishCode = getWish(emp, d);
-        const icon = WISH_MAP[wishCode]?.icon || "";
-        innerHtml += `<span class="cell-wish wish-${wishCode}">${icon}</span>`;
-      }
-      const cellPinned = planMode && isPinned(emp, d);
-      if (cellPinned) {
-        innerHtml += `<span class="cell-pin" title="Für Auto-Plan fixiert">📌</span>`;
-      }
-      if (cellComment) {
-        const escapedComment = cellComment.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-        innerHtml += `<span class="cell-comment-dot" title="${escapedComment}" aria-label="Notiz: ${escapedComment}"></span>`;
-      }
-      if (cellConflicts?.length) {
-        innerHtml += `<span class="cell-conflict-flag" aria-hidden="true">⚠</span>`;
-      }
-      innerHtml += `</div>`;
-      tdEl.innerHTML = innerHtml;
-      if (cellConflicts?.length) {
-        tdEl.title = `Regelkonflikt: ${cellConflicts.join(" · ")}`;
-      }
-
-      if (!IS_MOBILE && cell.duty) {
-        const dutyBadge = tdEl.querySelector(".cell-duty");
-        if (dutyBadge) {
-          dutyBadge.draggable = true;
-          dutyBadge.addEventListener("dragstart", (e) => {
-            e.dataTransfer.setData("text/plain", JSON.stringify({ emp, day: d }));
-            e.dataTransfer.effectAllowed = "move";
-          });
-        }
-      }
-      if (!IS_MOBILE) {
-        tdEl.addEventListener("dragover", (e) => {
-          e.preventDefault();
-          tdEl.classList.add("drag-over");
-        });
-        tdEl.addEventListener("dragleave", () => {
-          tdEl.classList.remove("drag-over");
-        });
-        tdEl.addEventListener("drop", (e) => {
-          e.preventDefault();
-          tdEl.classList.remove("drag-over");
-          let payload;
-          try {
-            payload = JSON.parse(e.dataTransfer.getData("text/plain"));
-          } catch {
-            return;
-          }
-          if (!payload || !payload.emp || !Number.isFinite(payload.day)) return;
-          moveDutyBadge(payload.emp, payload.day, emp, d);
-        });
-      }
-
-      tdEl.addEventListener("click", (e) => {
-        if (dragSelectionState.justDragged) {
-          dragSelectionState.justDragged = false;
-          return;
-        }
-        if (e.shiftKey) {
-          closeCellQuickPopover();
-          openEditor(emp, d, { shiftKey: true });
-          return;
-        }
-        if (e.ctrlKey || e.metaKey) {
-          closeCellQuickPopover();
-          openEditor(emp, d, { ctrlKey: true });
-        }
-      });
-      tdEl.addEventListener("dblclick", () => {
-        closeCellQuickPopover();
-        openEditor(emp, d);
-      });
-      tdEl.addEventListener("focus", () => {
-        // Nur „mitführen", wenn bereits ein Menü offen ist (Tastatur-Navigation,
-        // Re-Fokus nach Schnellaktion). Das erstmalige Öffnen erfolgt bewusst
-        // über Klick/Ziehen (mouseup) – kein Flackern beim Pfeiltasten-Browsen.
-        // Während einer laufenden Zeigergeste übernimmt mouseup die Steuerung,
-        // damit ein Dismiss-Klick das Menü nicht kurz am Klickort aufblitzen lässt.
-        if (!IS_MOBILE && quickPopover.el && !dragSelectionState.active) {
-          showCellQuickPopover(emp, d, tdEl);
-        }
-      });
-      tdEl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          openEditor(emp, d);
-        }
-      });
-      if (planMode) {
-        tdEl.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          const pinnedNow = isPinned(emp, d);
-          contextMenu.show(e.clientX, e.clientY, [
-            {
-              label: pinnedNow ? "Fixierung aufheben" : "Für Auto-Plan fixieren",
-              sub: pinnedNow ? "Solver darf diese Zelle wieder ändern" : "Solver lässt diese Zelle unverändert",
-              icon: '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 17v5M9 10.76a2 2 0 0 1 1.11-1.79l1.78-.9a2 2 0 0 1 1.78 0l1.78.9A2 2 0 0 1 17.56 11l.3 4.94a1 1 0 0 1-1 1.06H7.14a1 1 0 0 1-1-1.06L9 10.76Z"/></svg>',
-              action: () => togglePinned(emp, d)
-            }
-          ], tdEl);
-        });
-      }
-      if (state.multiEdit?.emp === emp && Array.isArray(state.multiEdit.days) && state.multiEdit.days.length > 1 && state.multiEdit.days.includes(d)) {
-        tdEl.classList.add("multi-selected");
-      }
+      const tdEl = createGridCellElement(y, m, emp, d, hols, gridConflicts);
       tr.appendChild(tdEl);
     }
     
-    // UI Polish: Row highlighting
     tr.addEventListener('mouseenter', () => tr.classList.add('tr-hover'));
     tr.addEventListener('mouseleave', () => tr.classList.remove('tr-hover'));
     
@@ -1297,45 +1350,79 @@ export function renderTbody(y, m, dim, hols, md) {
     tr.appendChild(tdN);
     
     for (let d = 1; d <= dim; d++) {
-      const we = isWeekend(y, m, d);
-      const hol = isHoliday(y, m, d, hols);
-      const isT = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
-      const fri = isFriday(y, m, d);
-      const rbnValue = getRbnValue(y, m, d);
-      
-      const tdEl = document.createElement("td");
-      let cls = "td-cell td-cell-rbn";
-      if (hol) cls += " hol";
-      if (we) cls += " we";
-      if (isT) cls += " today";
-      if (fri) cls += " is-fri";
-      
-      tdEl.className = cls;
-      tdEl.dataset.emp = RBN_ROW_KEY;
-      tdEl.dataset.day = String(d);
-      tdEl.tabIndex = 0;
-      tdEl.innerHTML = `
-        <div class="cell-inner">
-          <span class="cell-assign cell-assign-rbn">${formatRbnDisplay(rbnValue)}</span>
-        </div>
-      `;
-      
-      tdEl.addEventListener("click", (e) => openEditor(RBN_ROW_KEY, d, { ctrlKey: e.ctrlKey || e.metaKey }));
-      tdEl.addEventListener("keydown", (e) => { 
-        if (e.key === "Enter" || e.key === " ") { 
-          e.preventDefault(); 
-          openEditor(RBN_ROW_KEY, d); 
-        } 
-      });
+      const tdEl = createGridCellElement(y, m, RBN_ROW_KEY, d, hols, gridConflicts);
       tr.appendChild(tdEl);
     }
     
-    // UI Polish: Row highlighting for RBN
     tr.addEventListener('mouseenter', () => tr.classList.add('tr-hover'));
     tr.addEventListener('mouseleave', () => tr.classList.remove('tr-hover'));
     
     tbody.appendChild(tr);
   }
+}
+
+export function updateGridCell(emp, d) {
+  const { year: y, month: m } = state;
+  const hols = getSaxonyHolidaysCached(y);
+  const gridConflicts = computeGridConflicts(y, m);
+  
+  const oldCell = document.querySelector(`#plan-tbody td.td-cell[data-emp="${emp}"][data-day="${d}"]`);
+  if (oldCell) {
+    const wasFocused = document.activeElement === oldCell;
+    const newCell = createGridCellElement(y, m, emp, d, hols, gridConflicts);
+    oldCell.replaceWith(newCell);
+    if (wasFocused) {
+      newCell.focus();
+    }
+  }
+}
+
+export function updateAllConflicts() {
+  const { year: y, month: m } = state;
+  const gridConflicts = computeGridConflicts(y, m);
+  
+  const cells = document.querySelectorAll("#plan-tbody td.td-cell");
+  cells.forEach(cell => {
+    const emp = cell.dataset.emp;
+    const d = parseInt(cell.dataset.day, 10);
+    if (emp === RBN_ROW_KEY) return;
+    const key = dutyKey(emp, d);
+    const cellConflicts = gridConflicts.get(key);
+    
+    const hasConflictClass = cell.classList.contains("cell-conflict");
+    const needsConflictClass = !!(cellConflicts?.length);
+    
+    if (hasConflictClass !== needsConflictClass) {
+      cell.classList.toggle("cell-conflict", needsConflictClass);
+      
+      const flag = cell.querySelector(".cell-conflict-flag");
+      if (needsConflictClass) {
+        if (!flag) {
+          const inner = cell.querySelector(".cell-inner");
+          if (inner) {
+            inner.insertAdjacentHTML("beforeend", `<span class="cell-conflict-flag" aria-hidden="true">⚠</span>`);
+          }
+        }
+        cell.title = `Regelkonflikt: ${cellConflicts.join(" · ")}`;
+        cell.setAttribute("data-conflict", cellConflicts.join(" · "));
+      } else {
+        if (flag) flag.remove();
+        cell.title = "";
+        cell.removeAttribute("data-conflict");
+      }
+    }
+  });
+}
+
+export function updateGridStatsAndHeader() {
+  const { year: y, month: m } = state;
+  const dim = daysInMonth(y, m);
+  const md = getMonthData(y, m);
+  const hols = getSaxonyHolidaysCached(y);
+  
+  renderStatsBar(y, m, dim, md);
+  renderTfoot(y, m, dim, md);
+  renderThead(y, m, dim, hols, md);
 }
 
 export function renderTfoot(y, m, dim, md) {

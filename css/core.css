@@ -11,17 +11,17 @@
   --accent-xs: #E8F8FF;
   --accent-dim: rgba(14,165,233,.10);
   --white: #FFFFFF;
-  --gray-50: #F8FAFC;
-  --gray-100: #F1F5F9;
-  --gray-150: #E9EFF6;
-  --gray-200: #E2E8F0;
-  --gray-300: #CBD5E1;
+  --gray-50: #1E293B;
+  --gray-100: #334155;
+  --gray-150: #3F4E64;
+  --gray-200: #475569;
+  --gray-300: #64748B;
   --gray-400: #94A3B8;
-  --gray-500: #64748B;
-  --gray-600: #475569;
-  --gray-700: #334155;
-  --gray-800: #1E293B;
-  --gray-900: #0F172A;
+  --gray-500: #CBD5E1;
+  --gray-600: #E2E8F0;
+  --gray-700: #E9EFF6;
+  --gray-800: #F1F5F9;
+  --gray-900: #F8FAFC;
   --red: #EF4444;
   --red-dark: #B91C1C;
   --red-lt: #FEF2F2;
@@ -182,6 +182,17 @@
   --navy-500: #C9BC9C;
   --navy-400: #B3A37C;
   --steel: #6B8AAE;
+  --gray-50: #F8FAFC;
+  --gray-100: #F1F5F9;
+  --gray-150: #E9EFF6;
+  --gray-200: #E2E8F0;
+  --gray-300: #CBD5E1;
+  --gray-400: #94A3B8;
+  --gray-500: #64748B;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1E293B;
+  --gray-900: #0F172A;
   --border: 1px solid rgba(15,23,42,.08);
   --glass-bg: rgba(15,23,42,.035);
   --glass-bg-hover: rgba(15,23,42,.07);
@@ -395,4 +406,15 @@ html[data-vt-theme] ::view-transition-new(root) {
     border-color: rgba(var(--ink-rgb),.24);
   }
   :focus-visible { outline-width: 3px; }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }

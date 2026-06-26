@@ -90,8 +90,8 @@ describe("computeFairnessSpread", () => {
     assert.equal(computeFairnessSpread([3, 3, 3]), 0);
   });
 
-  test("returns the max-min spread", () => {
-    assert.equal(computeFairnessSpread([1, 5, 3]), 4);
+  test("returns the standard deviation", () => {
+    assert.ok(Math.abs(computeFairnessSpread([1, 5, 3]) - 1.632993) < 1e-5);
   });
 });
 
@@ -384,6 +384,43 @@ describe("Surplus BD preference (5th duty -> Dr. Lurz)", () => {
     assert.equal(getSurplusBdPreferenceRank("Dr. Martin"), -1);
     assert.equal(getSurplusBdPreferenceRank("Hr. Torki"), -1);
     assert.equal(getSurplusBdPreferenceRank("Unbekannt"), -1);
+  });
+});
+
+describe("Month Boundary & Year Transitions for Weekend Duties", () => {
+  test("getWeekendDutyKWs queries adjacent months in DATA", () => {
+    const prevKey = monthKey(Y, M - 1);
+    DATA[prevKey] = {
+      employees: ["Dr. A"],
+      assignments: {
+        "Dr. A": {
+          30: { duty: "D" }
+        }
+      }
+    };
+    
+    const kws = getWeekendDutyKWs(Y, M, "Dr. A", {});
+    const expectedKw = isoWeekNumber(Y, M - 1, 30);
+    assert.ok(kws.has(expectedKw));
+    
+    delete DATA[prevKey];
+  });
+
+  test("wouldCreateConsecutiveWeekendDuty handles year-end transitions", () => {
+    const prevKey = monthKey(Y - 1, 11);
+    DATA[prevKey] = {
+      employees: ["Dr. A"],
+      assignments: {
+        "Dr. A": {
+          27: { duty: "D" }
+        }
+      }
+    };
+    
+    const isConsecutive = wouldCreateConsecutiveWeekendDuty(Y, 0, "Dr. A", {}, 3);
+    assert.equal(isConsecutive, true);
+    
+    delete DATA[prevKey];
   });
 });
 
