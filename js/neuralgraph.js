@@ -38,7 +38,6 @@ function injectStyles() {
       z-index: 2;
       will-change: transform;
       transform-style: preserve-3d;
-      transition: transform 0.6s cubic-bezier(0.19, 1, 0.22, 1);
     }
     .ng-flat-cell {
       position: relative;
@@ -55,18 +54,12 @@ function injectStyles() {
       will-change: transform, background-color, border-color, box-shadow;
       transform-style: preserve-3d;
       transition: 
-        transform 0.45s cubic-bezier(0.25, 0.8, 0.25, 1.2), 
         background-color 0.3s ease, 
         border-color 0.3s ease, 
         box-shadow 0.3s ease;
       backface-visibility: hidden;
     }
-    .ng-flat-cell.rest {
-      transform: translateZ(0);
-    }
     .ng-flat-cell.pulse {
-      transform: translateZ(55px) scale(1.06);
-      z-index: 50;
       background: rgba(14, 25, 52, 0.85);
       border-color: var(--pulse-color, rgba(56, 189, 248, 0.5));
       box-shadow: 
@@ -74,8 +67,6 @@ function injectStyles() {
         0 0 24px var(--pulse-color, transparent);
     }
     .ng-flat-cell.error {
-      transform: translateZ(45px) scale(1.05) rotateY(6deg);
-      z-index: 50;
       background: rgba(127, 29, 29, 0.6);
       border-color: #ef4444;
       box-shadow: 
@@ -157,6 +148,19 @@ function injectStyles() {
       border-color: var(--pulse-color);
     }
     
+    /* Cell matrix code rain canvas */
+    .ng-cell-matrix-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      opacity: 0;
+      mix-blend-mode: screen;
+      transition: opacity 0.8s ease-in-out;
+    }
+    
     /* 3D Laser Sweep Line */
     .ng-laser-line {
       position: absolute;
@@ -200,26 +204,78 @@ const PHASE_RGB = {
   error:   [239, 68, 68],
 };
 
-// 3D wireframe geometries
-const CUBE_VERTICES = [
-  [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
-  [-1, -1, 1],  [1, -1, 1],  [1, 1, 1],  [-1, 1, 1]
-];
-const CUBE_EDGES = [
-  [0, 1], [1, 2], [2, 3], [3, 0],
-  [4, 5], [5, 6], [6, 7], [7, 4],
-  [0, 4], [1, 5], [2, 6], [3, 7]
-];
+const charSet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$#@%&*+-/|";
 
-const OCTA_VERTICES = [
-  [0, -1.4, 0], [1.4, 0, 0], [0, 1.4, 0], [-1.4, 0, 0],
-  [0, 0, -1.4], [0, 0, 1.4]
-];
-const OCTA_EDGES = [
-  [0, 1], [1, 2], [2, 3], [3, 0],
-  [5, 0], [5, 1], [5, 2], [5, 3],
-  [4, 0], [4, 1], [4, 2], [4, 3]
-];
+// 4D hypercube (tesseract) vertices
+const TESSERACT_VERTICES = [];
+for (const x of [-1, 1]) {
+  for (const y of [-1, 1]) {
+    for (const z of [-1, 1]) {
+      for (const w of [-1, 1]) {
+        TESSERACT_VERTICES.push([x, y, z, w]);
+      }
+    }
+  }
+}
+
+// 4D hypercube edges
+const TESSERACT_EDGES = [];
+for (let i = 0; i < 16; i++) {
+  for (let j = i + 1; j < 16; j++) {
+    let diff = 0;
+    for (let k = 0; k < 4; k++) {
+      if (TESSERACT_VERTICES[i][k] !== TESSERACT_VERTICES[j][k]) {
+        diff++;
+      }
+    }
+    if (diff === 1) {
+      TESSERACT_EDGES.push([i, j]);
+    }
+  }
+}
+
+// 4D Rotation Plane math
+function rotate4D(pt, thetaXY, thetaXZ, thetaXW, thetaYZ, thetaYW, thetaZW) {
+  let [x, y, z, w] = pt;
+
+  // XY plane rotation
+  let c = Math.cos(thetaXY), s = Math.sin(thetaXY);
+  let tmp = x * c - y * s;
+  y = x * s + y * c;
+  x = tmp;
+
+  // XZ plane rotation
+  c = Math.cos(thetaXZ); s = Math.sin(thetaXZ);
+  tmp = x * c - z * s;
+  z = x * s + z * c;
+  x = tmp;
+
+  // XW plane rotation
+  c = Math.cos(thetaXW); s = Math.sin(thetaXW);
+  tmp = x * c - w * s;
+  w = x * s + w * c;
+  x = tmp;
+
+  // YZ plane rotation
+  c = Math.cos(thetaYZ); s = Math.sin(thetaYZ);
+  tmp = y * c - z * s;
+  z = y * s + z * c;
+  y = tmp;
+
+  // YW plane rotation
+  c = Math.cos(thetaYW); s = Math.sin(thetaYW);
+  tmp = y * c - w * s;
+  w = y * s + w * c;
+  y = tmp;
+
+  // ZW plane rotation
+  c = Math.cos(thetaZW); s = Math.sin(thetaZW);
+  tmp = z * c - w * s;
+  w = z * s + w * c;
+  z = tmp;
+
+  return [x, y, z, w];
+}
 
 export class NeuralGraph {
   constructor(container) {
@@ -241,9 +297,10 @@ export class NeuralGraph {
     this.pulses = [];          // mini-map radial shockwaves
     this.synapsePulses = [];   // flowing packets
     this.bursts = [];          // glowing expanding rings
-    this.sparks = [];          // ambient floating dust particles
+    this.sparks = [];          // ambient gravitationally pulled particles
     this.lightnings = [];      // error lightning electric arcs
     this.spiralBeams = [];     // swap/assignment double helices
+    this.gridRipples = [];     // 3D grid elevation waves
     
     this.lastActiveDay = null; // source for flows
 
@@ -277,6 +334,12 @@ export class NeuralGraph {
     this.lastSwaps = '0';
     this.lastPct = '0%';
     this.lastPhase = 'init';
+
+    // Animations timestamps
+    this.entranceStartTime = performance.now();
+    this.successStartTime = null;
+    this.errorFlashActive = false;
+    this.errorFlashTime = 0;
 
     injectStyles();
     this.buildDOM();
@@ -396,9 +459,22 @@ export class NeuralGraph {
       cell.appendChild(slotsContainer);
       this.gridFloat.appendChild(cell);
 
-      this.cells.set(d, { el: cell, dSlot, dEmp, hgSlot, hgEmp });
+      this.cells.set(d, { 
+        el: cell, 
+        dSlot, 
+        dEmp, 
+        hgSlot, 
+        hgEmp,
+        currZ: 0,
+        currScale: 1.0,
+        currRotY: 0
+      });
       this.nodeFx.set(d, { glow: 0, color: [56, 189, 248], x: 0, y: 0, seed: Math.random() * 1000 });
     }
+
+    // Set timestamps for entrance flight animation
+    this.entranceStartTime = performance.now();
+    this.successStartTime = null;
 
     this.positionsDirty = true;
     this.resizeBgCanvas();
@@ -407,17 +483,38 @@ export class NeuralGraph {
 
   seedSparks() {
     this.sparks = [];
-    const n = 45;
+    const n = 65; // High particle density
     for (let i = 0; i < n; i++) {
-      this.sparks.push({
-        x: Math.random(),
-        y: Math.random(),
-        vx: (Math.random() - 0.5) * 0.0003,
-        vy: (Math.random() - 0.5) * 0.0003,
-        r: 0.6 + Math.random() * 1.5,
-        a: 0.15 + Math.random() * 0.35,
-      });
+      this.sparks.push(this.createSpark(true));
     }
+  }
+
+  createSpark(randomDist = false) {
+    const w = this.bgW || 800;
+    const h = this.bgH || 600;
+    const cx = this.coreX || w / 2;
+    const cy = this.coreY || h / 2;
+    
+    let x, y;
+    if (randomDist) {
+      x = Math.random() * w;
+      y = Math.random() * h;
+    } else {
+      // Spawn at the outer boundaries of the canvas
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Math.max(w, h) * (0.65 + Math.random() * 0.35);
+      x = cx + Math.cos(angle) * dist;
+      y = cy + Math.sin(angle) * dist;
+    }
+    
+    return {
+      x,
+      y,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      r: 0.6 + Math.random() * 1.6,
+      a: 0.15 + Math.random() * 0.5,
+    };
   }
 
   computeNodePositions() {
@@ -556,7 +653,7 @@ export class NeuralGraph {
       }
     };
     
-    generate(x1, y1, x2, y2, 24, 0);
+    generate(x1, y1, x2, y2, 28, 0);
     points.push({ x: x2, y: y2 });
     return points;
   }
@@ -573,38 +670,6 @@ export class NeuralGraph {
       }
     }
     return branches;
-  }
-
-  // --- 3D Rotation Utility --------------------------------------------------
-
-  rotatePoint(pt, rotX, rotY, rotZ) {
-    let [x, y, z] = pt;
-
-    // Rotate around X
-    const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
-    let y1 = y * cosX - z * sinX;
-    let z1 = y * sinX + z * cosX;
-
-    // Rotate around Y
-    const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-    let x2 = x * cosY + z1 * sinY;
-    let z2 = -x * sinY + z1 * cosY;
-
-    // Rotate around Z
-    const cosZ = Math.cos(rotZ), sinZ = Math.sin(rotZ);
-    let x3 = x2 * cosZ - y1 * sinZ;
-    let y3 = x2 * sinZ + y1 * cosZ;
-
-    return [x3, y3, z2];
-  }
-
-  // --- Telemetry Manager ----------------------------------------------------
-
-  addTelemetryLog(msg) {
-    this.telemetryQueue.push(msg);
-    if (this.telemetryQueue.length > 5) {
-      this.telemetryQueue.shift();
-    }
   }
 
   // --- Highlight & State Pulsing (DOM, API-compatible) ----------------------
@@ -629,7 +694,6 @@ export class NeuralGraph {
       const colorArr = isError ? PHASE_RGB.error : this.dutyColorArr(dutyType);
       const borderColor = `rgba(${colorArr[0]}, ${colorArr[1]}, ${colorArr[2]}, 0.95)`;
 
-      el.classList.remove('rest');
       el.classList.add(isError ? 'error' : 'pulse');
       el.style.setProperty('--pulse-color', borderColor);
       targetSlot.classList.add('is-pulsing');
@@ -653,7 +717,6 @@ export class NeuralGraph {
       }
     } else {
       el.classList.remove('pulse', 'error');
-      el.classList.add('rest');
       targetSlot.classList.remove('is-pulsing', 'active-hg', 'active-d');
 
       if (dutyType === 'HG') {
@@ -697,10 +760,26 @@ export class NeuralGraph {
         startY,
         endX: fx.x,
         endY: fx.y,
+        targetDay: dayIdx,
         progress: 0,
-        speed: 0.04,
-        color: this.dutyColorArr(dutyType)
+        speed: 0.042,
+        color: this.dutyColorArr(dutyType),
+        exploded: false
       });
+      
+      // Spawn ripple from swap origin
+      const col = (dayIdx - 1) % 7;
+      const row = Math.floor((dayIdx - 1) / 7);
+      this.gridRipples.push({
+        col,
+        row,
+        startTime: performance.now(),
+        amplitude: 50,
+        speed: 10,
+        width: 1.8,
+        duration: 1.2
+      });
+
       this.lastActiveDay = dayIdx;
     }
 
@@ -733,10 +812,26 @@ export class NeuralGraph {
         startY,
         endX: fx.x,
         endY: fx.y,
+        targetDay: dayIdx,
         progress: 0,
         speed: 0.045,
-        color: this.dutyColorArr(dutyType)
+        color: this.dutyColorArr(dutyType),
+        exploded: false
       });
+
+      // Spawn ripple from assignment origin
+      const col = (dayIdx - 1) % 7;
+      const row = Math.floor((dayIdx - 1) / 7);
+      this.gridRipples.push({
+        col,
+        row,
+        startTime: performance.now(),
+        amplitude: 45,
+        speed: 10,
+        width: 1.8,
+        duration: 1.2
+      });
+
       this.lastActiveDay = dayIdx;
     }
 
@@ -767,23 +862,86 @@ export class NeuralGraph {
       const startX = this.coreX || 300;
       const startY = this.coreY || 200;
       
-      // Spawn lightning electric arc + branches
+      // Spawn multiple branching lightnings to the cell and its adjacent cells
       this.lightnings.push({
         targetDay: dayIdx,
-        startX,
-        startY,
-        endX: fx.x,
-        endY: fx.y,
-        life: 1.0,
-        decay: 0.065,
+        startX, startY, endX: fx.x, endY: fx.y,
+        life: 1.0, decay: 0.05 + Math.random() * 0.02,
         points: this.generateLightningPoints(startX, startY, fx.x, fx.y),
         branches: this.generateBranches(dayIdx, fx.x, fx.y)
       });
+      
+      this.lightnings.push({
+        targetDay: dayIdx,
+        startX, startY, endX: fx.x, endY: fx.y,
+        life: 0.9, decay: 0.06 + Math.random() * 0.02,
+        points: this.generateLightningPoints(startX, startY, fx.x, fx.y),
+        branches: []
+      });
+
+      // Sparks to adjacent neighbors
+      const neighbors = [dayIdx - 1, dayIdx + 1, dayIdx - 7, dayIdx + 7];
+      for (const n of neighbors) {
+        if (this.nodeFx.has(n) && Math.random() < 0.65) {
+          const nFx = this.nodeFx.get(n);
+          if (nFx && nFx.x) {
+            // Core to adjacent
+            this.lightnings.push({
+              targetDay: n,
+              startX, startY, endX: nFx.x, endY: nFx.y,
+              life: 0.75, decay: 0.07,
+              points: this.generateLightningPoints(startX, startY, nFx.x, nFx.y),
+              branches: []
+            });
+            // Primary to adjacent
+            this.lightnings.push({
+              targetDay: n,
+              startX: fx.x, startY: fx.y, endX: nFx.x, endY: nFx.y,
+              life: 0.8, decay: 0.08,
+              points: this.generateLightningPoints(fx.x, fx.y, nFx.x, nFx.y),
+              branches: []
+            });
+          }
+        }
+      }
+
+      // Spawn violent grid ripple starting from error origin
+      const col = (dayIdx - 1) % 7;
+      const row = Math.floor((dayIdx - 1) / 7);
+      this.gridRipples.push({
+        col,
+        row,
+        startTime: performance.now(),
+        amplitude: 75,
+        speed: 12,
+        width: 2.2,
+        duration: 1.4
+      });
+
       this.lastActiveDay = dayIdx;
     }
 
     this.pulseCell(dayIdx, empId, true, true, dutyType);
     this.fireMiniMapPulse(true);
+
+    // Brief red viewport flash
+    const flash = document.createElement('div');
+    flash.style.position = 'fixed';
+    flash.style.inset = '0';
+    flash.style.backgroundColor = 'rgba(239, 68, 68, 0.45)';
+    flash.style.zIndex = '999999';
+    flash.style.pointerEvents = 'none';
+    flash.style.transition = 'opacity 0.3s ease-out';
+    flash.style.opacity = '1';
+    document.body.appendChild(flash);
+    
+    // Force reflow
+    flash.getBoundingClientRect();
+    flash.style.opacity = '0';
+    setTimeout(() => { flash.remove(); }, 300);
+
+    this.errorFlashActive = true;
+    this.errorFlashTime = performance.now();
 
     // Trigger screen glitch, wobble & HUD surge
     this.glitchActive = true;
@@ -832,12 +990,12 @@ export class NeuralGraph {
 
     if (this.positionsDirty) this.computeNodePositions();
 
-    // Spawn massive success shockwave from center Quantum Core
+    // Spawn massive success shockwave from center Accretion Core
     this.spawnBurst(
       this.coreX || 300, 
       this.coreY || 200, 
       PHASE_RGB.success, 
-      Math.max(this.bgW || 800, this.bgH || 600) * 1.2
+      Math.max(this.bgW || 800, this.bgH || 600) * 1.3
     );
 
     // Cascading network activation pulse
@@ -845,7 +1003,6 @@ export class NeuralGraph {
     for (const [dayIdx, cellData] of this.cells.entries()) {
       if (cellData.dSlot.classList.contains('has-val') || cellData.hgSlot.classList.contains('has-val')) {
         setTimeout(() => {
-          cellData.el.classList.remove('rest');
           cellData.el.classList.add('pulse');
           cellData.el.style.setProperty('--pulse-color', this.getPhaseColor(0.95));
           this.igniteNode(dayIdx, PHASE_RGB.success, 1.2);
@@ -853,11 +1010,51 @@ export class NeuralGraph {
         
         setTimeout(() => {
           cellData.el.classList.remove('pulse');
-          cellData.el.classList.add('rest');
         }, delay + 650);
-        delay += 16;
+        delay += 14;
       }
     }
+
+    // Success matrix rain overlay inside each cell
+    for (const [dayIdx, cellData] of this.cells.entries()) {
+      const cellEl = cellData.el;
+      if (!cellEl.querySelector('.ng-cell-matrix-canvas')) {
+        const matrixCanvas = document.createElement('canvas');
+        matrixCanvas.className = 'ng-cell-matrix-canvas';
+        cellEl.appendChild(matrixCanvas);
+        
+        const dpr = window.devicePixelRatio || 1;
+        const rect = cellEl.getBoundingClientRect();
+        const cw = rect.width || 120;
+        const ch = rect.height || 160;
+        matrixCanvas.width = cw * dpr;
+        matrixCanvas.height = ch * dpr;
+        
+        const mCtx = matrixCanvas.getContext('2d');
+        mCtx.scale(dpr, dpr);
+        
+        const fontSize = 8;
+        const colsCount = Math.ceil(cw / fontSize);
+        const drops = [];
+        for (let c = 0; c < colsCount; c++) {
+          drops.push(Math.random() * -30);
+        }
+        
+        cellData.matrixCanvas = matrixCanvas;
+        cellData.matrixCtx = mCtx;
+        cellData.matrixDrops = drops;
+        cellData.matrixWidth = cw;
+        cellData.matrixHeight = ch;
+      }
+      
+      // Fade in the cell matrix canvases overlay
+      setTimeout(() => {
+        const mCanvas = cellEl.querySelector('.ng-cell-matrix-canvas');
+        if (mCanvas) mCanvas.style.opacity = '0.85';
+      }, 800);
+    }
+
+    this.successStartTime = performance.now();
 
     // Mini-map diagnostic HUD visual surge sequence
     for (let p = 0; p < 24; p++) {
@@ -890,13 +1087,128 @@ export class NeuralGraph {
     const h = this.bgH;
     const time = (performance.now() - this.t0) / 1000;
     const [pr, pg, pb] = this.phaseColorArr();
+    const now = performance.now();
 
     ctx.clearRect(0, 0, w, h);
 
-    // Dynamic tilted grid floating state in JS
-    const rotX = 18 + Math.sin(time * 0.4) * 3;
-    const rotY = -8 + Math.cos(time * 0.5) * 2;
-    this.gridFloat.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+    // Compute cell height offsets based on grid ripples
+    const cellElevations = new Map();
+    for (const d of this.cells.keys()) {
+      cellElevations.set(d, 0);
+    }
+
+    for (let i = this.gridRipples.length - 1; i >= 0; i--) {
+      const rip = this.gridRipples[i];
+      const dt = (now - rip.startTime) / 1000;
+      if (dt > rip.duration) {
+        this.gridRipples.splice(i, 1);
+        continue;
+      }
+      const currentRadius = rip.speed * dt;
+      const fade = 1 - dt / rip.duration; // ripple decay
+      
+      for (const [d, cellData] of this.cells.entries()) {
+        const col = (d - 1) % 7;
+        const row = Math.floor((d - 1) / 7);
+        const dx = col - rip.col;
+        const dy = row - rip.row;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        const distToFront = Math.abs(dist - currentRadius);
+        if (distToFront < rip.width) {
+          const strength = (1 + Math.cos((distToFront / rip.width) * Math.PI)) / 2;
+          const elevation = rip.amplitude * strength * fade;
+          cellElevations.set(d, cellElevations.get(d) + elevation);
+        }
+      }
+    }
+
+    // 1. Grid Entrance and Success Y-Flip Transformation
+    const entranceElapsed = (now - this.entranceStartTime) / 1000;
+    const entranceDuration = 1.6;
+    const tEntrance = Math.min(1.0, entranceElapsed / entranceDuration);
+    
+    // Easing: easeOutBack
+    const easeOutBack = (x) => {
+      const c1 = 1.70158;
+      const c3 = c1 + 1;
+      return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+    };
+    const easeEntrance = easeOutBack(tEntrance);
+    
+    const startZ = -500;
+    const startRotX = 45;
+    const startRotY = -45;
+    const startScale = 0.5;
+    
+    const hoverRotX = 18 + Math.sin(time * 0.4) * 3;
+    const hoverRotY = -8 + Math.cos(time * 0.5) * 2;
+    
+    const currentZ = startZ * (1 - easeEntrance);
+    const currentScale = startScale + (1 - startScale) * easeEntrance;
+    const currentRotX = startRotX * (1 - easeEntrance) + hoverRotX * easeEntrance;
+    const currentRotY = startRotY * (1 - easeEntrance) + hoverRotY * easeEntrance;
+    
+    let yFlip = 0;
+    if (this.successStartTime) {
+      const successElapsed = (now - this.successStartTime) / 1000;
+      const successDuration = 2.0;
+      const tSuccess = Math.min(1.0, successElapsed / successDuration);
+      const easeSuccess = 1 - Math.pow(1 - tSuccess, 3); // easeOutCubic
+      yFlip = easeSuccess * 360;
+    }
+    
+    this.gridFloat.style.transform = `translate3d(0, 0, ${currentZ}px) scale(${currentScale}) rotateX(${currentRotX}deg) rotateY(${currentRotY + yFlip}deg)`;
+
+    // Update each cell style using JS LERP state transitions
+    for (const [d, cellData] of this.cells.entries()) {
+      const el = cellData.el;
+      const isPulse = el.classList.contains('pulse');
+      const isError = el.classList.contains('error');
+      
+      const targetZ = isPulse ? 55 : (isError ? 45 : 0);
+      const targetScale = isPulse ? 1.06 : (isError ? 1.05 : 1.0);
+      const targetRotY = isError ? 6 : 0;
+      
+      cellData.currZ = cellData.currZ * 0.82 + targetZ * 0.18;
+      cellData.currScale = cellData.currScale * 0.82 + targetScale * 0.18;
+      cellData.currRotY = cellData.currRotY * 0.82 + targetRotY * 0.18;
+      
+      const rippleZ = cellElevations.get(d) || 0;
+      const finalZ = cellData.currZ + rippleZ;
+      
+      el.style.transform = `translateZ(${finalZ}px) scale(${cellData.currScale}) rotateY(${cellData.currRotY}deg)`;
+    }
+
+    // Success cell matrix rain drawing
+    if (this.phase === 'success') {
+      for (const [dayIdx, cellData] of this.cells.entries()) {
+        const mCtx = cellData.matrixCtx;
+        if (!mCtx) continue;
+        const cw = cellData.matrixWidth;
+        const ch = cellData.matrixHeight;
+        const drops = cellData.matrixDrops;
+        
+        mCtx.fillStyle = 'rgba(0, 0, 0, 0.08)'; // trails
+        mCtx.fillRect(0, 0, cw, ch);
+        
+        mCtx.font = '8px monospace';
+        mCtx.fillStyle = '#22c55e'; // neon green matrix rain
+        
+        for (let c = 0; c < drops.length; c++) {
+          const text = charSet[Math.floor(Math.random() * charSet.length)];
+          const x = c * 8;
+          const y = drops[c] * 8;
+          
+          mCtx.fillText(text, x, y);
+          
+          if (y > ch && Math.random() > 0.975) {
+            drops[c] = 0;
+          }
+          drops[c] += 0.8;
+        }
+      }
+    }
 
     // Aurora Core Glow backplane
     const aur = ctx.createRadialGradient(w / 2, h * 0.4, 0, w / 2, h * 0.4, Math.max(w, h) * 0.7);
@@ -905,24 +1217,59 @@ export class NeuralGraph {
     ctx.fillStyle = aur;
     ctx.fillRect(0, 0, w, h);
 
-    // Draw ambient floating dust
-    ctx.save();
-    for (const s of this.sparks) {
-      s.x += s.vx; 
-      s.y += s.vy;
-      if (s.x < 0) s.x = 1; 
-      if (s.x > 1) s.x = 0;
-      if (s.y < 0) s.y = 1; 
-      if (s.y > 1) s.y = 0;
-      ctx.beginPath();
-      ctx.arc(s.x * w, s.y * h, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${pr}, ${pg}, ${pb}, ${s.a * (0.4 + 0.6 * Math.sin(time * 1.5 + s.x * 20))})`;
-      ctx.fill();
+    // Draw viewport warning red flash on canvas
+    if (this.errorFlashActive) {
+      const elapsedFlash = (now - this.errorFlashTime) / 1000;
+      if (elapsedFlash < 0.35) {
+        const flashAlpha = 0.42 * (1 - elapsedFlash / 0.35);
+        ctx.fillStyle = `rgba(239, 68, 68, ${flashAlpha})`;
+        ctx.fillRect(0, 0, w, h);
+      } else {
+        this.errorFlashActive = false;
+      }
     }
-    ctx.restore();
 
     const cx = this.coreX || w / 2;
     const cy = this.coreY || h / 2;
+
+    // Draw ambient sparks pulled towards the accretion core
+    ctx.save();
+    for (let i = 0; i < this.sparks.length; i++) {
+      const s = this.sparks[i];
+      const dx = cx - s.x;
+      const dy = cy - s.y;
+      const distSq = dx * dx + dy * dy;
+      const dist = Math.sqrt(distSq);
+      
+      if (dist < 15) {
+        // Swallowed by accretion core singularity, respawn at border
+        this.sparks[i] = this.createSpark(false);
+        continue;
+      }
+      
+      // Gravitational acceleration: G / r^2
+      const gravity = 120 / (distSq + 2500);
+      s.vx += (dx / dist) * gravity;
+      s.vy += (dy / dist) * gravity;
+      
+      // Friction/drag
+      s.vx *= 0.975;
+      s.vy *= 0.975;
+      
+      s.x += s.vx;
+      s.y += s.vy;
+      
+      if (s.x < -100 || s.x > w + 100 || s.y < -100 || s.y > h + 100) {
+        this.sparks[i] = this.createSpark(false);
+        continue;
+      }
+
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${pr}, ${pg}, ${pb}, ${s.a * (0.4 + 0.6 * Math.sin(time * 1.5 + s.x * 0.05))})`;
+      ctx.fill();
+    }
+    ctx.restore();
 
     // Draw 3D rotating particle constellation
     const fov = 350;
@@ -983,7 +1330,7 @@ export class NeuralGraph {
     }
     ctx.restore();
 
-    // Draw energy synapse lines connecting cells to center Quantum Core
+    // Draw energy synapse lines connecting cells to center Accretion Core
     ctx.save();
     ctx.lineWidth = 0.8;
     for (const [, fx] of this.nodeFx.entries()) {
@@ -1024,11 +1371,33 @@ export class NeuralGraph {
     }
     ctx.restore();
 
-    // Draw double helix spiral beams for swaps/assignments
+    // Draw double helix spiral beams for swaps/assignments (Dense)
     ctx.save();
     for (let i = this.spiralBeams.length - 1; i >= 0; i--) {
       const beam = this.spiralBeams[i];
       beam.progress += beam.speed;
+
+      // On arrival, trigger a burst explosion shockwave on target cell
+      if (beam.progress >= 1.0 && !beam.exploded) {
+        beam.exploded = true;
+        this.spawnBurst(beam.endX, beam.endY, beam.color, 55);
+        
+        // Spawn grid ripple wave starting from target cell
+        if (beam.targetDay) {
+          const col = (beam.targetDay - 1) % 7;
+          const row = Math.floor((beam.targetDay - 1) / 7);
+          this.gridRipples.push({
+            col,
+            row,
+            startTime: performance.now(),
+            amplitude: 45,
+            speed: 10,
+            width: 1.8,
+            duration: 1.2
+          });
+        }
+      }
+
       if (beam.progress >= 1.25) {
         this.spiralBeams.splice(i, 1);
         continue;
@@ -1047,22 +1416,23 @@ export class NeuralGraph {
       const [br, bg, bb] = beam.color;
       const maxT = Math.min(1.0, beam.progress);
       
-      for (let t = 0.0; t <= maxT; t += 0.015) {
+      // Step size is 0.007 for double particle density
+      for (let t = 0.0; t <= maxT; t += 0.007) {
         const theta = t * 7 * Math.PI + time * 18;
-        const radius = 11 * Math.sin(t * Math.PI); 
+        const radius = 12 * Math.sin(t * Math.PI); 
         const offset = Math.sin(theta) * radius;
         const depth = Math.cos(theta);
         
         const age = beam.progress - t; 
-        const fade = Math.max(0, 1 - age * 3.8); 
+        const fade = Math.max(0, 1 - age * 3.2); // trail decay
         if (fade <= 0) continue;
         
         const bx = beam.startX + t * dx + nx * offset;
         const by = beam.startY + t * dy + ny * offset;
         
         // Helix 1 dot
-        const pSize1 = (1.2 + (depth + 1) * 0.9) * fade;
-        const alpha1 = (0.2 + (depth + 1) * 0.35) * fade;
+        const pSize1 = (1.5 + (depth + 1) * 1.0) * fade;
+        const alpha1 = (0.25 + (depth + 1) * 0.4) * fade;
         ctx.beginPath();
         ctx.arc(bx, by, pSize1, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(${br}, ${bg}, ${bb}, ${alpha1})`;
@@ -1072,8 +1442,8 @@ export class NeuralGraph {
         const bx2 = beam.startX + t * dx - nx * offset;
         const by2 = beam.startY + t * dy - ny * offset;
         const depth2 = -depth;
-        const pSize2 = (1.2 + (depth2 + 1) * 0.9) * fade;
-        const alpha2 = (0.2 + (depth2 + 1) * 0.35) * fade;
+        const pSize2 = (1.5 + (depth2 + 1) * 1.0) * fade;
+        const alpha2 = (0.25 + (depth2 + 1) * 0.4) * fade;
         ctx.beginPath();
         ctx.arc(bx2, by2, pSize2, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(${br}, ${bg}, ${bb}, ${alpha2})`;
@@ -1187,41 +1557,86 @@ export class NeuralGraph {
     }
     ctx.restore();
 
-    // Draw glowing Quantum Core
-    const corePulse = 0.5 + 0.5 * Math.sin(time * 3);
-    const coreR = 10 + corePulse * 3.5 + this.synapsePulses.length * 0.5;
-    const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR * 3);
-    coreGrad.addColorStop(0, `rgba(255, 255, 255, 0.96)`);
-    coreGrad.addColorStop(0.2, `rgba(${pr}, ${pg}, ${pb}, 0.9)`);
-    coreGrad.addColorStop(0.65, `rgba(${pr}, ${pg}, ${pb}, 0.22)`);
-    coreGrad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = coreGrad;
+    // Draw Quantum Accretion Core (singularity + plasma disk + flares)
+    this.drawAccretionCore(ctx, cx, cy, time, [pr, pg, pb]);
+  }
+
+  drawAccretionCore(ctx, cx, cy, time, colorArr) {
+    const [pr, pg, pb] = colorArr;
+    const baseColor = `rgba(${pr}, ${pg}, ${pb}`;
+    
+    // Core expansion pulse based on synapses loading in
+    const corePulse = Math.sin(time * 4) * 0.1 + 0.9;
+    const glowRadius = 45 * corePulse;
+    
+    // 1. Gravitational Halo Gradient
+    const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, glowRadius);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.15, `${baseColor}, 0.9)`);
+    grad.addColorStop(0.4, `${baseColor}, 0.3)`);
+    grad.addColorStop(0.75, `${baseColor}, 0.08)`);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(cx, cy, coreR * 3, 0, Math.PI * 2);
+    ctx.arc(cx, cy, glowRadius, 0, Math.PI * 2);
     ctx.fill();
-
-    // Concentric ring 1: dashed rotating
+    
+    // 2. Rotating Plasma Accretion Rings
+    const numRings = 4;
+    for (let i = 0; i < numRings; i++) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      const angle = time * (0.8 + i * 0.4) * (i % 2 === 0 ? 1 : -1);
+      ctx.rotate(angle);
+      
+      const r = 20 + i * 12;
+      ctx.strokeStyle = `${baseColor}, ${0.15 + (numRings - i) * 0.15})`;
+      ctx.lineWidth = 1.5 + (numRings - i) * 0.8;
+      
+      ctx.beginPath();
+      const arcStart = Math.sin(time + i) * Math.PI;
+      const arcEnd = arcStart + Math.PI * (0.4 + 0.8 * Math.cos(time * 0.5 + i));
+      ctx.arc(0, 0, r, arcStart, arcEnd);
+      ctx.stroke();
+      ctx.restore();
+    }
+    
+    // 3. Dynamic Flare Lines of Variable Lengths
     ctx.save();
     ctx.translate(cx, cy);
-    ctx.rotate(time * 0.5);
-    ctx.strokeStyle = `rgba(${pr}, ${pg}, ${pb}, 0.5)`;
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([coreR * 0.6, coreR * 0.9]);
-    ctx.beginPath();
-    ctx.arc(0, 0, coreR + 6, 0, Math.PI * 2);
-    ctx.stroke();
+    const numFlares = 36;
+    for (let i = 0; i < numFlares; i++) {
+      const angle = (i * Math.PI * 2) / numFlares + Math.sin(time * 0.1 + i) * 0.05;
+      const flareLength = 25 + Math.sin(time * 8 + i * 5) * 15 + Math.random() * 5;
+      const startDist = 12 + Math.cos(time * 4 + i) * 2;
+      
+      const x1 = Math.cos(angle) * startDist;
+      const y1 = Math.sin(angle) * startDist;
+      const x2 = Math.cos(angle) * (startDist + flareLength);
+      const y2 = Math.sin(angle) * (startDist + flareLength);
+      
+      const flareGrad = ctx.createLinearGradient(x1, y1, x2, y2);
+      flareGrad.addColorStop(0, '#ffffff');
+      flareGrad.addColorStop(0.3, `${baseColor}, 0.75)`);
+      flareGrad.addColorStop(1, `${baseColor}, 0)`);
+      
+      ctx.strokeStyle = flareGrad;
+      ctx.lineWidth = i % 3 === 0 ? 1.5 : 0.8;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
     ctx.restore();
-
-    // Concentric ring 2: solid rotating opposite
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(-time * 0.35);
-    ctx.strokeStyle = `rgba(${pr}, ${pg}, ${pb}, 0.35)`;
-    ctx.lineWidth = 1.0;
+    
+    // 4. Singularity Center Black Core with Intense Rim
     ctx.beginPath();
-    ctx.arc(0, 0, coreR + 13, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+    ctx.fillStyle = '#000000';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.2;
     ctx.stroke();
-    ctx.restore();
   }
 
   // --- Diagnostics HUD Renderer ---------------------------------------------
@@ -1240,15 +1655,51 @@ export class NeuralGraph {
 
     ctx.save();
 
-    // Apply temporary glitches
+    // Horizontal slice tearing glitches on error
     if (this.glitchActive || this.phase === 'error') {
-      ctx.translate((Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3);
+      ctx.translate((Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4);
     }
 
     ctx.fillStyle = '#040A15';
     ctx.fillRect(0, 0, w, h);
 
-    // Setup bounds
+    // 1. Matrix Digital Rain in the Background of the HUD
+    if (!this.hudMatrixColumns || this.hudMatrixColumnsWidth !== w) {
+      const colWidth = 6;
+      const numCols = Math.ceil(w / colWidth);
+      this.hudMatrixColumns = [];
+      for (let i = 0; i < numCols; i++) {
+        this.hudMatrixColumns.push({
+          y: Math.random() * -h,
+          speed: 1.0 + Math.random() * 1.8,
+        });
+      }
+      this.hudMatrixColumnsWidth = w;
+    }
+
+    ctx.save();
+    ctx.font = '6px monospace';
+    for (let i = 0; i < this.hudMatrixColumns.length; i++) {
+      const col = this.hudMatrixColumns[i];
+      col.y += col.speed;
+      if (col.y > h + 50) {
+        col.y = 0;
+        col.speed = 1.0 + Math.random() * 1.8;
+      }
+      const colX = i * 6;
+      for (let j = 0; j < 8; j++) {
+        const charY = col.y - j * 7;
+        if (charY > 0 && charY < h) {
+          const char = charSet[Math.floor(Math.random() * charSet.length)];
+          const alpha = 0.08 * (1 - j / 8);
+          ctx.fillStyle = `rgba(34, 197, 94, ${alpha})`;
+          ctx.fillText(char, colX, charY);
+        }
+      }
+    }
+    ctx.restore();
+
+    // Setup HUD Radar layout bounds
     const centerRadarX = w > 120 ? 40 : w / 2;
     const centerRadarY = h / 2;
     const R_radar = w > 120 ? Math.min(32, h / 2 - 4) : Math.min(w, h) / 2 - 4;
@@ -1282,7 +1733,7 @@ export class NeuralGraph {
     ctx.stroke();
     ctx.restore();
 
-    // Concentric reticle 2: Tick marks ring rotating opposite
+    // Concentric reticle 2: Ticks ring rotating opposite
     ctx.save();
     ctx.strokeStyle = `rgba(${pr}, ${pg}, ${pb}, 0.45)`;
     ctx.lineWidth = 1;
@@ -1297,58 +1748,84 @@ export class NeuralGraph {
     }
     ctx.restore();
 
-    // Update 3D wireframe rotation
+    // 2. Surge tesseract spinning speed
     this.hudRotX += this.hudRotSpeed;
     this.hudRotY += this.hudRotSpeed * 1.5;
     this.hudRotZ += this.hudRotSpeed * 0.7;
     // Decays speed towards baseline
     this.hudRotSpeed = this.hudRotSpeed * 0.95 + 0.012 * 0.05;
 
-    // Project 3D Nested Wireframe (Cube + Octahedron)
-    const fov = 100;
+    // Project Nested 3D Tesseract Hypercube (Multi-axis rotation + chromatic aberration)
+    const wireframeScale = R_radar * 0.5;
+
+    const projectTesseract = (scaleFactor) => {
+      // Rotate 4D hypercube angles
+      const thetaXY = time * 0.4 * (this.hudRotSpeed * 12);
+      const thetaXZ = time * 0.3 * (this.hudRotSpeed * 12);
+      const thetaXW = time * 0.2 * (this.hudRotSpeed * 12);
+      const thetaYZ = time * 0.5 * (this.hudRotSpeed * 12);
+      const thetaYW = time * 0.1 * (this.hudRotSpeed * 12);
+      const thetaZW = time * 0.25 * (this.hudRotSpeed * 12);
+
+      return TESSERACT_VERTICES.map(v => {
+        const sv = [v[0] * scaleFactor, v[1] * scaleFactor, v[2] * scaleFactor, v[3] * scaleFactor];
+        const [rx, ry, rz, rw] = rotate4D(sv, thetaXY, thetaXZ, thetaXW, thetaYZ, thetaYW, thetaZW);
+        
+        // 4D to 3D perspective
+        const distance4D = 2.0;
+        const factor4D = 1 / (distance4D - rw / (scaleFactor * 1.5));
+        const x3d = rx * factor4D;
+        const y3d = ry * factor4D;
+        const z3d = rz * factor4D;
+        
+        // 3D to 2D
+        const distance3D = 300;
+        const factor3D = distance3D / (distance3D + z3d);
+        
+        return {
+          x: centerRadarX + x3d * factor3D,
+          y: centerRadarY + y3d * factor3D,
+          z: z3d
+        };
+      });
+    };
+
+    const innerProj = projectTesseract(wireframeScale * 0.5);
+    const outerProj = projectTesseract(wireframeScale);
+
+    const drawWireframe = (projPoints, edges, color, offsetX = 0) => {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 0.8;
+      for (const edge of edges) {
+        const p1 = projPoints[edge[0]];
+        const p2 = projPoints[edge[1]];
+        ctx.beginPath();
+        ctx.moveTo(p1.x + offsetX, p1.y);
+        ctx.lineTo(p2.x + offsetX, p2.y);
+        ctx.stroke();
+      }
+    };
+
+    // Rendering with Chromatic Aberration offsets
+    ctx.save();
+    // Red Channel
+    drawWireframe(innerProj, TESSERACT_EDGES, 'rgba(239, 68, 68, 0.45)', -1.2);
+    drawWireframe(outerProj, TESSERACT_EDGES, 'rgba(239, 68, 68, 0.65)', -1.5);
+    // Blue Channel
+    drawWireframe(innerProj, TESSERACT_EDGES, 'rgba(14, 165, 233, 0.45)', 1.2);
+    drawWireframe(outerProj, TESSERACT_EDGES, 'rgba(14, 165, 233, 0.65)', 1.5);
+    // Green/White Base Overlay
+    drawWireframe(innerProj, TESSERACT_EDGES, 'rgba(255, 255, 255, 0.7)');
+    drawWireframe(outerProj, TESSERACT_EDGES, 'rgba(255, 255, 255, 0.8)');
     
-    // Project Inner Cube
-    const projCube = CUBE_VERTICES.map(v => {
-      const sv = [v[0] * 11, v[1] * 11, v[2] * 11];
-      const [rx, ry, rz] = this.rotatePoint(sv, this.hudRotX, this.hudRotY, this.hudRotZ);
-      const zoom = fov / (fov + rz);
-      return { x: centerRadarX + rx * zoom, y: centerRadarY + ry * zoom };
-    });
-
-    // Project Outer Octahedron
-    const projOcta = OCTA_VERTICES.map(v => {
-      const sv = [v[0] * 16, v[1] * 16, v[2] * 16];
-      const [rx, ry, rz] = this.rotatePoint(sv, this.hudRotX, this.hudRotY, this.hudRotZ);
-      const zoom = fov / (fov + rz);
-      return { x: centerRadarX + rx * zoom, y: centerRadarY + ry * zoom };
-    });
-
-    // Draw cube lines
-    ctx.lineWidth = 0.9;
-    ctx.strokeStyle = `rgba(${pr}, ${pg}, ${pb}, 0.45)`;
-    for (const edge of CUBE_EDGES) {
-      ctx.beginPath();
-      ctx.moveTo(projCube[edge[0]].x, projCube[edge[0]].y);
-      ctx.lineTo(projCube[edge[1]].x, projCube[edge[1]].y);
-      ctx.stroke();
-    }
-
-    // Draw octahedron lines
-    ctx.strokeStyle = `rgba(${pr}, ${pg}, ${pb}, 0.75)`;
-    for (const edge of OCTA_EDGES) {
-      ctx.beginPath();
-      ctx.moveTo(projOcta[edge[0]].x, projOcta[edge[0]].y);
-      ctx.lineTo(projOcta[edge[1]].x, projOcta[edge[1]].y);
-      ctx.stroke();
-    }
-
-    // Draw tiny vertex dots
+    // Tiny vertex glowing points
     ctx.fillStyle = '#ffffff';
-    for (const p of projOcta) {
+    for (const p of outerProj) {
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 1.2, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, 1.0, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.restore();
 
     // Draw mini-map energy shockwaves
     for (let i = this.pulses.length - 1; i >= 0; i--) {
@@ -1367,9 +1844,8 @@ export class NeuralGraph {
       ctx.shadowBlur = 0;
     }
 
-    // Render Right Panel (Telemetry & Spectrum) if space is available
+    // Render Right Panel (Telemetry & Neon Spectrum Bars)
     if (w > 120) {
-      // Poll DOM stats to update telemetry queue
       this.frameCount++;
       if (this.frameCount % 8 === 0) {
         const bdEl = document.getElementById('ap-ls-bd');
@@ -1416,7 +1892,7 @@ export class NeuralGraph {
         }
       }
 
-      // Draw digital telemetry text
+      // Draw digital telemetry log lines
       const prColor = `rgba(${pr}, ${pg}, ${pb}, 0.85)`;
       ctx.font = '8px monospace';
       ctx.fillStyle = prColor;
@@ -1429,7 +1905,7 @@ export class NeuralGraph {
         ctx.fillText(this.telemetryQueue[j], xStart, yStart + j * 9);
       }
 
-      // Render bouncing neon frequency spectrum analyzer
+      // 3. Neon frequency bars with floating peak indicator dots that decay slowly
       const spectrumY = h - 16;
       const spectrumH = 10;
       const numBars = 9;
@@ -1438,6 +1914,11 @@ export class NeuralGraph {
 
       // Spectrum surge decay
       this.hudSpectrumSurge *= 0.92;
+
+      if (!this.hudSpectrumPeaks) {
+        this.hudSpectrumPeaks = new Array(numBars).fill(spectrumY + spectrumH);
+        this.hudSpectrumPeakDecay = new Array(numBars).fill(0);
+      }
 
       for (let j = 0; j < numBars; j++) {
         let val = 0.15 + 0.35 * Math.sin(time * 4.5 + j * 1.3);
@@ -1448,25 +1929,51 @@ export class NeuralGraph {
         const h_bar = Math.max(2, val * spectrumH);
         const bx = xStart + j * (barW + gap);
         const by = spectrumY + spectrumH - h_bar;
-        
+
         ctx.fillStyle = `rgba(${pr}, ${pg}, ${pb}, ${0.5 + val * 0.5})`;
         ctx.fillRect(bx, by, barW, h_bar);
+
+        // Peak Tracker
+        const currentPeakY = by;
+        if (this.hudSpectrumPeaks[j] > currentPeakY) {
+          this.hudSpectrumPeaks[j] = currentPeakY;
+          this.hudSpectrumPeakDecay[j] = 0; // reset speed
+        } else {
+          this.hudSpectrumPeakDecay[j] += 0.04; // gravity decay acceleration
+          this.hudSpectrumPeaks[j] = Math.min(spectrumY + spectrumH, this.hudSpectrumPeaks[j] + this.hudSpectrumPeakDecay[j]);
+        }
+
+        // Draw Peak Indicator Dot
+        if (this.hudSpectrumPeaks[j] < spectrumY + spectrumH) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(bx, this.hudSpectrumPeaks[j] - 1.5, barW, 1);
+        }
       }
     }
 
-    // Apply slice shifting glitch offset
-    if (this.glitchActive && Math.random() < 0.4) {
-      const sliceY = Math.floor(Math.random() * h);
-      const sliceH = 4 + Math.random() * 12;
-      const shiftX = (Math.random() - 0.5) * 8;
-      ctx.drawImage(
-        this.miniMapCanvas,
-        0, sliceY * dpr, w * dpr, sliceH * dpr,
-        shiftX, sliceY, w, sliceH
-      );
+    // 4. Glitch tearing effects that shift horizontal slices of the canvas on error
+    if (this.glitchActive) {
+      const numTears = 3 + Math.floor(Math.random() * 4);
+      for (let k = 0; k < numTears; k++) {
+        const sliceY = Math.floor(Math.random() * h);
+        const sliceH = 2 + Math.floor(Math.random() * 18);
+        const shiftX = (Math.random() - 0.5) * 16;
+        ctx.drawImage(
+          this.miniMapCanvas,
+          0, sliceY * dpr, w * dpr, sliceH * dpr,
+          shiftX, sliceY, w, sliceH
+        );
+      }
     }
 
     ctx.restore();
+  }
+
+  addTelemetryLog(msg) {
+    this.telemetryQueue.push(msg);
+    if (this.telemetryQueue.length > 5) {
+      this.telemetryQueue.shift();
+    }
   }
 
   // --- Destructor -----------------------------------------------------------
@@ -1494,6 +2001,7 @@ export class NeuralGraph {
     this.sparks = [];
     this.lightnings = [];
     this.spiralBeams = [];
+    this.gridRipples = [];
     this.constellationParticles = [];
   }
 }
