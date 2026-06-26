@@ -10,6 +10,7 @@ import {
   isNoBdWeekday,
   isNoHgFromAaWeekday,
   isSaturdayUltimaRatio,
+  getSurplusBdPreferenceRank,
   needsSaturdayFza,
   getCtLeadershipPartner,
   getHgConflictBd,
@@ -1033,6 +1034,25 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     if (currentBD[emp] >= bdTarget[emp]) {
       score -= 50000 * (currentBD[emp] - bdTarget[emp] + 1);
       tags.push("Soll überschritten");
+
+      // Überhang-Präferenz: Ist eine faire Verteilung erreicht (alle am Ziel)
+      // und MUSS dennoch jemand einen Dienst über dem Ziel übernehmen, so
+      // erhält Dr. Lurz den ERSTEN solchen Dienst (den fünften), sofern keine
+      // BD-Wünsche anderer Personen für genau diesen Tag etwas anderes
+      // festlegen. Der Bonus greift nur exakt beim Schritt Ziel -> Ziel+1
+      // (diff === 0), nicht für weitere Überhang-Dienste, und ist klein genug,
+      // um unter-Ziel-Kandidaten niemals zu verdrängen.
+      const surplusRank = getSurplusBdPreferenceRank(emp);
+      const diffOverTarget = currentBD[emp] - bdTarget[emp];
+      if (surplusRank >= 0 && diffOverTarget === 0) {
+        const someoneElseWishesBD = dutyEmps.some(
+          (e2) => e2 !== emp && wishes[e2]?.[d] === "BD_WISH"
+        );
+        if (!someoneElseWishesBD) {
+          score += 8000 - surplusRank * 500;
+          tags.push("Überhang-Präferenz (5. Dienst)");
+        }
+      }
     } else {
       score += (bdTarget[emp] - currentBD[emp]) * 5000;
       tags.push("Zielerfüllung");
@@ -1269,6 +1289,12 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     }
     
     const satAvg = hgFAs.length > 0 ? hgFAs.reduce((sum, e) => sum + currentSatBD[e], 0) / hgFAs.length : 0;
+    // Durchschnittliches Wochenend-Äquivalent der dienstleistenden Personen –
+    // Basis für die zusätzliche personenübergreifende Wochenend-Fairness
+    // (Spread um den Mittelwert, nicht nur Abweichung vom festen Ziel 1.0).
+    const weAvg = dutyEmps.length > 0
+      ? dutyEmps.reduce((sum, e) => sum + countWeekendDuties(y, m, e, result), 0) / dutyEmps.length
+      : 0;
     let deficitSum = 0;
     let surplusSum = 0;
 
@@ -1279,13 +1305,33 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
 
       score += (diff * diff * 25000 + Math.abs(diff) * 10000) * W.fairness;
 
+      // Überhang-Präferenz (siehe scoreBDCandidate): Muss ein unvermeidbarer
+      // Dienst über dem Monatsziel vergeben werden, wird Dr. Lurz mit exakt
+      // einem Dienst über dem Ziel (diff === 1) leicht belohnt, damit die
+      // Optimierungs-Swaps den fünften Dienst bei ihm belassen. Der Bonus ist
+      // klein gegen die quadratische Abweichungsstrafe und erzwingt daher
+      // keinen unnötigen Überhang.
+      const surplusRank = getSurplusBdPreferenceRank(emp);
+      if (surplusRank >= 0 && diff === 1) {
+        score -= 8000 - surplusRank * 500;
+      }
+
       // Punkt 16: Historie fließt NICHT mehr additiv in das Monats-Objective
       // ein; sie wirkt ausschließlich als Tie-Breaker in der Kandidatenwahl.
 
-      const weDiff = countWeekendDuties(y, m, emp, result) - TARGET_WEEKEND_DUTY;
+      const weCountEmp = countWeekendDuties(y, m, emp, result);
+      const weDiff = weCountEmp - TARGET_WEEKEND_DUTY;
       score += weDiff * weDiff * 10000 * W.fairness;
 
-      const weProjected = countWeekendDuties(y, m, emp, result);
+      // Personenübergreifende Wochenend-Fairness: zusätzlich zur Abweichung vom
+      // festen Ziel 1.0 wird die Streuung um den tatsächlichen Gruppendurch-
+      // schnitt bestraft. So wird verhindert, dass eine Person deutlich mehr
+      // Wochenend-Äquivalente trägt als die anderen, auch wenn das absolute
+      // Ziel 1.0 in einem engen Monat nicht für alle exakt erreichbar ist.
+      const weSpreadDiff = weCountEmp - weAvg;
+      score += weSpreadDiff * weSpreadDiff * 9000 * W.fairness;
+
+      const weProjected = weCountEmp;
       if (weProjected > RELAXED_WEEKEND_DUTY_LIMIT) {
         score += (weProjected - RELAXED_WEEKEND_DUTY_LIMIT) * 30000 * W.fairness;
       }
@@ -1521,7 +1567,8 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     const avgBDforFAs = averageFromArray(hgFAs.map((emp) => currentBD[emp]));
     const avgHGForAA = averageFromArray(hgFAs.map((emp) => currentHGForAA[emp]));
     const avgHGForFA = averageFromArray(hgFAs.map((emp) => currentHGForFA[emp]));
-    
+    const weAvgFA = averageFromArray(hgFAs.map((emp) => countWeekendDuties(y, m, emp, result)));
+
     hgFAs.forEach((emp) => {
       const idealHG = avgHG + (avgBDforFAs - currentBD[emp]) * 1.0;
       score += Math.pow(currentHG[emp] - idealHG, 2) * 25000 * W.fairness;
@@ -1530,6 +1577,9 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
 
       const weCount = countWeekendDuties(y, m, emp, result);
       score += Math.pow(weCount - TARGET_WEEKEND_DUTY, 2) * 5000 * W.fairness;
+      // Personenübergreifende WE-Fairness unter den Fachärzten (Streuung um den
+      // FA-Gruppendurchschnitt), analog zum BD-Objective.
+      score += Math.pow(weCount - weAvgFA, 2) * 4500 * W.fairness;
 
       if (weCount > RELAXED_WEEKEND_DUTY_LIMIT) {
         score += (weCount - RELAXED_WEEKEND_DUTY_LIMIT) * 20000 * W.fairness;

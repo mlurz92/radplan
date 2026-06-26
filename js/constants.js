@@ -475,6 +475,12 @@ export const SPECIAL_RULES = {
   // Wochentage, an denen die Person keinen HG übernehmen darf, WENN der
   // BD-Halter desselben Tages ein AA ist (harte Sperre).
   noHgFromAaWeekdays: { "Dr. Polednia": [0, 2, 4] },
+  // Reihenfolge der Personen, die einen unvermeidbaren Überhang-Dienst
+  // (Dienst über dem eigenen Monatsziel hinaus) bevorzugt absorbieren, WENN
+  // alle BD bereits gleichmäßig und fair am Ziel verteilt sind und keine
+  // Wünsche etwas anderes erzwingen. Dr. Lurz erhält damit als Erster einen
+  // fünften Dienst, bevor jemand anderes über das Ziel hinaus belastet wird.
+  surplusBdPreference: ["Dr. Lurz"],
   // Personen, die Samstags-D nur als Ultima Ratio (im gelockerten Modus)
   // bekommen und nach einem Samstags-D zwingend einen FZA-Tag erhalten.
   saturdayUltimaRatio: ["Dr. Becker"],
@@ -507,6 +513,13 @@ export function isNoHgFromAaWeekday(empName, wd) {
 
 export function isSaturdayUltimaRatio(empName) {
   return SPECIAL_RULES.saturdayUltimaRatio.includes(empName);
+}
+
+// Liefert den 0-basierten Rang einer Person in der Überhang-Präferenzliste
+// (0 = erste Wahl für einen unvermeidbaren Dienst über dem Monatsziel), oder
+// -1, wenn die Person nicht bevorzugt überhang-belastet werden soll.
+export function getSurplusBdPreferenceRank(empName) {
+  return (SPECIAL_RULES.surplusBdPreference || []).indexOf(empName);
 }
 
 export function needsSaturdayFza(empName) {

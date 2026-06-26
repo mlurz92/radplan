@@ -27,7 +27,8 @@ import {
   isoWeekNumber,
   isWorkday,
   getSaxonyHolidaysCached,
-  monthKey
+  monthKey,
+  getSurplusBdPreferenceRank
 } from "../js/constants.js";
 
 import { DATA } from "../js/state.js";
@@ -371,6 +372,18 @@ describe("wouldCreateConsecutiveWeekendDuty", () => {
     }
     const assignments = { "Dr. A": {} };
     assert.equal(wouldCreateConsecutiveWeekendDuty(Y, M, "Dr. A", assignments, weekdayDay), false);
+  });
+});
+
+describe("Surplus BD preference (5th duty -> Dr. Lurz)", () => {
+  test("Dr. Lurz is the first-ranked surplus absorber", () => {
+    assert.equal(getSurplusBdPreferenceRank("Dr. Lurz"), 0);
+  });
+
+  test("non-preferred persons return -1", () => {
+    assert.equal(getSurplusBdPreferenceRank("Dr. Martin"), -1);
+    assert.equal(getSurplusBdPreferenceRank("Hr. Torki"), -1);
+    assert.equal(getSurplusBdPreferenceRank("Unbekannt"), -1);
   });
 });
 
