@@ -1,96 +1,134 @@
 /* ============================================================================
-   CHIP-FARBSYSTEM (Task 4)
+   FLÄCHIGES FARBSYSTEM (Solid Color Scheme)
    ----------------------------------------------------------------------------
    Zentrale, themenbewusste Farbcodierung aller Arbeitsplatz-/Status-Codes.
-   Die JS-Schicht setzt lediglich noch `data-code="XX"` auf die Rasterzelle
-   (und eine helle Pastell-Inline-Farbe als Light-Mode-Basis). Dieses Stylesheet
-   ist die *eine* Quelle der Wahrheit für die Farbwirkung:
+   Die JS-Schicht setzt `data-code="XX"` auf die Rasterzelle. Dieses Stylesheet
+   überschreibt die Inline-Stile und regelt die flächige Einfärbung der Zellen:
 
-     • LIGHT-Mode  → ruhige Pastellflächen mit dunkler, WCAG-AA-fester Schrift.
-     • DARK-Mode   → harmonische, halbtransparente Sättigungs-Tints auf dem
-                     dunklen Canvas mit hellem, kontraststarkem Text (löst das
-                     bisherige „grelle Pastell auf Navy"-Problem).
-     • COLORBLIND  → optionaler Okabe-Ito-basierter Modus (html[data-cb="1"]),
-                     der die acht Arbeitsplätze maximal unterscheidbar einfärbt
-                     und zusätzliche Form-/Kanten-Hinweise gibt.
+     • LIGHT-Mode  → Ruhige, vollflächige Pastellflächen mit hochkontrastiger, 
+                     dunkler Schrift (WCAG AA).
+     • DARK-Mode   → Tiefe, satte, vollflächige Hintergrundfarben mit leuchtender,
+                     kontraststarker Schrift (optimiert für das Klinik-Grid).
+     • COLORBLIND  → Opaque, Okabe-Ito-basierte Farben (html[data-cb="1"])
+                     mit Formreiz (Kantenmarkierung).
 
-   Alle Codes tragen ohnehin ihr Textkürzel (CT, MR, U, K …), Bedeutung hängt
-   also nie allein an der Farbe.
    ============================================================================ */
 
-/* --- Per-Code-Tints für den DARK-Mode ------------------------------------ */
-[data-theme="dark"] .td-cell[data-code] {
-  background-color: var(--chip-bg, rgba(var(--ink-rgb), .06)) !important;
+/* --- Default & Light-Mode: Vollflächige Pastellfarben -------------------- */
+.td-cell[data-code] {
+  background-color: var(--cell-bg, rgba(var(--ink-rgb), .06)) !important;
   background-image: none !important;
-}
-[data-theme="dark"] .td-cell[data-code] .cell-assign {
-  color: var(--chip-fg, var(--ink-strong)) !important;
+  transition: background-color var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out);
 }
 
-/* Arbeitsplätze */
-[data-theme="dark"] .td-cell[data-code="MR"]  { --chip-bg: rgba( 59,130,246,.22); --chip-fg:#BFDBFE; }
-[data-theme="dark"] .td-cell[data-code="CT"]  { --chip-bg: rgba(249,115, 22,.22); --chip-fg:#FED7AA; }
-[data-theme="dark"] .td-cell[data-code="US"]  { --chip-bg: rgba( 20,184,166,.22); --chip-fg:#99F6E4; }
-[data-theme="dark"] .td-cell[data-code="AN"]  { --chip-bg: rgba(168, 85,247,.22); --chip-fg:#E9D5FF; }
-[data-theme="dark"] .td-cell[data-code="MA"]  { --chip-bg: rgba(236, 72,153,.22); --chip-fg:#FBCFE8; }
-[data-theme="dark"] .td-cell[data-code="KUS"] { --chip-bg: rgba( 34,197, 94,.22); --chip-fg:#BBF7D0; }
-[data-theme="dark"] .td-cell[data-code="W"]   { --chip-bg: rgba(234,179,  8,.20); --chip-fg:#FDE68A; }
-[data-theme="dark"] .td-cell[data-code="T"]   { --chip-bg: rgba( 99,102,241,.22); --chip-fg:#C7D2FE; }
+.td-cell[data-code] .cell-assign {
+  color: var(--cell-fg, var(--ink-strong)) !important;
+}
 
-/* Status */
-[data-theme="dark"] .td-cell[data-code="F"]    { --chip-bg: rgba(148,163,184,.15); --chip-fg:#CBD5E1; }
-[data-theme="dark"] .td-cell[data-code="U"]    { --chip-bg: rgba(139, 92,246,.24); --chip-fg:#DDD6FE; }
-[data-theme="dark"] .td-cell[data-code="ZU"]   { --chip-bg: rgba(124, 58,237,.28); --chip-fg:#DDD6FE; }
-[data-theme="dark"] .td-cell[data-code="SU"]   { --chip-bg: rgba(109, 40,217,.32); --chip-fg:#E9D5FF; }
-[data-theme="dark"] .td-cell[data-code="FZA"]  { --chip-bg: rgba( 99,102,241,.22); --chip-fg:#C7D2FE; }
-[data-theme="dark"] .td-cell[data-code="K"]    { --chip-bg: rgba(239, 68, 68,.24); --chip-fg:#FECACA; }
-[data-theme="dark"] .td-cell[data-code="KK"]   { --chip-bg: rgba(220, 38, 38,.30); --chip-fg:#FECACA; }
-[data-theme="dark"] .td-cell[data-code="§15c"] { --chip-bg: rgba(  6,182,212,.22); --chip-fg:#A5F3FC; }
-[data-theme="dark"] .td-cell[data-code="WB"]   { --chip-bg: rgba(245,158, 11,.22); --chip-fg:#FDE68A; }
+/* Arbeitsplätze (Light Mode) */
+.td-cell[data-code="MR"]  { --cell-bg: #DBEAFE; --cell-fg: #1D4ED8; }
+.td-cell[data-code="CT"]  { --cell-bg: #FFEDD5; --cell-fg: #C2410C; }
+.td-cell[data-code="US"]  { --cell-bg: #CCFBF1; --cell-fg: #0F766E; }
+.td-cell[data-code="AN"]  { --cell-bg: #F3E8FF; --cell-fg: #7E22CE; }
+.td-cell[data-code="MA"]  { --cell-bg: #FCE7F3; --cell-fg: #BE185D; }
+.td-cell[data-code="KUS"] { --cell-bg: #DCFCE7; --cell-fg: #15803D; }
+.td-cell[data-code="W"]   { --cell-bg: #FEF9C3; --cell-fg: #854D0E; }
+.td-cell[data-code="T"]   { --cell-bg: #E0E7FF; --cell-fg: #3730A3; }
 
-/* --- FARBENBLIND-SICHERER MODUS (Okabe-Ito) ------------------------------ */
-/* Aktiviert über html[data-cb="1"]. Die acht Arbeitsplätze erhalten maximal
-   unterscheidbare Farben; zusätzlich eine kräftige linke Kante als Formreiz.
-   Greift in beiden Themes, daher kein [data-theme]-Vorsatz. */
+/* Status / Abwesenheiten (Light Mode) */
+.td-cell[data-code="F"]    { --cell-bg: #F1F5F9; --cell-fg: #475569; }
+.td-cell[data-code="U"]    { --cell-bg: #EDE9FE; --cell-fg: #5B21B6; }
+.td-cell[data-code="ZU"]   { --cell-bg: #DDD6FE; --cell-fg: #4C1D95; }
+.td-cell[data-code="SU"]   { --cell-bg: #C4B5FD; --cell-fg: #2E1065; }
+.td-cell[data-code="FZA"]  { --cell-bg: #E0E7FF; --cell-fg: #3730A3; }
+.td-cell[data-code="K"]    { --cell-bg: #FEE2E2; --cell-fg: #991B1B; }
+.td-cell[data-code="KK"]   { --cell-bg: #FECACA; --cell-fg: #7F1D1D; }
+.td-cell[data-code="§15c"] { --cell-bg: #CFFAFE; --cell-fg: #155E75; }
+.td-cell[data-code="WB"]   { --cell-bg: #FEF3C7; --cell-fg: #78350F; }
+
+
+/* --- Dark-Mode: Satte, dunkle Vollfarben --------------------------------- */
+[data-theme="dark"] .td-cell[data-code="MR"]  { --cell-bg: #1E3A8A; --cell-fg: #EFF6FF; }
+[data-theme="dark"] .td-cell[data-code="CT"]  { --cell-bg: #7C2D12; --cell-fg: #FFF7ED; }
+[data-theme="dark"] .td-cell[data-code="US"]  { --cell-bg: #115E59; --cell-fg: #F0FDFA; }
+[data-theme="dark"] .td-cell[data-code="AN"]  { --cell-bg: #581C87; --cell-fg: #FAF5FF; }
+[data-theme="dark"] .td-cell[data-code="MA"]  { --cell-bg: #831843; --cell-fg: #FDF2F8; }
+[data-theme="dark"] .td-cell[data-code="KUS"] { --cell-bg: #065F46; --cell-fg: #F0FDF4; }
+[data-theme="dark"] .td-cell[data-code="W"]   { --cell-bg: #713F12; --cell-fg: #FEFCE8; }
+[data-theme="dark"] .td-cell[data-code="T"]   { --cell-bg: #312E81; --cell-fg: #EEF2FF; }
+
+[data-theme="dark"] .td-cell[data-code="F"]    { --cell-bg: #1E293B; --cell-fg: #94A3B8; }
+[data-theme="dark"] .td-cell[data-code="U"]    { --cell-bg: #4C1D95; --cell-fg: #F5F3FF; }
+[data-theme="dark"] .td-cell[data-code="ZU"]   { --cell-bg: #5B21B6; --cell-fg: #F5F3FF; }
+[data-theme="dark"] .td-cell[data-code="SU"]   { --cell-bg: #6D28D9; --cell-fg: #F5F3FF; }
+[data-theme="dark"] .td-cell[data-code="FZA"]  { --cell-bg: #1E1B4B; --cell-fg: #EEF2FF; }
+[data-theme="dark"] .td-cell[data-code="K"]    { --cell-bg: #7F1D1D; --cell-fg: #FEE2E2; }
+[data-theme="dark"] .td-cell[data-code="KK"]   { --cell-bg: #991B1B; --cell-fg: #FEE2E2; }
+[data-theme="dark"] .td-cell[data-code="§15c"] { --cell-bg: #155E75; --cell-fg: #ECFEFF; }
+[data-theme="dark"] .td-cell[data-code="WB"]   { --cell-bg: #78350F; --cell-fg: #FEF3C7; }
+
+
+/* --- Farbenblind-Modus (Okabe-Ito, vollflächig) ------------------------- */
 html[data-cb="1"] .td-cell[data-code] {
   background-color: var(--cb-bg, rgba(var(--ink-rgb), .08)) !important;
   background-image: none !important;
-  box-shadow: inset 3px 0 0 0 var(--cb-edge, transparent);
+  box-shadow: inset 3px 0 0 0 var(--cb-edge, transparent) !important;
 }
+
 html[data-cb="1"] .td-cell[data-code] .cell-assign {
   color: var(--cb-fg, var(--ink-strong)) !important;
 }
-/* In Light-Mode wird die jeweils optimal kontrastierende Textfarbe aus --cb-fg verwendet */
 
-html[data-cb="1"] .td-cell[data-code="MR"]  { --cb-bg:#0072B2; --cb-edge:#004C7A; --cb-fg:#EAF4FB; }
-html[data-cb="1"] .td-cell[data-code="CT"]  { --cb-bg:#D55E00; --cb-edge:#8F3F00; --cb-fg:#FFF1E8; }
-html[data-cb="1"] .td-cell[data-code="US"]  { --cb-bg:#009E73; --cb-edge:#006B4E; --cb-fg:#E8FBF4; }
-html[data-cb="1"] .td-cell[data-code="AN"]  { --cb-bg:#CC79A7; --cb-edge:#8E5274; --cb-fg:#FCEEF5; }
-html[data-cb="1"] .td-cell[data-code="MA"]  { --cb-bg:#E69F00; --cb-edge:#9C6C00; --cb-fg:#2A1C00; }
-html[data-cb="1"] .td-cell[data-code="KUS"] { --cb-bg:#56B4E9; --cb-edge:#2E7CA8; --cb-fg:#06243A; }
-html[data-cb="1"] .td-cell[data-code="W"]   { --cb-bg:#F0E442; --cb-edge:#A8A000; --cb-fg:#2A2800; }
-html[data-cb="1"] .td-cell[data-code="T"]   { --cb-bg:#999999; --cb-edge:#5F5F5F; --cb-fg:#15181D; }
+html[data-cb="1"] .td-cell[data-code="MR"]  { --cb-bg: #0072B2; --cb-edge: #004C7A; --cb-fg: #EAF4FB; }
+html[data-cb="1"] .td-cell[data-code="CT"]  { --cb-bg: #D55E00; --cb-edge: #8F3F00; --cb-fg: #FFF1E8; }
+html[data-cb="1"] .td-cell[data-code="US"]  { --cb-bg: #009E73; --cb-edge: #006B4E; --cb-fg: #E8FBF4; }
+html[data-cb="1"] .td-cell[data-code="AN"]  { --cb-bg: #CC79A7; --cb-edge: #8E5274; --cb-fg: #FCEEF5; }
+html[data-cb="1"] .td-cell[data-code="MA"]  { --cb-bg: #E69F00; --cb-edge: #9C6C00; --cb-fg: #2A1C00; }
+html[data-cb="1"] .td-cell[data-code="KUS"] { --cb-bg: #56B4E9; --cb-edge: #2E7CA8; --cb-fg: #06243A; }
+html[data-cb="1"] .td-cell[data-code="W"]   { --cb-bg: #F0E442; --cb-edge: #A8A000; --cb-fg: #2A2800; }
+html[data-cb="1"] .td-cell[data-code="T"]   { --cb-bg: #999999; --cb-edge: #5F5F5F; --cb-fg: #15181D; }
 
-/* Status im CB-Modus: einheitlich neutralisiert (Schrift trägt Bedeutung),
-   Abwesenheiten klar von Arbeitsplätzen abgesetzt. */
+/* Status-Abschnitte im CB-Modus: Themensensible flächige Neutraltöne */
 html[data-cb="1"] .td-cell[data-code="F"],
 html[data-cb="1"] .td-cell[data-code="U"],
 html[data-cb="1"] .td-cell[data-code="ZU"],
 html[data-cb="1"] .td-cell[data-code="SU"],
 html[data-cb="1"] .td-cell[data-code="FZA"],
-html[data-cb="1"] .td-cell[data-code="WB"] { --cb-bg:rgba(var(--ink-rgb),.10); --cb-edge:rgba(var(--ink-rgb),.35); --cb-fg:var(--text-2); }
+html[data-cb="1"] .td-cell[data-code="WB"] {
+  --cb-bg: var(--gray-200);
+  --cb-edge: var(--gray-400);
+  --cb-fg: var(--text-1);
+}
+
+[data-theme="dark"] html[data-cb="1"] .td-cell[data-code="F"],
+[data-theme="dark"] html[data-cb="1"] .td-cell[data-code="U"],
+[data-theme="dark"] html[data-cb="1"] .td-cell[data-code="ZU"],
+[data-theme="dark"] html[data-cb="1"] .td-cell[data-code="SU"],
+[data-theme="dark"] html[data-cb="1"] .td-cell[data-code="FZA"],
+[data-theme="dark"] html[data-cb="1"] .td-cell[data-code="WB"] {
+  --cb-bg: var(--gray-100);
+  --cb-edge: var(--gray-300);
+  --cb-fg: var(--text-1);
+}
+
 html[data-cb="1"] .td-cell[data-code="K"],
-html[data-cb="1"] .td-cell[data-code="KK"]  { --cb-bg:#D55E00; --cb-edge:#8F3F00; --cb-fg:#FFF1E8; }
+html[data-cb="1"] .td-cell[data-code="KK"]  {
+  --cb-bg: #D55E00;
+  --cb-edge: #8F3F00;
+  --cb-fg: #FFF1E8;
+}
+
 html[data-cb="1"][data-theme="light"] .td-cell[data-code="F"] .cell-assign,
 html[data-cb="1"][data-theme="light"] .td-cell[data-code="U"] .cell-assign,
 html[data-cb="1"][data-theme="light"] .td-cell[data-code="ZU"] .cell-assign,
 html[data-cb="1"][data-theme="light"] .td-cell[data-code="SU"] .cell-assign,
 html[data-cb="1"][data-theme="light"] .td-cell[data-code="FZA"] .cell-assign,
-html[data-cb="1"][data-theme="light"] .td-cell[data-code="WB"] .cell-assign { color: var(--text-1) !important; }
+html[data-cb="1"][data-theme="light"] .td-cell[data-code="WB"] .cell-assign {
+  color: var(--text-1) !important;
+}
+
 
 /* --- Wiederverwendbare Chip-/Badge-Utility -------------------------------- */
-/* Einheitlicher Baustein für Legenden, Filter-Pills und zukünftige UI.
-   Nutzt dieselben Tints wie das Raster, damit das System konsistent bleibt. */
 .chip-code {
   display: inline-flex;
   align-items: center;
@@ -103,8 +141,8 @@ html[data-cb="1"][data-theme="light"] .td-cell[data-code="WB"] .cell-assign { co
   padding: 3px 7px;
   border-radius: var(--radius-xs);
   letter-spacing: .01em;
-  background: var(--chip-bg, rgba(var(--ink-rgb), .08));
-  color: var(--chip-fg, var(--text-1));
+  background: var(--cell-bg, rgba(var(--ink-rgb), .08));
+  color: var(--cell-fg, var(--text-1));
   border: 1px solid rgba(var(--ink-rgb), .08);
   white-space: nowrap;
 }

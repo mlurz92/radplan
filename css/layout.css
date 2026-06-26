@@ -732,11 +732,13 @@ body.is-drag-selecting #plan-tbody .td-cell {
   align-items: center;
   justify-content: center;
   padding: 2px 3px;
+  container-type: size;
+  box-sizing: border-box;
 }
 
 .cell-assign {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: clamp(7.5px, min(26cqw, 32cqh), 13px);
   font-weight: 700;
   text-align: center;
   line-height: 1.2;
@@ -745,7 +747,7 @@ body.is-drag-selecting #plan-tbody .td-cell {
 }
 
 .cell-assign-rbn {
-  font-size: 9.5px !important;
+  font-size: clamp(7px, min(24cqw, 30cqh), 12px) !important;
   font-weight: 700 !important;
   white-space: nowrap !important;
   word-break: normal !important;
@@ -1142,10 +1144,6 @@ body.grid-density-compact .emp-profile-icon {
   display: none;
 }
 
-body.grid-density-compact .cell-assign {
-  font-size: 10px;
-}
-
 body.grid-density-compact .d-kw {
   display: none;
 }
@@ -1243,8 +1241,6 @@ body.grid-density-compact .d-kw {
   .month-nav { padding: 3px 4px; }
   #month-label { min-width: 70px; font-size: 11px; }
   .nav-btn { padding: 4px 6px; font-size: 14px; }
-  .cell-assign { font-size: 8px; }
-  .cell-assign-rbn { font-size: 7.5px !important; }
   .td-name { padding: 0 4px 0 6px; }
   .emp-label { font-size: 11px; }
   .emp-pos-tag { font-size: 7.5px; padding: 1px 3px; }
