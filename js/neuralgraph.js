@@ -213,6 +213,7 @@ export class NeuralGraph {
     this.cost = 1.0;
     this.bars = [];
     this.hexStream = '';
+    this._hexTick = -1;
 
     this.animId = null;
     this.resizeObserver = null;
