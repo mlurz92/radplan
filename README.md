@@ -82,7 +82,7 @@ state.js       → globaler Zustand, localStorage, Server-Sync, 3-Wege-Merge
 model.js       → Datenzugriff (Zellen, Monate), Statistik-Aggregation, Plan-Sessions
 history.js     → Undo/Redo (delta-basiert) für den Normalmodus
 autoplan.js    → der Neural Scheduler (Constraint-Engine, Optimierung, Bericht)
-neuralgraph.js → die „Annealing Field"-Visualisierung während der Auto-Planung
+neuralgraph.js → die „Solver Sequencer"-Visualisierung während der Auto-Planung
 render-grid.js → das Monatsraster, Schnell-Popover, Radialmenü, Mobile-Tagesansicht
 render-modals.js → Editor-, Profil-/Person-, Score-Info-Modale, Toast, Overlay-Steuerung
 render-employee-dashboard.js → Mitarbeitendenbereich (Team-Screen + Person-Detail-Tabs)
@@ -447,14 +447,16 @@ Die HG-Last wird mathematisch an die BD-Last gekoppelt:
 ### 10.7 Eskalation / Lockerung
 Lässt sich keine Vollbesetzung unter allen Regeln erzielen, werden gezielt **weiche** Restriktionen gelockert (vor allem Wochenendabstände, Distanzanforderungen, punktuelle Notlösungen bei engem Kandidatenfeld) — Ziel: Vollbesetzung bei minimalem Fairness-Verlust.
 
-### 10.8 Die „Annealing Field"-Visualisierung (`neuralgraph.js`)
-Die Visualisierung bildet den Planer als das ab, was er mathematisch ist: ein **iterativer Optimierer** (25 Kühlzyklen, Minimierung einer Objective-Funktion). Konzeptuell angelehnt an **Simulated Annealing** wird der gesamte Monat als **dezentrales Energiefeld** dargestellt — es gibt bewusst **keinen zentralen Konvergenzpunkt** mehr.
+### 10.8 Die „Solver Sequencer"-Visualisierung (`neuralgraph.js`)
+Die Visualisierung zeigt **direkt die Entscheidungsmatrix** des Planers — wer an welchem Tag Dienst hat — im Stil eines Audio-/DAW-Sequencers. Damit unterscheidet sie sich grundlegend von einer Kalenderdarstellung: nicht die Tage, sondern die eigentlichen Variablen (Mitarbeiter × Tag) stehen im Mittelpunkt. Alles wird auf **einem einzigen Canvas** gezeichnet (kein DOM-Zellraster).
 
-- **Dezentrales Gitter:** Jeder Kalendertag ist eine Zelle mit eigener **Energie/Temperatur**. Früh im Lauf flackert das ganze Feld heiß und chaotisch; mit jeder Phase (`init` → `greedy` → `hg` → `deep` → `success`) **kühlt** es ab und **kristallisiert**.
-- **Constraint-Wellen:** Vergaben/Swaps zünden lokal an **ihrer eigenen Zelle** und pflanzen sich entlang der Gitterkanten zu den **Nachbartagen** fort (z. B. „D erzeugt Frei am Folgetag") — farbcodiert (D rot, HG blau). Zugewiesene Tage erstarren zu **Kristall-Rauten**.
-- **Optimierungs-Scan:** Eine schnelle Welle streicht quer über das gesamte Feld und steht für einen Solver-Pass über alle Tage; ein **Curl-Strömungsfeld** aus Partikeln belebt den Hintergrund.
-- **HUD oben rechts – schnell & digital:** ein Telemetrie-Display mit scrollender **Energie-Abstiegskurve** (ΔE sinkt mit dem Fortschritt), reaktivem **Spektrum-Equalizer**, scrollendem **Hex-Ticker** und blinkendem `ΔE`-Readout — bewusst hochfrequent und „digital".
-- **Fehler** werden als rote **Scanline-Tears** abgesetzt, der **Erfolg** als dezentrale, reihenweise **Kühlwelle**, die das ganze Feld kristallisieren lässt.
+- **Matrix:** Zeilen = Mitarbeitende (Fachärzte oben und eingefärbt, Assistenzärzte darunter), Spalten = Tage des Monats. Jede Vergabe setzt eine leuchtende **Kachel** an der Kreuzung (D rot, HG blau).
+- **Live-Aufbau:** Während der Lauf streamt, **füllt sich der Dienstplan** sichtbar — man sieht ihn entstehen.
+- **Playhead:** Ein **Abspielkopf** fegt wie in einem Sequencer über die Tage und lässt die Dienste der jeweiligen Spalte aufblitzen (Funken).
+- **Swaps:** springen sichtbar als **Token** von der alten in die neue Mitarbeiter-Zeile.
+- **Fairness-Meter:** Rechts zeigt je Zeile ein **Load-Balken** die Dienstlast — Ausgewogenheit ist als Balance der Balken unmittelbar ablesbar.
+- **Phasenfarbe** (`init` → `greedy` → `hg` → `deep` → `success`) tönt Playhead und Glow; **Fehler** blitzen Zeile + Spalte rot, der **Erfolg** läuft als grüne **Welle** einmal über die Matrix.
+- **HUD oben rechts – schnell & digital:** Telemetrie mit scrollender **Energie-/Kühlkurve**, reaktivem **Spektrum-Equalizer**, **Hex-Ticker** und blinkendem `ΔE`-Readout.
 
 Der Lauf wird über **~22 Sekunden** gestreckt; ein Live-Fortschrittslog (`phase`, `icon`, `msg`, `pct`) begleitet ihn. Die Visualisierung ist vollständig **offline-fähig** (keine externen Abhängigkeiten) und hält die bestehende öffentliche API (`initData`, `attachMiniMap`, `triggerAssignment`, `triggerSwap`, `triggerError`, `setPhase`, `triggerSuccess`, `dispose`) bei.
 
@@ -638,7 +640,7 @@ radplan/
 │   ├── model.js            # Datenzugriff, Statistik-Aggregation, Plan-Sessions
 │   ├── history.js          # Undo/Redo (Normalmodus)
 │   ├── autoplan.js         # Neural Scheduler (Constraints, Optimierung, Bericht)
-│   ├── neuralgraph.js      # „Annealing Field"-Visualisierung der Auto-Planung
+│   ├── neuralgraph.js      # „Solver Sequencer"-Visualisierung der Auto-Planung
 │   ├── render-grid.js      # Monatsraster, Schnell-Popover, Radialmenü, Mobile-Tagesansicht
 │   ├── render-modals.js    # Editor-/Person-/Score-Modale, Toast, Overlay-Steuerung
 │   ├── render-employee-dashboard.js  # Mitarbeitendenbereich (Team + Person-Tabs)
