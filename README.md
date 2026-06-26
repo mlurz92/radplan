@@ -82,7 +82,7 @@ state.js       → globaler Zustand, localStorage, Server-Sync, 3-Wege-Merge
 model.js       → Datenzugriff (Zellen, Monate), Statistik-Aggregation, Plan-Sessions
 history.js     → Undo/Redo (delta-basiert) für den Normalmodus
 autoplan.js    → der Neural Scheduler (Constraint-Engine, Optimierung, Bericht)
-neuralgraph.js → die „Neural Constellation"-Visualisierung während der Auto-Planung
+neuralgraph.js → die „Annealing Field"-Visualisierung während der Auto-Planung
 render-grid.js → das Monatsraster, Schnell-Popover, Radialmenü, Mobile-Tagesansicht
 render-modals.js → Editor-, Profil-/Person-, Score-Info-Modale, Toast, Overlay-Steuerung
 render-employee-dashboard.js → Mitarbeitendenbereich (Team-Screen + Person-Detail-Tabs)
@@ -447,8 +447,16 @@ Die HG-Last wird mathematisch an die BD-Last gekoppelt:
 ### 10.7 Eskalation / Lockerung
 Lässt sich keine Vollbesetzung unter allen Regeln erzielen, werden gezielt **weiche** Restriktionen gelockert (vor allem Wochenendabstände, Distanzanforderungen, punktuelle Notlösungen bei engem Kandidatenfeld) — Ziel: Vollbesetzung bei minimalem Fairness-Verlust.
 
-### 10.8 Die „Neural Constellation"-Visualisierung (`neuralgraph.js`)
-Während der Berechnung läuft eine vollflächige, selbstständige Canvas-Inszenierung: Jeder Kalendertag ist ein **Knoten** in einem neuronalen Netz, das um einen zentralen **Reaktor-Kern** kreist. Jede Vergabe und jeder Optimierungs-Swap entlädt sich als farbcodiertes **Energiepaket** (D rot, HG blau), das entlang der Synapsen zum Kern wandert; eine Hintergrund-**Aurora** färbt die aktive Phase (`init` → `greedy` → `hg` → `deep` → `success`/`error`). Ein radarartiges **HUD-Oszilloskop** spiegelt die Aktivität in Echtzeit, ein Live-Fortschrittslog (`phase`, `icon`, `msg`, `pct`) begleitet den Lauf. Der Lauf wird bewusst über **~22 Sekunden** gestreckt, um Rechentiefe und Kombinationsvolumen erlebbar zu machen; Fehlerzustände werden als rote Schockwellen visuell abgesetzt. Die Visualisierung ist vollständig offline-fähig (keine externen Abhängigkeiten) und hält die bestehende öffentliche API (`initData`, `attachMiniMap`, `triggerAssignment`, `triggerSwap`, `triggerError`, `setPhase`, `triggerSuccess`, `dispose`) bei.
+### 10.8 Die „Annealing Field"-Visualisierung (`neuralgraph.js`)
+Die Visualisierung bildet den Planer als das ab, was er mathematisch ist: ein **iterativer Optimierer** (25 Kühlzyklen, Minimierung einer Objective-Funktion). Konzeptuell angelehnt an **Simulated Annealing** wird der gesamte Monat als **dezentrales Energiefeld** dargestellt — es gibt bewusst **keinen zentralen Konvergenzpunkt** mehr.
+
+- **Dezentrales Gitter:** Jeder Kalendertag ist eine Zelle mit eigener **Energie/Temperatur**. Früh im Lauf flackert das ganze Feld heiß und chaotisch; mit jeder Phase (`init` → `greedy` → `hg` → `deep` → `success`) **kühlt** es ab und **kristallisiert**.
+- **Constraint-Wellen:** Vergaben/Swaps zünden lokal an **ihrer eigenen Zelle** und pflanzen sich entlang der Gitterkanten zu den **Nachbartagen** fort (z. B. „D erzeugt Frei am Folgetag") — farbcodiert (D rot, HG blau). Zugewiesene Tage erstarren zu **Kristall-Rauten**.
+- **Optimierungs-Scan:** Eine schnelle Welle streicht quer über das gesamte Feld und steht für einen Solver-Pass über alle Tage; ein **Curl-Strömungsfeld** aus Partikeln belebt den Hintergrund.
+- **HUD oben rechts – schnell & digital:** ein Telemetrie-Display mit scrollender **Energie-Abstiegskurve** (ΔE sinkt mit dem Fortschritt), reaktivem **Spektrum-Equalizer**, scrollendem **Hex-Ticker** und blinkendem `ΔE`-Readout — bewusst hochfrequent und „digital".
+- **Fehler** werden als rote **Scanline-Tears** abgesetzt, der **Erfolg** als dezentrale, reihenweise **Kühlwelle**, die das ganze Feld kristallisieren lässt.
+
+Der Lauf wird über **~22 Sekunden** gestreckt; ein Live-Fortschrittslog (`phase`, `icon`, `msg`, `pct`) begleitet ihn. Die Visualisierung ist vollständig **offline-fähig** (keine externen Abhängigkeiten) und hält die bestehende öffentliche API (`initData`, `attachMiniMap`, `triggerAssignment`, `triggerSwap`, `triggerError`, `setPhase`, `triggerSuccess`, `dispose`) bei.
 
 ### 10.9 Ergebnis, Bericht & Score-Erklärung
 - **Abschlussbericht** (`#modal-ap-report`): tagesweise Begründungen je Vergabe inkl. Score, Tags und den besten **Alternativ-Kandidaten** — vollständig nachvollziehbar.
@@ -630,7 +638,7 @@ radplan/
 │   ├── model.js            # Datenzugriff, Statistik-Aggregation, Plan-Sessions
 │   ├── history.js          # Undo/Redo (Normalmodus)
 │   ├── autoplan.js         # Neural Scheduler (Constraints, Optimierung, Bericht)
-│   ├── neuralgraph.js      # „Neural Constellation"-Visualisierung der Auto-Planung
+│   ├── neuralgraph.js      # „Annealing Field"-Visualisierung der Auto-Planung
 │   ├── render-grid.js      # Monatsraster, Schnell-Popover, Radialmenü, Mobile-Tagesansicht
 │   ├── render-modals.js    # Editor-/Person-/Score-Modale, Toast, Overlay-Steuerung
 │   ├── render-employee-dashboard.js  # Mitarbeitendenbereich (Team + Person-Tabs)
