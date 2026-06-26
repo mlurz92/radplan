@@ -848,7 +848,7 @@ export class NeuralGraph {
 
     // Spektrum-Balken (Equalizer) – schnelle Reaktion + Decay, eigenes Band
     const baseY = h - pad;
-    const barsH = baseY - barsTop;
+    const barsH = Math.max(0, baseY - barsTop);
     const bw = w / this.bars.length;
     for (let i = 0; i < this.bars.length; i++) {
       const noise = Math.abs(Math.sin(time * 12 + i * 0.7)) * 0.18 * (0.4 + this.temp);
