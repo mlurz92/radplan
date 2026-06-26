@@ -709,7 +709,10 @@ export class NeuralGraph {
       const y = a.y + (b.y - a.y) * t;
       const [cr, cg, cb] = p.color;
       // Ziel-Knoten lädt sich beim Eintreffen auf (Fortpflanzung)
-      if (t > 0.92) this.igniteCell(p.to, p.color, 0.05);
+      if (t > 0.92 && !p.ignited) {
+        p.ignited = true;
+        this.igniteCell(p.to, p.color, 0.05);
+      }
       ctx.beginPath();
       ctx.arc(x, y, 2.4 * (1 - t * 0.4), 0, Math.PI * 2);
       ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${1 - t})`;
