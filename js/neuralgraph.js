@@ -825,7 +825,7 @@ export class NeuralGraph {
     for (let i = 0; i < this.energyHistory.length; i++) {
       const x = (i / (maxPts - 1)) * w;
       const v = Math.max(0, Math.min(1, this.energyHistory[i]));
-      const y = pad + (1 - v) * (curveBot - pad * 2);
+      const y = pad + (1 - v) * Math.max(0, curveBot - pad * 2);
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.strokeStyle = this.getPhaseColor(0.9);
