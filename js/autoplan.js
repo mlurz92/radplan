@@ -1289,12 +1289,20 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     }
     
     const satAvg = hgFAs.length > 0 ? hgFAs.reduce((sum, e) => sum + currentSatBD[e], 0) / hgFAs.length : 0;
-    // Durchschnittliches Wochenend-Äquivalent der dienstleistenden Personen –
-    // Basis für die zusätzliche personenübergreifende Wochenend-Fairness
-    // (Spread um den Mittelwert, nicht nur Abweichung vom festen Ziel 1.0).
-    const weAvg = dutyEmps.length > 0
-      ? dutyEmps.reduce((sum, e) => sum + countWeekendDuties(y, m, e, result), 0) / dutyEmps.length
-      : 0;
+    // Wochenend-Äquivalente einmalig je Person berechnen und für Mittelwert
+    // UND personenbezogene Strafe wiederverwenden (vermeidet doppelte
+    // countWeekendDuties-Läufe – dieses Objective wird sehr häufig evaluiert).
+    const weCounts = {};
+    let weSum = 0;
+    dutyEmps.forEach((e) => {
+      const c = countWeekendDuties(y, m, e, result);
+      weCounts[e] = c;
+      weSum += c;
+    });
+    // Durchschnittliches Wochenend-Äquivalent als Basis der zusätzlichen
+    // personenübergreifenden Wochenend-Fairness (Spread um den Mittelwert,
+    // nicht nur Abweichung vom festen Ziel 1.0).
+    const weAvg = dutyEmps.length > 0 ? weSum / dutyEmps.length : 0;
     let deficitSum = 0;
     let surplusSum = 0;
 
@@ -1319,7 +1327,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       // Punkt 16: Historie fließt NICHT mehr additiv in das Monats-Objective
       // ein; sie wirkt ausschließlich als Tie-Breaker in der Kandidatenwahl.
 
-      const weCountEmp = countWeekendDuties(y, m, emp, result);
+      const weCountEmp = weCounts[emp];
       const weDiff = weCountEmp - TARGET_WEEKEND_DUTY;
       score += weDiff * weDiff * 10000 * W.fairness;
 
@@ -1567,7 +1575,16 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     const avgBDforFAs = averageFromArray(hgFAs.map((emp) => currentBD[emp]));
     const avgHGForAA = averageFromArray(hgFAs.map((emp) => currentHGForAA[emp]));
     const avgHGForFA = averageFromArray(hgFAs.map((emp) => currentHGForFA[emp]));
-    const weAvgFA = averageFromArray(hgFAs.map((emp) => countWeekendDuties(y, m, emp, result)));
+    // Wochenend-Äquivalente der Fachärzte einmalig berechnen und für Mittelwert
+    // und personenbezogene Strafe wiederverwenden (kein doppelter Lauf).
+    const weCountsFA = {};
+    let weSumFA = 0;
+    hgFAs.forEach((emp) => {
+      const c = countWeekendDuties(y, m, emp, result);
+      weCountsFA[emp] = c;
+      weSumFA += c;
+    });
+    const weAvgFA = hgFAs.length > 0 ? weSumFA / hgFAs.length : 0;
 
     hgFAs.forEach((emp) => {
       const idealHG = avgHG + (avgBDforFAs - currentBD[emp]) * 1.0;
@@ -1575,7 +1592,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       score += Math.pow(currentHGForAA[emp] - avgHGForAA, 2) * 15000 * W.fairness;
       score += Math.pow(currentHGForFA[emp] - avgHGForFA, 2) * 8000 * W.fairness;
 
-      const weCount = countWeekendDuties(y, m, emp, result);
+      const weCount = weCountsFA[emp];
       score += Math.pow(weCount - TARGET_WEEKEND_DUTY, 2) * 5000 * W.fairness;
       // Personenübergreifende WE-Fairness unter den Fachärzten (Streuung um den
       // FA-Gruppendurchschnitt), analog zum BD-Objective.
