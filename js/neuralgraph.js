@@ -309,13 +309,22 @@ export class NeuralGraph {
     const w = this.W || 0;
     const h = this.H || 0;
     const nEmp = this.employees.length || 1;
-    const padL = Math.min(58, Math.max(40, w * 0.10));
-    const padR = Math.min(46, Math.max(30, w * 0.07));
-    const padT = 20;
-    const padB = 8;
+    // Das echte Modal legt eine kräftige Vignette (inset 0 0 60px) ÜBER den
+    // Canvas. Deshalb wird das gesamte Gitter um `inset` von allen Rändern
+    // eingerückt, damit Labels, Tagesnummern und Load-Meter in der klaren
+    // Mitte liegen und nicht im dunklen Randbereich verschwinden.
+    const inset = Math.round(Math.min(w, h) * 0.05) + 6;
+    const labelW = Math.min(54, Math.max(38, w * 0.085));
+    const meterW = Math.min(34, Math.max(20, w * 0.05));
+    const headerH = 16;
+    const padL = inset + labelW;
+    const padR = inset + meterW;
+    const padT = inset + headerH;
+    const padB = inset;
     const gridW = Math.max(1, w - padL - padR);
     const gridH = Math.max(1, h - padT - padB);
     return {
+      inset, labelW, meterW, headerH,
       padL, padR, padT, padB, gridW, gridH,
       cellW: gridW / this.days,
       rowH: gridH / nEmp,
@@ -344,39 +353,76 @@ export class NeuralGraph {
     const L = this.layout();
     ctx.clearRect(0, 0, w, h);
 
-    // Spalten-Raster + Tagesnummern
-    ctx.font = `${Math.min(10, L.cellW * 0.7)}px var(--font-mono, monospace)`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'alphabetic';
-    for (let c = 1; c <= this.days; c++) {
-      const x = L.padL + (c - 0.5) * L.cellW;
-      ctx.fillStyle = 'rgba(255,255,255,0.28)';
-      if (L.cellW > 9 || c % 2 === 1) ctx.fillText(String(c), x, L.padT - 7);
-      ctx.strokeStyle = 'rgba(255,255,255,0.035)';
-      ctx.beginPath();
-      ctx.moveTo(L.padL + (c - 1) * L.cellW, L.padT);
-      ctx.lineTo(L.padL + (c - 1) * L.cellW, L.padT + L.gridH);
-      ctx.stroke();
+    const cw = L.cellW, rh = L.rowH;
+
+    // Definierte innere Matrix-Fläche (hebt das Gitter klar von der dunklen,
+    // vignettierten Umgebung ab).
+    ctx.fillStyle = 'rgba(9,16,32,0.55)';
+    this.roundRect(ctx, L.padL - 2, L.padT - 2, L.gridW + 4, L.gridH + 4, 6);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(${pr},${pg},${pb},0.22)`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Zebra/Rollentint je Zeile + leere Sequencer-Steps, damit die Matrix
+    // jederzeit als gefüllte Struktur lesbar ist (auch bevor viele Dienste
+    // gesetzt sind).
+    for (let r = 0; r < this.employees.length; r++) {
+      const fa = isFacharzt(this.employees[r]);
+      const yTop = L.padT + r * rh;
+      if (r % 2 === 0) {
+        ctx.fillStyle = fa ? 'rgba(56,189,248,0.05)' : 'rgba(148,163,184,0.045)';
+        ctx.fillRect(L.padL, yTop, L.gridW, rh);
+      }
+    }
+    // Leere Step-Kacheln (dezent), nur wenn groß genug für saubere Optik.
+    if (cw > 6 && rh > 6) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      for (let r = 0; r < this.employees.length; r++) {
+        for (let c = 1; c <= this.days; c++) {
+          if (this.matrix.has(this.cellKey(r, c))) continue;
+          ctx.strokeRect(L.padL + (c - 1) * cw + 1.5, L.padT + r * rh + 1.5, Math.max(1, cw - 3), Math.max(1, rh - 3));
+        }
+      }
     }
 
-    // Zeilen: Label, Trennlinie, Hintergrund-Tint nach Rolle
+    // Tagesnummern-Header (heller, mit Backing-Streifen gegen die Vignette)
+    ctx.fillStyle = 'rgba(2,6,16,0.6)';
+    ctx.fillRect(L.padL - 2, L.padT - L.headerH, L.gridW + 4, L.headerH);
+    ctx.font = `600 ${Math.min(10, Math.max(7, cw * 0.62))}px var(--font-mono, monospace)`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (let c = 1; c <= this.days; c++) {
+      if (cw > 12 || c % 5 === 0 || c === 1) {
+        ctx.fillStyle = 'rgba(226,240,255,0.78)';
+        ctx.fillText(String(c), L.padL + (c - 0.5) * cw, L.padT - L.headerH / 2);
+      }
+    }
+
+    // Mitarbeiter-Labels (links): Backing-Panel + helle, fette Schrift mit
+    // Glow, damit sie die Vignette durchdringen.
+    ctx.fillStyle = 'rgba(2,6,16,0.55)';
+    this.roundRect(ctx, L.inset - 3, L.padT - 2, L.labelW - 1, L.gridH + 4, 5);
+    ctx.fill();
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    const labelFont = Math.max(8, Math.min(12, L.rowH * 0.42));
+    const labelFont = Math.max(8, Math.min(12, rh * 0.46));
     for (let r = 0; r < this.employees.length; r++) {
       const emp = this.employees[r];
-      const yTop = L.padT + r * L.rowH;
-      const yMid = yTop + L.rowH / 2;
       const fa = isFacharzt(emp);
-      // Zebra + Rollentint
-      ctx.fillStyle = fa ? 'rgba(56,189,248,0.045)' : 'rgba(148,163,184,0.04)';
-      if (r % 2 === 0) ctx.fillRect(L.padL, yTop, L.gridW, L.rowH);
-      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-      ctx.beginPath(); ctx.moveTo(L.padL, yTop); ctx.lineTo(L.padL + L.gridW, yTop); ctx.stroke();
-
-      ctx.font = `${fa ? '700 ' : '400 '}${labelFont}px var(--font-mono, monospace)`;
-      ctx.fillStyle = fa ? 'rgba(125,211,252,0.9)' : 'rgba(148,163,184,0.85)';
-      ctx.fillText(this.getAbbreviation(emp), 5, yMid);
+      const yMid = L.padT + (r + 0.5) * rh;
+      // Rollen-Indikatorpunkt
+      ctx.fillStyle = fa ? `rgba(56,189,248,0.9)` : 'rgba(148,163,184,0.85)';
+      ctx.beginPath();
+      ctx.arc(L.inset + 1, yMid, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = `${fa ? '700 ' : '600 '}${labelFont}px var(--font-mono, monospace)`;
+      ctx.fillStyle = fa ? 'rgba(186,230,253,0.96)' : 'rgba(214,222,235,0.92)';
+      ctx.shadowColor = 'rgba(0,0,0,0.85)';
+      ctx.shadowBlur = 3;
+      ctx.fillText(this.getAbbreviation(emp), L.inset + 6, yMid);
+      ctx.shadowBlur = 0;
     }
 
     // Playhead-Position (Sequencer-Abspielkopf, fegt über die Tage)
@@ -396,7 +442,6 @@ export class NeuralGraph {
     }
 
     // Matrix-Kacheln (akkumulierter Plan)
-    const cw = L.cellW, rh = L.rowH;
     const tileW = Math.max(2, cw - 2);
     const tileH = Math.max(2, rh - 2);
     for (const [key, cell] of this.matrix.entries()) {
@@ -503,10 +548,11 @@ export class NeuralGraph {
       }
     }
 
-    // Load-Meter je Zeile (Fairness als Balkenbalance, rechts)
+    // Load-Meter je Zeile (Fairness als Balkenbalance, rechts) – innerhalb
+    // des Insets, damit es nicht in den vignettierten Rand läuft.
     const maxLoad = Math.max(1, ...this.rowLoad);
     const meterX = L.padL + L.gridW + 3;
-    const meterW = Math.max(8, L.padR - 6);
+    const meterW = Math.max(6, L.meterW - 5);
     for (let r = 0; r < this.employees.length; r++) {
       const yTop = L.padT + r * rh;
       const frac = (this.rowLoad[r] || 0) / maxLoad;
