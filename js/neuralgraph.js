@@ -208,9 +208,12 @@ export class NeuralGraph {
     this.temp = 1.0;
     this.tempTarget = 1.0;
 
-    // HUD-Telemetrie
-    this.costHistory = [];
-    this.cost = 1.0;
+    // HUD-Telemetrie: "Systemenergie" mit Kühl-Hüllkurve (Annealing). Sie
+    // pulst bei Aktivität nach oben und sinkt mit fallender Temperatur – so
+    // bleibt die Kurve den ganzen Lauf über lebendig statt auf einen Boden
+    // zu verflachen.
+    this.energyHistory = [];
+    this.energyLevel = 0.85;
     this.bars = [];
     this.hexStream = '';
 
@@ -313,6 +316,7 @@ export class NeuralGraph {
         x: 0, y: 0, w: 0, h: 0,
         energy: 0.4 + Math.random() * 0.3,
         crystal: 0,
+        assigned: false,
         color: PHASE_RGB.init,
         seed: Math.random() * 1000,
       });
@@ -441,6 +445,7 @@ export class NeuralGraph {
     const node = this.nodes.get(dayIdx);
     if (!node) return;
     node.crystal = 1;
+    node.assigned = true;
     node.color = color;
   }
 
@@ -533,12 +538,8 @@ export class NeuralGraph {
         this.bars[idx] = Math.min(1, this.bars[idx] + (isError ? 1 : 0.6 + Math.random() * 0.4));
       }
     }
-    if (!isError) {
-      // Aktivität = Fortschritt: Kosten sinken (mit etwas Rauschen).
-      this.cost = Math.max(0.04, this.cost - (0.015 + Math.random() * 0.02));
-    } else {
-      this.cost = Math.min(1, this.cost + 0.04);
-    }
+    // Aktivität schlägt als Energiespitze in die Kurve ein (Fehler stärker).
+    this.energyLevel = Math.min(1, this.energyLevel + (isError ? 0.22 : 0.10 + Math.random() * 0.06));
   }
 
   triggerSwap(dayIdx, oldEmpId, newEmpId, dutyType = 'D') {
@@ -619,7 +620,6 @@ export class NeuralGraph {
       delay += 14;
     }
 
-    this.cost = 0.04;
     for (let p = 0; p < 18; p++) setTimeout(() => this.fireMiniMapPulse(), p * 40);
   }
 
@@ -734,7 +734,10 @@ export class NeuralGraph {
       const px = node.x + jitterX;
       const py = node.y + jitterY;
 
-      const level = Math.min(1.4, node.energy + node.crystal * 0.6 + flicker * 0.3 + scanBoost);
+      // Zugewiesene Tage behalten eine kristalline Grundsignatur, damit das
+      // "gelöste" Gitter dauerhaft ablesbar bleibt (Kühl-Metapher).
+      const effCrystal = node.assigned ? Math.max(node.crystal, 0.5) : node.crystal;
+      const level = Math.min(1.4, node.energy + effCrystal * 0.6 + flicker * 0.3 + scanBoost);
       const [r, g, b] = node.color;
 
       if (level > 0.05) {
@@ -749,12 +752,12 @@ export class NeuralGraph {
       }
 
       // Kern: kristalline Raute, wenn kalt/zugewiesen; sonst weicher Punkt
-      if (node.crystal > 0.15) {
-        const s = 3 + node.crystal * 2.5;
+      if (effCrystal > 0.15) {
+        const s = 3 + effCrystal * 2.5;
         ctx.save();
         ctx.translate(px, py);
         ctx.rotate(Math.PI / 4 + time * 0.2);
-        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.6 + 0.3 * node.crystal})`;
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.6 + 0.3 * effCrystal})`;
         ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.9)`;
         ctx.shadowBlur = 10;
         ctx.fillRect(-s / 2, -s / 2, s, s);
@@ -791,24 +794,38 @@ export class NeuralGraph {
     const time = (performance.now() - this.t0) / 1000;
     const [pr, pg, pb] = this.phaseColorArr();
 
+    // Klar getrennte Bänder, damit nichts überlappt – robust für die echten
+    // Containergrößen (180×85 Desktop, volle Breite×60 Mobil):
+    //   [0 .. curveBot]  Energiekurve + ΔE-Readout (überlagert oben links)
+    //   [hexBaseline]    Hex-Ticker (eine Zeile)
+    //   [barsTop .. h-3] Spektrum-Equalizer
+    const pad = 3;
+    const curveBot = Math.round(h * 0.48);
+    const barsTop = Math.round(h * 0.66);
+    const hexBaseline = Math.round((curveBot + barsTop) / 2) + 1;
+    const fontPx = h < 70 ? 8 : 9;
+
     // Hintergrund + feines Scanline-Raster (digitales Display)
     ctx.fillStyle = '#03070F';
     ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = 'rgba(255,255,255,0.03)';
     for (let y = 0; y < h; y += 3) ctx.fillRect(0, y, w, 1);
 
-    // Optimierungs-Kurve (Energie/Kosten sinkt) – schnell scrollend
-    this.cost += (0.04 - this.cost) * 0.002; // langsame Grunddrift nach unten
-    this.costHistory.push(this.cost + (Math.random() - 0.5) * 0.05);
-    const maxPts = Math.max(20, Math.floor(w));
-    if (this.costHistory.length > maxPts) this.costHistory.shift();
+    // Systemenergie: Kühl-Hüllkurve. Grundpegel folgt der Temperatur, jede
+    // Aktivität schlägt als Spitze ein, danach Decay -> dauerhaft lebendig.
+    const envelope = 0.12 + this.temp * 0.55;
+    this.energyLevel += (envelope - this.energyLevel) * 0.05;
+    this.energyLevel = Math.max(0, this.energyLevel * 0.96);
+    const sample = Math.min(1, this.energyLevel + Math.abs(Math.sin(time * 7)) * 0.06 * (0.3 + this.temp));
+    this.energyHistory.push(sample);
+    const maxPts = Math.max(24, Math.floor(w));
+    if (this.energyHistory.length > maxPts) this.energyHistory.shift();
 
-    const graphH = h * 0.52;
     ctx.beginPath();
-    for (let i = 0; i < this.costHistory.length; i++) {
+    for (let i = 0; i < this.energyHistory.length; i++) {
       const x = (i / (maxPts - 1)) * w;
-      const v = Math.max(0, Math.min(1, this.costHistory[i]));
-      const y = 4 + (1 - v) * (graphH - 8);
+      const v = Math.max(0, Math.min(1, this.energyHistory[i]));
+      const y = pad + (1 - v) * (curveBot - pad * 2);
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.strokeStyle = this.getPhaseColor(0.9);
@@ -818,38 +835,38 @@ export class NeuralGraph {
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Spektrum-Balken (Equalizer) – schnelle Reaktion + Decay
-    const baseY = h - 4;
+    // Scrollender Hex-Ticker (digital) – eigene Zeile zwischen Kurve & Balken
+    if (Math.floor(time * 22) !== this._hexTick) {
+      this._hexTick = Math.floor(time * 22);
+      const ch = '0123456789ABCDEF'[Math.floor(Math.random() * 16)];
+      this.hexStream = (this.hexStream + ch).slice(-Math.max(8, Math.floor(w / 7)));
+    }
+    ctx.font = `${fontPx}px var(--font-mono, monospace)`;
+    ctx.fillStyle = `rgba(${pr}, ${pg}, ${pb}, 0.5)`;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.hexStream, pad, hexBaseline);
+
+    // Spektrum-Balken (Equalizer) – schnelle Reaktion + Decay, eigenes Band
+    const baseY = h - pad;
+    const barsH = baseY - barsTop;
     const bw = w / this.bars.length;
     for (let i = 0; i < this.bars.length; i++) {
-      // ambientes schnelles Rauschen + Decay
       const noise = Math.abs(Math.sin(time * 12 + i * 0.7)) * 0.18 * (0.4 + this.temp);
       this.bars[i] = Math.max(noise, this.bars[i] * 0.86);
-      const bh = this.bars[i] * (h * 0.34);
+      const bh = this.bars[i] * barsH;
       const x = i * bw;
       const alpha = 0.35 + this.bars[i] * 0.65;
       ctx.fillStyle = `rgba(${pr}, ${pg}, ${pb}, ${alpha})`;
       ctx.fillRect(x + 0.5, baseY - bh, Math.max(1, bw - 1.2), bh);
     }
 
-    // Scrollender Hex/Binär-Ticker (digital)
-    if (Math.floor(time * 22) !== this._hexTick) {
-      this._hexTick = Math.floor(time * 22);
-      const ch = '0123456789ABCDEF'[Math.floor(Math.random() * 16)];
-      this.hexStream = (this.hexStream + ch).slice(-Math.max(8, Math.floor(w / 7)));
-    }
-    ctx.font = '9px var(--font-mono, monospace)';
-    ctx.fillStyle = `rgba(${pr}, ${pg}, ${pb}, 0.55)`;
-    ctx.textBaseline = 'middle';
-    ctx.fillText(this.hexStream, 3, graphH + 7);
-
-    // Digitaler Readout (ΔE) – blinkt
+    // Digitaler Readout (ΔE) – blinkt, oben links über der Kurve
     const blink = (Math.sin(time * 8) > -0.3) ? 1 : 0.3;
     ctx.fillStyle = `rgba(${pr}, ${pg}, ${pb}, ${0.85 * blink})`;
-    ctx.font = 'bold 9px var(--font-mono, monospace)';
+    ctx.font = `bold ${fontPx}px var(--font-mono, monospace)`;
     ctx.textBaseline = 'top';
-    const e = Math.round(this.cost * 9999).toString(16).toUpperCase().padStart(4, '0');
-    ctx.fillText(`ΔE·${e}`, 3, 2);
+    const e = Math.round(this.energyLevel * 9999).toString(16).toUpperCase().padStart(4, '0');
+    ctx.fillText(`ΔE·${e}`, pad, 2);
 
     // Rahmenglühen
     ctx.strokeStyle = this.getPhaseColor(0.4);
@@ -868,6 +885,6 @@ export class NeuralGraph {
     this.flow = [];
     this.glitches = [];
     this.bars = [];
-    this.costHistory = [];
+    this.energyHistory = [];
   }
 }
