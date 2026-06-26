@@ -1062,6 +1062,96 @@ export class NeuralGraph {
       ctx.fill();
     }
     ctx.restore();
+
+    // 6. Draw contour light-trace for each card when distribution is final (success phase)
+    if (this.phase === 'success' && this.successStartTime !== null) {
+      ctx.save();
+      const tTrace = 0.8; // tracing duration (seconds)
+      const tFade = 0.8;  // fade out duration (seconds)
+      
+      for (const [d, cellData] of this.cells.entries()) {
+        const fx = this.nodeFx.get(d);
+        if (!fx || !fx.x) continue;
+        
+        const el = cellData.el;
+        const cellW = el.offsetWidth;
+        const cellH = el.offsetHeight;
+        
+        // Calculate offset position to draw just outside the card border
+        const pad = 1;
+        const rectX = fx.x - cellW / 2 - pad;
+        const rectY = fx.y - cellH / 2 - pad;
+        const rectW = cellW + 2 * pad;
+        const rectH = cellH + 2 * pad;
+        const radius = 7; // slightly larger than 6 to match outer offset
+        
+        // Accurate perimeter for rounded rectangle dash offset
+        const perimeter = 2 * (rectW + rectH) - 8 * radius + 2 * Math.PI * radius;
+        
+        const tStart = (d - 1) * 0.03; // 30ms stagger delay
+        const elapsed = (now - this.successStartTime) / 1000 - tStart;
+        
+        if (elapsed < 0) continue;
+        
+        if (elapsed < tTrace) {
+          // Tracing in progress
+          const progress = elapsed / tTrace;
+          ctx.strokeStyle = 'rgba(34, 197, 94, 0.95)';
+          ctx.shadowColor = 'rgba(34, 197, 94, 0.9)';
+          ctx.shadowBlur = 8;
+          ctx.lineWidth = 2.0;
+          ctx.lineCap = 'round';
+          
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(rectX, rectY, rectW, rectH, radius);
+          } else {
+            ctx.moveTo(rectX + radius, rectY);
+            ctx.lineTo(rectX + rectW - radius, rectY);
+            ctx.quadraticCurveTo(rectX + rectW, rectY, rectX + rectW, rectY + radius);
+            ctx.lineTo(rectX + rectW, rectY + rectH - radius);
+            ctx.quadraticCurveTo(rectX + rectW, rectY + rectH, rectX + rectW - radius, rectY + rectH);
+            ctx.lineTo(rectX + radius, rectY + rectH);
+            ctx.quadraticCurveTo(rectX, rectY + rectH, rectX, rectY + rectH - radius);
+            ctx.lineTo(rectX, rectY + radius);
+            ctx.quadraticCurveTo(rectX, rectY, rectX + radius, rectY);
+            ctx.closePath();
+          }
+          ctx.setLineDash([perimeter]);
+          ctx.lineDashOffset = perimeter * (1 - progress);
+          ctx.stroke();
+        } else if (elapsed < tTrace + tFade) {
+          // Tracing complete, fading out
+          const fadeProgress = (elapsed - tTrace) / tFade;
+          const opacity = 1 - fadeProgress;
+          
+          ctx.strokeStyle = `rgba(34, 197, 94, ${opacity * 0.95})`;
+          ctx.shadowColor = `rgba(34, 197, 94, ${opacity * 0.9})`;
+          ctx.shadowBlur = 8 * opacity;
+          ctx.lineWidth = 2.0 * opacity;
+          ctx.lineCap = 'round';
+          
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(rectX, rectY, rectW, rectH, radius);
+          } else {
+            ctx.moveTo(rectX + radius, rectY);
+            ctx.lineTo(rectX + rectW - radius, rectY);
+            ctx.quadraticCurveTo(rectX + rectW, rectY, rectX + rectW, rectY + radius);
+            ctx.lineTo(rectX + rectW, rectY + rectH - radius);
+            ctx.quadraticCurveTo(rectX + rectW, rectY + rectH, rectX + rectW - radius, rectY + rectH);
+            ctx.lineTo(rectX + radius, rectY + rectH);
+            ctx.quadraticCurveTo(rectX, rectY + rectH, rectX, rectY + rectH - radius);
+            ctx.lineTo(rectX, rectY + radius);
+            ctx.quadraticCurveTo(rectX, rectY, rectX + radius, rectY);
+            ctx.closePath();
+          }
+          ctx.setLineDash([]); // solid line
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
   }
 
   renderMiniMap() {
