@@ -464,7 +464,13 @@ export function openProfileModal(empName) {
       if (!row || team.count === 0) {
         fairnessEl.innerHTML = `<div class="pm-empty-hint">Noch keine Dienstdaten für eine Fairness-Auswertung in ${y}.</div>`;
       } else {
-        const sign = (n) => (n > 0 ? "+" : n < 0 ? "−" : "±") + Math.abs(Math.round(n * 10) / 10);
+        // Deutsche Zahlenformatierung (Dezimalkomma), konsistent mit der
+        // Fairness-Rangliste im Team-Screen / der Abteilungsübersicht.
+        const dec1 = (n) => n.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+        const sign = (n) => {
+          const v = Math.round(n * 10) / 10;
+          return (v > 0 ? "+" : v < 0 ? "−" : "±") + (Math.round(Math.abs(v) * 10) / 10).toLocaleString("de-DE", { maximumFractionDigits: 1 });
+        };
         const statusMeta = {
           over: { lbl: "Überdurchschnittlich belastet", cls: "over", color: "#DC2626" },
           under: { lbl: "Unterdurchschnittlich belastet", cls: "under", color: "#2563EB" },
@@ -492,8 +498,8 @@ export function openProfileModal(empName) {
         };
 
         const tiles = [
-          { lbl: "Dienste gesamt", val: row.total, rank: row.rankTotal, color: "#0F172A", sub: `Ø Team ${team.meanTotal.toFixed(1)}` },
-          { lbl: "WE / Feiertag", val: row.weekendDuties, rank: row.rankWeekend, color: "#B45309", sub: `Ø Team ${team.meanWeekend.toFixed(1)}` },
+          { lbl: "Dienste gesamt", val: row.total, rank: row.rankTotal, color: "#0F172A", sub: `Ø Team ${dec1(team.meanTotal)}` },
+          { lbl: "WE / Feiertag", val: row.weekendDuties, rank: row.rankWeekend, color: "#B45309", sub: `Ø Team ${dec1(team.meanWeekend)}` },
           { lbl: "Feiertagsdienste", val: row.holidayDuties, rank: row.rankHoliday, color: "#7C3AED", sub: `${team.totalHoliday} im Team` },
         ];
 
@@ -515,7 +521,7 @@ export function openProfileModal(empName) {
             <div class="pm-fair-status pm-fair-status-${st.cls}">
               <span class="pm-fair-status-dot" style="background:${st.color}"></span>
               <span class="pm-fair-status-lbl" style="color:${st.color}">${st.lbl}</span>
-              <span class="pm-fair-status-val">Fair-Anteil ${row.fairTotal.toFixed(1)} · Ist ${row.total} (${sign(row.totalDev)})</span>
+              <span class="pm-fair-status-val">Fair-Anteil ${dec1(row.fairTotal)} · Ist ${row.total} (${sign(row.totalDev)})</span>
             </div>
 
             <div class="pm-fair-rows">
@@ -545,12 +551,12 @@ export function openProfileModal(empName) {
                 <span class="pm-fair-pos-equity" title="Equity-Index: 100 = perfekt gleichmäßig verteilt">Equity ${team.equityTotal}/100</span>
               </div>
               <div class="pm-fair-pos-track">
-                <span class="pm-fair-pos-mean" style="left:${meanPct}%" title="Team-Durchschnitt ${team.meanTotal.toFixed(1)}"></span>
+                <span class="pm-fair-pos-mean" style="left:${meanPct}%" title="Team-Durchschnitt ${dec1(team.meanTotal)}"></span>
                 <span class="pm-fair-pos-dot" style="left:${posPct}%" title="${empName}: ${row.total}"></span>
               </div>
               <div class="pm-fair-pos-scale">
                 <span>min ${team.minTotal}</span>
-                <span>Ø ${team.meanTotal.toFixed(1)}</span>
+                <span>Ø ${dec1(team.meanTotal)}</span>
                 <span>max ${team.maxTotal}</span>
               </div>
             </div>

@@ -2836,9 +2836,11 @@ body.is-mobile .mcd {
 .fair-equity-grid { margin-bottom: 12px; }
 .fair-equity-strip { margin-top: 14px; }
 
-/* Fairness-Rangliste: Zeilen anklickbar */
-.fair-tr { cursor: pointer; transition: background .12s; }
-.fair-tr:hover { background: var(--gray-100, rgba(148,163,184,.12)); }
+/* Fairness-Rangliste: Zeilen nur im Team-Screen anklickbar (öffnen das Profil).
+   In der Abteilungs-Jahresübersicht sind dieselben .fair-tr-Zeilen statisch –
+   daher Cursor/Hover gezielt nur dort, wo auch ein Klick-Handler greift. */
+#emp-team-panel .fair-tr { cursor: pointer; transition: background .12s; }
+#emp-team-panel .fair-tr:hover { background: var(--gray-100, rgba(148,163,184,.12)); }
 
 /* Zentrierter Abweichungs-Balken (links blau = unter fair, rechts rot = über) */
 .fair-dev-bar {
