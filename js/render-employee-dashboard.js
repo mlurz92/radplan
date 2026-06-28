@@ -24,7 +24,8 @@ import {
   getEmployeeYearCardMetrics,
   matchRoleFilter,
   addEmployee,
-  removeEmployee
+  removeEmployee,
+  computeDutyFairness
 } from './model.js';
 
 import { openProfileModal } from './render-modals.js';
@@ -409,6 +410,120 @@ function renderEmployeeTeamAnalytics(teamPanelEl, teamControlsEl) {
   teamPanelEl.querySelectorAll("[data-team-emp]").forEach((row) => {
     row.addEventListener("click", () => {
       openProfileModal(row.dataset.teamEmp);
+    });
+  });
+
+  // ===== Dienst-Fairness (FTE-gewichtete Verteilung von BD/HG, WE/FT) =====
+  renderTeamFairnessBlock(teamPanelEl, year);
+}
+
+// Signiert formatieren, max. 1 Nachkommastelle, "0" bleibt neutral ohne Vorzeichen.
+function fmtSignedFloat(v) {
+  const n = Math.round((v || 0) * 10) / 10;
+  if (n === 0) return "0";
+  const s = (Math.round(Math.abs(n) * 10) / 10).toLocaleString("de-DE", { maximumFractionDigits: 1 });
+  return (n > 0 ? "+" : "−") + s;
+}
+function fmtSignedInt(v) {
+  const n = Math.round(v || 0);
+  if (n === 0) return "0";
+  return (n > 0 ? "+" : "−") + Math.abs(n);
+}
+function equityColor(v) {
+  return v >= 85 ? "#22C55E" : v >= 70 ? "#F59E0B" : "#EF4444";
+}
+
+// Hängt den Fairness-Analyseblock an das Team-Panel an, ohne bestehende Inhalte zu entfernen.
+function renderTeamFairnessBlock(teamPanelEl, year) {
+  let report;
+  try {
+    report = computeDutyFairness(year);
+  } catch (e) {
+    return;
+  }
+  if (!report || !report.rows || report.rows.length === 0) {
+    teamPanelEl.insertAdjacentHTML("beforeend", `
+      <div class="empdash-section-title">Dienst-Fairness · ${year}</div>
+      <div class="empdash-empty">Keine Dienstdaten für ${year} vorhanden.</div>
+    `);
+    return;
+  }
+
+  const t = report.team;
+  const equityCards = [
+    { label: "Equity-Index gesamt", value: Math.round(t.equityTotal), unit: "", tone: equityColor(t.equityTotal), sub: "100 = perfekt fair" },
+    { label: "Wochenend-Equity", value: Math.round(t.equityWeekend), unit: "", tone: equityColor(t.equityWeekend), sub: "WE/FT-Dienste" },
+    { label: "Spannweite gesamt", value: `${t.minTotal}–${t.maxTotal}`, unit: "", tone: "#0EA5E9", sub: `Differenz ${t.spreadTotal}` },
+    { label: "Variationskoeffizient", value: Math.round(t.cvTotal), unit: "%", tone: t.cvTotal <= 15 ? "#22C55E" : t.cvTotal <= 30 ? "#F59E0B" : "#EF4444", sub: "Streuung Gesamtlast" },
+  ];
+
+  const equityHtml = equityCards.map((c) => `
+    <article class="empdash-kpi">
+      <div class="empdash-kpi-label">${c.label}</div>
+      <div class="empdash-kpi-value" style="color:${c.tone}">${c.value}${c.unit}</div>
+      <div class="empdash-kpi-sub">${c.sub}</div>
+    </article>
+  `).join("");
+
+  // Skala für die Abweichungsbalken: größter absoluter Fair-Δ-Wert.
+  const maxAbsDev = Math.max(1, ...report.rows.map((r) => Math.abs(r.totalDev || 0)));
+
+  const rowsHtml = report.rows.map((r) => {
+    const statusLabel = r.status === "over" ? "Über" : r.status === "under" ? "Unter" : "Fair";
+    const devColor = r.status === "over" ? "#EF4444" : r.status === "under" ? "#2563EB" : "#94A3B8";
+    const dev = r.totalDev || 0;
+    const w = Math.min(50, (Math.abs(dev) / maxAbsDev) * 50);
+    const barFill = dev >= 0
+      ? `<span class="fair-dev-fill" style="left:50%;width:${w}%;background:#EF4444"></span>`
+      : `<span class="fair-dev-fill" style="right:50%;width:${w}%;background:#2563EB"></span>`;
+    const bdDeltaColor = r.bdDelta > 0 ? "#EF4444" : r.bdDelta < 0 ? "#22C55E" : "#94A3B8";
+    return `
+      <tr class="dept-tr fair-tr" data-fair-emp="${r.emp}">
+        <td class="dept-td-name"><span class="dept-emp-name">${r.emp}</span></td>
+        <td class="dept-td dept-td-num dept-duty-d">${r.bd || "—"}</td>
+        <td class="dept-td dept-td-num dept-duty-hg">${r.hg || "—"}</td>
+        <td class="dept-td dept-td-num">${r.total || "—"}</td>
+        <td class="dept-td dept-td-num">${r.weekendDuties || "—"}</td>
+        <td class="dept-td dept-td-num">${r.bdTarget}</td>
+        <td class="dept-td dept-td-num" style="color:${bdDeltaColor}">${fmtSignedInt(r.bdDelta)}</td>
+        <td class="dept-td dept-td-num" style="color:${devColor};font-weight:700">${fmtSignedFloat(dev)}</td>
+        <td class="dept-td">
+          <div class="fair-dev-bar"><span class="fair-dev-zero"></span>${barFill}</div>
+        </td>
+        <td class="dept-td"><span class="fair-status-pill fair-status-${r.status}" style="color:${devColor}">${statusLabel}</span></td>
+      </tr>
+    `;
+  }).join("");
+
+  teamPanelEl.insertAdjacentHTML("beforeend", `
+    <div class="empdash-section-title">Dienst-Fairness · ${year}</div>
+    <div class="empdash-team-kpis fair-equity-grid">
+      ${equityHtml}
+    </div>
+    <div class="dept-table-wrap">
+      <table class="dept-table fair-table">
+        <thead>
+          <tr>
+            <th class="dept-th-name">Mitarbeitende</th>
+            <th class="dept-th dept-th-d">BD</th>
+            <th class="dept-th dept-th-hg">HG</th>
+            <th class="dept-th">Gesamt</th>
+            <th class="dept-th">WE/FT</th>
+            <th class="dept-th">Soll BD</th>
+            <th class="dept-th">Δ Soll</th>
+            <th class="dept-th">Fair-Δ</th>
+            <th class="dept-th">Verteilung</th>
+            <th class="dept-th">Status</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+  `);
+
+  teamPanelEl.querySelectorAll("[data-fair-emp]").forEach((row) => {
+    row.addEventListener("click", () => {
+      openProfileModal(row.dataset.fairEmp);
     });
   });
 }
