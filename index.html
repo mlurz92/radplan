@@ -46,6 +46,13 @@
   <link rel="stylesheet" href="css/contextmenu.css">
   <link rel="stylesheet" href="css/mobile-optimization.css">
   <link rel="stylesheet" href="css/enhancements.css">
+  <link rel="stylesheet" href="css/analytics.css">
+  <link rel="stylesheet" href="css/analytics-coverage.css">
+  <link rel="stylesheet" href="css/analytics-fairness.css">
+  <link rel="stylesheet" href="css/analytics-absence.css">
+  <link rel="stylesheet" href="css/analytics-compliance.css">
+  <link rel="stylesheet" href="css/analytics-forecast.css">
+  <link rel="stylesheet" href="css/analytics-reports.css">
   <link rel="stylesheet" href="css/print.css" media="print">
 </head>
 <body>
@@ -124,6 +131,14 @@
           <path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/>
         </svg>
         <span class="hbtn-lbl">Jahresplan</span>
+      </button>
+
+      <button type="button" class="hbtn hbtn-ghost" id="btn-analytics" title="Auswertungen — Abdeckung, Fairness, Abwesenheiten, Regelkonformität, Prognose & Berichte">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 3v18h18"/>
+          <path d="M7 14l3-4 3 3 4-6"/>
+        </svg>
+        <span class="hbtn-lbl">Auswertungen</span>
       </button>
 
       <div class="hbtn-divider" role="separator" aria-hidden="true"></div>
@@ -842,6 +857,28 @@
   </div>
 
   <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <div class="overlay" id="modal-analytics" role="dialog" aria-modal="true" aria-labelledby="ah-title" hidden style="display:none">
+    <div class="modal modal-analytics ah-modal" role="document">
+      <header class="modal-hd ah-hd">
+        <div class="ah-hd-left">
+          <div class="modal-hd-title" id="ah-title">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:-2px;margin-right:7px" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg>
+            Auswertungen
+          </div>
+          <div class="modal-hd-sub">Abdeckung · Fairness · Abwesenheiten · Regelkonformität · Prognose · Berichte</div>
+        </div>
+        <div class="ah-range-bar" id="ah-range-bar" role="toolbar" aria-label="Zeitraum"></div>
+        <button type="button" class="modal-close ah-close" id="ah-close" aria-label="Auswertungen schließen">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </header>
+      <div class="ah-body">
+        <nav class="ah-nav" id="ah-nav" role="tablist" aria-label="Auswertungsbereiche"></nav>
+        <div class="ah-content" id="ah-content" role="tabpanel" tabindex="0"></div>
+      </div>
+    </div>
+  </div>
 
   <div class="overlay" id="modal-yearplan" role="dialog" aria-modal="true" aria-labelledby="yp-title" hidden style="display:none">
     <div class="modal modal-yearplan">

@@ -126,6 +126,7 @@ import {
 
 import { NeuralGraph } from './neuralgraph.js';
 import { openYearPlan, setupYearPlanModal, renderYearPlanContent, setYearPlanYear, cleanupYearPlan } from './yearplan.js';
+import { openAnalyticsHub } from './analytics/hub.js';
 import { initCommandPalette, openCommandPalette } from './commandpalette.js';
 import { withViewTransition, withThemeViewTransition } from './viewtransition.js';
 import { initNormalHistory, normalUndo, normalRedo, updateNormalHistoryUI } from './history.js';
@@ -2892,6 +2893,10 @@ export function wireEvents() {
     openYearPlan(state.year);
     renderYearPlanContent();
     showOverlay("modal-yearplan");
+  });
+
+  document.getElementById("btn-analytics")?.addEventListener("click", () => {
+    openAnalyticsHub();
   });
 
   const commentTa = document.getElementById("ed-comment-ta");
