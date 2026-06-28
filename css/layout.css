@@ -6,8 +6,10 @@
 #app-header {
   height: var(--header-h);
   background: var(--surface-raised);
-  backdrop-filter: blur(var(--glass-blur-lg));
-  -webkit-backdrop-filter: blur(var(--glass-blur-lg));
+  /* Capped blur on always-visible header (was --glass-blur-lg/24px) to cut
+     per-frame re-blur cost; glass look preserved. */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -175,8 +177,9 @@ body.is-mobile.is-standalone #app-header {
 #stats-bar {
   height: var(--statsbar-h);
   background: rgba(var(--navy-800-rgb),.85);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
+  /* Capped blur on always-visible stats bar (was --glass-blur/16px). */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--elev-border-1);
   display: flex;
   align-items: center;
@@ -271,8 +274,9 @@ body.is-mobile.is-standalone #app-header {
 #plan-bar {
   height: 52px;
   background: rgba(59,10,0,.45);
-  backdrop-filter: blur(var(--glass-blur-lg));
-  -webkit-backdrop-filter: blur(var(--glass-blur-lg));
+  /* Capped blur on always-visible plan bar (was --glass-blur-lg/24px). */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   gap: 14px;
@@ -421,8 +425,9 @@ main {
   z-index: 50;
   width: var(--name-w);
   min-width: var(--name-w);
-  background: rgba(var(--navy-700-rgb),.9);
-  backdrop-filter: blur(var(--glass-blur));
+  /* Sticky corner sits over the scrolling grid; backdrop-filter here forces a
+     re-blur every scroll frame. Use a near-opaque solid bg (looks ~identical). */
+  background: rgba(var(--navy-700-rgb),.97);
   border-right: 1px solid rgba(var(--ink-rgb),.06);
   border-bottom: 1px solid rgba(14,165,233,.2);
 }
@@ -530,8 +535,9 @@ main {
   width: var(--name-w);
   min-width: var(--name-w);
   height: var(--row-h);
-  background: rgba(var(--navy-700-rgb), 0.96);
-  backdrop-filter: blur(8px);
+  /* Sticky name column over scrolling grid: solid bg instead of backdrop-filter
+     (was blur(8px)) to avoid per-scroll-frame re-blur. */
+  background: rgba(var(--navy-700-rgb), 0.98);
   border-right: 1px solid rgba(var(--ink-rgb), 0.08);
   border-bottom: 1px solid rgba(var(--ink-rgb), 0.08);
   padding: 0 10px 0 12px;
@@ -635,6 +641,9 @@ tr:hover .emp-profile-icon {
   vertical-align: top;
   transition: filter .12s, box-shadow .15s, transform 0.1s;
   outline: none;
+  /* Isolate layout for each repeating cell so reflow in one cell can't cascade.
+     Only `layout` (not `paint`) so the hover scale/glow may still overflow. */
+  contain: layout;
 }
 
 .td-cell:hover {
@@ -910,9 +919,10 @@ body.is-drag-selecting #plan-tbody .td-cell {
   position: sticky;
   left: 0;
   z-index: 20;
-  background: rgba(var(--navy-700-rgb),.92);
+  /* Sticky stat label over scrolling grid: solid bg instead of backdrop-filter
+     (was blur(6px)) to avoid per-scroll-frame re-blur. */
+  background: rgba(var(--navy-700-rgb),.97);
   color: var(--text-2);
-  backdrop-filter: blur(6px);
   height: var(--foot-h);
   padding: 0 10px;
   border-right: 1px solid rgba(var(--ink-rgb),.08);

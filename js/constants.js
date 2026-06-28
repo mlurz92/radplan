@@ -44,6 +44,10 @@ export const RBN_OPTIONS = [
 export const RBN_THALER_LAST_MONTH = { year: 2026, month: 2 };
 
 export const EMPLOYEE_DEPARTURES = {
+  // month ist 0-basiert und markiert den ERSTEN Monat OHNE die Person.
+  // Fr. Thaler hat die Abteilung zum 1.4.2026 verlassen → ab April (m=3) inaktiv.
+  "Fr. Thaler": { year: 2026, month: 3, reason: "ausgeschieden" },
+  // Hr. Torki hat die Abteilung zum 1.7.2026 verlassen → ab Juli (m=6) inaktiv.
   "Hr. Torki": { year: 2026, month: 6, reason: "gekündigt" },
 };
 

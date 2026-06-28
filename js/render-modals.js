@@ -19,7 +19,7 @@ import {
 } from './constants.js';
 
 import { state, TOD_Y, TOD_M, TOD_D } from './state.js';
-import { getCell, buildProfileStats, buildYearlyStats, getEmployeesForYear } from './model.js';
+import { getCell, buildProfileStats, buildYearlyStats, getEmployeesForYear, getEmployeeFairness, isDutyExempt } from './model.js';
 import { openEditor, switchPeriod } from './app.js';
 import { renderEmployeeDetailDashboard, renderEmployeeDashboard } from './render-employee-dashboard.js';
 import { autoPlanResult } from './autoplan.js';
@@ -447,6 +447,122 @@ export function openProfileModal(empName) {
     } else {
       if (dutyHdEl) dutyHdEl.style.display = "none";
       dutyDetailEl.innerHTML = `<div class="pm-empty-hint">Keine Dienste in diesem Monat eingetragen.</div>`;
+    }
+  }
+
+  // === DIENST-FAIRNESS (gesamtes Jahr, teamrelativ) ===
+  // Branchenübliche Verteilungs-/Gerechtigkeitsmetrik: zeigt die Belastung der
+  // Person durch Dienste (gesamt, Wochenende/Feiertag, reine Feiertage) im
+  // Vergleich zum FTE-gewichteten fairen Anteil, Soll/Ist (BD) und der
+  // Rangfolge im Team.
+  const fairnessEl = document.getElementById("pm-fairness");
+  if (fairnessEl) {
+    if (isDutyExempt(empName)) {
+      fairnessEl.innerHTML = `<div class="pm-empty-hint">${meta.fullName !== empName ? meta.fullName : empName} ist von Bereitschafts- und Hintergrunddiensten befreit — keine Fairness-Auswertung.</div>`;
+    } else {
+      const { row, team } = getEmployeeFairness(empName, y);
+      if (!row || team.count === 0) {
+        fairnessEl.innerHTML = `<div class="pm-empty-hint">Noch keine Dienstdaten für eine Fairness-Auswertung in ${y}.</div>`;
+      } else {
+        // Deutsche Zahlenformatierung (Dezimalkomma), konsistent mit der
+        // Fairness-Rangliste im Team-Screen / der Abteilungsübersicht.
+        const dec1 = (n) => n.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+        const sign = (n) => {
+          const v = Math.round(n * 10) / 10;
+          return (v > 0 ? "+" : v < 0 ? "−" : "±") + (Math.round(Math.abs(v) * 10) / 10).toLocaleString("de-DE", { maximumFractionDigits: 1 });
+        };
+        const statusMeta = {
+          over: { lbl: "Überdurchschnittlich belastet", cls: "over", color: "#DC2626" },
+          under: { lbl: "Unterdurchschnittlich belastet", cls: "under", color: "#2563EB" },
+          balanced: { lbl: "Fair verteilt", cls: "balanced", color: "#15803D" },
+        };
+        const st = statusMeta[row.status] || statusMeta.balanced;
+
+        // Team-Positionsbalken (min … Person … max) für Gesamtbelastung.
+        const range = Math.max(1, team.maxTotal - team.minTotal);
+        const posPct = Math.round(((row.total - team.minTotal) / range) * 100);
+        const meanPct = Math.round(((team.meanTotal - team.minTotal) / range) * 100);
+
+        // Abweichungs-Balken um die 0-Achse (links blau = unter fair, rechts rot = über fair).
+        const devBar = (dev, fair) => {
+          const scale = Math.max(1, fair * 0.6);
+          const w = Math.min(50, Math.round((Math.abs(dev) / scale) * 50));
+          const isOver = dev > 0.05;
+          const isUnder = dev < -0.05;
+          const fillStyle = isOver
+            ? `left:50%;width:${w}%;background:#EF4444`
+            : isUnder
+              ? `left:${50 - w}%;width:${w}%;background:#3B82F6`
+              : `left:49%;width:2%;background:#94A3B8`;
+          return `<div class="pm-fair-dev"><span class="pm-fair-dev-axis"></span><span class="pm-fair-dev-fill" style="${fillStyle}"></span></div>`;
+        };
+
+        const tiles = [
+          { lbl: "Dienste gesamt", val: row.total, rank: row.rankTotal, color: "#0F172A", sub: `Ø Team ${dec1(team.meanTotal)}` },
+          { lbl: "WE / Feiertag", val: row.weekendDuties, rank: row.rankWeekend, color: "#B45309", sub: `Ø Team ${dec1(team.meanWeekend)}` },
+          { lbl: "Feiertagsdienste", val: row.holidayDuties, rank: row.rankHoliday, color: "#7C3AED", sub: `${team.totalHoliday} im Team` },
+        ];
+
+        fairnessEl.innerHTML = `
+          <div class="pm-fair-grid">
+            <div class="pm-fair-tiles">
+              ${tiles.map((t) => `
+                <div class="pm-fair-tile">
+                  <div class="pm-fair-tile-top">
+                    <span class="pm-fair-tile-val" style="color:${t.color}">${t.val}</span>
+                    <span class="pm-fair-rank" title="Rang im Team (1 = höchste Belastung)">#${t.rank}<small>/${team.count}</small></span>
+                  </div>
+                  <div class="pm-fair-tile-lbl">${t.lbl}</div>
+                  <div class="pm-fair-tile-sub">${t.sub}</div>
+                </div>
+              `).join("")}
+            </div>
+
+            <div class="pm-fair-status pm-fair-status-${st.cls}">
+              <span class="pm-fair-status-dot" style="background:${st.color}"></span>
+              <span class="pm-fair-status-lbl" style="color:${st.color}">${st.lbl}</span>
+              <span class="pm-fair-status-val">Fair-Anteil ${dec1(row.fairTotal)} · Ist ${row.total} (${sign(row.totalDev)})</span>
+            </div>
+
+            <div class="pm-fair-rows">
+              <div class="pm-fair-row">
+                <span class="pm-fair-row-lbl">Soll/Ist Bereitschaftsdienst</span>
+                <div class="pm-fair-bar-bg">
+                  <div class="pm-fair-bar-fill" style="width:${Math.min(100, row.bdTargetPct)}%;background:${row.bdTargetPct > 115 ? "#DC2626" : row.bdTargetPct >= 85 ? "#22C55E" : "#F59E0B"}"></div>
+                  <span class="pm-fair-bar-target" style="left:100%"></span>
+                </div>
+                <span class="pm-fair-row-val">${row.bd} / ${row.bdTarget} <small>(${sign(row.bdDelta)})</small></span>
+              </div>
+              <div class="pm-fair-row">
+                <span class="pm-fair-row-lbl">Abweichung Gesamtdienste</span>
+                ${devBar(row.totalDev, row.fairTotal)}
+                <span class="pm-fair-row-val">${sign(row.totalDev)}</span>
+              </div>
+              <div class="pm-fair-row">
+                <span class="pm-fair-row-lbl">Abweichung WE/Feiertag</span>
+                ${devBar(row.weekendDev, row.fairWeekend)}
+                <span class="pm-fair-row-val">${sign(row.weekendDev)}</span>
+              </div>
+            </div>
+
+            <div class="pm-fair-pos">
+              <div class="pm-fair-pos-head">
+                <span>Position im Team (Gesamtdienste)</span>
+                <span class="pm-fair-pos-equity" title="Equity-Index: 100 = perfekt gleichmäßig verteilt">Equity ${team.equityTotal}/100</span>
+              </div>
+              <div class="pm-fair-pos-track">
+                <span class="pm-fair-pos-mean" style="left:${meanPct}%" title="Team-Durchschnitt ${dec1(team.meanTotal)}"></span>
+                <span class="pm-fair-pos-dot" style="left:${posPct}%" title="${empName}: ${row.total}"></span>
+              </div>
+              <div class="pm-fair-pos-scale">
+                <span>min ${team.minTotal}</span>
+                <span>Ø ${dec1(team.meanTotal)}</span>
+                <span>max ${team.maxTotal}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
     }
   }
 

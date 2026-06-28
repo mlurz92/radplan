@@ -2665,3 +2665,225 @@ body.is-mobile .mcd {
   .pm-person-select-wrap { width: 100%; }
   .pm-person-select-wrap select { width: 100%; }
 }
+
+/* ===========================================================================
+   Dienst-Fairness im Personen-Profil (Tab "Dienste & Feiertage")
+   =========================================================================== */
+.pm-fairness-area { margin-top: 4px; }
+.pm-fair-grid { display: flex; flex-direction: column; gap: 12px; }
+
+.pm-fair-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.pm-fair-tile {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pm-fair-tile-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+.pm-fair-tile-val { font-size: 22px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.pm-fair-rank {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  background: var(--gray-200);
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-variant-numeric: tabular-nums;
+}
+.pm-fair-rank small { font-weight: 600; opacity: .7; }
+.pm-fair-tile-lbl { font-size: 11px; font-weight: 700; color: var(--text-2); margin-top: 4px; }
+.pm-fair-tile-sub { font-size: 10px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+
+.pm-fair-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--gray-200);
+  background: var(--gray-50);
+}
+.pm-fair-status-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.pm-fair-status-lbl { font-size: 12px; font-weight: 800; }
+.pm-fair-status-val { font-size: 11px; color: var(--text-3); margin-left: auto; font-variant-numeric: tabular-nums; }
+.pm-fair-status-over { background: rgba(220,38,38,.07); border-color: rgba(220,38,38,.25); }
+.pm-fair-status-under { background: rgba(37,99,235,.07); border-color: rgba(37,99,235,.25); }
+.pm-fair-status-balanced { background: rgba(21,128,61,.07); border-color: rgba(21,128,61,.25); }
+
+.pm-fair-rows { display: flex; flex-direction: column; gap: 8px; }
+.pm-fair-row {
+  display: grid;
+  grid-template-columns: 180px 1fr 78px;
+  align-items: center;
+  gap: 10px;
+}
+.pm-fair-row-lbl { font-size: 11px; font-weight: 600; color: var(--text-2); }
+.pm-fair-row-val { font-size: 12px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.pm-fair-row-val small { font-weight: 600; color: var(--text-faint); }
+
+.pm-fair-bar-bg {
+  position: relative;
+  height: 8px;
+  background: var(--gray-200);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.pm-fair-bar-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 999px; transition: width .4s ease; }
+.pm-fair-bar-target { position: absolute; top: -2px; width: 2px; height: 12px; background: var(--text-2); transform: translateX(-1px); opacity: .55; }
+
+.pm-fair-dev {
+  position: relative;
+  height: 10px;
+  background: var(--gray-200);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.pm-fair-dev-axis { position: absolute; left: 50%; top: 0; width: 1px; height: 100%; background: var(--text-faint); opacity: .5; }
+.pm-fair-dev-fill { position: absolute; top: 0; height: 100%; border-radius: 999px; transition: all .4s ease; }
+
+.pm-fair-pos {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  background: var(--gray-50);
+}
+.pm-fair-pos-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-2);
+  margin-bottom: 10px;
+}
+.pm-fair-pos-equity { color: var(--text-3); background: var(--gray-200); border-radius: 999px; padding: 2px 8px; }
+.pm-fair-pos-track {
+  position: relative;
+  height: 8px;
+  background: linear-gradient(90deg, #3B82F6, #22C55E, #EF4444);
+  border-radius: 999px;
+  margin: 4px 0;
+}
+.pm-fair-pos-dot {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--text-1);
+  transform: translate(-50%, -50%);
+  box-shadow: var(--shadow-md);
+}
+.pm-fair-pos-mean {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 14px;
+  background: var(--text-2);
+  transform: translateX(-1px);
+  opacity: .7;
+}
+.pm-fair-pos-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 560px) {
+  .pm-fair-tiles { grid-template-columns: 1fr; }
+  .pm-fair-row { grid-template-columns: 120px 1fr 64px; gap: 6px; }
+  .pm-fair-row-lbl { font-size: 10px; }
+}
+
+/* ===========================================================================
+   Team-/Abteilungs-Fairness (Team-Screen + Abteilungs-Jahresübersicht)
+   =========================================================================== */
+.empdash-section-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: .01em;
+  margin: 18px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--gray-200);
+}
+.dept-fair-section { margin-top: 20px; }
+.dept-fair-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-1);
+  margin: 0 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--gray-200);
+}
+.fair-equity-grid { margin-bottom: 12px; }
+.fair-equity-strip { margin-top: 14px; }
+
+/* Fairness-Rangliste: Zeilen nur im Team-Screen anklickbar (öffnen das Profil).
+   In der Abteilungs-Jahresübersicht sind dieselben .fair-tr-Zeilen statisch –
+   daher Cursor/Hover gezielt nur dort, wo auch ein Klick-Handler greift. */
+#emp-team-panel .fair-tr { cursor: pointer; transition: background .12s; }
+#emp-team-panel .fair-tr:hover { background: var(--gray-100, rgba(148,163,184,.12)); }
+
+/* Zentrierter Abweichungs-Balken (links blau = unter fair, rechts rot = über) */
+.fair-dev-bar {
+  position: relative;
+  height: 9px;
+  min-width: 70px;
+  background: var(--gray-200);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.fair-dev-zero {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: var(--text-faint);
+  opacity: .55;
+  transform: translateX(-.5px);
+}
+.fair-dev-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 999px;
+  transition: width .4s ease;
+}
+
+/* Status-Pille (Über / Fair / Unter) */
+.fair-status-pill {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  line-height: 1.4;
+}
+.fair-status-over { background: rgba(239,68,68,.10); }
+.fair-status-under { background: rgba(37,99,235,.10); }
+.fair-status-balanced { background: rgba(148,163,184,.12); }
+
+@media (max-width: 640px) {
+  .fair-table .dept-th, .fair-table .dept-td { padding-left: 5px; padding-right: 5px; }
+  .fair-dev-bar { min-width: 48px; }
+}

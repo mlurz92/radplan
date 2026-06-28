@@ -395,12 +395,13 @@ Der Mitarbeitendenbereich (`#modal-emps`) bietet Werkzeuge zur Analyse und Pfleg
 ### 11.1 Der Team-Screen
 *   **KPI-Zusammenfassung:** Zeigt die Anzahl der aktiven Mitarbeiter, die Verteilung der Dienstrollen (LOA, OA, FA, AA) und die Gesamtzahl der Bereitschafts- und Hintergrunddienste im laufenden Jahr.
 *   **Team-Analytics:** Ermöglicht die Auswertung der Arbeitszeiten und Dienste über dynamische Zeiträume: *Aktueller Monat*, *Aktuelles Quartal*, *Laufendes Jahr*, *Letzte 12 Monate* oder ein *frei wählbarer Datumsbereich (Custom)*. Liefert Statistiken zur Dienstverteilung, Ausfalltagen und ermittelt Spitzenreiter in bestimmten Modalitäten.
+*   **Dienst-Fairness (Team):** Ein eigener Analyseblock bewertet die *Verteilungsgerechtigkeit* der belastenden Dienste über das Jahr. Er zeigt einen **Equity-Index** (Gini-basiert, 0–100; 100 = perfekt gleichmäßig) für Gesamt- und Wochenend-/Feiertagsdienste, den **Variationskoeffizienten** und die **Spannweite** (min–max). Eine **Fairness-Rangliste** stellt je Mitarbeiter Bereitschafts- (BD) und Hintergrunddienste (HG), Gesamt- sowie Wochenend-/Feiertagslast, das FTE-skalierte **Soll/Ist (BD)** und die **Abweichung vom fairen Anteil** dar — inklusive eines um die Null-Achse zentrierten Abweichungsbalkens (blau = unterdurchschnittlich, rot = überdurchschnittlich belastet) und einer Status-Pille (Über/Fair/Unter). Ein Klick auf eine Zeile öffnet das jeweilige Profil.
 *   **Mitgliederliste:** Filterbar nach Name, Qualifikation und Position (Pills für Schnellsortierung). Zeigt für jeden Mitarbeiter eine Karte mit Kontaktdaten, einer Abdeckungs-Fortschrittsleiste und der Anzahl der aktiven Monate.
 
 ### 11.2 Der Person-Screen (Detaillierte Einzelstatistik)
 Über fünf Tabs wird das Profil eines einzelnen Mitarbeiters aufgeschlüsselt:
 1.  **Übersicht:** Monatliche Einsatzstatistik (aktive Werktage, Krankheitstage, Urlaubstage) mit direktem Trendvergleich (Pfeilsymbol) zum Vormonat. Enthält ein Donut-Diagramm der Verteilung auf die Modalitäten.
-2.  **Dienste & Feiertage:** Zeigt alle verplanten Dienste im Detail. Der Bereich **Feiertagsdienste** listet namentlich alle gesetzlichen Feiertage des Jahres auf, an denen die Person Dienst geleistet hat.
+2.  **Dienste & Feiertage:** Zeigt alle verplanten Dienste im Detail. Ein vorangestellter Block **Dienst-Fairness im Jahr** ordnet die Belastung der Person teamrelativ ein: Kacheln für Gesamtdienste, Wochenend-/Feiertagsdienste und reine Feiertagsdienste mit dem jeweiligen **Team-Rang** (#x/n), ein **Soll/Ist-Balken** für den Bereitschaftsdienst (FTE-skaliertes Jahresziel), zentrierte **Abweichungsbalken** gegenüber dem fairen Anteil sowie eine **Team-Positionsleiste** (min · Ø · max) inklusive Equity-Index. Der Bereich **Feiertagsdienste** listet namentlich alle gesetzlichen Feiertage des Jahres auf, an denen die Person Dienst geleistet hat.
 3.  **Kalender:** Ein interaktiver Monatskalender zur manuellen Zuweisung von Diensten sowie ein kompakter Jahreskalender (12-Monats-Übersicht), der die Einsatzverteilung farblich visualisiert.
 4.  **Jahresauswertung:** Ein Liniendiagramm des Dienstverlaufs über das Jahr (Bereitschaftsdienst, Hintergrunddienst, Urlaub) und eine tabellarische Monatsübersicht.
 5.  **Verwaltung:** Ermöglicht das Hinzufügen oder Entfernen der Person zum aktuellen Planungsmonat.
@@ -431,7 +432,7 @@ Ein integriertes Liniendiagramm (Chart.js) zeichnet die kumulierte Abweichung je
 
 Die Abteilungsübersicht (`#modal-dept`) fasst die Gesamtleistung der Klinik zusammen:
 *   **Tab Aktueller Monat:** Liefert Kennzahlen zur Abdeckungsquote, den prozentualen Anteil besetzter Dienste an Wochenenden und Feiertagen sowie die Summe der geleisteten Stunden der gesamten Abteilung.
-*   **Tab Jahresübersicht:** Aggregiert diese Werte für das gesamte Kalenderjahr und vergleicht sie mit den Werten des Vorjahres zur Trendanalyse.
+*   **Tab Jahresübersicht:** Aggregiert diese Werte für das gesamte Kalenderjahr und vergleicht sie mit den Werten des Vorjahres zur Trendanalyse. Zusätzlich fasst ein Abschnitt **Dienst-Fairness** den Equity-Index (gesamt und Wochenende/Feiertag) sowie die Spannweite der Wochenend-/Feiertagslast zusammen und stellt je Mitarbeiter BD, HG, Wochenend-/Feiertags- und reine Feiertagsdienste samt Soll/Ist-Abweichung (BD) tabellarisch dar.
 
 ---
 
