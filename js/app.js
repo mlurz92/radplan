@@ -2899,6 +2899,23 @@ export function wireEvents() {
     openAnalyticsHub();
   });
 
+  // Aus dem Auswertungs-Hub heraus die klassischen Detailansichten öffnen
+  // (entkoppelt via Event, um Import-Zyklen zu vermeiden).
+  window.addEventListener("radplan:open-legacy", (e) => {
+    const view = e.detail?.view;
+    hideOverlay("modal-analytics");
+    setTimeout(() => {
+      if (view === "yearplan") {
+        openYearPlan(state.year);
+        renderYearPlanContent();
+        showOverlay("modal-yearplan");
+      } else if (view === "dept") {
+        renderDeptContent();
+        showOverlay("modal-dept");
+      }
+    }, 180);
+  });
+
   const commentTa = document.getElementById("ed-comment-ta");
   const commentCount = document.getElementById("ed-comment-count");
   if (commentTa && commentCount) {

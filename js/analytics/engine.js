@@ -342,11 +342,24 @@ export function computeCompliance(range) {
 // ---------------------------------------------------------------------------
 export function computeForecast(year) {
   const fairness = computeDutyFairness(year, { uptoMonth: 11 });
-  // Monate mit Daten ermitteln (für lineare Hochrechnung).
+  // Monate mit tatsächlichen DIENST-Daten ermitteln (nicht bloß Personal-
+  // präsenz), damit die lineare Hochrechnung nicht zur Ist-Wiedergabe
+  // kollabiert, wenn der Dienstplan personell das ganze Jahr abdeckt, künftige
+  // Monate aber noch keine vergebenen Dienste enthalten.
   let monthsWithData = 0;
   for (let m = 0; m < 12; m++) {
     const md = getMonthData(year, m);
-    if (md?.employees?.length) monthsWithData++;
+    if (!md?.employees?.length) continue;
+    const dim = daysInMonth(year, m);
+    let hasDuty = false;
+    for (const emp of md.employees) {
+      for (let d = 1; d <= dim && !hasDuty; d++) {
+        const cell = md.assignments?.[emp]?.[d];
+        if (cell && (cell.duty === 'D' || cell.duty === 'HG')) hasDuty = true;
+      }
+      if (hasDuty) break;
+    }
+    if (hasDuty) monthsWithData++;
   }
   const factor = monthsWithData > 0 ? 12 / monthsWithData : 1;
 

@@ -148,3 +148,14 @@
   .ah-nav-item { white-space: nowrap; }
   .ah-nav-lbl { font-size: 11.5px; }
 }
+
+/* Klassische Detailansichten (Verweis aus dem Dashboard) */
+.ah-legacy-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.ah-legacy-btn {
+  text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 3px;
+  border: 1px solid var(--gray-200); background: var(--gray-50); border-radius: var(--radius);
+  padding: 12px 14px; transition: background .14s, border-color .14s, transform .14s;
+}
+.ah-legacy-btn:hover { background: var(--gray-100, rgba(148,163,184,.12)); border-color: var(--gray-300); transform: translateY(-1px); }
+.ah-legacy-btn strong { font-size: 12.5px; color: var(--text-1); }
+.ah-legacy-btn span { font-size: 11px; color: var(--text-faint); }
