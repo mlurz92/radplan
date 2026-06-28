@@ -355,7 +355,9 @@ function renderEmployeeTeamAnalytics(teamPanelEl, teamControlsEl) {
   
   const rows = [...perEmp.values()].filter((x) => x.active || x.d || x.hg || x.vac || x.sick || x.required);
   rows.sort((a, b) => (b.active - a.active) || (b.d + b.hg - (a.d + a.hg)));
-  const topRows = rows.slice(0, 8);
+  // Vollständige Mitarbeitendenliste anzeigen (zuvor auf 8 Zeilen begrenzt, was
+  // Personen mit geringerer Aktivität – z. B. Assistenzärzte – unsichtbar machte).
+  const topRows = rows;
   const teamCoverage = agg.required > 0 ? Math.round((agg.active / agg.required) * 100) : 0;
   const busiest = rows[0]?.emp || "—";
   const dutyLeader = rows.slice().sort((a, b) => (b.d + b.hg) - (a.d + a.hg))[0]?.emp || "—";

@@ -292,3 +292,17 @@
   .pp-page.pp-landscape,
   .pp-page.pp-portrait { width: 900px; }
 }
+
+/* ACCESSIBILITY + PERF: respect reduced-motion.
+   Disables non-essential animations/transitions globally for users who request
+   reduced motion. Does not affect the default look for normal users. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
