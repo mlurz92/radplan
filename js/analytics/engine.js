@@ -210,7 +210,6 @@ export function computeAbsence(range) {
   const daySeries = []; // pro Werktag: gleichzeitige Abwesenheiten
 
   range.months.forEach(({ year, month }) => {
-    range._mset; // noop
     for (const emp of emps) {
       const md = getMonthData(year, month);
       if (!md?.employees?.includes(emp)) continue;
