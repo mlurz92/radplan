@@ -20,13 +20,15 @@ import { getRange, RANGE_DEFS, MONTHS_SHORT } from './engine.js';
 import dashboard from './dashboard.js';
 import coverage from './mod-coverage.js';
 import fairness from './mod-fairness.js';
+import yeargrid from './mod-yeargrid.js';
+import curves from './mod-curves.js';
 import absence from './mod-absence.js';
 import compliance from './mod-compliance.js';
 import forecast from './mod-forecast.js';
 import reports from './mod-reports.js';
 
 // Reihenfolge in der Navigation (Frage-/Domänen-Logik + Dashboard + Berichte).
-const MODULES = [dashboard, coverage, fairness, absence, compliance, forecast, reports];
+const MODULES = [dashboard, coverage, fairness, yeargrid, curves, absence, compliance, forecast, reports];
 const MODULE_MAP = new Map(MODULES.map((m) => [m.id, m]));
 
 const hubState = {

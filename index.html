@@ -53,6 +53,8 @@
   <link rel="stylesheet" href="css/analytics-compliance.css">
   <link rel="stylesheet" href="css/analytics-forecast.css">
   <link rel="stylesheet" href="css/analytics-reports.css">
+  <link rel="stylesheet" href="css/analytics-yeargrid.css">
+  <link rel="stylesheet" href="css/analytics-curves.css">
   <link rel="stylesheet" href="css/print.css" media="print">
 </head>
 <body>
@@ -125,15 +127,7 @@
         <span class="hbtn-lbl">Mitarbeitende</span>
       </button>
 
-      <button type="button" class="hbtn hbtn-ghost" id="btn-yearplan" title="Jahresplaner — Fairness-Übersicht, Kurven und Projektion">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="3" y="4" width="18" height="18" rx="2"/>
-          <path d="M16 2v4M8 2v4M3 10h18M9 16l2 2 4-4"/>
-        </svg>
-        <span class="hbtn-lbl">Jahresplan</span>
-      </button>
-
-      <button type="button" class="hbtn hbtn-ghost" id="btn-analytics" title="Auswertungen — Abdeckung, Fairness, Abwesenheiten, Regelkonformität, Prognose & Berichte">
+      <button type="button" class="hbtn hbtn-ghost" id="btn-analytics" title="Auswertungen — Abdeckung, Fairness, Jahresgitter, Kurven, Abwesenheiten, Regelkonformität, Prognose & Berichte">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M3 3v18h18"/>
           <path d="M7 14l3-4 3 3 4-6"/>
@@ -393,9 +387,9 @@
             <span class="mm-tile-ic" aria-hidden="true"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
             <span class="mm-tile-lbl">Mitarbeitende</span>
           </button>
-          <button type="button" class="mm-tile" id="mbtn-yearplan">
-            <span class="mm-tile-ic" aria-hidden="true"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14l2 2 4-4"/></svg></span>
-            <span class="mm-tile-lbl">Jahresplan</span>
+          <button type="button" class="mm-tile" id="mbtn-analytics">
+            <span class="mm-tile-ic" aria-hidden="true"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg></span>
+            <span class="mm-tile-lbl">Auswertungen</span>
           </button>
           <button type="button" class="mm-tile" id="mbtn-print">
             <span class="mm-tile-ic" aria-hidden="true"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span>
@@ -880,79 +874,6 @@
     </div>
   </div>
 
-  <div class="overlay" id="modal-yearplan" role="dialog" aria-modal="true" aria-labelledby="yp-title" hidden style="display:none">
-    <div class="modal modal-yearplan">
-
-      <div class="modal-hd yp-modal-hd">
-        <div class="yp-hd-left">
-          <div class="modal-hd-title" id="yp-title">
-            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:-2px;margin-right:7px" aria-hidden="true">
-              <rect x="3" y="4" width="18" height="18" rx="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-              <path d="M8 14l2 2 4-4"/>
-            </svg>
-            Jahresplaner
-          </div>
-          <div class="modal-hd-sub">Gitter · Fairness · Soll/Ist · Abwesenheiten · Projektion</div>
-        </div>
-
-        <nav class="yp-year-nav" aria-label="Jahresnavigation">
-          <button type="button" class="yp-year-btn" id="yp-prev-year" aria-label="Vorheriges Jahr">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <span class="yp-year-label" id="yp-year-label" aria-live="polite">2026</span>
-          <button type="button" class="yp-year-btn" id="yp-next-year" aria-label="Nächstes Jahr">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-        </nav>
-
-        <button type="button" class="modal-x" data-close="modal-yearplan" aria-label="Jahresplaner schließen">✕</button>
-      </div>
-
-      <div class="yp-tabs" role="tablist" aria-label="Jahresplaner-Ansichten">
-        <button type="button" class="yp-tab active" data-tab="grid" role="tab" aria-selected="true">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-            <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
-          </svg>
-          Jahres-Gitter
-        </button>
-        <button type="button" class="yp-tab" data-tab="fairness" role="tab" aria-selected="false">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-          </svg>
-          Fairness-Analyse
-        </button>
-        <button type="button" class="yp-tab" data-tab="sollist" role="tab" aria-selected="false">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-          </svg>
-          Dienst Soll/Ist
-        </button>
-        <button type="button" class="yp-tab" data-tab="absence" role="tab" aria-selected="false">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-          </svg>
-          Abwesenheiten
-        </button>
-        <button type="button" class="yp-tab" data-tab="projection" role="tab" aria-selected="false">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
-            <line x1="6" y1="20" x2="6" y2="14"/>
-          </svg>
-          Jahresprojektion
-        </button>
-      </div>
-
-      <div class="yp-body" id="yp-body" role="tabpanel" aria-live="polite"></div>
-
-      <div class="modal-ft">
-        <button type="button" class="mbtn mbtn-ghost" data-close="modal-yearplan">Schließen</button>
-      </div>
-    </div>
-  </div>
 
   <div id="aria-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 

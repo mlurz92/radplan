@@ -105,32 +105,10 @@ export default {
         <div class="ah-ok-banner">Keine kritischen Befunde im Zeitraum ${range.label}.</div>
       </div>`;
 
-    // Klassische Detailansichten (eindeutige Visualisierungen, die der Hub
-    // bündelt: Jahres-Heatmap & Fairness-Kurven, Abteilungs-Tabellen).
-    const legacyHtml = `
-      <div class="ah-dash-section">
-        <div class="ah-section-title">Klassische Detailansichten</div>
-        <div class="ah-legacy-row">
-          <button type="button" class="ah-legacy-btn" data-legacy="yearplan">
-            <strong>Jahresgitter &amp; Fairness-Kurven</strong>
-            <span>Heatmap je Monat · kumulierte Abweichungskurven · Soll/Ist</span>
-          </button>
-          <button type="button" class="ah-legacy-btn" data-legacy="dept">
-            <strong>Abteilungsübersicht</strong>
-            <span>Monats- &amp; Jahrestabellen der gesamten Abteilung</span>
-          </button>
-        </div>
-      </div>`;
-
-    root.innerHTML = `${head}<div class="ah-tile-grid">${tileHtml}</div>${alertHtml}${legacyHtml}`;
+    root.innerHTML = `${head}<div class="ah-tile-grid">${tileHtml}</div>${alertHtml}`;
 
     root.querySelectorAll('[data-goto]').forEach((el) => {
       el.addEventListener('click', () => ctx.hub.goto(el.dataset.goto));
-    });
-    root.querySelectorAll('[data-legacy]').forEach((el) => {
-      el.addEventListener('click', () => {
-        window.dispatchEvent(new CustomEvent('radplan:open-legacy', { detail: { view: el.dataset.legacy } }));
-      });
     });
   },
 

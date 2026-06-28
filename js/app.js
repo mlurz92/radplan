@@ -125,7 +125,6 @@ import {
 } from './autoplan.js';
 
 import { NeuralGraph } from './neuralgraph.js';
-import { openYearPlan, setupYearPlanModal, renderYearPlanContent, setYearPlanYear, cleanupYearPlan } from './yearplan.js';
 import { openAnalyticsHub } from './analytics/hub.js';
 import { initCommandPalette, openCommandPalette } from './commandpalette.js';
 import { withViewTransition, withThemeViewTransition } from './viewtransition.js';
@@ -2889,31 +2888,8 @@ export function wireEvents() {
     closePeriodFlyout();
   });
   
-  document.getElementById("btn-yearplan")?.addEventListener("click", () => {
-    openYearPlan(state.year);
-    renderYearPlanContent();
-    showOverlay("modal-yearplan");
-  });
-
   document.getElementById("btn-analytics")?.addEventListener("click", () => {
     openAnalyticsHub();
-  });
-
-  // Aus dem Auswertungs-Hub heraus die klassischen Detailansichten öffnen
-  // (entkoppelt via Event, um Import-Zyklen zu vermeiden).
-  window.addEventListener("radplan:open-legacy", (e) => {
-    const view = e.detail?.view;
-    hideOverlay("modal-analytics");
-    setTimeout(() => {
-      if (view === "yearplan") {
-        openYearPlan(state.year);
-        renderYearPlanContent();
-        showOverlay("modal-yearplan");
-      } else if (view === "dept") {
-        renderDeptContent();
-        showOverlay("modal-dept");
-      }
-    }, 180);
   });
 
   const commentTa = document.getElementById("ed-comment-ta");
@@ -3011,9 +2987,9 @@ export function wireEvents() {
 
   document.getElementById("mbtn-theme")?.addEventListener("click", (e) => toggleTheme(e));
 
-  document.getElementById("mbtn-yearplan")?.addEventListener("click", () => {
+  document.getElementById("mbtn-analytics")?.addEventListener("click", () => {
     hideOverlay("modal-mobile-menu");
-    setTimeout(() => openYearPlan(state.year), 180);
+    setTimeout(() => openAnalyticsHub(), 180);
   });
 
   document.getElementById("mbtn-print")?.addEventListener("click", () => {
@@ -3291,29 +3267,19 @@ export async function init() {
   populatePeriodMonthSelect();
   syncPeriodControls();
   wireEvents();
-  setupYearPlanModal();
   initNormalHistory();
   initCellTooltips();
 
+  // Navigation aus dem Auswertungs-Hub (z. B. Klick auf eine Jahresgitter-Zelle):
+  // Hub schließen und in den gewählten Monat springen.
   window.addEventListener('radplan-navigate', (e) => {
     const { year, month } = e.detail || {};
     if (Number.isFinite(year) && Number.isFinite(month)) {
-      hideOverlay('modal-yearplan');
+      hideOverlay('modal-analytics');
       setTimeout(() => switchPeriod(year, month), 180);
     }
   });
 
-  const ypModal = document.getElementById('modal-yearplan');
-  if (ypModal) {
-    new MutationObserver(mutations => {
-      mutations.forEach(mut => {
-        if (mut.attributeName === 'hidden' && ypModal.hasAttribute('hidden')) {
-          cleanupYearPlan();
-        }
-      });
-    }).observe(ypModal, { attributes: true });
-  }
-  
   refreshResponsiveLayout({ forceRender: true });
 
   const apModal = document.getElementById("modal-autoplan");

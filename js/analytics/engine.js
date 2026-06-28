@@ -25,7 +25,8 @@ import {
   getEmployeesForYear, computeDutyFairness, getEmployeeFairness, isDutyExempt,
 } from '../model.js';
 
-import { state } from '../state.js';
+import { state, TOD_Y, TOD_M } from '../state.js';
+import { posColor } from '../constants.js';
 
 // Re-Exports, damit Module nur ./engine.js importieren müssen.
 export {
@@ -36,7 +37,66 @@ export {
   SPECIAL_RULES, dateKey, monthKey, DOW_ABBR, DOW_LONG,
   getMonthData, getCell, buildProfileStats, buildYearlyStats,
   getEmployeesForYear, computeDutyFairness, getEmployeeFairness, isDutyExempt,
+  posColor, TOD_Y, TOD_M,
 };
+
+// Farbpalette für Jahres-Visualisierungen (Heatmap-/Kurvenmodule).
+export const EMP_COLORS = [
+  '#0EA5E9', '#22C55E', '#F59E0B', '#EF4444',
+  '#8B5CF6', '#EC4899', '#14B8A6', '#F97316',
+  '#6366F1', '#84CC16', '#06B6D4',
+];
+
+// Heatmap-Farbe nach Abweichung vom Monats-Mittelwert (aus dem Jahresplaner
+// übernommen, damit das gewohnte Farbschema erhalten bleibt).
+export function heatColor(dev) {
+  if (dev >= 2)   return { bg: 'rgba(239,68,68,0.18)',  fg: '#B91C1C' };
+  if (dev >= 1)   return { bg: 'rgba(249,115,22,0.15)', fg: '#C2410C' };
+  if (dev > -0.5) return { bg: 'rgba(34,197,94,0.12)',  fg: '#15803D' };
+  if (dev >= -1)  return { bg: 'rgba(14,165,233,0.14)', fg: '#0369A1' };
+  return            { bg: 'rgba(14,165,233,0.26)', fg: '#075985' };
+}
+
+// Per-Monat/Person-Dienstmatrix eines Jahres + Spaltenmittelwerte – Basis für
+// das Jahresgitter (Heatmap) und die Fairness-Verlaufskurven.
+export function computeYearGrid(year) {
+  const allEmps = getEmployeesForYear(year);
+  const perEmp = {};
+  allEmps.forEach((emp, idx) => {
+    const fa = isFacharzt(emp);
+    perEmp[emp] = {
+      color: EMP_COLORS[idx % EMP_COLORS.length],
+      months: [], totalBD: 0, totalHG: 0, monthsWithData: 0,
+      isFa: fa, isDutyCapable: !isDutyExempt(emp),
+      meta: getEmpMeta(emp),
+    };
+    for (let m = 0; m < 12; m++) {
+      const md = getMonthData(year, m);
+      const inData = !!(md && md.employees && md.employees.includes(emp));
+      if (!inData) { perEmp[emp].months.push({ bd: 0, hg: 0, hasData: false }); continue; }
+      const s = buildProfileStats(year, m, emp);
+      const bd = s.dutyD.length, hg = s.dutyHG.length;
+      perEmp[emp].months.push({ bd, hg, hasData: true });
+      perEmp[emp].totalBD += bd;
+      perEmp[emp].totalHG += hg;
+      perEmp[emp].monthsWithData++;
+    }
+  });
+
+  const meansBD = Array.from({ length: 12 }, (_, m) => {
+    const vals = allEmps.filter((e) => perEmp[e].months[m].hasData && perEmp[e].isDutyCapable).map((e) => perEmp[e].months[m].bd);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  });
+  const meansHG = Array.from({ length: 12 }, (_, m) => {
+    const vals = allEmps.filter((e) => perEmp[e].months[m].hasData && perEmp[e].isFa && !isDutyExempt(e)).map((e) => perEmp[e].months[m].hg);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  });
+
+  // Fachärzte zuerst, dann Assistenz – innerhalb alphabetisch (allEmps ist sortiert).
+  const ordered = [...allEmps.filter((e) => perEmp[e].isFa), ...allEmps.filter((e) => !perEmp[e].isFa)];
+
+  return { year, employees: ordered, perEmp, meansBD, meansHG, now: { year: TOD_Y, month: TOD_M } };
+}
 
 // ---------------------------------------------------------------------------
 //  Zeitraum-Definitionen
