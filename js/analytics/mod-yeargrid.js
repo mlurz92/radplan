@@ -7,7 +7,7 @@
 //  Fachärzten. Klick auf eine Zelle springt in den jeweiligen Monat.
 // ===========================================================================
 
-import { computeYearGrid, heatColor, posColor, MONTHS, MONTHS_SHORT } from './engine.js';
+import { computeYearGrid, heatColor, posColor, MONTHS, MONTHS_SHORT, TT } from './engine.js';
 
 const ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>';
 
@@ -31,7 +31,8 @@ export default {
     const monthHeaders = MONTHS_SHORT.map((mo, m) => {
       const isNow = year === now.year && m === now.month;
       const isFuture = year > now.year || (year === now.year && m > now.month);
-      return `<th class="yg-th-month${isNow ? ' yg-th-now' : ''}${isFuture ? ' yg-th-future' : ''}">${mo}</th>`;
+      const moTip = `${MONTHS[m]} ${year} – Bereitschaftsdienste (D) je Person; Farbe zeigt die Abweichung vom Monats-Kollegiums-Durchschnitt.${isNow ? ' Aktueller Monat.' : (isFuture ? ' Liegt in der Zukunft.' : '')}`;
+      return `<th class="yg-th-month${isNow ? ' yg-th-now' : ''}${isFuture ? ' yg-th-future' : ''}" data-tooltip="${esc(moTip)}">${mo}</th>`;
     }).join('');
 
     const meanRow = meansBD.map((v) => `<td class="yg-td-mean">${v > 0 ? v.toFixed(1) : '<span class="yg-dash">—</span>'}</td>`).join('');
@@ -78,20 +79,20 @@ export default {
     });
 
     root.innerHTML = `
-      <div class="ah-section-title">Jahresgitter <span class="ah-sub">— BD-Belastung je Monat (Heatmap) · Bezug: ${year}</span></div>
+      <div class="ah-section-title" data-tooltip="${esc(TT.yeargrid)}">Jahresgitter <span class="ah-sub">— BD-Belastung je Monat (Heatmap) · Bezug: ${year}</span></div>
       <div class="yg-legend">
-        <span class="yg-leg-item"><span class="yg-swatch" style="background:rgba(14,165,233,0.26)"></span>Deutlich unter Ø</span>
-        <span class="yg-leg-item"><span class="yg-swatch" style="background:rgba(14,165,233,0.14)"></span>Unter Ø</span>
-        <span class="yg-leg-item"><span class="yg-swatch" style="background:rgba(34,197,94,0.12)"></span>Im Ø-Bereich</span>
-        <span class="yg-leg-item"><span class="yg-swatch" style="background:rgba(249,115,22,0.15)"></span>Über Ø</span>
-        <span class="yg-leg-item"><span class="yg-swatch" style="background:rgba(239,68,68,0.18)"></span>Deutlich über Ø</span>
+        <span class="yg-leg-item" data-tooltip="Deutlich weniger Bereitschaftsdienste als der Monats-Kollegiums-Durchschnitt."><span class="yg-swatch" style="background:rgba(14,165,233,0.26)"></span>Deutlich unter Ø</span>
+        <span class="yg-leg-item" data-tooltip="Weniger Bereitschaftsdienste als der Monats-Kollegiums-Durchschnitt."><span class="yg-swatch" style="background:rgba(14,165,233,0.14)"></span>Unter Ø</span>
+        <span class="yg-leg-item" data-tooltip="Bereitschaftsdienste etwa im Monats-Kollegiums-Durchschnitt."><span class="yg-swatch" style="background:rgba(34,197,94,0.12)"></span>Im Ø-Bereich</span>
+        <span class="yg-leg-item" data-tooltip="Mehr Bereitschaftsdienste als der Monats-Kollegiums-Durchschnitt."><span class="yg-swatch" style="background:rgba(249,115,22,0.15)"></span>Über Ø</span>
+        <span class="yg-leg-item" data-tooltip="Deutlich mehr Bereitschaftsdienste als der Monats-Kollegiums-Durchschnitt."><span class="yg-swatch" style="background:rgba(239,68,68,0.18)"></span>Deutlich über Ø</span>
         <span class="yg-leg-hint">Farbe = BD-Abweichung vom Kollegiums-Ø je Monat · Klick auf Zelle öffnet den Monat.</span>
       </div>
       <div class="yg-scroll">
         <table class="yg-table">
           <thead>
-            <tr><th class="yg-th-name">Mitarbeitende</th>${monthHeaders}<th class="yg-th-total">Σ Jahr</th></tr>
-            <tr class="yg-mean-hdr"><td class="yg-td-name yg-mean-name"><span class="yg-mean-icon" title="Monatlicher Kollegiums-Ø (BD)">Ø BD</span></td>${meanRow}<td class="yg-td-mean">—</td></tr>
+            <tr><th class="yg-th-name" data-tooltip="Mitarbeitende, gruppiert nach Fachärzten/Oberärzten und Assistenzärzten. Klick auf den Namen öffnet das Profil.">Mitarbeitende</th>${monthHeaders}<th class="yg-th-total" data-tooltip="Summe aller Bereitschaftsdienste (D) im Jahr; bei Fachärzten zusätzlich die HG-Summe.">Σ Jahr</th></tr>
+            <tr class="yg-mean-hdr"><td class="yg-td-name yg-mean-name" data-tooltip="${esc(TT.yeargridMean)}"><span class="yg-mean-icon">Ø BD</span></td>${meanRow}<td class="yg-td-mean">—</td></tr>
           </thead>
           <tbody>${bodyRows}</tbody>
         </table>

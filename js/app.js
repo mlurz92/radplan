@@ -130,6 +130,7 @@ import { initCommandPalette, openCommandPalette } from './commandpalette.js';
 import { withViewTransition, withThemeViewTransition } from './viewtransition.js';
 import { initNormalHistory, normalUndo, normalRedo, updateNormalHistoryUI } from './history.js';
 import { initCellTooltips } from './celltooltip.js';
+import { initTooltips } from './tooltip.js';
 import { openPrintPreview } from './printpreview.js';
 import { icon, setIcon, injectBrandIcon } from './icons.js';
 
@@ -3269,6 +3270,7 @@ export async function init() {
   wireEvents();
   initNormalHistory();
   initCellTooltips();
+  initTooltips();
 
   // Navigation aus dem Auswertungs-Hub (z. B. Klick auf eine Jahresgitter-Zelle):
   // Hub schließen und in den gewählten Monat springen.

@@ -15,7 +15,13 @@
 
 import { showOverlay, hideOverlay, openProfileModal } from '../render-modals.js';
 import { state } from '../state.js';
-import { getRange, RANGE_DEFS, MONTHS_SHORT } from './engine.js';
+import { getRange, RANGE_DEFS, MONTHS_SHORT, TT } from './engine.js';
+
+// Erklärende Mouse-Over-Texte je Zeitraum-Pille (Schlüssel = RANGE_DEFS.key).
+const RANGE_TIPS = {
+  month: TT.rangeMonth, quarter: TT.rangeQuarter, ytd: TT.rangeYtd,
+  year: TT.rangeYear, rolling12: TT.rangeRolling12, custom: TT.rangeCustom,
+};
 
 import dashboard from './dashboard.js';
 import coverage from './mod-coverage.js';
@@ -86,12 +92,12 @@ function renderRangeBar() {
   const usesRange = mod ? mod.usesRange !== false : true;
 
   if (!usesRange) {
-    bar.innerHTML = `<span class="ah-range-static">Bezug: Gesamtjahr ${state.year}</span>`;
+    bar.innerHTML = `<span class="ah-range-static" data-tooltip="${TT.rangeYear}">Bezug: Gesamtjahr ${state.year}</span>`;
     return;
   }
 
   const pills = RANGE_DEFS.map((r) => `
-    <button type="button" class="ah-range-pill${r.key === hubState.rangeKey ? ' active' : ''}" data-range="${r.key}">${r.label}</button>`).join('');
+    <button type="button" class="ah-range-pill${r.key === hubState.rangeKey ? ' active' : ''}" data-range="${r.key}" data-tooltip="${RANGE_TIPS[r.key] || TT.range}" data-tooltip-pos="bottom">${r.label}</button>`).join('');
 
   const cs = hubState.custom?.start || { year: state.year, month: Math.max(0, state.month - 2) };
   const ce = hubState.custom?.end || { year: state.year, month: state.month };

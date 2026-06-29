@@ -7,7 +7,7 @@
 //  gerechnet, unabhängig vom gewählten Teilzeitraum.
 // ===========================================================================
 
-import { computeDutyFairness, fmt, scoreColor } from './engine.js';
+import { computeDutyFairness, fmt, scoreColor, TT } from './engine.js';
 
 let chartInstance = null;
 
@@ -76,22 +76,22 @@ export default {
     const kpis = `
       <div class="ah-kpi-grid">
         <div class="ah-kpi">
-          <span class="ah-kpi-label">Equity-Index gesamt</span>
+          <span class="ah-kpi-label" data-tooltip="${esc(TT.equityTotal)}">Equity-Index gesamt</span>
           <span class="ah-kpi-value" style="color:${scoreColor(equityTotalPct)}">${fmt.pct(equityTotalPct)}</span>
           <span class="ah-kpi-sub">FTE-gewichtete Gleichverteilung</span>
         </div>
         <div class="ah-kpi">
-          <span class="ah-kpi-label">Wochenend-Equity</span>
+          <span class="ah-kpi-label" data-tooltip="Equity-Index 0–100 nur für Wochenend- und Feiertagsdienste – die belastendsten Einsätze.">Wochenend-Equity</span>
           <span class="ah-kpi-value" style="color:${scoreColor(equityWeekendPct)}">${fmt.pct(equityWeekendPct)}</span>
           <span class="ah-kpi-sub">WE-/Feiertagsdienste</span>
         </div>
         <div class="ah-kpi">
-          <span class="ah-kpi-label">Variationskoeffizient</span>
+          <span class="ah-kpi-label" data-tooltip="Variationskoeffizient der Gesamtdienste in Prozent: Streuung im Verhältnis zum Mittelwert. Niedriger = gleichmäßiger verteilt.">Variationskoeffizient</span>
           <span class="ah-kpi-value">${fmt.pct(team.cvTotal ?? 0)}</span>
           <span class="ah-kpi-sub">Streuung der Gesamtlast</span>
         </div>
         <div class="ah-kpi">
-          <span class="ah-kpi-label">Spannweite gesamt</span>
+          <span class="ah-kpi-label" data-tooltip="${esc(TT.spread)}">Spannweite gesamt</span>
           <span class="ah-kpi-value">${fmt.int(team.minTotal)}–${fmt.int(team.maxTotal)}</span>
           <span class="ah-kpi-sub">Differenz ${fmt.int(team.spreadTotal)} Dienste</span>
         </div>
@@ -122,16 +122,16 @@ export default {
         <table class="ah-table fair-table">
           <thead>
             <tr>
-              <th>Mitarbeitende</th>
-              <th>BD</th>
-              <th>HG</th>
-              <th>Gesamt</th>
-              <th>WE/FT</th>
-              <th>Soll BD</th>
-              <th>Δ Soll</th>
-              <th>Fair-Δ</th>
-              <th>Verteilung</th>
-              <th>Status</th>
+              <th data-tooltip="Mitarbeitende – Klick öffnet das Personenprofil.">Mitarbeitende</th>
+              <th data-tooltip="${esc(TT.bd)}">BD</th>
+              <th data-tooltip="${esc(TT.hg)}">HG</th>
+              <th data-tooltip="Gesamtzahl aller geleisteten Dienste (BD + HG) im Jahr.">Gesamt</th>
+              <th data-tooltip="${esc(TT.weekendDuties)}">WE/FT</th>
+              <th data-tooltip="${esc(TT.soll)}">Soll BD</th>
+              <th data-tooltip="${esc(TT.delta)}">Δ Soll</th>
+              <th data-tooltip="Fairness-Abweichung: geleistete Gesamtdienste minus FTE-gewichteter fairer Anteil. Positiv = über dem fairen Anteil.">Fair-Δ</th>
+              <th data-tooltip="Visualisierung der Fair-Δ: blau nach links = unter, rot nach rechts = über dem fairen Anteil.">Verteilung</th>
+              <th data-tooltip="Einordnung relativ zum fairen Anteil: Über, Unter oder Fair (innerhalb der Toleranz).">Status</th>
             </tr>
           </thead>
           <tbody>${bodyRows}</tbody>
@@ -139,16 +139,16 @@ export default {
       </div>`;
 
     root.innerHTML = `
-      <div class="ah-section-title">Fairness &amp; Verteilung</div>
-      <div class="fair-note">Bezug: Gesamtjahr ${year}</div>
+      <div class="ah-section-title" data-tooltip="${esc(TT.fairness)}">Fairness &amp; Verteilung</div>
+      <div class="fair-note" data-tooltip="Fairness ist eine Jahresgröße und bezieht sich stets auf das Gesamtjahr, unabhängig vom gewählten Teilzeitraum.">Bezug: Gesamtjahr ${year}</div>
       ${kpis}
-      <div class="ah-section-title">Fairness-Rangliste</div>
+      <div class="ah-section-title" data-tooltip="Rangliste aller dienstfähigen Mitarbeitenden, sortiert nach Gesamtbelastung (absteigend).">Fairness-Rangliste</div>
       <div class="fair-legend">
-        <span><span class="fair-legend-swatch fair-legend-under"></span>Unter dem fairen Anteil</span>
-        <span><span class="fair-legend-swatch fair-legend-over"></span>Über dem fairen Anteil</span>
+        <span data-tooltip="Person leistet weniger Dienste als ihr FTE-gewichteter fairer Anteil."><span class="fair-legend-swatch fair-legend-under"></span>Unter dem fairen Anteil</span>
+        <span data-tooltip="Person leistet mehr Dienste als ihr FTE-gewichteter fairer Anteil."><span class="fair-legend-swatch fair-legend-over"></span>Über dem fairen Anteil</span>
       </div>
       ${table}
-      <div class="ah-section-title">Dienste je Mitarbeitende vs. fairer Anteil</div>
+      <div class="ah-section-title" data-tooltip="Balken = tatsächliche Gesamtdienste je Person; Linie = FTE-gewichteter fairer Anteil.">Dienste je Mitarbeitende vs. fairer Anteil</div>
       <div class="ah-card fair-chart-card"><canvas id="fair-chart" height="220"></canvas></div>`;
 
     // Zeilen klickbar → Profil.

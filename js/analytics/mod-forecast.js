@@ -8,7 +8,7 @@
 // ===========================================================================
 
 import {
-  computeForecast, computeWishFulfillment, getRange, fmt, scoreColor,
+  computeForecast, computeWishFulfillment, getRange, fmt, scoreColor, TT,
 } from './engine.js';
 
 // HTML-Escape für Texte/Attribute.
@@ -40,21 +40,25 @@ export default {
     const parts = [];
 
     // Bezugshinweis.
-    parts.push(`<div class="fc-scope">Bezug: Gesamtjahr ${esc(year)}</div>`);
+    parts.push(`<div class="fc-scope" data-tooltip="${esc(TT.forecast)}">Bezug: Gesamtjahr ${esc(year)}</div>`);
 
     // ---- KPIs ------------------------------------------------------------
     parts.push('<div class="ah-kpi-grid">');
-    parts.push(kpi('Datenmonate', `${fc.monthsWithData}/12`, 'Monate mit Plandaten'));
-    parts.push(kpi('Hochrechnungsfaktor', `× ${fmt.dec1(fc.factor)}`, 'lineare Skalierung'));
+    parts.push(kpi('Datenmonate', `${fc.monthsWithData}/12`, 'Monate mit Plandaten',
+      'Anzahl der Monate, in denen bereits Dienste vergeben sind. Basis der linearen Hochrechnung.'));
+    parts.push(kpi('Hochrechnungsfaktor', `× ${fmt.dec1(fc.factor)}`, 'lineare Skalierung',
+      'Skalierungsfaktor 12 geteilt durch die Anzahl der Datenmonate. Rechnet die bisherigen Dienste linear auf das Gesamtjahr hoch.'));
     parts.push(kpi(
       'Wunscherfüllung',
       `<span style="color:${wf.rate == null ? 'var(--text-faint)' : scoreColor(wf.rate)}">${rateTxt}</span>`,
       `${fmt.int(wf.fulfilled)} von ${fmt.int(wf.wishes)} Wünschen`,
+      TT.wishRate,
     ));
     parts.push(kpi(
       'Verletzte Wünsche',
       `<span style="color:${wf.violated > 0 ? '#EF4444' : '#22C55E'}">${fmt.int(wf.violated)}</span>`,
       'nicht erfüllbare Sperrwünsche',
+      TT.wishViolated,
     ));
     parts.push('</div>');
 
@@ -66,14 +70,23 @@ export default {
     }
 
     // ---- Tabelle: Jahresend-Prognose je Mitarbeitende -------------------
-    parts.push('<div class="ah-section-title">Jahresend-Prognose je Mitarbeitende</div>');
+    parts.push(`<div class="ah-section-title" data-tooltip="${esc(TT.forecast)}">Jahresend-Prognose je Mitarbeitende</div>`);
 
     // Maximalwert für die Balken-Skalierung (Ist/Prognose/Ziel berücksichtigt).
     const max = Math.max(1, ...fc.rows.map((r) => Math.max(r.bd, r.projBd, r.yearTarget)));
 
     parts.push('<div class="ah-table-wrap"><table class="ah-table"><thead><tr>');
-    ['Mitarbeitende', 'Ist BD', 'Ist HG', 'Ist gesamt', 'Prognose BD', 'Prognose gesamt', 'Jahresziel BD', 'Δ Prognose', 'Landung (BD)']
-      .forEach((h) => parts.push(`<th>${h}</th>`));
+    [
+      ['Mitarbeitende', 'Name der dienstfähigen Person (Fachärztinnen/Fachärzte und Assistenz). Klick auf die Zeile öffnet das Profil.'],
+      ['Ist BD', TT.bd],
+      ['Ist HG', TT.hg],
+      ['Ist gesamt', TT.duty],
+      ['Prognose BD', 'Auf das Jahresende hochgerechnete Bereitschaftsdienste (D) bei gleichbleibendem Tempo.'],
+      ['Prognose gesamt', TT.projTotal],
+      ['Jahresziel BD', TT.yearTarget],
+      ['Δ Prognose', TT.projDelta],
+      ['Landung (BD)', 'Balkenvergleich Ist gegen Prognose der Bereitschaftsdienste mit Markierung des Jahresziels.'],
+    ].forEach(([h, tip]) => parts.push(`<th data-tooltip="${esc(tip)}">${esc(h)}</th>`));
     parts.push('</tr></thead><tbody>');
 
     fc.rows.forEach((r) => {
@@ -94,14 +107,14 @@ export default {
 
     // Legende der Balken.
     parts.push('<div class="fc-legend">'
-      + '<span class="fc-legend-item"><span class="fc-swatch fc-swatch-ist"></span>Ist BD</span>'
-      + '<span class="fc-legend-item"><span class="fc-swatch fc-swatch-proj"></span>Prognose BD</span>'
-      + '<span class="fc-legend-item"><span class="fc-swatch fc-swatch-target"></span>Jahresziel BD</span>'
+      + `<span class="fc-legend-item" data-tooltip="${esc(TT.bd)}"><span class="fc-swatch fc-swatch-ist"></span>Ist BD</span>`
+      + '<span class="fc-legend-item" data-tooltip="Auf das Jahresende hochgerechnete Bereitschaftsdienste (D) bei gleichbleibendem Tempo."><span class="fc-swatch fc-swatch-proj"></span>Prognose BD</span>'
+      + `<span class="fc-legend-item" data-tooltip="${esc(TT.yearTarget)}"><span class="fc-swatch fc-swatch-target"></span>Jahresziel BD</span>`
       + '</div>');
 
     // ---- Optionales Chart.js-Diagramm -----------------------------------
     if (typeof Chart !== 'undefined') {
-      parts.push('<div class="ah-section-title">Ist · Prognose · Ziel je Mitarbeitende</div>');
+      parts.push(`<div class="ah-section-title" data-tooltip="Balkendiagramm je Person: tatsächliche Bereitschaftsdienste, Jahres-Hochrechnung und FTE-gewichtetes Jahresziel im Vergleich.">Ist · Prognose · Ziel je Mitarbeitende</div>`);
       parts.push('<div class="ah-card"><div class="fc-chart-wrap"><canvas id="fc-chart"></canvas></div></div>');
     }
 
@@ -159,8 +172,9 @@ export default {
 // ---------------------------------------------------------------------------
 //  Bausteine
 // ---------------------------------------------------------------------------
-function kpi(label, value, sub) {
-  return `<div class="ah-kpi"><div class="ah-kpi-label">${esc(label)}</div>`
+function kpi(label, value, sub, tip) {
+  const tipAttr = tip ? ` data-tooltip="${esc(tip)}"` : '';
+  return `<div class="ah-kpi"><div class="ah-kpi-label"${tipAttr}>${esc(label)}</div>`
     + `<div class="ah-kpi-value">${value}</div>`
     + `<div class="ah-kpi-sub">${esc(sub)}</div></div>`;
 }

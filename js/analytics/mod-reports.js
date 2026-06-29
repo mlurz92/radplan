@@ -11,8 +11,12 @@ import {
   computeDutyFairness, computeAbsence, computeCoverage,
   buildYearlyStats, getMonthData, employeesInRange,
   getEmpMeta, daysInMonth, weekday, getSaxonyHolidaysCached, isHoliday,
-  MONTHS, MONTHS_SHORT, DOW_ABBR,
+  MONTHS, MONTHS_SHORT, DOW_ABBR, TT,
 } from './engine.js';
+
+// HTML-Attribut-sicheres Escaping für Tooltip-Texte.
+const escAttr = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>';
 
@@ -71,20 +75,20 @@ export default {
     const empOptions = emps.map((e) => `<option value="${e}">${e}</option>`).join('');
 
     root.innerHTML = `
-      <div class="ah-section-title">Berichtszentrum <span class="ah-sub">— Bezug: ${range.label}</span></div>
+      <div class="ah-section-title" data-tooltip="Vorkonfigurierte Exporte (CSV, Excel, PDF) für Dienstübergabe und Archiv. Der Bezugszeitraum entspricht der oben gewählten Zeitraum-Pille.">Berichtszentrum <span class="ah-sub" data-tooltip="${escAttr(TT.range)}">— Bezug: ${range.label}</span></div>
       <div class="rep-grid">
 
         <div class="ah-card rep-card">
-          <div class="rep-card-title">Monats-Dienstplan (PDF)</div>
-          <div class="rep-card-desc">Tagesweise Belegung von Bereitschafts- (D) und Hintergrunddienst (HG) für ${MONTHS[range.months[0].month]} ${range.months[0].year}.${pdfNote}</div>
+          <div class="rep-card-title" data-tooltip="PDF-Tabelle mit der tagesgenauen Besetzung von Bereitschafts- (D) und Hintergrunddienst (HG) des Monats; Feiertage markiert.">Monats-Dienstplan (PDF)</div>
+          <div class="rep-card-desc">Tagesweise Belegung von <span data-tooltip="${escAttr(TT.bd)}">Bereitschafts- (D)</span> und <span data-tooltip="${escAttr(TT.hg)}">Hintergrunddienst (HG)</span> für ${MONTHS[range.months[0].month]} ${range.months[0].year}.${pdfNote}</div>
           <div class="rep-actions">
             <button type="button" class="mbtn mbtn-primary" data-rep="duty-pdf" ${pdfOk ? '' : 'disabled'}>PDF erzeugen</button>
           </div>
         </div>
 
         <div class="ah-card rep-card">
-          <div class="rep-card-title">Jahres-Fairness</div>
-          <div class="rep-card-desc">FTE-gewichtete Dienstverteilung ${year}: BD, HG, WE/Feiertage, Soll/Ist, Fair-Abweichung, Status.</div>
+          <div class="rep-card-title" data-tooltip="${escAttr(TT.fairness)}">Jahres-Fairness</div>
+          <div class="rep-card-desc"><span data-tooltip="${escAttr(TT.fte)}">FTE-gewichtete</span> Dienstverteilung ${year}: BD, HG, WE/Feiertage, <span data-tooltip="${escAttr(TT.soll)} ${escAttr(TT.ist)}">Soll/Ist</span>, <span data-tooltip="${escAttr(TT.delta)}">Fair-Abweichung</span>, Status.</div>
           <div class="rep-actions">
             <button type="button" class="mbtn mbtn-ghost" data-rep="fairness-csv">CSV</button>
             <button type="button" class="mbtn mbtn-ghost" data-rep="fairness-xlsx">Excel</button>
@@ -92,25 +96,26 @@ export default {
         </div>
 
         <div class="ah-card rep-card">
-          <div class="rep-card-title">Abwesenheitsübersicht (CSV)</div>
-          <div class="rep-card-desc">Urlaub, Krank, FZA, Weiterbildung je Mitarbeitende im Zeitraum.</div>
+          <div class="rep-card-title" data-tooltip="${escAttr(TT.absence)}">Abwesenheitsübersicht (CSV)</div>
+          <div class="rep-card-desc"><span data-tooltip="${escAttr(TT.vac)}">Urlaub</span>, <span data-tooltip="${escAttr(TT.sick)}">Krank</span>, <span data-tooltip="${escAttr(TT.fza)}">FZA</span>, <span data-tooltip="${escAttr(TT.wb)}">Weiterbildung</span> je Mitarbeitende im Zeitraum.</div>
           <div class="rep-actions">
             <button type="button" class="mbtn mbtn-ghost" data-rep="absence-csv">CSV</button>
           </div>
         </div>
 
         <div class="ah-card rep-card">
-          <div class="rep-card-title">Abdeckungsbericht (CSV)</div>
-          <div class="rep-card-desc">Zusammenfassung der Dienstabdeckung plus Liste aller Tage mit Lücken.</div>
+          <div class="rep-card-title" data-tooltip="${escAttr(TT.coverage)}">Abdeckungsbericht (CSV)</div>
+          <div class="rep-card-desc">Zusammenfassung der Dienstabdeckung plus Liste aller <span data-tooltip="${escAttr(TT.openDays)}">Tage mit Lücken</span>.</div>
           <div class="rep-actions">
             <button type="button" class="mbtn mbtn-ghost" data-rep="coverage-csv">CSV</button>
           </div>
         </div>
 
         <div class="ah-card rep-card rep-card-wide">
-          <div class="rep-card-title">Mitarbeitenden-Eigenbeleg (PDF)</div>
+          <div class="rep-card-title" data-tooltip="Persönliche Jahresübersicht einer Person als PDF: Monatswerte für Aktivtage, Urlaub, Krank sowie Bereitschafts- und Hintergrunddienste mit Jahressummen.">Mitarbeitenden-Eigenbeleg (PDF)</div>
           <div class="rep-card-desc">Persönliche Jahresübersicht ${year}: Monatswerte (Aktiv, Urlaub, Krank, D, HG) mit Summen.${pdfNote}</div>
           <div class="rep-actions">
+            <label class="rep-select-label" for="rep-emp-select" data-tooltip="Person, für die der Eigenbeleg erzeugt wird. Auswahl umfasst alle im Zeitraum erfassten Mitarbeitenden.">Person:</label>
             <select class="text-input rep-select" id="rep-emp-select" aria-label="Person für Eigenbeleg">${empOptions || '<option>—</option>'}</select>
             <button type="button" class="mbtn mbtn-primary" data-rep="person-pdf" ${pdfOk && emps.length ? '' : 'disabled'}>PDF erzeugen</button>
           </div>
