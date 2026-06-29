@@ -62,9 +62,9 @@ export default {
       : 0;
 
     const kpis = [
-      { label: 'Gesamt-Ausfalltage', value: fmt.int(totalAbsenceDays), sub: `${esc(range.label)}`, tone: '#7C3AED', tip: TT.absence, valTip: `Insgesamt ${fmt.int(totalAbsenceDays)} Personentage Abwesenheit (Urlaub, Krank, FZA, WB) im Zeitraum – Summe des gesamten Ausfallvolumens.` },
-      { label: 'Spitze gleichzeitig', value: peak ? fmt.int(peak.absent) : '—', sub: peak ? `am ${shortDate(peak)} · ${fmt.int(peak.present)} präsent` : 'keine Werktage', tone: peak && peak.absent > 0 ? '#EF4444' : '#0EA5E9', tip: TT.absencePeak, valTip: TTI.absencePeak(peak ? peak.absent : 0) },
-      { label: 'Ø Abwesenheitsquote', value: fmt.pct(avgRate), sub: 'je Werktag', tone: scoreColor(100 - Math.min(100, avgRate)), tip: 'Durchschnittlicher Anteil gleichzeitig abwesender Personen ueber alle Werktage des Zeitraums. ' + TT.absenceRate },
+      { label: 'Gesamt-Ausfalltage', value: fmt.int(totalAbsenceDays), sub: `${esc(range.label)}`, tone: '#7C3AED', tip: TT.absence },
+      { label: 'Spitze gleichzeitig', value: peak ? fmt.int(peak.absent) : '—', sub: peak ? `am ${shortDate(peak)} · ${fmt.int(peak.present)} präsent` : 'keine Werktage', tone: peak && peak.absent > 0 ? '#EF4444' : '#0EA5E9', tip: TT.absencePeak },
+      { label: 'Ø Abwesenheitsquote', value: fmt.pct(avgRate), sub: 'je Werktag', tone: scoreColor(100 - Math.min(100, avgRate)), tip: 'Durchschnittlicher Anteil gleichzeitig abwesender Personen über alle Werktage des Zeitraums. ' + TT.absenceRate },
       { label: 'Betroffene Personen', value: fmt.int(rows.length), sub: 'mit ≥ 1 Ausfalltag', tone: '#0EA5E9', tip: 'Anzahl der Personen mit mindestens einem erfassten Ausfalltag (Urlaub, Krankheit, FZA oder WB) im Zeitraum.' },
     ];
     const kpiHtml = `
@@ -102,8 +102,8 @@ export default {
     }
     const trendCard = `
       <div class="ah-card">
-        <div class="ah-section-title" data-tooltip="Zahl gleichzeitig abwesender Personen je Werktag (Mo-Fr ohne saechsische Feiertage). Hohe Balken markieren Engpasstage.">Kapazitäts-/Engpass-Verlauf</div>
-        <div class="ah-sub abs-legend" data-tooltip="Spitze = hoechste gleichzeitige Abwesenheit im Zeitraum. Engpass-Schwelle = ab 60 Prozent der Spitze (mindestens 2); solche Tage werden rot hervorgehoben.">Gleichzeitige Abwesenheiten je Werktag · Spitze ${fmt.int(maxAbs)} · Engpass ab ${fmt.int(hot)}</div>
+        <div class="ah-section-title" data-tooltip="Zahl gleichzeitig abwesender Personen je Werktag (Mo-Fr ohne sächsische Feiertage). Hohe Balken markieren Engpasstage.">Kapazitäts-/Engpass-Verlauf</div>
+        <div class="ah-sub abs-legend" data-tooltip="Spitze = höchste gleichzeitige Abwesenheit im Zeitraum. Engpass-Schwelle = ab 60 Prozent der Spitze (mindestens 2); solche Tage werden rot hervorgehoben.">Gleichzeitige Abwesenheiten je Werktag · Spitze ${fmt.int(maxAbs)} · Engpass ab ${fmt.int(hot)}</div>
         ${trendHtml}
       </div>`;
 
@@ -124,7 +124,7 @@ export default {
           <table class="ah-table">
             <thead>
               <tr>
-                <th data-tooltip="Person mit mindestens einem Ausfalltag. Klick oeffnet das Profil.">Mitarbeitende</th><th data-tooltip="${esc(TT.vac)}">Urlaub</th><th data-tooltip="${esc(TT.sick)}">Krank</th>
+                <th data-tooltip="Person mit mindestens einem Ausfalltag. Klick öffnet das Profil.">Mitarbeitende</th><th data-tooltip="${esc(TT.vac)}">Urlaub</th><th data-tooltip="${esc(TT.sick)}">Krank</th>
                 <th data-tooltip="${esc(TT.fza)}">FZA</th><th data-tooltip="${esc(TT.wb)}">WB</th><th data-tooltip="Summe aller Ausfalltage der Person im Zeitraum: Urlaub + Krank + FZA + WB.">Gesamt</th>
               </tr>
             </thead>
@@ -164,7 +164,7 @@ export default {
     let warnHtml = '';
     if (collisions.length) {
       warnHtml += `<div class="abs-warn-block">
-        <div class="abs-warn-head" data-tooltip="Werktage, an denen beide Personen eines kritischen CT-Leitungs-Vertretungspaares zugleich abwesend sind - ein Vertretungsrisiko fuer die CT-Leitung.">Gleichzeitige Abwesenheit kritischer Vertretungspaare (CT-Leitung)</div>
+        <div class="abs-warn-head" data-tooltip="Werktage, an denen beide Personen eines kritischen CT-Leitungs-Vertretungspaares zugleich abwesend sind - ein Vertretungsrisiko für die CT-Leitung.">Gleichzeitige Abwesenheit kritischer Vertretungspaare (CT-Leitung)</div>
         <div class="abs-pill-row">
           ${collisions.map((c) => `<span class="ah-pill ah-pill-bad">${esc(c.a)} &amp; ${esc(c.b)} · ${c.short}</span>`).join('')}
         </div>
@@ -183,7 +183,7 @@ export default {
     }
     const warnCard = `
       <div class="ah-card">
-        <div class="ah-section-title" data-tooltip="Hinweise auf personelle Engpaesse: gleichzeitige Abwesenheit kritischer CT-Leitungs-Vertretungspaare sowie die Tage mit der hoechsten gleichzeitigen Abwesenheit.">Engpass-/Kollisionswarnungen</div>
+        <div class="ah-section-title" data-tooltip="Hinweise auf personelle Engpässe: gleichzeitige Abwesenheit kritischer CT-Leitungs-Vertretungspaare sowie die Tage mit der höchsten gleichzeitigen Abwesenheit.">Engpass-/Kollisionswarnungen</div>
         ${warnHtml}
       </div>`;
 

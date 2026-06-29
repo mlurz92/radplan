@@ -32,8 +32,8 @@ import { openProfileModal } from './render-modals.js';
 import { render } from './render-grid.js';
 import { TT, TTI } from './analytics/engine.js';
 
-// HTML-attribut-sicheres Escaping für Tooltip-Texte (kann doppelte Anführungszeichen enthalten).
-const ttAttr = (s) => `data-tooltip="${String(s).replace(/"/g, '&quot;')}"`;
+// HTML-attribut-sicheres Escaping für Tooltip-Texte (behandelt Sonderzeichen und leere Werte robust).
+const ttAttr = (s) => s ? `data-tooltip="${String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}"` : '';
 
 export function renderEmployeeDashboard() {
   const { year: y, month: m } = state;
