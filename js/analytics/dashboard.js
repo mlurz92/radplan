@@ -9,7 +9,7 @@
 import {
   getRange, computeCoverage, computeAbsence, computeCompliance, computeForecast,
   computeDutyFairness, computeWishFulfillment, employeesInRange,
-  fmt, scoreColor, MONTHS,
+  fmt, scoreColor, MONTHS, TT,
 } from './engine.js';
 
 const ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>';
@@ -33,39 +33,39 @@ export default {
       {
         dom: 'coverage', label: 'Abdeckung', value: `${cov.dPct}/${cov.hgPct}`, unit: '%',
         sub: `D / HG besetzt · ${cov.openDays} Tage offen`,
-        score: Math.round((cov.dPct + cov.hgPct) / 2),
+        score: Math.round((cov.dPct + cov.hgPct) / 2), tip: TT.coverage,
       },
       {
         dom: 'coverage', label: 'Risiko-Index', value: cov.riskScore, unit: '',
         sub: `${cov.weHolDGaps + cov.weHolHgGaps} WE/Feiertagslücken`,
-        score: cov.riskScore,
+        score: cov.riskScore, tip: TT.riskScore,
       },
       {
         dom: 'fairness', label: 'Fairness (Equity)', value: fair.team.equityTotal, unit: '',
         sub: `Spannweite ${fair.team.minTotal}–${fair.team.maxTotal} Dienste`,
-        score: fair.team.equityTotal,
+        score: fair.team.equityTotal, tip: TT.equityTotal,
       },
       {
         dom: 'compliance', label: 'Regelkonformität', value: comp.score, unit: '',
         sub: `${comp.findings.length} Befund(e) · ${comp.bySeverity.high} kritisch`,
-        score: comp.score,
+        score: comp.score, tip: TT.complianceScore,
       },
       {
         dom: 'absence', label: 'Abwesenheiten', value: fmt.int(abs.totalAbsenceDays), unit: ' T',
         sub: abs.peak ? `Spitze: ${abs.peak.absent} gleichzeitig` : 'keine Daten',
-        score: null, tone: '#7C3AED',
+        score: null, tone: '#7C3AED', tip: TT.absence,
       },
       {
         dom: 'forecast', label: 'Wunscherfüllung', value: wish.rate === null ? '—' : wish.rate, unit: wish.rate === null ? '' : '%',
         sub: `${wish.fulfilled}/${wish.wishes} erfüllt`,
-        score: wish.rate,
+        score: wish.rate, tip: TT.wishRate,
       },
     ];
 
     const tileHtml = tiles.map((t) => {
       const tone = t.tone || (t.score === null ? '#0EA5E9' : scoreColor(t.score));
       return `
-        <button type="button" class="ah-tile" data-goto="${t.dom}">
+        <button type="button" class="ah-tile" data-goto="${t.dom}" data-tooltip="${t.tip}" data-tooltip-pos="bottom">
           <div class="ah-tile-label">${t.label}</div>
           <div class="ah-tile-value" style="color:${tone}">${t.value}<span class="ah-tile-unit">${t.unit}</span></div>
           <div class="ah-tile-sub">${t.sub}</div>
@@ -78,7 +78,7 @@ export default {
     const head = `
       <div class="ah-dash-head">
         <div class="ah-dash-title">Lagebild · ${range.label}</div>
-        <div class="ah-dash-meta">${emps.length} Mitarbeitende · ${fair.team.totalDuties} Dienste (D+HG) · ${fair.team.totalWeekend} an WE/Feiertagen</div>
+        <div class="ah-dash-meta"><span data-tooltip="${TT.empActive}">${emps.length} Mitarbeitende</span> · <span data-tooltip="${TT.duty}">${fair.team.totalDuties} Dienste (D+HG)</span> · <span data-tooltip="${TT.weekendDuties}">${fair.team.totalWeekend} an WE/Feiertagen</span></div>
       </div>`;
 
     // Mini-Handlungsbedarf-Liste (Top-Befunde).

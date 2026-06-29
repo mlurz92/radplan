@@ -880,38 +880,10 @@ body.plan-mode-active #btn-plan {
   transform: none;
 }
 
+/* data-tooltip wird vom globalen JS-Tooltip (js/tooltip.js) als schwebende,
+   nie abgeschnittene Sprechblase gerendert. Hier nur der Cursor-Hinweis. */
 [data-tooltip] {
-  position: relative;
   cursor: help;
-}
-
-[data-tooltip]::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%) translateY(-8px);
-  background: rgba(var(--gray-900-rgb),.95);
-  color: #fff;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  max-width: 260px;
-  white-space: normal;
-  word-wrap: break-word;
-  line-height: 1.4;
-  opacity: 0;
-  pointer-events: none;
-  transition: all .2s;
-  z-index: 100;
-  box-shadow: 0 4px 12px rgba(0,0,0,.2);
-  backdrop-filter: blur(4px);
-  border: 1px solid rgba(var(--ink-rgb),.1);
-}
-
-[data-tooltip]:hover::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(-4px);
 }
 
 @media (max-width: 1200px) {

@@ -7,7 +7,7 @@
 //  Gleichverteilung. Ergänzt um eine Heatmap-Tabelle der Monatswerte.
 // ===========================================================================
 
-import { computeYearGrid, heatColor, posColor, isDutyExempt, MONTHS, MONTHS_SHORT } from './engine.js';
+import { computeYearGrid, heatColor, posColor, isDutyExempt, MONTHS, MONTHS_SHORT, TT } from './engine.js';
 
 const ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M19 9l-5 5-4-4-4 4"/></svg>';
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -49,22 +49,22 @@ export default {
     const modeLabel = isHG ? 'Hintergrunddienst (HG)' : 'Bereitschaftsdienst (D)';
 
     root.innerHTML = `
-      <div class="ah-section-title">Fairness-Verlauf <span class="ah-sub">— kumulierte Abweichung vom Kollegiums-Ø · Bezug: ${year}</span></div>
+      <div class="ah-section-title" data-tooltip="${esc(TT.curve)}">Fairness-Verlauf <span class="ah-sub">— kumulierte Abweichung vom Kollegiums-Ø · Bezug: ${year}</span></div>
       <div class="crv-controls">
         <div class="crv-toggle" role="group" aria-label="Dienstart umschalten">
-          <button type="button" class="crv-mode${!isHG ? ' active' : ''}" data-mode="bd">BD · Bereitschaft</button>
-          <button type="button" class="crv-mode${isHG ? ' active' : ''}" data-mode="hg">HG · Hintergrund</button>
+          <button type="button" class="crv-mode${!isHG ? ' active' : ''}" data-mode="bd" data-tooltip="${esc(TT.bd)}">BD · Bereitschaft</button>
+          <button type="button" class="crv-mode${isHG ? ' active' : ''}" data-mode="hg" data-tooltip="${esc(TT.hg)}">HG · Hintergrund</button>
         </div>
         <p class="crv-hint">Kumulierte Abweichung je Person vom monatlichen Ø (<em>${modeLabel}</em>). Über 0 = überdurchschnittlich, unter 0 = unterdurchschnittlich; flache Linie bei 0 = perfekte Gleichverteilung.</p>
       </div>
       <div class="ah-card crv-chart-card">
-        <div class="crv-legend" id="crv-legend"></div>
-        <div class="crv-canvas-wrap"><canvas id="crv-canvas"></canvas></div>
+        <div class="crv-legend" id="crv-legend" data-tooltip="Farbzuordnung der Linien zu den Personen. Jede Linie zeigt die kumulierte Abweichung dieser Person vom monatlichen Kollegiums-Durchschnitt."></div>
+        <div class="crv-canvas-wrap"><canvas id="crv-canvas" data-tooltip="Liniendiagramm der kumulierten Abweichung je Person vom monatlichen Dienst-Durchschnitt des Kollegiums. Steigt eine Linie, leistet die Person zunehmend mehr als der Schnitt; faellt sie, weniger. Die gestrichelte Linie bei 0 markiert die perfekte Gleichverteilung."></canvas></div>
       </div>
-      <div class="ah-section-title">Monatswerte (${modeLabel})</div>
+      <div class="ah-section-title" data-tooltip="Monatliche Dienstanzahl je Person, eingefaerbt nach Abweichung vom Monats-Kollegiums-Durchschnitt (${esc(TT.yeargridMean)}).">Monatswerte (${modeLabel})</div>
       <div class="ah-table-wrap">
         <table class="ah-table crv-table">
-          <thead><tr><th>Mitarbeitende</th>${MONTHS_SHORT.map((s) => `<th>${s}</th>`).join('')}<th>Σ</th><th>Abw.</th></tr></thead>
+          <thead><tr><th data-tooltip="${esc(TT.empActive)}">Mitarbeitende</th>${MONTHS_SHORT.map((s) => `<th data-tooltip="Dienste in diesem Monat. Faerbung nach Abweichung vom Monats-Kollegiums-Durchschnitt.">${s}</th>`).join('')}<th data-tooltip="Summe aller Dienste der Person im Jahr (${modeLabel}).">Σ</th><th data-tooltip="Abweichung der Jahressumme vom aufsummierten Soll (Summe der Monats-Durchschnitte ueber die Datenmonate der Person). Positiv = mehr als der faire Anteil, negativ = weniger.">Abw.</th></tr></thead>
           <tbody>
             ${relEmps.map((emp) => {
               const d = perEmp[emp];

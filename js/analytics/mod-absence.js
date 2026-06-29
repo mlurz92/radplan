@@ -10,7 +10,7 @@
 import {
   computeAbsence, fmt, scoreColor, SPECIAL_RULES,
   getCell, daysInMonth, weekday, isWorkday, getSaxonyHolidaysCached,
-  MONTHS_SHORT, ABSENCE_CODES,
+  MONTHS_SHORT, ABSENCE_CODES, TT,
 } from './engine.js';
 
 const ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
@@ -62,15 +62,15 @@ export default {
       : 0;
 
     const kpis = [
-      { label: 'Gesamt-Ausfalltage', value: fmt.int(totalAbsenceDays), sub: `${esc(range.label)}`, tone: '#7C3AED' },
-      { label: 'Spitze gleichzeitig', value: peak ? fmt.int(peak.absent) : '—', sub: peak ? `am ${shortDate(peak)} · ${fmt.int(peak.present)} präsent` : 'keine Werktage', tone: peak && peak.absent > 0 ? '#EF4444' : '#0EA5E9' },
-      { label: 'Ø Abwesenheitsquote', value: fmt.pct(avgRate), sub: 'je Werktag', tone: scoreColor(100 - Math.min(100, avgRate)) },
-      { label: 'Betroffene Personen', value: fmt.int(rows.length), sub: 'mit ≥ 1 Ausfalltag', tone: '#0EA5E9' },
+      { label: 'Gesamt-Ausfalltage', value: fmt.int(totalAbsenceDays), sub: `${esc(range.label)}`, tone: '#7C3AED', tip: TT.absence },
+      { label: 'Spitze gleichzeitig', value: peak ? fmt.int(peak.absent) : '—', sub: peak ? `am ${shortDate(peak)} · ${fmt.int(peak.present)} präsent` : 'keine Werktage', tone: peak && peak.absent > 0 ? '#EF4444' : '#0EA5E9', tip: TT.absencePeak },
+      { label: 'Ø Abwesenheitsquote', value: fmt.pct(avgRate), sub: 'je Werktag', tone: scoreColor(100 - Math.min(100, avgRate)), tip: 'Durchschnittlicher Anteil gleichzeitig abwesender Personen über alle Werktage des Zeitraums. ' + TT.absenceRate },
+      { label: 'Betroffene Personen', value: fmt.int(rows.length), sub: 'mit ≥ 1 Ausfalltag', tone: '#0EA5E9', tip: 'Anzahl der Personen mit mindestens einem erfassten Ausfalltag (Urlaub, Krankheit, FZA oder WB) im Zeitraum.' },
     ];
     const kpiHtml = `
       <div class="ah-kpi-grid abs-kpis">
         ${kpis.map((k) => `
-          <div class="ah-kpi">
+          <div class="ah-kpi" data-tooltip="${esc(k.tip)}">
             <div class="ah-kpi-label">${k.label}</div>
             <div class="ah-kpi-value" style="color:${k.tone}">${k.value}</div>
             <div class="ah-kpi-sub">${k.sub}</div>
@@ -85,7 +85,7 @@ export default {
     const hasChart = typeof Chart !== 'undefined';
     let trendHtml;
     if (hasChart) {
-      trendHtml = `<div class="abs-chart-box"><canvas class="abs-canvas"></canvas></div>`;
+      trendHtml = `<div class="abs-chart-box"><canvas class="abs-canvas" data-tooltip="Balkendiagramm der gleichzeitig abwesenden Personen je Werktag. Rote Balken kennzeichnen Engpasstage ab der Schwelle; violette Balken liegen darunter."></canvas></div>`;
     } else {
       // CSS-Balkenstreifen-Fallback.
       const bars = daySeries.map((p) => {
@@ -99,8 +99,8 @@ export default {
     }
     const trendCard = `
       <div class="ah-card">
-        <div class="ah-section-title">Kapazitäts-/Engpass-Verlauf</div>
-        <div class="ah-sub abs-legend">Gleichzeitige Abwesenheiten je Werktag · Spitze ${fmt.int(maxAbs)} · Engpass ab ${fmt.int(hot)}</div>
+        <div class="ah-section-title" data-tooltip="Zahl gleichzeitig abwesender Personen je Werktag (Mo-Fr ohne sächsische Feiertage). Hohe Balken markieren Engpasstage.">Kapazitäts-/Engpass-Verlauf</div>
+        <div class="ah-sub abs-legend" data-tooltip="Spitze = höchste gleichzeitige Abwesenheit im Zeitraum. Engpass-Schwelle = ab 60 Prozent der Spitze (mindestens 2); solche Tage werden rot hervorgehoben.">Gleichzeitige Abwesenheiten je Werktag · Spitze ${fmt.int(maxAbs)} · Engpass ab ${fmt.int(hot)}</div>
         ${trendHtml}
       </div>`;
 
@@ -121,8 +121,8 @@ export default {
           <table class="ah-table">
             <thead>
               <tr>
-                <th>Mitarbeitende</th><th>Urlaub</th><th>Krank</th>
-                <th>FZA</th><th>WB</th><th>Gesamt</th>
+                <th data-tooltip="Person mit mindestens einem Ausfalltag. Klick öffnet das Profil.">Mitarbeitende</th><th data-tooltip="${esc(TT.vac)}">Urlaub</th><th data-tooltip="${esc(TT.sick)}">Krank</th>
+                <th data-tooltip="${esc(TT.fza)}">FZA</th><th data-tooltip="${esc(TT.wb)}">WB</th><th data-tooltip="Summe aller Ausfalltage der Person im Zeitraum: Urlaub + Krank + FZA + WB.">Gesamt</th>
               </tr>
             </thead>
             <tbody>${body}</tbody>
@@ -133,7 +133,7 @@ export default {
     }
     const tableCard = `
       <div class="ah-card">
-        <div class="ah-section-title">Abwesenheiten je Mitarbeitende</div>
+        <div class="ah-section-title" data-tooltip="${esc(TT.absence)}">Abwesenheiten je Mitarbeitende</div>
         ${tableHtml}
       </div>`;
 
@@ -161,7 +161,7 @@ export default {
     let warnHtml = '';
     if (collisions.length) {
       warnHtml += `<div class="abs-warn-block">
-        <div class="abs-warn-head">Gleichzeitige Abwesenheit kritischer Vertretungspaare (CT-Leitung)</div>
+        <div class="abs-warn-head" data-tooltip="Werktage, an denen beide Personen eines kritischen CT-Leitungs-Vertretungspaares zugleich abwesend sind - ein Vertretungsrisiko für die CT-Leitung.">Gleichzeitige Abwesenheit kritischer Vertretungspaare (CT-Leitung)</div>
         <div class="abs-pill-row">
           ${collisions.map((c) => `<span class="ah-pill ah-pill-bad">${esc(c.a)} &amp; ${esc(c.b)} · ${c.short}</span>`).join('')}
         </div>
@@ -169,7 +169,7 @@ export default {
     }
     if (topDays.length) {
       warnHtml += `<div class="abs-warn-block">
-        <div class="abs-warn-head">Höchste gleichzeitige Abwesenheit</div>
+        <div class="abs-warn-head" data-tooltip="Die Werktage mit den meisten gleichzeitig abwesenden Personen im Zeitraum. Rot = Engpasstag (ab Schwelle), gelb = darunter.">Höchste gleichzeitige Abwesenheit</div>
         <div class="abs-pill-row">
           ${topDays.map((p) => `<span class="ah-pill ${p.absent >= hot ? 'ah-pill-bad' : 'ah-pill-warn'}">${shortDate(p)} · ${fmt.int(p.absent)} von ${fmt.int(p.head)} abwesend</span>`).join('')}
         </div>
@@ -180,7 +180,7 @@ export default {
     }
     const warnCard = `
       <div class="ah-card">
-        <div class="ah-section-title">Engpass-/Kollisionswarnungen</div>
+        <div class="ah-section-title" data-tooltip="Hinweise auf personelle Engpässe: gleichzeitige Abwesenheit kritischer CT-Leitungs-Vertretungspaare sowie die Tage mit der höchsten gleichzeitigen Abwesenheit.">Engpass-/Kollisionswarnungen</div>
         ${warnHtml}
       </div>`;
 

@@ -19,7 +19,7 @@
 9. [Der Planungsmodus (Entwurfs-Sandbox)](#9-der-planungsmodus-entwurfs-sandbox)
 10. [Der RadPlan Neural Scheduler (Auto-Plan)](#10-der-radplan-neural-scheduler-auto-plan)
 11. [Mitarbeitendenbereich (Team- & Person-Modal)](#11-mitarbeitendenbereich-team--person-modal)
-12. [Jahresplaner & Fairness-Analysen](#12-jahresplaner--fairness-analysen)
+12. [Der Auswertungs-Hub (Auswertungen)](#12-der-auswertungs-hub-auswertungen)
 13. [Abteilungsübersicht](#13-abteilungs%C3%BCbersicht)
 14. [Befehlspalette](#14-befehlspalette)
 15. [Drucken & PDF-Export](#15-drucken--pdf-export)
@@ -59,7 +59,7 @@ RadPlan ist konsequent als **Single-Page-Application (SPA) ohne Build-Schritt** 
 ### 2.1 Frontend-Laufzeit & Sprachen
 *   **HTML5:** Bildet das statische Anwendungsgerüst in der Datei `index.html`. Diese enthält alle Skelette der Modal-Dialoge, Anzeigebereiche und Steuerungselemente.
 *   **ECMAScript-Module (ESM):** Moderner, nativer JavaScript-Code (`<script type="module">`). Module importieren und exportieren Klassen, Konstanten und Funktionen direkt im Browser.
-*   **CSS3:** Das Styling ist modular in zehn CSS-Dateien unterteilt (siehe [Projektstruktur](#21-projektstruktur)). Es nutzt CSS-Variablen (Custom Properties) für dynamisches Farbschema-Theming (Hell-/Dunkelmodus), flexible Flexbox- und Grid-Layouts sowie Animationen.
+*   **CSS3:** Das Styling ist konsequent modular in zahlreiche themen- und modulbezogene CSS-Dateien unterteilt (Kern, Layout, Komponenten, Modals, Ansichten sowie je ein Stylesheet pro Auswertungs-Modul; siehe [Projektstruktur](#21-vollst%C3%A4ndige-projektstruktur--dateibeschreibungen)). Es nutzt CSS-Variablen (Custom Properties) für dynamisches Farbschema-Theming (Hell-/Dunkelmodus), flexible Flexbox- und Grid-Layouts sowie Animationen.
 
 ### 2.2 Externe Bibliotheken (per CDN eingebunden)
 Wenn die CDN-Bibliotheken nicht erreichbar sind, bleibt die Anwendung dank *Graceful Degradation* im Kern voll einsatzfähig:
@@ -397,6 +397,7 @@ Der Mitarbeitendenbereich (`#modal-emps`) bietet Werkzeuge zur Analyse und Pfleg
 *   **Team-Analytics:** Ermöglicht die Auswertung der Arbeitszeiten und Dienste über dynamische Zeiträume: *Aktueller Monat*, *Aktuelles Quartal*, *Laufendes Jahr*, *Letzte 12 Monate* oder ein *frei wählbarer Datumsbereich (Custom)*. Liefert Statistiken zur Dienstverteilung, Ausfalltagen und ermittelt Spitzenreiter in bestimmten Modalitäten.
 *   **Dienst-Fairness (Team):** Ein eigener Analyseblock bewertet die *Verteilungsgerechtigkeit* der belastenden Dienste über das Jahr. Er zeigt einen **Equity-Index** (Gini-basiert, 0–100; 100 = perfekt gleichmäßig) für Gesamt- und Wochenend-/Feiertagsdienste, den **Variationskoeffizienten** und die **Spannweite** (min–max). Eine **Fairness-Rangliste** stellt je Mitarbeiter Bereitschafts- (BD) und Hintergrunddienste (HG), Gesamt- sowie Wochenend-/Feiertagslast, das FTE-skalierte **Soll/Ist (BD)** und die **Abweichung vom fairen Anteil** dar — inklusive eines um die Null-Achse zentrierten Abweichungsbalkens (blau = unterdurchschnittlich, rot = überdurchschnittlich belastet) und einer Status-Pille (Über/Fair/Unter). Ein Klick auf eine Zeile öffnet das jeweilige Profil.
 *   **Mitgliederliste:** Filterbar nach Name, Qualifikation und Position (Pills für Schnellsortierung). Zeigt für jeden Mitarbeiter eine Karte mit Kontaktdaten, einer Abdeckungs-Fortschrittsleiste und der Anzahl der aktiven Monate.
+*   **Kontext-Tooltips:** Alle KPI-Beschriftungen, Tabellenspalten, Filter-/Sortier-Bedienelemente und Fairness-Kennzahlen sind mit erklärenden Mouse-Over-Tooltips versehen (siehe [17.4](#174-kontext-hilfe--mouse-over-tooltips)).
 
 ### 11.2 Der Person-Screen (Detaillierte Einzelstatistik)
 Über fünf Tabs wird das Profil eines einzelnen Mitarbeiters aufgeschlüsselt:
@@ -408,23 +409,58 @@ Der Mitarbeitendenbereich (`#modal-emps`) bietet Werkzeuge zur Analyse und Pfleg
 
 ---
 
-## 12. Jahresplaner & Fairness-Analysen
+## 12. Der Auswertungs-Hub (Auswertungen)
 
-Der Jahresplaner (`#modal-yearplan`) dient der langfristigen Überwachung der Dienstgerechtigkeit über das gesamte Kalenderjahr hinweg.
+Der **Auswertungs-Hub** (`#modal-analytics`, geöffnet über den Header-Button *Auswertungen*, das Mobil-Menü oder die Befehlspalette) ist die zentrale, frage- und domänenorientierte Analyseumgebung. Er löst den früheren separaten Jahresplaner ab und konsolidiert sämtliche Kennzahlen in einem einzigen Modal mit drei Zonen:
 
-### 12.1 Heatmap des Jahres (Jahres-Gitter)
-Zeigt eine Matrix aus Mitarbeitenden und Monaten:
-*   In den Zellen steht die Anzahl der geleisteten Dienste.
-*   Die Hintergrundfarbe codiert die Abweichung des Mitarbeiters vom monatlichen Durchschnitt der Abteilung in fünf Stufen (von *Dunkelblau = deutlich unter dem Durchschnitt* bis *Dunkelrot = deutlich über dem Durchschnitt*).
-*   Dadurch werden Ungleichverteilungen in der Jahresbelastung sofort visuell erkennbar.
+```
++--------------------------------------------------------------+
+|  Auswertungen        [Monat][Quartal][YTD][Jahr][12M][Frei]  | <- Kopf + Zeitraum-Leiste
++-------------+------------------------------------------------+
+| Übersicht   |                                                |
+| Abdeckung   |        Aktives Modul rendert hier              |
+| Fairness    |        (Kennzahlen, Tabellen, Charts)          |
+| Jahresgitter|                                                |
+| Kurven      |                                                |
+| Abwesenheit |                                                |
+| Regelkonf.  |                                                |
+| Prognose    |                                                |
+| Berichte    |                                                |
++-------------+------------------------------------------------+
+   ^ linke Navigation (Domänen)
+```
 
-### 12.2 Fairness-Trendlinien (Abweichungskurven)
-Ein integriertes Liniendiagramm (Chart.js) zeichnet die kumulierte Abweichung jedes Mitarbeiters vom monatlichen Kollegiumsdurchschnitt über den Jahresverlauf auf. Die Kurven können getrennt nach Bereitschafts- und Hintergrunddiensten gefiltert werden. Das ideale Ziel ist eine flache Linie nahe dem Nullpunkt.
+### 12.1 Architektur: Engine, Shell & autarke Module
+*   **Engine (`js/analytics/engine.js`):** Die gemeinsame Berechnungs- und Zeitraum-Schicht. Sie stellt den einheitlichen Zeitraum-Selektor sowie alle wiederverwendbaren Kennzahl-Berechnungen bereit (`computeCoverage`, `computeAbsence`, `computeCompliance`, `computeForecast`, `computeWishFulfillment`, `computeYearGrid`) und re-exportiert die Fairness-Logik aus `model.js`. Sie ist außerdem die alleinige Quelle des **Tooltip-Glossars `TT`** (siehe [17.4](#174-kontext-hilfe--mouse-over-tooltips)).
+*   **Shell/Hub (`js/analytics/hub.js`):** Verwaltet die linke Navigation, die Zeitraum-Leiste und das Routing. Module sind autark (eigene Datei, eigenes CSS) und implementieren einen schlanken Vertrag (`id, label, icon, usesRange, render(root, ctx), dispose()`). Dadurch bleibt der Hub kollisionsfrei erweiterbar.
+*   **Zeitraum-Selektor:** Jede Domäne arbeitet auf einem global gewählten Zeitraum: **Monat**, **Quartal**, **Jahr bis heute (YTD)**, **Gesamtjahr**, **Rollierend 12 Monate** (auch über den Jahreswechsel) oder **Frei** (Start-/Endmonat per `<input type="month">`). Module ohne Zeitraumbezug (Jahresgitter, Kurven, Prognose) zeigen stattdessen einen statischen Jahresbezug.
 
-### 12.3 Weitere Auswertungs-Tabs
-*   **Dienst Soll/Ist:** Listet das vertragliche Jahressoll (basierend auf FTE und monatlichem Ziel) gegen die tatsächlich geleisteten Dienste auf und berechnet die Abweichung in Prozent.
-*   **Abwesenheiten:** Fasst alle Fehltage (Urlaub, FZA, Krankheit, Weiterbildung) des Jahres pro Person zusammen.
-*   **Jahresprojektion:** Berechnet basierend auf der bisherigen durchschnittlichen monatlichen Dienstbelastung den voraussichtlichen Endstand der Dienste am 31. Dezember und vergleicht ihn mit dem Jahresziel.
+### 12.2 Modul „Übersicht" (Dashboard-Einstieg)
+Verdichtet alle Domänen zu sechs Kennzahl-Kacheln mit Ampel-Logik (Abdeckung, Risiko-Index, Fairness-Equity, Regelkonformität, Abwesenheiten, Wunscherfüllung) und führt per Klick (Drill-down) direkt in das jeweilige Fachmodul. Eine **Handlungsbedarf-Liste** hebt die dringendsten Befunde hervor (offene Tage, WE/Feiertagslücken, kritische Regelverstöße, ungleiche Verteilung, verletzte Wünsche).
+
+### 12.3 Modul „Abdeckung & Risiko"
+Tagesgenaue Besetzung von Bereitschafts- (D) und Hintergrunddienst (HG). Liefert die Abdeckungsquoten (`dPct`/`hgPct`), vollständig/teilbesetzt/offen klassifizierte Tage, separat ausgewiesene **Wochenend-/Feiertagslücken** und einen **Risiko-Index** (0–100, höher = sicherer), in dem WE-/Feiertagslücken doppelt gewichtet werden. Ein Risiko-Kalender visualisiert jeden Tag farblich.
+
+### 12.4 Modul „Fairness"
+Die FTE-gewichtete Verteilungsgerechtigkeit der Dienstlast. Zeigt den **Equity-Index** (auf Gini-Basis, 0–100), den **Variationskoeffizienten**, die **Spannweite** sowie eine Rangliste je Person mit BD, HG, Gesamt, WE/Feiertag, FTE-skaliertem **Soll/Ist (BD)**, **Abweichung vom fairen Anteil** (zentrierter Balken) und Status-Pille (Über/Fair/Unter). Ein Klick öffnet das jeweilige Profil.
+
+### 12.5 Modul „Jahresgitter" (Heatmap)
+Matrix aus Mitarbeitenden × Monaten mit der Anzahl geleisteter Dienste je Zelle. Die Hintergrundfarbe codiert in fünf Stufen die Abweichung vom monatlichen Kollegiums-Durchschnitt (Dunkelblau = deutlich unter, Dunkelrot = deutlich über). Eine Ø-BD-Zeile weist den monatlichen Bezugswert aus; Fachärzte sind den Assistenzärzten vorangestellt.
+
+### 12.6 Modul „Kurven" (Fairness-Verlauf)
+Liniendiagramm (Chart.js) der kumulierten Abweichung jeder Person vom monatlichen Kollegiumsdurchschnitt über den Jahresverlauf, umschaltbar zwischen Bereitschafts- (BD) und Hintergrunddiensten (HG). Das ideale Ziel ist eine flache Linie nahe dem Nullpunkt. Eine begleitende Monatswert-Tabelle (Heatmap-Einfärbung) ergänzt die Kurven.
+
+### 12.7 Modul „Abwesenheiten"
+Erfasste Fehltage (Urlaub, Krank/Kind-krank, FZA, Weiterbildung) je Person und der **Kapazitäts-/Engpass-Verlauf**: pro Werktag die Zahl gleichzeitig abwesender Personen samt Abwesenheitsquote, Spitzentag und Engpass-/Kollisionswarnungen (u. a. CT-Leitungspaare). Dienstfrei (`F`) zählt bewusst nicht als Abwesenheit.
+
+### 12.8 Modul „Regelkonformität"
+Prüft den Zeitraum über alle Monatsgrenzen hinweg auf Ruhezeit-Verstöße (dienstfreier Folgetag nach D), Dienst-Häufungen (< 3 Tage Abstand, exakt über UTC-Tagesindex), Qualifikations-Verstöße (HG/WE-D nur durch Fachärzte) und personenbezogene Sonderregeln. Ergebnis: ein **Regelkonformitäts-Score** (100 minus gewichtete Verstöße: kritisch −5, mittel −2, gering −1), eine Typ-Aufschlüsselung und eine Befundliste mit Schweregrad.
+
+### 12.9 Modul „Prognose"
+Lineare Hochrechnung der Dienste auf das Jahresende anhand der bislang mit Diensten gefüllten Monate (Faktor = 12 / Datenmonate). Stellt je Person Ist-Dienste, Prognose-Gesamt, das FTE-gewichtete **Jahresziel (BD)** und die erwartete Jahresabweichung dar. Ergänzt um die **Wunscherfüllungsrate** und die Zahl verletzter „Kein Dienst"-Wünsche.
+
+### 12.10 Modul „Berichte"
+Generiert kompakte, druck-/exportfähige Auswertungen — u. a. einen Eigenbeleg je Person (Person-Auswahl) sowie domänenübergreifende Zusammenfassungen. Jede Berichtskarte erläutert ihren Inhalt und ihre Kennzahlen per Tooltip.
 
 ---
 
@@ -483,6 +519,13 @@ Die Anwendung erfüllt wichtige Barrierefreiheitsstandards:
 *   Alle modalen Dialoge nutzen `role="dialog"`, `aria-modal="true"` und leiten den Tastaturfokus beim Öffnen automatisch in das Modal (Focus Trapping).
 *   Tabellen und Listen sind mit den korrekten Rollen (`role="grid"`, `role="row"`, `role="gridcell"`) versehen.
 *   Für Screenreader sind informative `aria-label` und `aria-live`-Bereiche für dynamische Statusänderungen hinterlegt.
+
+### 17.4 Kontext-Hilfe & Mouse-Over-Tooltips
+Sämtliche Fachbegriffe, Kennzahlen, Spaltenköpfe, KPI-Kacheln, Legenden und Bedienelemente im **Auswertungs-Hub** und im **Mitarbeitendenbereich** sind mit erklärenden Mouse-Over-Tooltips hinterlegt, damit auch ohne Vorwissen sofort verständlich ist, was ein Wert ausdrückt.
+
+*   **Globales Tooltip-System (`js/tooltip.js`):** Jedes Element mit einem `data-tooltip`-Attribut zeigt beim Überfahren (Maus) oder Fokussieren (Tastatur) eine erklärende Sprechblase. Diese wird an `<body>` gehängt und intelligent positioniert (oberhalb/unterhalb je nach Platz, horizontal im Viewport gehalten, Pfeil auf die Ankermitte ausgerichtet). Dadurch wird sie in den scrollbaren Modal-Containern **niemals abgeschnitten** und liegt zuverlässig über allen Ebenen — der entscheidende Unterschied zur früheren rein CSS-basierten Variante.
+*   **Verhalten:** Einblendung nach kurzer Verzögerung (≈340 ms), sauberes Ausblenden bei Verlassen, Scrollen, Resize oder `Escape`. Auf Touch-Geräten (grober Zeiger) bewusst unterdrückt, um Tap-Interaktionen nicht zu stören. `prefers-reduced-motion` wird respektiert.
+*   **Zentrales Glossar (`TT` in `analytics/engine.js`):** Eine einzige kuratierte Quelle für die kompakten, fachlich präzisen Erklärtexte aller Domänenbegriffe (Bereitschafts-/Hintergrunddienst, FTE, Equity-Index, Soll/Ist, Risiko-Index, Compliance-Score u. v. m.). Module verwenden ausschließlich diese Definitionen — das garantiert konsistente Formulierungen und Pflege an einer Stelle. Statische Beschriftungen in `index.html` tragen attribut-sichere Klartexte; dynamisch gerenderte Bereiche nutzen einen `ttAttr()`-Helfer bzw. `TT`.
 
 ---
 
@@ -588,24 +631,46 @@ radplan/
 │   ├── render-modals.js         # Steuert alle modalen Dialoge (Editor, NFI-Details, Berichte, Toasts)
 │   ├── render-employee-dashboard.js # Rendert den Teambereich und die Profil-Tabs der Mitarbeiter
 │   ├── render-dept.js           # Generiert die Abteilungsstatistiken für Monat und Jahr
-│   ├── yearplan.js              # Verwaltet die Gitter-Heatmap und Fairnesskurven des Jahresplaners
 │   ├── printpreview.js          # Steuert die Druckvorschau und den PDF-Export via jsPDF
 │   ├── commandpalette.js        # Logik der Befehlspalette (Fuzzy-Suche, Tastaturbedienung)
 │   ├── contextmenu.js           # Verwaltet das Rechtsklick-Kontextmenü im Raster
-│   ├── celltooltip.js           # Logik für informative Tooltips beim Bewegen der Maus über Zellen
+│   ├── celltooltip.js           # Detail-Tooltip beim Überfahren einer Rasterzelle (Person, Historie, Konflikt)
+│   ├── tooltip.js               # Globales, schwebendes Hilfe-Tooltip-System (data-tooltip) für Modale
 │   ├── viewtransition.js        # Weiche CSS View Transitions beim Monatswechsel
-│   └── icons.js                 # Hilfsklasse zur dynamischen Erzeugung von SVG-Icons
+│   ├── icons.js                 # Hilfsklasse zur dynamischen Erzeugung von SVG-Icons
+│   └── analytics/               # Der Auswertungs-Hub (frage-/domänenorientierte Analysen)
+│       ├── engine.js            # Gemeinsame Berechnungs-/Zeitraum-Schicht + zentrales Tooltip-Glossar (TT)
+│       ├── hub.js               # Shell: Navigation, Zeitraum-Leiste, Modul-Routing
+│       ├── dashboard.js         # Modul „Übersicht" (Kennzahl-Kacheln, Drill-down, Handlungsbedarf)
+│       ├── mod-coverage.js      # Modul „Abdeckung & Risiko" (Besetzung D/HG, Lücken, Risiko-Index)
+│       ├── mod-fairness.js      # Modul „Fairness" (Equity-Index, Variationskoeffizient, Rangliste)
+│       ├── mod-yeargrid.js      # Modul „Jahresgitter" (Heatmap Person × Monat)
+│       ├── mod-curves.js        # Modul „Kurven" (kumulierter Fairness-Verlauf)
+│       ├── mod-absence.js       # Modul „Abwesenheiten" (Fehltage, Kapazitäts-/Engpass-Verlauf)
+│       ├── mod-compliance.js    # Modul „Regelkonformität" (Ruhezeiten, Häufung, Qualifikation, Score)
+│       ├── mod-forecast.js      # Modul „Prognose" (Jahresend-Hochrechnung, Wunscherfüllung)
+│       └── mod-reports.js       # Modul „Berichte" (druck-/exportfähige Auswertungen, Eigenbeleg)
 ├── css/
 │   ├── core.css                 # CSS-Custom-Properties (Farbpaletten, Typografie, globale Stile)
 │   ├── layout.css               # Stile für Header, Navigationsleisten, Grid-Systeme und Hauptcontainer
 │   ├── components.css           # Styling von Buttons, Formularen, Karten, Tabellen und Avataren
 │   ├── chips.css                # Spezifische Designs für Arbeitsplatz- und Dienst-Pills
-│   ├── modals.css               # Styling des Modal- und Bottom-Sheet-Systems (Overlays, Focus Traps)
+│   ├── modals.css               # Modal-/Bottom-Sheet-System (Overlays, Focus Traps) + Hilfe-Tooltip-Stil (.rp-tip)
 │   ├── views.css                # CSS-Regeln für Profil-Tabs, Kalenderansichten und Telemetrie-Displays
+│   ├── premium.css              # Feinschliff-Effekte und gehobene visuelle Akzente
 │   ├── contextmenu.css          # Design des Kontextmenüs
 │   ├── mobile-optimization.css  # Responsive Anpassungen und mobile UI-Optimierungen
 │   ├── enhancements.css         # Spezifische Animationsregeln, Keyframes und Glanz-Effekte
-│   └── print.css                # CSS-Formatierung für den physischen Ausdruck
+│   ├── print.css                # CSS-Formatierung für den physischen Ausdruck
+│   ├── analytics.css            # Grundlayout des Auswertungs-Hubs (Shell, Navigation, Kacheln)
+│   ├── analytics-coverage.css   # Stil des Moduls „Abdeckung & Risiko"
+│   ├── analytics-fairness.css   # Stil des Moduls „Fairness"
+│   ├── analytics-yeargrid.css   # Stil des Moduls „Jahresgitter"
+│   ├── analytics-curves.css     # Stil des Moduls „Kurven"
+│   ├── analytics-absence.css    # Stil des Moduls „Abwesenheiten"
+│   ├── analytics-compliance.css # Stil des Moduls „Regelkonformität"
+│   ├── analytics-forecast.css   # Stil des Moduls „Prognose"
+│   └── analytics-reports.css    # Stil des Moduls „Berichte"
 └── test/
     ├── autoplan.test.js         # Unit-Tests für den Scheduling-Algorithmus und die Restriktionen
     ├── history.test.js          # Unit-Tests für das Undo/Redo-System

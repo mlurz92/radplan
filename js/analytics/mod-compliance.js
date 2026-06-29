@@ -7,7 +7,7 @@
 //  gruppierte Befundliste.
 // ===========================================================================
 
-import { computeCompliance, fmt, scoreColor, MONTHS_SHORT } from './engine.js';
+import { computeCompliance, fmt, scoreColor, MONTHS_SHORT, TT } from './engine.js';
 
 const TYPE_LABELS = {
   rest: 'Ruhezeit-Verstöße',
@@ -18,6 +18,19 @@ const TYPE_LABELS = {
 
 const SEV_LABELS = { high: 'Kritisch', mid: 'Mittel', low: 'Niedrig' };
 const SEV_ORDER = ['high', 'mid', 'low'];
+
+// Erklär-Texte je Befundtyp (Glossar) und je Schweregrad für Mouse-Over.
+const TYPE_TT = {
+  rest: TT.findingRest,
+  cluster: TT.findingCluster,
+  rule: TT.findingRule,
+  qual: TT.findingQual,
+};
+const SEV_TT = {
+  high: TT.sevHigh,
+  mid: TT.sevMid,
+  low: 'Geringer Befund – nachrangiger Hinweis ohne harte Regelverletzung.',
+};
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -50,26 +63,26 @@ export default {
     const kpis = `
       <div class="ah-kpi-grid">
         <div class="ah-kpi">
-          <div class="ah-kpi-label">Befunde gesamt</div>
+          <div class="ah-kpi-label" data-tooltip="Gesamtzahl aller im Zeitraum gefundenen Regelverstöße über alle Typen und Schweregrade.">Befunde gesamt</div>
           <div class="ah-kpi-value">${fmt.int(findings.length)}</div>
         </div>
         <div class="ah-kpi">
-          <div class="ah-kpi-label">Kritisch</div>
+          <div class="ah-kpi-label" data-tooltip="${esc(TT.sevHigh)}">Kritisch</div>
           <div class="ah-kpi-value" style="color:#EF4444">${fmt.int(bySeverity.high)}</div>
         </div>
         <div class="ah-kpi">
-          <div class="ah-kpi-label">Mittel</div>
+          <div class="ah-kpi-label" data-tooltip="${esc(TT.sevMid)}">Mittel</div>
           <div class="ah-kpi-value" style="color:#F59E0B">${fmt.int(bySeverity.mid)}</div>
         </div>
         <div class="ah-kpi">
-          <div class="ah-kpi-label">Niedrig</div>
+          <div class="ah-kpi-label" data-tooltip="${esc(SEV_TT.low)}">Niedrig</div>
           <div class="ah-kpi-value" style="color:#64748B">${fmt.int(bySeverity.low)}</div>
         </div>
       </div>`;
 
     const header = `
       <div class="comp-header">
-        <div class="comp-score" style="--comp-score-col:${col}">
+        <div class="comp-score" style="--comp-score-col:${col}" data-tooltip="${esc(TT.complianceScore)}" data-tooltip-pos="bottom">
           <div class="comp-score-value">${fmt.int(score)}</div>
           <div class="comp-score-label">Compliance-Score</div>
         </div>
@@ -79,14 +92,14 @@ export default {
     // Typ-Aufschlüsselung
     const typeChips = Object.keys(TYPE_LABELS).map((t) => {
       const n = byType[t] || 0;
-      return `<div class="comp-type-chip${n ? '' : ' comp-type-chip--zero'}" data-type="${t}">
+      return `<div class="comp-type-chip${n ? '' : ' comp-type-chip--zero'}" data-type="${t}" data-tooltip="${esc(TYPE_TT[t] || '')}">
         <div class="comp-type-count">${fmt.int(n)}</div>
         <div class="comp-type-label">${TYPE_LABELS[t]}</div>
       </div>`;
     }).join('');
 
     const typeSection = `
-      <div class="ah-section-title">Typ-Aufschlüsselung</div>
+      <div class="ah-section-title" data-tooltip="${esc(TT.compliance)}">Typ-Aufschlüsselung</div>
       <div class="comp-type-grid">${typeChips}</div>`;
 
     let body;
@@ -103,7 +116,7 @@ export default {
       ).join('');
 
       body = `
-        <div class="ah-section-title">Befundliste</div>
+        <div class="ah-section-title" data-tooltip="Chronologisch nach Schweregrad gruppierte Liste aller Regelverstöße. Klick auf einen Befund öffnet das Profil der betroffenen Person.">Befundliste</div>
         <div class="comp-filters" role="tablist">${filters}</div>
         <div class="comp-list">${this._renderList('all')}</div>`;
     }
@@ -134,14 +147,14 @@ export default {
         const items = rows.map((f) => {
           const idx = findings.indexOf(f);
           return `<div class="comp-finding" data-idx="${idx}" tabindex="0" role="button">
-            <span class="comp-dot comp-dot--${sev}"></span>
-            <span class="comp-badge comp-badge--${f.type}">${esc(TYPE_LABELS[f.type] || f.type)}</span>
+            <span class="comp-dot comp-dot--${sev}" data-tooltip="${esc(SEV_TT[sev] || '')}"></span>
+            <span class="comp-badge comp-badge--${f.type}" data-tooltip="${esc(TYPE_TT[f.type] || '')}">${esc(TYPE_LABELS[f.type] || f.type)}</span>
             <span class="comp-text">${esc(f.text)}</span>
             <span class="comp-date">${esc(fmtDate(f))}</span>
           </div>`;
         }).join('');
         return `<div class="comp-group comp-group--${sev}">
-          <div class="comp-group-head"><span class="comp-dot comp-dot--${sev}"></span>${SEV_LABELS[sev]} · ${rows.length}</div>
+          <div class="comp-group-head" data-tooltip="${esc(SEV_TT[sev] || '')}"><span class="comp-dot comp-dot--${sev}"></span>${SEV_LABELS[sev]} · ${rows.length}</div>
           ${items}
         </div>`;
       }).join('');

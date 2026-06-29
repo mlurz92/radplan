@@ -2037,82 +2037,73 @@
   color: rgba(var(--ink-rgb),0.6);
 }
 
+/* ---------------------------------------------------------------------------
+   Hilfe-Tooltips (data-tooltip)
+   Gerendert vom globalen JS-Tooltip (js/tooltip.js) als schwebende, an <body>
+   gehängte Sprechblase — dadurch in scrollbaren Modal-Containern (Auswertungs-
+   Hub, Mitarbeitendenbereich) niemals abgeschnitten. Die frühere rein
+   CSS-basierte ::after-Variante ist abgelöst; hier bleibt nur der Cursor-Hinweis.
+--------------------------------------------------------------------------- */
 [data-tooltip] {
-  position: relative;
   cursor: help;
 }
 
-[data-tooltip]::before {
+.rp-tip {
+  position: fixed;
+  z-index: 100000;
+  max-width: 300px;
+  padding: 9px 13px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.97);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #F8FAFC;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  white-space: normal;
+  text-align: left;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.38), 0 2px 8px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  opacity: 0;
+  transform: translateY(4px) scale(0.98);
+  transform-origin: top center;
+  transition: opacity 0.16s ease, transform 0.18s cubic-bezier(0.34, 1.2, 0.64, 1);
+  pointer-events: none;
+}
+
+.rp-tip::after {
   content: '';
   position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%) translateY(8px);
-  border: 6px solid transparent;
-  border-top-color: rgba(15, 23, 42, 0.95);
-  opacity: 0;
-  pointer-events: none;
-  transition: all 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
-  z-index: 1001;
+  left: var(--rp-tip-arrow, 50%);
+  bottom: -6px;
+  width: 11px;
+  height: 11px;
+  margin-left: -5.5px;
+  background: rgba(15, 23, 42, 0.97);
+  border-right: 1px solid rgba(148, 163, 184, 0.22);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  transform: rotate(45deg);
 }
 
-[data-tooltip]::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%) translateY(4px);
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: #F8FAFC;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.4;
-  white-space: normal;
-  width: max-content;
-  max-width: 260px;
-  text-align: center;
-  opacity: 0;
-  pointer-events: none;
-  transition: all 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
-  z-index: 1000;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-  border: 1px solid rgba(var(--ink-rgb),0.1);
-}
-
-[data-tooltip]:hover::before {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-[data-tooltip]:hover::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(-6px);
-}
-
-[data-tooltip-pos="bottom"]::before {
+.rp-tip.rp-tip-below::after {
   bottom: auto;
-  top: 100%;
-  border-top-color: transparent;
-  border-bottom-color: rgba(15, 23, 42, 0.95);
-  transform: translateX(-50%) translateY(-8px);
+  top: -6px;
+  border-right: none;
+  border-bottom: none;
+  border-left: 1px solid rgba(148, 163, 184, 0.22);
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
 }
 
-[data-tooltip-pos="bottom"]::after {
-  bottom: auto;
-  top: 100%;
-  transform: translateX(-50%) translateY(-4px);
+.rp-tip.rp-tip-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
-[data-tooltip-pos="bottom"]:hover::before {
-  transform: translateX(-50%) translateY(0);
-}
-
-[data-tooltip-pos="bottom"]:hover::after {
-  transform: translateX(-50%) translateY(6px);
+@media (prefers-reduced-motion: reduce) {
+  .rp-tip { transition: opacity 0.12s linear; transform: none; }
+  .rp-tip.rp-tip-visible { transform: none; }
 }
 
 @media (max-width: 1200px) {

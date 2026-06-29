@@ -7,7 +7,7 @@
 // ===========================================================================
 
 import {
-  computeCoverage, eachDay, fmt, scoreColor, MONTHS, MONTHS_SHORT, DOW_ABBR,
+  computeCoverage, eachDay, fmt, scoreColor, MONTHS, MONTHS_SHORT, DOW_ABBR, TT,
 } from './engine.js';
 
 // HTML-Escape für tooltips / Texte.
@@ -76,24 +76,24 @@ export default {
     // -- KPI-Reihe --------------------------------------------------------
     const weHolGaps = cov.weHolDGaps + cov.weHolHgGaps;
     const kpis = [
-      { label: 'D-Abdeckung', value: fmt.pct(cov.dPct), color: scoreColor(cov.dPct),
+      { label: 'D-Abdeckung', tip: TT.dPct, value: fmt.pct(cov.dPct), color: scoreColor(cov.dPct),
         sub: `${fmt.int(cov.dCovered)} / ${fmt.int(cov.totalDays)} Tage` },
-      { label: 'HG-Abdeckung', value: fmt.pct(cov.hgPct), color: scoreColor(cov.hgPct),
+      { label: 'HG-Abdeckung', tip: TT.hgPct, value: fmt.pct(cov.hgPct), color: scoreColor(cov.hgPct),
         sub: `${fmt.int(cov.hgCovered)} / ${fmt.int(cov.totalDays)} Tage` },
-      { label: 'Risiko-Index', value: fmt.int(cov.riskScore), color: scoreColor(cov.riskScore),
+      { label: 'Risiko-Index', tip: TT.riskScore, value: fmt.int(cov.riskScore), color: scoreColor(cov.riskScore),
         sub: `${fmt.int(cov.fullDays)} voll · ${fmt.int(cov.partialDays)} teilw.` },
-      { label: 'Offene Tage', value: fmt.int(cov.openDays), color: cov.openDays > 0 ? '#EF4444' : '#22C55E',
+      { label: 'Offene Tage', tip: TT.openDays, value: fmt.int(cov.openDays), color: cov.openDays > 0 ? '#EF4444' : '#22C55E',
         sub: 'D und HG fehlen' },
-      { label: 'WE/Feiertagslücken', value: fmt.int(weHolGaps), color: weHolGaps > 0 ? '#EF4444' : '#22C55E',
+      { label: 'WE/Feiertagslücken', tip: TT.weHolGaps, value: fmt.int(weHolGaps), color: weHolGaps > 0 ? '#EF4444' : '#22C55E',
         sub: `D: ${fmt.int(cov.weHolDGaps)} · HG: ${fmt.int(cov.weHolHgGaps)}` },
     ];
 
     const kpiHtml = `
-      <div class="ah-section-title">Kennzahlen · ${esc(range.label)}</div>
+      <div class="ah-section-title" data-tooltip="${esc(TT.range)}">Kennzahlen · ${esc(range.label)}</div>
       <div class="ah-kpi-grid">
         ${kpis.map((k) => `
           <div class="ah-kpi">
-            <div class="ah-kpi-label">${esc(k.label)}</div>
+            <div class="ah-kpi-label" data-tooltip="${esc(k.tip)}">${esc(k.label)}</div>
             <div class="ah-kpi-value" style="color:${k.color}">${esc(k.value)}</div>
             <div class="ah-kpi-sub">${esc(k.sub)}</div>
           </div>`).join('')}
@@ -149,14 +149,14 @@ export default {
 
     const legendHtml = `
       <div class="cov-legend">
-        <span class="cov-leg"><i class="cov-swatch cov-full"></i> Vollständig</span>
-        <span class="cov-leg"><i class="cov-swatch cov-partial"></i> Teilbesetzt (D od. HG)</span>
-        <span class="cov-leg"><i class="cov-swatch cov-none"></i> Offen</span>
-        <span class="cov-leg"><i class="cov-swatch cov-wehol-swatch"></i> WE/Feiertag</span>
+        <span class="cov-leg" data-tooltip="${esc(TT.fullDays)}"><i class="cov-swatch cov-full"></i> Vollständig</span>
+        <span class="cov-leg" data-tooltip="${esc(TT.partialDays)}"><i class="cov-swatch cov-partial"></i> Teilbesetzt (D od. HG)</span>
+        <span class="cov-leg" data-tooltip="${esc(TT.openDays)}"><i class="cov-swatch cov-none"></i> Offen</span>
+        <span class="cov-leg" data-tooltip="Wochenende oder gesetzlicher Feiertag (Sachsen) – Lücken zählen hier doppelt im Risiko-Index."><i class="cov-swatch cov-wehol-swatch"></i> WE/Feiertag</span>
       </div>`;
 
     const calHtml = `
-      <div class="ah-section-title">Risiko-Kalender</div>
+      <div class="ah-section-title" data-tooltip="Kalender je Tag: D- und HG-Besetzung farbkodiert; Wochenenden/Feiertage hervorgehoben.">Risiko-Kalender</div>
       ${legendHtml}
       <div class="cov-cal-wrap">${calBlocks}</div>`;
 
@@ -190,7 +190,7 @@ export default {
         <div class="ah-table-wrap">
           <table class="ah-table">
             <thead>
-              <tr><th>Datum</th><th style="text-align:left">Fehlt</th><th style="text-align:left">Besetzung</th></tr>
+              <tr><th data-tooltip="Kalendertag mit unvollständiger Besetzung; WE/FT-Tage sind markiert.">Datum</th><th style="text-align:left" data-tooltip="Welcher Dienst an diesem Tag fehlt: D, HG oder beide.">Fehlt</th><th style="text-align:left" data-tooltip="Tatsächlich zugeteilte Personen für D und HG an diesem Tag.">Besetzung</th></tr>
             </thead>
             <tbody>${rows}</tbody>
           </table>

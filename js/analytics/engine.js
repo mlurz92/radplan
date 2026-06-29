@@ -483,3 +483,87 @@ export const fmt = {
 export function scoreColor(v) {
   return v >= 85 ? '#22C55E' : v >= 65 ? '#F59E0B' : '#EF4444';
 }
+
+// ---------------------------------------------------------------------------
+//  Zentrales Tooltip-Glossar (Auswertungs-Hub + Mitarbeitendenbereich)
+// ---------------------------------------------------------------------------
+//  Eine einzige, kuratierte Quelle für die erklärenden Mouse-Over-Texte aller
+//  Fachbegriffe, Kennzahlen und Felder. Module verwenden ausschließlich diese
+//  Definitionen (Konsistenz + Pflege an einer Stelle). HTML-Einsatz:
+//    `<span data-tooltip="${TT.equityTotal}">…</span>`
+//  Texte sind bewusst kompakt, aber fachlich präzise und in sich verständlich.
+export const TT = {
+  // — Zeitraum & Grundbegriffe —
+  range: 'Betrachtungszeitraum aller Kennzahlen dieser Ansicht. Über die Pillen oben umschaltbar: Monat, Quartal, Jahr bis heute, Gesamtjahr, rollierende 12 Monate oder frei wählbar.',
+  rangeMonth: 'Nur der aktuell im Planer gewählte Kalendermonat.',
+  rangeQuarter: 'Das Kalenderquartal (3 Monate), in dem der gewählte Monat liegt.',
+  rangeYtd: 'Jahr bis heute: vom Januar bis einschließlich des gewählten Monats.',
+  rangeYear: 'Das vollständige Kalenderjahr (Januar–Dezember).',
+  rangeRolling12: 'Die letzten 12 Monate rückwärts ab dem gewählten Monat – auch über den Jahreswechsel hinweg.',
+  rangeCustom: 'Frei wählbarer Start- und Endmonat.',
+  bd: 'Bereitschaftsdienst (D): diensthabende Person vor Ort. An jedem Kalendertag genau einmal zu besetzen.',
+  hg: 'Hintergrunddienst (HG): rufbereiter Facharzt-Hintergrund. An jedem Kalendertag genau einmal zu besetzen; nur durch Fachärztinnen/Fachärzte.',
+  duty: 'Dienst = Bereitschaftsdienst (D) und Hintergrunddienst (HG) zusammengefasst.',
+  facharzt: 'Fachärztin/Facharzt – qualifiziert für Hintergrunddienst (HG) und Wochenend-Bereitschaftsdienst.',
+  assistenz: 'Assistenzärztin/Assistenzarzt in Weiterbildung – leistet Bereitschaftsdienst (D), aber keinen Hintergrunddienst.',
+  fte: 'Vollzeitäquivalent (Stellenanteil). 1,0 = Vollzeit. Dienstziele werden FTE-gewichtet, damit Teilzeitkräfte anteilig weniger Dienste tragen.',
+
+  // — Abdeckung & Risiko —
+  coverage: 'Anteil der Kalendertage im Zeitraum, an denen Bereitschafts- (D) bzw. Hintergrunddienst (HG) besetzt ist.',
+  dPct: 'Anteil der Tage mit besetztem Bereitschaftsdienst (D) am Zeitraum.',
+  hgPct: 'Anteil der Tage mit besetztem Hintergrunddienst (HG) am Zeitraum.',
+  openDays: 'Tage komplett ohne Dienstbesetzung – weder D noch HG vergeben. Höchste Priorität.',
+  partialDays: 'Tage, an denen nur einer der beiden Dienste (D oder HG) besetzt ist.',
+  fullDays: 'Tage mit vollständiger Besetzung von Bereitschafts- und Hintergrunddienst.',
+  weHolGaps: 'Unbesetzte Dienste an Wochenenden und gesetzlichen Feiertagen – besonders kritisch und im Risiko-Index doppelt gewichtet.',
+  riskScore: 'Versorgungs-Risiko-Index 0–100 (höher = sicherer). 100 minus gewichtete Dienstlücken; Wochenend-/Feiertagslücken zählen doppelt.',
+
+  // — Fairness —
+  fairness: 'Verteilungsgerechtigkeit der Dienstlast über das Team, FTE-gewichtet und gegen das individuelle Soll gemessen.',
+  equityTotal: 'Equity-Index 0–100 für die gesamte Dienstlast (D+HG). 100 = perfekt gleichmäßige, FTE-gerechte Verteilung; niedrige Werte = einzelne tragen deutlich mehr/weniger als ihr Soll.',
+  equityBd: 'Equity-Index 0–100 nur für Bereitschaftsdienste (D).',
+  equityHg: 'Equity-Index 0–100 nur für Hintergrunddienste (HG), bezogen auf die dienstfähigen Fachärzte.',
+  soll: 'Soll: FTE-gewichteter Erwartungswert an Diensten für den Zeitraum – der faire Anteil dieser Person an der Gesamtlast.',
+  ist: 'Ist: tatsächlich geleistete Dienste im Zeitraum.',
+  delta: 'Abweichung Ist − Soll. Positiv = mehr Dienste als der faire Anteil, negativ = weniger.',
+  spread: 'Spannweite: Differenz zwischen der höchsten und der niedrigsten Dienstzahl im Team.',
+  weekendDuties: 'Dienste an Wochenenden und Feiertagen – die belastendsten Einsätze, separat auf Gerechtigkeit geprüft.',
+
+  // — Abwesenheiten —
+  absence: 'Erfasste Abwesenheitstage: Urlaub, Krankheit, Freizeitausgleich (FZA) und Weiterbildung (WB).',
+  vac: 'Urlaubstage (inkl. urlaubsähnlicher Codes) im Zeitraum.',
+  sick: 'Krankheitstage (K) und Kind-krank (KK) im Zeitraum.',
+  fza: 'Freizeitausgleich – Abbau geleisteter Mehrarbeit.',
+  wb: 'Weiterbildung / Fortbildung – planmäßige Abwesenheit zur Qualifizierung.',
+  absencePeak: 'Spitzentag: höchste Zahl gleichzeitig abwesender Personen – maßgeblich für Engpass-Risiken.',
+  absenceRate: 'Anteil gleichzeitig abwesender Personen an der Belegschaft des Tages.',
+
+  // — Regelkonformität —
+  compliance: 'Einhaltung der Dienstregeln: Ruhezeiten, Dienstabstände, Qualifikation und personenbezogene Sonderregeln.',
+  complianceScore: 'Regelkonformitäts-Score 0–100 (höher = besser). 100 minus gewichtete Verstöße: kritisch −5, mittel −2, gering −1.',
+  findingRest: 'Ruhezeit-Verstoß: nach einem Bereitschaftsdienst (D) muss der Folgetag dienst- und arbeitsplatzfrei sein.',
+  findingCluster: 'Dienst-Häufung: zwei Dienste mit weniger als 3 Tagen Abstand – auch über Monatsgrenzen geprüft.',
+  findingQual: 'Qualifikations-Verstoß: HG bzw. Wochenend-Bereitschaftsdienst nur durch Fachärztinnen/Fachärzte.',
+  findingRule: 'Sonderregel-Verstoß: personenbezogene Wochentags-Sperre für den Bereitschaftsdienst missachtet.',
+  sevHigh: 'Kritischer Befund – verletzt harte Vorgaben (Ruhezeit, Qualifikation, Sonderregel).',
+  sevMid: 'Mittlerer Befund – Belastungs-/Häufungshinweis ohne harte Regelverletzung.',
+
+  // — Prognose & Wünsche —
+  forecast: 'Lineare Hochrechnung der Dienste auf das Jahresende anhand der bislang mit Diensten gefüllten Monate.',
+  projTotal: 'Erwartete Gesamtdienste zum Jahresende bei gleichbleibendem Tempo.',
+  yearTarget: 'Auf das Gesamtjahr hochgerechnetes, FTE-gewichtetes Dienst-Soll.',
+  projDelta: 'Erwartete Jahresabweichung: Prognose minus Jahres-Soll.',
+  wishRate: 'Wunscherfüllungsrate: Anteil der eingetragenen Dienstwünsche, die der Plan erfüllt.',
+  wishViolated: 'Verletzte „Kein Dienst"-Wünsche: an einem Wunschtag wurde dennoch ein Dienst zugeteilt.',
+
+  // — Jahresgitter & Kurven —
+  yeargrid: 'Monats-Heatmap: Dienste je Person und Monat über das Jahr. Farbe = Abweichung vom Monats-Kollegiums-Durchschnitt.',
+  yeargridMean: 'Monatlicher Kollegiums-Durchschnitt der Dienste – Bezugswert für die Heatmap-Einfärbung.',
+  curve: 'Verlaufskurve: Entwicklung der kumulierten Dienste je Person über die Monate.',
+
+  // — Mitarbeitendenbereich —
+  empActive: 'Mitarbeitende mit mindestens einem erfassten Aktivitätsmonat im Jahr.',
+  empActiveMonths: 'Zahl der Monate im Jahr, in denen für diese Person Plandaten vorliegen.',
+  workdays: 'Werktage im Monat: Mo–Fr ohne gesetzliche Feiertage (Sachsen).',
+  utilization: 'Auslastung: Anteil der verplanten Tage (Arbeitsplatz, Dienst oder Status) an den möglichen Tagen.',
+};

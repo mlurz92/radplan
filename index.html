@@ -567,11 +567,11 @@
           <div class="empdash-context" id="emp-context-line" aria-live="polite"></div>
         </div>
         <div class="empdash-hd-actions">
-          <div class="emp-screen-switch" role="tablist" aria-label="Ansicht umschalten">
-            <button type="button" class="emp-screen-btn active" data-screen="team" role="tab" aria-selected="true">Team</button>
-            <button type="button" class="emp-screen-btn" data-screen="person" id="emp-screen-person-btn" role="tab" aria-selected="false" disabled>Person</button>
+          <div class="emp-screen-switch" role="tablist" aria-label="Ansicht umschalten" data-tooltip="Zwischen der Teamübersicht (alle Mitarbeitenden) und der Einzelansicht einer ausgewählten Person umschalten." data-tooltip-pos="bottom">
+            <button type="button" class="emp-screen-btn active" data-screen="team" role="tab" aria-selected="true" data-tooltip="Teamansicht: Kennzahlen, Analytics und Karten aller Mitarbeitenden." data-tooltip-pos="bottom">Team</button>
+            <button type="button" class="emp-screen-btn" data-screen="person" id="emp-screen-person-btn" role="tab" aria-selected="false" disabled data-tooltip="Personenansicht: Detailprofil der aktuell gewählten Person. Per Klick auf eine Karte/Zeile aktivierbar." data-tooltip-pos="bottom">Person</button>
           </div>
-          <button type="button" class="period-inline-btn" id="emp-open-period" aria-label="Zeitraumsteuerung öffnen">Zeitraum</button>
+          <button type="button" class="period-inline-btn" id="emp-open-period" aria-label="Zeitraumsteuerung öffnen" data-tooltip="Betrachtungszeitraum und angezeigten Monat/Jahr für den gesamten Bereich einstellen." data-tooltip-pos="bottom">Zeitraum</button>
           <button type="button" class="modal-x" data-close="modal-emps" aria-label="Mitarbeitenden-Dashboard schließen">✕</button>
         </div>
       </div>
@@ -583,10 +583,10 @@
         <section class="empdash-section empdash-team-section">
           <div class="empdash-team-head">
             <div>
-              <div class="empdash-detail-title">Team-Analytics</div>
+              <div class="empdash-detail-title" data-tooltip="Abteilungs- und Mitarbeitendenstatistiken (Aktivität, Dienste, Abwesenheiten, Abdeckung, Fairness) für den unten gewählten Zeitraum.">Team-Analytics</div>
               <div class="empdash-detail-sub">Abteilungs- und Mitarbeitendenstatistiken für dynamische Zeiträume.</div>
             </div>
-            <div class="empdash-team-controls" id="emp-team-controls" role="toolbar" aria-label="Zeitraum Team-Analytics"></div>
+            <div class="empdash-team-controls" id="emp-team-controls" role="toolbar" aria-label="Zeitraum Team-Analytics" data-tooltip="Betrachtungszeitraum der Team-Analytics wählen: Monat, Quartal, Jahr, rollierende 12 Monate oder frei wählbar (Custom)."></div>
           </div>
           <div class="empdash-team-panel" id="emp-team-panel" aria-live="polite"></div>
         </section>
@@ -595,16 +595,16 @@
             <div class="empdash-toolbar-left">
               <label class="empdash-search-wrap" for="emp-search">
                 <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="search" id="emp-search" class="text-input empdash-search" placeholder="Mitarbeitende filtern…" autocomplete="off">
+                <input type="search" id="emp-search" class="text-input empdash-search" placeholder="Mitarbeitende filtern…" autocomplete="off" data-tooltip="Volltextsuche über Kürzel, vollständigen Namen, Position und Bereich. Filtert die Mitarbeitendenkarten live.">
               </label>
-              <div class="empdash-filter-pills" id="emp-role-filters" role="toolbar" aria-label="Rollenfilter"></div>
-              <label class="empdash-activeonly" for="emp-active-only">
+              <div class="empdash-filter-pills" id="emp-role-filters" role="toolbar" aria-label="Rollenfilter" data-tooltip="Nach Rolle filtern: Alle, Chefärzte, Oberärzte, Fachärzte, Assistenz oder Personen ohne Stammdaten. Die Zahl zeigt die jeweilige Anzahl."></div>
+              <label class="empdash-activeonly" for="emp-active-only" data-tooltip="Nur Mitarbeitende anzeigen, die im Jahr mindestens einen Monat mit Plandaten haben. Inaktive werden ausgeblendet.">
                 <input type="checkbox" id="emp-active-only">
                 <span>Nur Aktive</span>
               </label>
             </div>
             <div class="empdash-toolbar-right">
-              <label class="empdash-sort-wrap" for="emp-sort">
+              <label class="empdash-sort-wrap" for="emp-sort" data-tooltip="Reihenfolge der Mitarbeitendenkarten festlegen: Name (A–Z), Position (Leitung zuerst), Dienste, Urlaub, Krank oder aktive Monate – jeweils absteigend.">
                 <span class="empdash-sort-lbl">Sortieren</span>
                 <select id="emp-sort" class="empdash-sort" aria-label="Mitarbeitende sortieren">
                   <option value="name">Name (A–Z)</option>
@@ -615,11 +615,11 @@
                   <option value="active">Aktive Monate (absteigend)</option>
                 </select>
               </label>
-              <button type="button" class="empdash-export-btn" id="emp-export-csv" title="Sichtbare Auswahl als CSV exportieren">
+              <button type="button" class="empdash-export-btn" id="emp-export-csv" title="Sichtbare Auswahl als CSV exportieren" data-tooltip="Die aktuell sichtbare (gefilterte und sortierte) Auswahl als CSV-Datei exportieren – Excel-/de-tauglich, mit Kürzel, Name, Position, Bereich, Diensten und Abwesenheiten.">
                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 <span>CSV</span>
               </button>
-              <div class="empdash-count" id="emp-visible-count" aria-live="polite"></div>
+              <div class="empdash-count" id="emp-visible-count" aria-live="polite" data-tooltip="Anzahl der nach Filter/Suche sichtbaren Mitarbeitenden gegenüber der Gesamtzahl im Jahr."></div>
             </div>
           </div>
           <div class="empdash-card-grid" id="emp-year-grid" role="list" aria-label="Jahresübersicht aller Mitarbeitenden"></div>
@@ -638,7 +638,7 @@
             <div class="modal-hd-sub" id="pm-sub">Monat · Werktage</div>
             <div class="pm-meta-row" id="pm-meta-row" role="list" aria-label="Positionsinformationen"></div>
           </div>
-          <label class="pm-person-select-wrap" for="emp-person-select">
+          <label class="pm-person-select-wrap" for="emp-person-select" data-tooltip="Schnell zu einer anderen Person wechseln, ohne zur Teamübersicht zurückzukehren.">
             <span class="pm-person-select-lbl">Person</span>
             <select id="emp-person-select" class="empdash-sort" aria-label="Person wechseln"></select>
           </label>
@@ -646,49 +646,49 @@
         <div class="pm-today-status" id="pm-today-status" style="display:none" aria-live="polite"></div>
 
         <div class="pm-tabbar" role="tablist" aria-label="Profilbereiche">
-          <button type="button" class="pm-tab active" data-ptab="overview" role="tab" aria-selected="true">Übersicht</button>
-          <button type="button" class="pm-tab" data-ptab="duties" role="tab" aria-selected="false">Dienste &amp; Feiertage</button>
-          <button type="button" class="pm-tab" data-ptab="calendar" role="tab" aria-selected="false">Kalender</button>
-          <button type="button" class="pm-tab" data-ptab="year" role="tab" aria-selected="false">Jahresauswertung</button>
-          <button type="button" class="pm-tab" data-ptab="admin" role="tab" aria-selected="false">Verwaltung</button>
+          <button type="button" class="pm-tab active" data-ptab="overview" role="tab" aria-selected="true" data-tooltip="Kennzahlen, Arbeitsplatz-Verteilung und Abwesenheiten für den aktuell gewählten Monat." data-tooltip-pos="bottom">Übersicht</button>
+          <button type="button" class="pm-tab" data-ptab="duties" role="tab" aria-selected="false" data-tooltip="Dienst-Fairness im Jahr, Dienst-/Hintergrunddetails, Feiertagsdienste und Verteilung nach Wochentag." data-tooltip-pos="bottom">Dienste &amp; Feiertage</button>
+          <button type="button" class="pm-tab" data-ptab="calendar" role="tab" aria-selected="false" data-tooltip="Monats- bzw. Jahreskalender dieser Person; Klick auf einen Werktag öffnet den Editor." data-tooltip-pos="bottom">Kalender</button>
+          <button type="button" class="pm-tab" data-ptab="year" role="tab" aria-selected="false" data-tooltip="Jahresverlauf, Trend und vollständige Jahresauswertung der Aktivität dieser Person." data-tooltip-pos="bottom">Jahresauswertung</button>
+          <button type="button" class="pm-tab" data-ptab="admin" role="tab" aria-selected="false" data-tooltip="Verwaltung: Person zum aktuellen Monat hinzufügen/entfernen und Monatsliste bearbeiten." data-tooltip-pos="bottom">Verwaltung</button>
         </div>
 
         <div class="pm-tabpanel" data-ptab-panel="overview" role="tabpanel">
-          <div class="pm-sect-hd">Monatsübersicht</div>
+          <div class="pm-sect-hd" data-tooltip="Kennzahlen dieser Person für den aktuell gewählten Kalendermonat.">Monatsübersicht</div>
           <div class="kpi-grid" id="pm-kpi" role="list" aria-label="Kennzahlen aktueller Monat"></div>
-          <div class="pm-sect-hd" id="pm-wp-hd">Arbeitsplatz-Verteilung</div>
+          <div class="pm-sect-hd" id="pm-wp-hd" data-tooltip="Verteilung der zugewiesenen Arbeitsplätze/Einsatzorte im Monat (Tage je Code).">Arbeitsplatz-Verteilung</div>
           <div class="pm-dist-layout" id="pm-dist-layout">
             <div id="pm-wp-chart" class="dist-chart" aria-label="Arbeitsplatz-Statistik aktueller Monat"></div>
             <div class="pm-donut-wrap" id="pm-donut-wrap" aria-hidden="true">
               <canvas id="pm-donut-canvas" width="140" height="140"></canvas>
             </div>
           </div>
-          <div class="pm-sect-hd" id="pm-st-hd">Abwesenheiten &amp; Status</div>
+          <div class="pm-sect-hd" id="pm-st-hd" data-tooltip="Abwesenheits- und Statustage im Monat: Urlaub, Krank, FZA, Weiterbildung, Frei usw. (Tage je Code).">Abwesenheiten &amp; Status</div>
           <div id="pm-st-chart" class="dist-chart" aria-label="Status-Statistik aktueller Monat"></div>
         </div>
 
         <div class="pm-tabpanel" data-ptab-panel="duties" role="tabpanel" hidden>
-          <div class="pm-sect-hd">
+          <div class="pm-sect-hd" data-tooltip="Vergleich der Dienstlast dieser Person mit dem FTE-gewichteten Soll und dem Team: zeigt, ob über, unter oder im fairen Bereich.">
             Dienst-Fairness im Jahr
             <span class="pm-sect-hint">— Belastung &amp; Verteilungsgerechtigkeit gegenüber dem Team</span>
           </div>
           <div id="pm-fairness" class="pm-fairness-area" aria-label="Dienst-Fairness im Jahr"></div>
-          <div class="pm-sect-hd" id="pm-duty-hd">Dienste &amp; Hintergrund</div>
+          <div class="pm-sect-hd" id="pm-duty-hd" data-tooltip="Konkrete Bereitschaftsdienste (D) und Hintergrunddienste (HG) dieser Person im aktuellen Monat.">Dienste &amp; Hintergrund</div>
           <div id="pm-duty-detail" class="duty-detail-area" aria-label="Dienstdetails aktueller Monat"></div>
-          <div class="pm-sect-hd" id="pm-holiday-hd">
+          <div class="pm-sect-hd" id="pm-holiday-hd" data-tooltip="Dienste und Einsätze dieser Person an gesetzlichen Feiertagen (Sachsen) im gesamten Jahr – besonders belastende Einsätze.">
             Feiertagsdienste
             <span class="pm-sect-hint">— Dienste &amp; Einsätze an gesetzlichen Feiertagen im Jahr</span>
           </div>
           <div id="pm-holiday-duty" class="pm-holiday-area" aria-label="Feiertagsdienste im Jahr"></div>
-          <div class="pm-sect-hd">Dienste nach Wochentag</div>
+          <div class="pm-sect-hd" data-tooltip="Verteilung der Dienste dieser Person auf die Wochentage (Mo–So) im Jahr – zeigt Häufungen z. B. an Wochenenden.">Dienste nach Wochentag</div>
           <div id="pm-duty-dow" class="pm-dow-grid" aria-label="Dienstverteilung nach Wochentag"></div>
         </div>
 
         <div class="pm-tabpanel" data-ptab-panel="calendar" role="tabpanel" hidden>
           <div class="pm-sect-hd pm-cal-sect-hd">
-            <span id="pm-cal-title">Monatskalender</span>
+            <span id="pm-cal-title" data-tooltip="Kalender dieser Person mit Arbeitsplatz-, Dienst- und Statuseinträgen je Tag. Klick auf einen Werktag öffnet den Editor.">Monatskalender</span>
             <span class="pm-sect-hint">— Klick auf einen Werktag öffnet den Editor</span>
-            <div class="pm-cal-toggle" role="tablist" aria-label="Kalenderansicht umschalten">
+            <div class="pm-cal-toggle" role="tablist" aria-label="Kalenderansicht umschalten" data-tooltip="Zwischen Monats- und Jahresansicht des Kalenders umschalten.">
               <button type="button" class="pm-cal-tab" data-cal-view="month" role="tab">Monat</button>
               <button type="button" class="pm-cal-tab" data-cal-view="year" role="tab">Jahr</button>
             </div>
@@ -698,11 +698,11 @@
         </div>
 
         <div class="pm-tabpanel" data-ptab-panel="year" role="tabpanel" hidden>
-          <div class="pm-sect-hd">Jahresverlauf &amp; Trend</div>
+          <div class="pm-sect-hd" data-tooltip="Verlauf der monatlichen Aktivität und Dienste dieser Person über das Jahr mit Trendkurve.">Jahresverlauf &amp; Trend</div>
           <div class="pm-trend-wrap" aria-label="Monatlicher Aktivitätsverlauf">
             <canvas id="pm-trend-canvas" height="120" aria-hidden="true"></canvas>
           </div>
-          <div class="pm-sect-hd">Jahresauswertung</div>
+          <div class="pm-sect-hd" data-tooltip="Aufsummierte Jahreswerte dieser Person: aktive Tage, Dienste, Abwesenheiten und Abdeckung je Monat.">Jahresauswertung</div>
           <div id="pm-yearly" aria-label="Jahresauswertung"></div>
         </div>
 
