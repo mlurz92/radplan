@@ -809,18 +809,24 @@ export function renderEmployeeDetailDashboard(emp, year) {
         <div class="empdash-analyse-breakdown">
           <div class="empdash-breakdown-card">
             <div class="empdash-chart-title" ${ttAttr("Anteil von Bereitschaftsdienst (D) zu Hintergrunddienst (HG) an allen Diensten des Jahres.")}>Dienst-Verhältnis</div>
-            ${totalDuties > 0 ? `
-              <div class="empdash-duty-ratio">
+            ${totalDuties > 0 ? (() => {
+              // Anteile auf 100 % normiert: HG ergibt sich als Rest von D,
+              // damit die Balkenbreiten exakt 100 % ergeben (kein 101 %-Artefakt).
+              const dPct = Math.round((ys.totals.dutyD / totalDuties) * 100);
+              const hgPct = 100 - dPct;
+              const ratioTip = `Von ${totalDuties} Diensten im Jahr entfallen ${ys.totals.dutyD} (${dPct}%) auf Bereitschaftsdienst (D) und ${ys.totals.dutyHG} (${hgPct}%) auf Hintergrunddienst (HG).`;
+              return `
+              <div class="empdash-duty-ratio" ${ttAttr(ratioTip)}>
                 <div class="empdash-duty-bar">
-                  <div style="width:${Math.round((ys.totals.dutyD/totalDuties)*100)}%;background:#EF4444" title="D-Dienste"></div>
-                  <div style="width:${Math.round((ys.totals.dutyHG/totalDuties)*100)}%;background:#0EA5E9" title="HG-Dienste"></div>
+                  <div style="width:${dPct}%;background:#EF4444" title="D-Dienste"></div>
+                  <div style="width:${hgPct}%;background:#0EA5E9" title="HG-Dienste"></div>
                 </div>
                 <div class="empdash-duty-ratio-labels">
-                  <span style="color:#EF4444">D: ${ys.totals.dutyD} (${Math.round((ys.totals.dutyD/totalDuties)*100)}%)</span>
-                  <span style="color:#0369A1">HG: ${ys.totals.dutyHG} (${Math.round((ys.totals.dutyHG/totalDuties)*100)}%)</span>
+                  <span style="color:#EF4444">D: ${ys.totals.dutyD} (${dPct}%)</span>
+                  <span style="color:#0369A1">HG: ${ys.totals.dutyHG} (${hgPct}%)</span>
                 </div>
-              </div>
-            ` : '<p class="empdash-mini-empty">Keine Dienste eingetragen</p>'}
+              </div>`;
+            })() : '<p class="empdash-mini-empty">Keine Dienste eingetragen</p>'}
           </div>
           <div class="empdash-breakdown-card">
             <div class="empdash-chart-title" ${ttAttr("Aufschlüsselung der Abwesenheitstage im Jahr nach Art (Urlaub, Krank, FZA, Weiterbildung, Frei).")}>Abwesenheits-Aufschlüsselung</div>
