@@ -161,7 +161,7 @@ export default {
     let warnHtml = '';
     if (collisions.length) {
       warnHtml += `<div class="abs-warn-block">
-        <div class="abs-warn-head" data-tooltip="Werktage, an denen beide Personen eines kritischen CT-Leitungs-Vertretungspaares zugleich abwesend sind - ein Vertretungsrisiko fuer die CT-Leitung.">Gleichzeitige Abwesenheit kritischer Vertretungspaare (CT-Leitung)</div>
+        <div class="abs-warn-head" data-tooltip="Werktage, an denen beide Personen eines kritischen CT-Leitungs-Vertretungspaares zugleich abwesend sind - ein Vertretungsrisiko für die CT-Leitung.">Gleichzeitige Abwesenheit kritischer Vertretungspaare (CT-Leitung)</div>
         <div class="abs-pill-row">
           ${collisions.map((c) => `<span class="ah-pill ah-pill-bad">${esc(c.a)} &amp; ${esc(c.b)} · ${c.short}</span>`).join('')}
         </div>
