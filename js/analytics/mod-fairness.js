@@ -7,7 +7,7 @@
 //  gerechnet, unabhängig vom gewählten Teilzeitraum.
 // ===========================================================================
 
-import { computeDutyFairness, fmt, scoreColor, TT } from './engine.js';
+import { computeDutyFairness, fmt, scoreColor, TT, TTI } from './engine.js';
 
 let chartInstance = null;
 
@@ -77,22 +77,22 @@ export default {
       <div class="ah-kpi-grid">
         <div class="ah-kpi">
           <span class="ah-kpi-label" data-tooltip="${esc(TT.equityTotal)}">Equity-Index gesamt</span>
-          <span class="ah-kpi-value" style="color:${scoreColor(equityTotalPct)}">${fmt.pct(equityTotalPct)}</span>
+          <span class="ah-kpi-value" style="color:${scoreColor(equityTotalPct)}" data-tooltip="${esc(TTI.equity(equityTotalPct, 'aller Dienste'))}">${fmt.pct(equityTotalPct)}</span>
           <span class="ah-kpi-sub">FTE-gewichtete Gleichverteilung</span>
         </div>
         <div class="ah-kpi">
           <span class="ah-kpi-label" data-tooltip="Equity-Index 0–100 nur für Wochenend- und Feiertagsdienste – die belastendsten Einsätze.">Wochenend-Equity</span>
-          <span class="ah-kpi-value" style="color:${scoreColor(equityWeekendPct)}">${fmt.pct(equityWeekendPct)}</span>
+          <span class="ah-kpi-value" style="color:${scoreColor(equityWeekendPct)}" data-tooltip="${esc(TTI.equity(equityWeekendPct, 'der Wochenend-/Feiertagsdienste'))}">${fmt.pct(equityWeekendPct)}</span>
           <span class="ah-kpi-sub">WE-/Feiertagsdienste</span>
         </div>
         <div class="ah-kpi">
           <span class="ah-kpi-label" data-tooltip="Variationskoeffizient der Gesamtdienste in Prozent: Streuung im Verhältnis zum Mittelwert. Niedriger = gleichmäßiger verteilt.">Variationskoeffizient</span>
-          <span class="ah-kpi-value">${fmt.pct(team.cvTotal ?? 0)}</span>
+          <span class="ah-kpi-value" data-tooltip="${esc(TTI.cv(team.cvTotal ?? 0))}">${fmt.pct(team.cvTotal ?? 0)}</span>
           <span class="ah-kpi-sub">Streuung der Gesamtlast</span>
         </div>
         <div class="ah-kpi">
           <span class="ah-kpi-label" data-tooltip="${esc(TT.spread)}">Spannweite gesamt</span>
-          <span class="ah-kpi-value">${fmt.int(team.minTotal)}–${fmt.int(team.maxTotal)}</span>
+          <span class="ah-kpi-value" data-tooltip="${esc(TTI.spread(team.minTotal, team.maxTotal, team.spreadTotal))}">${fmt.int(team.minTotal)}–${fmt.int(team.maxTotal)}</span>
           <span class="ah-kpi-sub">Differenz ${fmt.int(team.spreadTotal)} Dienste</span>
         </div>
       </div>`;
@@ -109,11 +109,11 @@ export default {
           <td class="ah-td-num">${fmt.int(r.hg)}</td>
           <td class="ah-td-num">${fmt.int(r.total)}</td>
           <td class="ah-td-num">${fmt.int(r.weekendDuties)}</td>
-          <td class="ah-td-num">${fmt.dec1(r.bdTarget)}</td>
-          <td class="ah-td-num">${fmt.signedInt(r.bdDelta)}</td>
-          <td class="ah-td-num" style="color:${devColor(r.status)};font-weight:700">${fmt.signed1(r.totalDev)}</td>
-          <td>${devBar(r.totalDev ?? 0, maxAbs)}</td>
-          <td><span class="ah-pill ${sm.pill}">${sm.label}</span></td>
+          <td class="ah-td-num" data-tooltip="${esc(`FTE-gewichtetes Jahres-Soll für Bereitschaftsdienste: ${fmt.dec1(r.bdTarget)}. Ist: ${fmt.int(r.bd)}.`)}">${fmt.dec1(r.bdTarget)}</td>
+          <td class="ah-td-num" data-tooltip="${esc(TTI.bdDelta(r.bdDelta))}">${fmt.signedInt(r.bdDelta)}</td>
+          <td class="ah-td-num" style="color:${devColor(r.status)};font-weight:700" data-tooltip="${esc(TTI.fairDelta(r.totalDev, r.status))}">${fmt.signed1(r.totalDev)}</td>
+          <td data-tooltip="${esc(TTI.fairDelta(r.totalDev, r.status))}">${devBar(r.totalDev ?? 0, maxAbs)}</td>
+          <td><span class="ah-pill ${sm.pill}" data-tooltip="${esc(TTI.status(r.status))}">${sm.label}</span></td>
         </tr>`;
     }).join('');
 
