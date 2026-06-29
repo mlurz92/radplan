@@ -99,8 +99,8 @@ export default {
     }
     const trendCard = `
       <div class="ah-card">
-        <div class="ah-section-title" data-tooltip="Zahl gleichzeitig abwesender Personen je Werktag (Mo-Fr ohne saechsische Feiertage). Hohe Balken markieren Engpasstage.">Kapazitäts-/Engpass-Verlauf</div>
-        <div class="ah-sub abs-legend" data-tooltip="Spitze = hoechste gleichzeitige Abwesenheit im Zeitraum. Engpass-Schwelle = ab 60 Prozent der Spitze (mindestens 2); solche Tage werden rot hervorgehoben.">Gleichzeitige Abwesenheiten je Werktag · Spitze ${fmt.int(maxAbs)} · Engpass ab ${fmt.int(hot)}</div>
+        <div class="ah-section-title" data-tooltip="Zahl gleichzeitig abwesender Personen je Werktag (Mo-Fr ohne sächsische Feiertage). Hohe Balken markieren Engpasstage.">Kapazitäts-/Engpass-Verlauf</div>
+        <div class="ah-sub abs-legend" data-tooltip="Spitze = höchste gleichzeitige Abwesenheit im Zeitraum. Engpass-Schwelle = ab 60 Prozent der Spitze (mindestens 2); solche Tage werden rot hervorgehoben.">Gleichzeitige Abwesenheiten je Werktag · Spitze ${fmt.int(maxAbs)} · Engpass ab ${fmt.int(hot)}</div>
         ${trendHtml}
       </div>`;
 
