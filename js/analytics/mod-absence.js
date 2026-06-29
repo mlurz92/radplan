@@ -64,7 +64,7 @@ export default {
     const kpis = [
       { label: 'Gesamt-Ausfalltage', value: fmt.int(totalAbsenceDays), sub: `${esc(range.label)}`, tone: '#7C3AED', tip: TT.absence },
       { label: 'Spitze gleichzeitig', value: peak ? fmt.int(peak.absent) : '—', sub: peak ? `am ${shortDate(peak)} · ${fmt.int(peak.present)} präsent` : 'keine Werktage', tone: peak && peak.absent > 0 ? '#EF4444' : '#0EA5E9', tip: TT.absencePeak },
-      { label: 'Ø Abwesenheitsquote', value: fmt.pct(avgRate), sub: 'je Werktag', tone: scoreColor(100 - Math.min(100, avgRate)), tip: 'Durchschnittlicher Anteil gleichzeitig abwesender Personen ueber alle Werktage des Zeitraums. ' + TT.absenceRate },
+      { label: 'Ø Abwesenheitsquote', value: fmt.pct(avgRate), sub: 'je Werktag', tone: scoreColor(100 - Math.min(100, avgRate)), tip: 'Durchschnittlicher Anteil gleichzeitig abwesender Personen über alle Werktage des Zeitraums. ' + TT.absenceRate },
       { label: 'Betroffene Personen', value: fmt.int(rows.length), sub: 'mit ≥ 1 Ausfalltag', tone: '#0EA5E9', tip: 'Anzahl der Personen mit mindestens einem erfassten Ausfalltag (Urlaub, Krankheit, FZA oder WB) im Zeitraum.' },
     ];
     const kpiHtml = `
