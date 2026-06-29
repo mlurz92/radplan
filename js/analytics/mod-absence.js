@@ -180,7 +180,7 @@ export default {
     }
     const warnCard = `
       <div class="ah-card">
-        <div class="ah-section-title" data-tooltip="Hinweise auf personelle Engpaesse: gleichzeitige Abwesenheit kritischer CT-Leitungs-Vertretungspaare sowie die Tage mit der hoechsten gleichzeitigen Abwesenheit.">Engpass-/Kollisionswarnungen</div>
+        <div class="ah-section-title" data-tooltip="Hinweise auf personelle Engpässe: gleichzeitige Abwesenheit kritischer CT-Leitungs-Vertretungspaare sowie die Tage mit der höchsten gleichzeitigen Abwesenheit.">Engpass-/Kollisionswarnungen</div>
         ${warnHtml}
       </div>`;
 
