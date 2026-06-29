@@ -13,3 +13,13 @@
 .crv-table td[style], .crv-table th { text-align: center; }
 .crv-table td:first-child { text-align: left; font-weight: 600; }
 .crv-nd { color: var(--text-faint); opacity: .5; }
+
+/* --- Portrait-Mobile: Chart-Höhe halten, breite 12-Monats-Tabelle scrollbar --- */
+@media (max-width: 560px) {
+  .crv-canvas-wrap { height: 240px; }
+  .crv-chart-card { padding: 12px 12px; }
+  .crv-legend { gap: 4px 10px; }
+}
+@media (max-width: 380px) {
+  .crv-canvas-wrap { height: 210px; }
+}

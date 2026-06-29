@@ -30,12 +30,13 @@ function shortDate(p) {
   return `${p.day}.${p.month + 1}.`;
 }
 
-// Prüft, ob eine Person an einem Tag abwesend/dienstfrei ist (Basis-Code in
-// ABSENCE_CODES oder „F").
+// Prüft, ob eine Person an einem Tag wirklich abwesend ist (Basis-Code in
+// ABSENCE_CODES). Dienstfrei („F") zählt nicht als Abwesenheit – konsistent
+// zur Tabelle/totalAbsenceDays und zur Kapazitäts-/Engpasssicht.
 function isAbsentDay(year, month, emp, day) {
   const cell = getCell(year, month, emp, day) || {};
   const base = (cell.assignment || '').split('/')[0].trim();
-  return !!base && (ABSENCE_CODES.includes(base) || base === 'F');
+  return !!base && ABSENCE_CODES.includes(base);
 }
 
 export default {

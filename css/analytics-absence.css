@@ -59,3 +59,14 @@
   flex-wrap: wrap;
   gap: 6px;
 }
+
+/* --- Portrait-Mobile: Chart-Höhe halten, Tabelle scrollbar --- */
+@media (max-width: 560px) {
+  .abs-chart-box { height: 200px; }
+  .abs-strip { height: 150px; }
+  .abs-table-wrap { max-height: 360px; }
+}
+@media (max-width: 380px) {
+  .abs-chart-box { height: 180px; }
+  .abs-strip { height: 130px; }
+}

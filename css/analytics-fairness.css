@@ -61,3 +61,15 @@
 /* Chart-Karte: feste Höhe, damit Chart.js korrekt skaliert. */
 .fair-chart-card { position: relative; }
 .fair-chart-card canvas { max-height: 260px; }
+
+/* --- Portrait-Mobile --- */
+@media (max-width: 560px) {
+  /* Breite Tabelle bleibt in ihrem Wrap scrollbar; Balkenspalte schmaler. */
+  .fair-table td:nth-child(9) { min-width: 70px; }
+  .fair-dev-bar { width: 60px; }
+  .fair-chart-card canvas { max-height: 220px; }
+  .fair-legend { gap: 10px; }
+}
+@media (max-width: 380px) {
+  .fair-chart-card canvas { max-height: 190px; }
+}

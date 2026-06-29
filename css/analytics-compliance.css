@@ -105,6 +105,20 @@
 }
 
 @media (max-width: 560px) {
+  /* Header: Score und KPIs untereinander stapeln. */
+  .comp-header { flex-direction: column; gap: 12px; margin-bottom: 14px; }
+  .comp-score { flex: 1 1 auto; width: 100%; min-width: 0; padding: 12px; flex-direction: row; justify-content: center; gap: 10px; }
+  .comp-score-value { font-size: 36px; }
+  .comp-header-kpis { flex: 1 1 auto; width: 100%; }
+  .comp-type-grid { grid-template-columns: 1fr 1fr; }
+
   .comp-finding { grid-template-columns: auto auto 1fr; }
   .comp-date { grid-column: 3; text-align: right; }
+  .comp-text { overflow-wrap: anywhere; }
+}
+@media (max-width: 380px) {
+  .comp-type-grid { grid-template-columns: 1fr; }
+  .comp-finding { grid-template-columns: auto 1fr; gap: 8px; }
+  .comp-badge { grid-column: 2; justify-self: start; }
+  .comp-date { grid-column: 2; }
 }

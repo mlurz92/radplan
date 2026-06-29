@@ -67,8 +67,10 @@ export default {
       return;
     }
 
-    const equityTotalPct = Math.round((team.equityTotal ?? 0) * 100);
-    const equityWeekendPct = Math.round((team.equityWeekend ?? 0) * 100);
+    // equityTotal/equityWeekend kommen aus equityIndex() und sind BEREITS
+    // 0–100 (= Prozent). Nicht erneut ×100 skalieren.
+    const equityTotalPct = Math.round(team.equityTotal ?? 0);
+    const equityWeekendPct = Math.round(team.equityWeekend ?? 0);
 
     // --- KPI-Block ---
     const kpis = `
@@ -85,7 +87,7 @@ export default {
         </div>
         <div class="ah-kpi">
           <span class="ah-kpi-label">Variationskoeffizient</span>
-          <span class="ah-kpi-value">${fmt.pct((team.cvTotal ?? 0) * 100)}</span>
+          <span class="ah-kpi-value">${fmt.pct(team.cvTotal ?? 0)}</span>
           <span class="ah-kpi-sub">Streuung der Gesamtlast</span>
         </div>
         <div class="ah-kpi">
