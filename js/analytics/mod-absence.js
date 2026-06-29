@@ -121,7 +121,7 @@ export default {
           <table class="ah-table">
             <thead>
               <tr>
-                <th data-tooltip="Person mit mindestens einem Ausfalltag. Klick oeffnet das Profil.">Mitarbeitende</th><th data-tooltip="${esc(TT.vac)}">Urlaub</th><th data-tooltip="${esc(TT.sick)}">Krank</th>
+                <th data-tooltip="Person mit mindestens einem Ausfalltag. Klick öffnet das Profil.">Mitarbeitende</th><th data-tooltip="${esc(TT.vac)}">Urlaub</th><th data-tooltip="${esc(TT.sick)}">Krank</th>
                 <th data-tooltip="${esc(TT.fza)}">FZA</th><th data-tooltip="${esc(TT.wb)}">WB</th><th data-tooltip="Summe aller Ausfalltage der Person im Zeitraum: Urlaub + Krank + FZA + WB.">Gesamt</th>
               </tr>
             </thead>
