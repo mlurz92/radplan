@@ -97,3 +97,19 @@
 .cov-have { color: var(--text-3); font-size: 11px; }
 .cov-row-wehol { background: rgba(148, 163, 184, .08); }
 .cov-row-wehol td:first-child { box-shadow: inset 3px 0 0 rgba(245, 158, 11, .8); }
+
+/* --- Portrait-Mobile: Monatsblöcke untereinander, Zellen schrumpfen --- */
+@media (max-width: 560px) {
+  .cov-cal-wrap { grid-template-columns: 1fr; gap: 12px; }
+  .cov-cal-grid { gap: 2px; }
+  .cov-cell { gap: 1px; border-radius: 5px; }
+  .cov-daynum { font-size: 11px; }
+  .cov-dot { width: 8px; height: 8px; font-size: 6px; }
+  .cov-legend { gap: 8px 12px; }
+}
+@media (max-width: 380px) {
+  .cov-cal-block { padding: 8px 7px 10px; }
+  .cov-cal-grid { gap: 1.5px; }
+  .cov-daynum { font-size: 10px; }
+  .cov-dot { width: 7px; height: 7px; }
+}

@@ -31,3 +31,17 @@
 .yg-future { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: rgba(128,128,128,.25); }
 .yg-td-total, .yg-th-total { background: var(--gray-100, rgba(148,163,184,.10)); font-weight: 800; }
 .yg-total-bd { color: var(--text-1); } .yg-total-hg { font-size: 10px; color: var(--text-faint); margin-left: 4px; }
+
+/* --- Portrait-Mobile: Gitter scrollbar im Wrap, kompaktere Zellen, schmalere Sticky-Spalte --- */
+@media (max-width: 560px) {
+  .yg-scroll { max-width: 100%; -webkit-overflow-scrolling: touch; contain: paint; }
+  .yg-table { font-size: 11px; }
+  .yg-table th, .yg-table td { padding: 5px 6px; }
+  .yg-th-name, .yg-td-name { min-width: 120px; }
+  .yg-legend { gap: 8px 12px; }
+}
+@media (max-width: 380px) {
+  .yg-table { font-size: 10.5px; }
+  .yg-table th, .yg-table td { padding: 4px 5px; }
+  .yg-th-name, .yg-td-name { min-width: 104px; }
+}

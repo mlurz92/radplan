@@ -299,7 +299,10 @@ export function computeAbsence(range) {
     (md?.employees || []).forEach((emp) => {
       const cell = md.assignments?.[emp]?.[day] || {};
       const base = (cell.assignment || '').split('/')[0].trim();
-      const isAbs = base && (ABSENCE_CODES.includes(base) || base === 'F');
+      // Echte Abwesenheit = ABSENCE_CODES. Dienstfrei (F) ist KEINE Abwesenheit
+      // (z. B. dienstfreier Folgetag nach Dienst) und wird konsistent zur
+      // Tabelle/totalAbsenceDays nicht mitgezählt.
+      const isAbs = !!base && ABSENCE_CODES.includes(base);
       if (isAbs) absent++; else present++;
     });
     const head = (md?.employees || []).length;
@@ -319,32 +322,27 @@ export function computeCompliance(range) {
   const findings = [];
   const emps = employeesInRange(range);
 
-  const cellAt = (y, m, d) => {
-    const dim = daysInMonth(y, m);
-    if (d < 1) { // Vortag im Vormonat
-      const pm = m === 0 ? 11 : m - 1; const py = m === 0 ? y - 1 : y;
-      return getCell(py, pm, null, daysInMonth(py, pm));
-    }
-    if (d > dim) { const nm = m === 11 ? 0 : m + 1; const ny = m === 11 ? y + 1 : y; return { _y: ny, _m: nm, _d: 1 }; }
-    return null;
-  };
+  // Pro Mitarbeitende über ALLE Monate des Zeitraums hinweg auswerten, damit
+  // Ruhezeit- und Häufungsprüfungen an Monatsgrenzen nicht abreißen.
+  emps.forEach((emp) => {
+    let lastDuty = null; // { year, month, day, abs } – absoluter Tagesindex
 
-  range.months.forEach(({ year, month }) => {
-    const md = getMonthData(year, month);
-    if (!md?.employees?.length) return;
-    const dim = daysInMonth(year, month);
-    const hols = getSaxonyHolidaysCached(year);
+    range.months.forEach(({ year, month }) => {
+      const md = getMonthData(year, month);
+      if (!md?.employees?.includes(emp)) return;
+      const dim = daysInMonth(year, month);
 
-    md.employees.forEach((emp) => {
-      let lastDutyDay = -10;
       for (let d = 1; d <= dim; d++) {
         const cell = getCell(year, month, emp, d);
         const isDuty = cell.duty === 'D' || cell.duty === 'HG';
 
         // Ruhezeit: nach einem Bereitschaftsdienst (D) muss der Folgetag
-        // dienstfrei sein (kein Arbeitsplatz/Dienst).
-        if (cell.duty === 'D' && d < dim) {
-          const next = getCell(year, month, emp, d + 1);
+        // dienstfrei sein (kein Arbeitsplatz/Dienst). Folgetag auch über die
+        // Monatsgrenze hinweg prüfen.
+        if (cell.duty === 'D') {
+          const next = (d < dim)
+            ? getCell(year, month, emp, d + 1)
+            : getCell(month === 11 ? year + 1 : year, month === 11 ? 0 : month + 1, emp, 1);
           const nextBase = (next.assignment || '').split('/')[0].trim();
           const nextWorks = (nextBase && WORKPLACES.some((w) => w.code === nextBase)) || next.duty;
           if (nextWorks) {
@@ -353,13 +351,16 @@ export function computeCompliance(range) {
           }
         }
 
-        // Dienst-Häufung: zwei Dienste innerhalb von <3 Tagen.
+        // Dienst-Häufung: zwei Dienste innerhalb von <3 Tagen (auch über
+        // Monatsgrenzen). Exakter Kalendertag-Index (UTC-Epochentage), damit
+        // der Abstand auch über kurze Monate (z. B. 28.2.→1.3.) korrekt ist.
         if (isDuty) {
-          if (d - lastDutyDay < 3 && lastDutyDay > 0) {
+          const absDay = Math.round(Date.UTC(year, month, d) / 864e5);
+          if (lastDuty && absDay - lastDuty.abs < 3) {
             findings.push({ type: 'cluster', severity: 'mid', emp, year, month, day: d,
-              text: `Dienst-Häufung: ${emp} hat Dienste am ${lastDutyDay}. und ${d}.${month + 1}. (< 3 Tage Abstand).` });
+              text: `Dienst-Häufung: ${emp} hat Dienste am ${lastDuty.day}.${lastDuty.month + 1}. und ${d}.${month + 1}. (< 3 Tage Abstand).` });
           }
-          lastDutyDay = d;
+          lastDuty = { year, month, day: d, abs: absDay };
         }
 
         // Sonderregel: Wochentags-Sperren für D.

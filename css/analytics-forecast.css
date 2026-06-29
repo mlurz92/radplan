@@ -101,3 +101,14 @@
   width: 100%;
   height: 320px;
 }
+
+/* --- Portrait-Mobile: Chart-Höhe halten, Dual-Balken schmaler --- */
+@media (max-width: 560px) {
+  .fc-chart-wrap { height: 240px; }
+  .fc-bars { width: 100px; }
+  .fc-legend { gap: 10px; }
+}
+@media (max-width: 380px) {
+  .fc-chart-wrap { height: 210px; }
+  .fc-bars { width: 80px; }
+}

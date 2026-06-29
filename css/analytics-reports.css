@@ -19,4 +19,9 @@
 
 @media (max-width: 560px) {
   .rep-grid { grid-template-columns: 1fr; }
+  /* Aktionen/Select full-width, sauber gestapelt. */
+  .rep-actions { flex-direction: column; align-items: stretch; }
+  .rep-select { flex: 1 1 auto; width: 100%; min-width: 0; }
+  .rep-actions > button { width: 100%; }
+  .rep-card-title { overflow-wrap: anywhere; }
 }
