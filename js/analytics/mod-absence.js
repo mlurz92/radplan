@@ -10,7 +10,7 @@
 import {
   computeAbsence, fmt, scoreColor, SPECIAL_RULES,
   getCell, daysInMonth, weekday, isWorkday, getSaxonyHolidaysCached,
-  MONTHS_SHORT, ABSENCE_CODES, TT,
+  MONTHS_SHORT, ABSENCE_CODES, TT, TTI,
 } from './engine.js';
 
 const ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
@@ -72,7 +72,7 @@ export default {
         ${kpis.map((k) => `
           <div class="ah-kpi" data-tooltip="${esc(k.tip)}">
             <div class="ah-kpi-label">${k.label}</div>
-            <div class="ah-kpi-value" style="color:${k.tone}">${k.value}</div>
+            <div class="ah-kpi-value" style="color:${k.tone}"${k.valTip ? ` data-tooltip="${esc(k.valTip)}"` : ''}>${k.value}</div>
             <div class="ah-kpi-sub">${k.sub}</div>
           </div>`).join('')}
       </div>`;
@@ -91,7 +91,10 @@ export default {
       const bars = daySeries.map((p) => {
         const h = maxAbs ? Math.round((p.absent / maxAbs) * 100) : 0;
         const cls = p.absent >= hot && p.absent > 0 ? ' abs-bar--hot' : '';
-        return `<div class="abs-bar${cls}" title="${shortDate(p)} (${['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][p.wd]}): ${p.absent} abwesend, ${p.present} präsent">
+        const barTip = p.absent === 0
+          ? `Am ${shortDate(p)} ist niemand abwesend – volle Kapazität.`
+          : `Am ${shortDate(p)} sind ${p.absent} von ${p.head} Personen abwesend (${p.present} präsent)${p.absent >= hot ? ' – Engpasstag ab Schwelle.' : '.'}`;
+        return `<div class="abs-bar${cls}" title="${shortDate(p)} (${['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][p.wd]}): ${p.absent} abwesend, ${p.present} präsent" data-tooltip="${esc(barTip)}">
           <div class="abs-bar-fill" style="height:${Math.max(2, h)}%"></div>
         </div>`;
       }).join('');
@@ -114,7 +117,7 @@ export default {
           <td class="ah-td-num">${fmt.int(r.sick)}</td>
           <td class="ah-td-num">${fmt.int(r.fza)}</td>
           <td class="ah-td-num">${fmt.int(r.wb)}</td>
-          <td class="ah-td-num abs-td-total">${fmt.int(r.total)}</td>
+          <td class="ah-td-num abs-td-total" data-tooltip="${esc(`${r.emp} fehlt im Zeitraum an ${fmt.int(r.total)} Tag(en) insgesamt (Urlaub ${fmt.int(r.vac)}, Krank ${fmt.int(r.sick)}, FZA ${fmt.int(r.fza)}, WB ${fmt.int(r.wb)}).`)}">${fmt.int(r.total)}</td>
         </tr>`).join('');
       tableHtml = `
         <div class="ah-table-wrap abs-table-wrap">

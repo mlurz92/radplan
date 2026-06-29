@@ -9,7 +9,7 @@
 import {
   getRange, computeCoverage, computeAbsence, computeCompliance, computeForecast,
   computeDutyFairness, computeWishFulfillment, employeesInRange,
-  fmt, scoreColor, MONTHS, TT,
+  fmt, scoreColor, MONTHS, TT, TTI,
 } from './engine.js';
 
 const ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>';
@@ -34,31 +34,37 @@ export default {
         dom: 'coverage', label: 'Abdeckung', value: `${cov.dPct}/${cov.hgPct}`, unit: '%',
         sub: `D / HG besetzt · ${cov.openDays} Tage offen`,
         score: Math.round((cov.dPct + cov.hgPct) / 2), tip: TT.coverage,
+        vtip: TTI.coveragePct(Math.min(cov.dPct, cov.hgPct), 'D/HG'),
       },
       {
         dom: 'coverage', label: 'Risiko-Index', value: cov.riskScore, unit: '',
         sub: `${cov.weHolDGaps + cov.weHolHgGaps} WE/Feiertagslücken`,
         score: cov.riskScore, tip: TT.riskScore,
+        vtip: TTI.risk(cov.riskScore, cov.weHolDGaps + cov.weHolHgGaps),
       },
       {
         dom: 'fairness', label: 'Fairness (Equity)', value: fair.team.equityTotal, unit: '',
         sub: `Spannweite ${fair.team.minTotal}–${fair.team.maxTotal} Dienste`,
         score: fair.team.equityTotal, tip: TT.equityTotal,
+        vtip: TTI.equity(fair.team.equityTotal, 'der Dienste im Team'),
       },
       {
         dom: 'compliance', label: 'Regelkonformität', value: comp.score, unit: '',
         sub: `${comp.findings.length} Befund(e) · ${comp.bySeverity.high} kritisch`,
         score: comp.score, tip: TT.complianceScore,
+        vtip: TTI.compliance(comp.score, comp.bySeverity.high),
       },
       {
         dom: 'absence', label: 'Abwesenheiten', value: fmt.int(abs.totalAbsenceDays), unit: ' T',
         sub: abs.peak ? `Spitze: ${abs.peak.absent} gleichzeitig` : 'keine Daten',
         score: null, tone: '#7C3AED', tip: TT.absence,
+        vtip: `Insgesamt ${fmt.int(abs.totalAbsenceDays)} Abwesenheitstag(e) im Zeitraum. ${abs.peak ? TTI.absencePeak(abs.peak.absent) : TTI.absencePeak(0)}`,
       },
       {
         dom: 'forecast', label: 'Wunscherfüllung', value: wish.rate === null ? '—' : wish.rate, unit: wish.rate === null ? '' : '%',
         sub: `${wish.fulfilled}/${wish.wishes} erfüllt`,
         score: wish.rate, tip: TT.wishRate,
+        vtip: TTI.wishRate(wish.rate, wish.fulfilled, wish.wishes),
       },
     ];
 
@@ -67,7 +73,7 @@ export default {
       return `
         <button type="button" class="ah-tile" data-goto="${t.dom}" data-tooltip="${t.tip}" data-tooltip-pos="bottom">
           <div class="ah-tile-label">${t.label}</div>
-          <div class="ah-tile-value" style="color:${tone}">${t.value}<span class="ah-tile-unit">${t.unit}</span></div>
+          <div class="ah-tile-value" style="color:${tone}" data-tooltip="${t.vtip}" data-tooltip-pos="bottom">${t.value}<span class="ah-tile-unit">${t.unit}</span></div>
           <div class="ah-tile-sub">${t.sub}</div>
           ${t.score !== null ? `<div class="ah-tile-bar"><div style="width:${Math.min(100, Math.max(0, t.score))}%;background:${tone}"></div></div>` : ''}
         </button>`;

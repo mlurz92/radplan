@@ -567,3 +567,169 @@ export const TT = {
   workdays: 'Werktage im Monat: Mo–Fr ohne gesetzliche Feiertage (Sachsen).',
   utilization: 'Auslastung: Anteil der verplanten Tage (Arbeitsplatz, Dienst oder Status) an den möglichen Tagen.',
 };
+
+// ---------------------------------------------------------------------------
+//  Wert-Interpretation (TTI = Tooltip-Interpret)
+// ---------------------------------------------------------------------------
+//  Liefert für den KONKRET angezeigten Wert einen vollständigen, fachlich
+//  einordnenden Tooltip-Text: Definition + Lesart genau dieses Ergebnisses
+//  („was bedeutet die 82 hier?"). Alle Funktionen geben attribut-sichere
+//  Strings (ohne gerade Anführungszeichen) zurück. Verwendung am WERT-Element:
+//    `<span class="value" data-tooltip="${TTI.equity(v)}">${v}</span>`
+const _de1 = (n) => (Math.round((n ?? 0) * 10) / 10).toLocaleString('de-DE', { maximumFractionDigits: 1 });
+const _abs1 = (n) => _de1(Math.abs(n ?? 0));
+
+// Qualitative Bänder für 0–100-Scores (höher = besser).
+export function scoreBand(v) {
+  if (v >= 85) return 'sehr gut';
+  if (v >= 70) return 'gut';
+  if (v >= 55) return 'mittel';
+  if (v >= 40) return 'schwach';
+  return 'kritisch';
+}
+
+export const TTI = {
+  // Equity-Index 0–100 (Verteilungsgerechtigkeit, höher = fairer).
+  equity(v, scope = 'der Dienste') {
+    const r = Math.round(v ?? 0);
+    let read;
+    if (r >= 85) read = `nahezu gleichmäßige, FTE-gerechte Verteilung ${scope}.`;
+    else if (r >= 70) read = `überwiegend ausgewogene Verteilung ${scope} mit leichten Unterschieden.`;
+    else if (r >= 55) read = `spürbare Ungleichheit ${scope} – einzelne tragen merklich mehr oder weniger.`;
+    else read = `deutliche Ungleichverteilung ${scope}; Ausgleich dringend empfohlen.`;
+    return `Equity-Index ${r}/100 (${scoreBand(r)}): ${read}`;
+  },
+
+  // Allgemeiner 0–100-Score mit frei wählbarer Gut-/Schlecht-Bedeutung.
+  score(v, goodMeaning, badMeaning) {
+    const r = Math.round(v ?? 0);
+    const read = r >= 70 ? goodMeaning : badMeaning;
+    return `${r}/100 (${scoreBand(r)}): ${read}`;
+  },
+
+  // Versorgungs-Risiko-Index (höher = sicherer).
+  risk(v, gaps = 0) {
+    const r = Math.round(v ?? 0);
+    let read;
+    if (r >= 90) read = 'Versorgung nahezu lückenlos abgesichert.';
+    else if (r >= 75) read = 'überwiegend abgesichert, einzelne Lücken.';
+    else if (r >= 55) read = 'erhöhtes Versorgungsrisiko durch mehrere Lücken.';
+    else read = 'hohes Versorgungsrisiko – viele bzw. kritische Dienstlücken.';
+    const g = gaps > 0 ? ` Aktuell ${gaps} gewichtete Lücke(n).` : '';
+    return `Risiko-Index ${r}/100 (${scoreBand(r)}, höher = sicherer): ${read}${g}`;
+  },
+
+  // Abdeckungsquote eines Dienstes in Prozent (höher = besser).
+  coveragePct(v, dutyLabel = 'Dienst') {
+    const r = Math.round(v ?? 0);
+    let read;
+    if (r >= 99) read = 'an praktisch allen Tagen besetzt.';
+    else if (r >= 90) read = 'fast durchgängig besetzt, wenige offene Tage.';
+    else if (r >= 70) read = 'überwiegend besetzt, aber spürbare Lücken.';
+    else read = 'erhebliche Besetzungslücken.';
+    return `${dutyLabel} an ${r}% der Tage des Zeitraums besetzt: ${read}`;
+  },
+
+  // Regelkonformitäts-Score (höher = weniger Verstöße).
+  compliance(v, high = 0) {
+    const r = Math.round(v ?? 0);
+    let read;
+    if (r >= 95) read = 'keine bzw. nur geringfügige Regelabweichungen.';
+    else if (r >= 80) read = 'einige Abweichungen, überwiegend unkritisch.';
+    else if (r >= 60) read = 'mehrere relevante Verstöße – Prüfung empfohlen.';
+    else read = 'gravierende Regelverstöße – Korrektur dringend nötig.';
+    const h = high > 0 ? ` Darunter ${high} kritische(r) Befund(e).` : '';
+    return `Regelkonformität ${r}/100 (${scoreBand(r)}): ${read}${h}`;
+  },
+
+  // Variationskoeffizient in % (niedriger = gleichmäßiger).
+  cv(v) {
+    const r = Math.round(v ?? 0);
+    let read;
+    if (r <= 15) read = 'sehr geringe Streuung – gleichmäßige Verteilung.';
+    else if (r <= 30) read = 'moderate Streuung um den Mittelwert.';
+    else if (r <= 50) read = 'deutliche Streuung – ungleiche Belastung.';
+    else read = 'sehr hohe Streuung – stark ungleiche Belastung.';
+    return `Variationskoeffizient ${r}% (Streuung relativ zum Mittel, niedriger = gleichmäßiger): ${read}`;
+  },
+
+  // Spannweite min–max der Dienste.
+  spread(min, max, diff) {
+    const d = Math.round(diff ?? (max - min));
+    const read = d === 0 ? 'alle tragen gleich viele Dienste.'
+      : d <= 3 ? 'enge Spanne – relativ ausgeglichen.'
+      : d <= 7 ? 'mittlere Spanne zwischen meist- und wenigstbelasteter Person.'
+      : 'große Spanne – stark unterschiedliche Belastung.';
+    return `Spannweite ${Math.round(min)}–${Math.round(max)} Dienste (Differenz ${d}): ${read}`;
+  },
+
+  // Fairness-Abweichung einer Person vom fairen Anteil (Dienste).
+  fairDelta(dev, status) {
+    const a = _abs1(dev);
+    if (status === 'over') return `Diese Person leistet ${a} Dienst(e) MEHR als ihr FTE-gewichteter fairer Anteil – überdurchschnittlich belastet.`;
+    if (status === 'under') return `Diese Person leistet ${a} Dienst(e) WENIGER als ihr fairer Anteil – unterdurchschnittlich belastet.`;
+    return 'Belastung liegt innerhalb der Toleranz um den fairen Anteil – fair verteilt.';
+  },
+
+  // Status-Pille Über/Fair/Unter.
+  status(status) {
+    if (status === 'over') return 'Status „Über": leistet mehr Dienste als den fairen Anteil – Entlastung prüfen.';
+    if (status === 'under') return 'Status „Unter": leistet weniger als den fairen Anteil – kann mehr übernehmen.';
+    return 'Status „Fair": Belastung entspricht dem fairen Anteil (innerhalb der Toleranz).';
+  },
+
+  // Soll/Ist-Abweichung Bereitschaftsdienst.
+  bdDelta(delta) {
+    const r = Math.round(delta ?? 0);
+    if (r > 0) return `${r} Bereitschaftsdienst(e) ÜBER dem FTE-Soll geleistet.`;
+    if (r < 0) return `${Math.abs(r)} Bereitschaftsdienst(e) UNTER dem FTE-Soll – Rückstand zum Ziel.`;
+    return 'Bereitschaftsdienste genau auf dem FTE-Soll.';
+  },
+
+  // Wunscherfüllungsrate in %.
+  wishRate(rate, fulfilled, wishes) {
+    if (rate === null || rate === undefined || !wishes) return 'Im Zeitraum wurden keine Dienstwünsche erfasst.';
+    const r = Math.round(rate);
+    const read = r >= 90 ? 'nahezu alle Wünsche berücksichtigt.'
+      : r >= 70 ? 'die meisten Wünsche erfüllt.'
+      : r >= 50 ? 'etwa die Hälfte der Wünsche erfüllt.'
+      : 'die Mehrheit der Wünsche konnte nicht erfüllt werden.';
+    return `${r}% der Dienstwünsche erfüllt (${fulfilled}/${wishes}): ${read}`;
+  },
+
+  // Jahresend-Abweichung der Prognose vom Jahresziel.
+  forecastDelta(delta) {
+    const r = Math.round(delta ?? 0);
+    if (r > 0) return `Hochrechnung liegt ${r} Dienst(e) ÜBER dem Jahresziel – Kurs auf Mehrbelastung.`;
+    if (r < 0) return `Hochrechnung liegt ${Math.abs(r)} Dienst(e) UNTER dem Jahresziel – Kurs auf Unterauslastung.`;
+    return 'Hochrechnung trifft das Jahresziel punktgenau.';
+  },
+
+  // Offene Tage ganz ohne Dienst.
+  openDays(n) {
+    if (!n) return 'Kein Tag bleibt ganz ohne Dienstbesetzung – lückenlos.';
+    return `${n} Tag(e) ganz ohne Dienst (weder D noch HG) – höchste Handlungspriorität.`;
+  },
+
+  // Unbesetzte Dienste an Wochenenden/Feiertagen.
+  weHolGaps(n) {
+    if (!n) return 'Keine offenen Dienste an Wochenenden oder Feiertagen.';
+    return `${n} unbesetzte(r) Dienst(e) an Wochenenden/Feiertagen – besonders kritisch (im Risiko doppelt gewichtet).`;
+  },
+
+  // Abwesenheits-Spitzentag.
+  absencePeak(n) {
+    if (!n) return 'Keine gleichzeitigen Abwesenheiten erfasst.';
+    return `An der Spitze sind ${n} Personen gleichzeitig abwesend – maßgeblich für Engpass-Risiken.`;
+  },
+
+  // Auslastung/Abdeckung einer Person in %.
+  utilization(v) {
+    const r = Math.round(v ?? 0);
+    const read = r >= 90 ? 'nahezu vollständig verplant.'
+      : r >= 70 ? 'überwiegend verplant.'
+      : r >= 40 ? 'teilweise verplant – viele freie/offene Tage.'
+      : 'gering verplant.';
+    return `${r}% der möglichen Tage verplant: ${read}`;
+  },
+};

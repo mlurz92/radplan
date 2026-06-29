@@ -2045,6 +2045,7 @@
    CSS-basierte ::after-Variante ist abgelöst; hier bleibt nur der Cursor-Hinweis.
 --------------------------------------------------------------------------- */
 [data-tooltip] {
+  position: relative;
   cursor: help;
 }
 

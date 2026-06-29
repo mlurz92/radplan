@@ -881,8 +881,10 @@ body.plan-mode-active #btn-plan {
 }
 
 /* data-tooltip wird vom globalen JS-Tooltip (js/tooltip.js) als schwebende,
-   nie abgeschnittene Sprechblase gerendert. Hier nur der Cursor-Hinweis. */
+   nie abgeschnittene Sprechblase gerendert. position:relative bleibt erhalten,
+   damit bestehende absolut positionierte Kindelemente ihren Bezug behalten. */
 [data-tooltip] {
+  position: relative;
   cursor: help;
 }
 

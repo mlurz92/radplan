@@ -7,7 +7,7 @@
 //  gruppierte Befundliste.
 // ===========================================================================
 
-import { computeCompliance, fmt, scoreColor, MONTHS_SHORT, TT } from './engine.js';
+import { computeCompliance, fmt, scoreColor, MONTHS_SHORT, TT, TTI } from './engine.js';
 
 const TYPE_LABELS = {
   rest: 'Ruhezeit-Verstöße',
@@ -64,26 +64,26 @@ export default {
       <div class="ah-kpi-grid">
         <div class="ah-kpi">
           <div class="ah-kpi-label" data-tooltip="Gesamtzahl aller im Zeitraum gefundenen Regelverstöße über alle Typen und Schweregrade.">Befunde gesamt</div>
-          <div class="ah-kpi-value">${fmt.int(findings.length)}</div>
+          <div class="ah-kpi-value" data-tooltip="${esc(findings.length ? `${findings.length} Regelverstoß/-verstöße im Zeitraum gefunden.` : 'Keine Regelverstöße im Zeitraum.')}">${fmt.int(findings.length)}</div>
         </div>
         <div class="ah-kpi">
           <div class="ah-kpi-label" data-tooltip="${esc(TT.sevHigh)}">Kritisch</div>
-          <div class="ah-kpi-value" style="color:#EF4444">${fmt.int(bySeverity.high)}</div>
+          <div class="ah-kpi-value" style="color:#EF4444" data-tooltip="${esc(bySeverity.high ? `${bySeverity.high} kritische(r) Befund(e) – harte Regelverletzung, vorrangig korrigieren.` : 'Keine kritischen Befunde – keine harten Regelverletzungen.')}">${fmt.int(bySeverity.high)}</div>
         </div>
         <div class="ah-kpi">
           <div class="ah-kpi-label" data-tooltip="${esc(TT.sevMid)}">Mittel</div>
-          <div class="ah-kpi-value" style="color:#F59E0B">${fmt.int(bySeverity.mid)}</div>
+          <div class="ah-kpi-value" style="color:#F59E0B" data-tooltip="${esc(bySeverity.mid ? `${bySeverity.mid} Befund(e) mittlerer Schwere – relevant, aber nicht kritisch.` : 'Keine Befunde mittlerer Schwere.')}">${fmt.int(bySeverity.mid)}</div>
         </div>
         <div class="ah-kpi">
           <div class="ah-kpi-label" data-tooltip="${esc(SEV_TT.low)}">Niedrig</div>
-          <div class="ah-kpi-value" style="color:#64748B">${fmt.int(bySeverity.low)}</div>
+          <div class="ah-kpi-value" style="color:#64748B" data-tooltip="${esc(bySeverity.low ? `${bySeverity.low} geringfügige(r) Hinweis(e) – nachrangig.` : 'Keine geringfügigen Hinweise.')}">${fmt.int(bySeverity.low)}</div>
         </div>
       </div>`;
 
     const header = `
       <div class="comp-header">
         <div class="comp-score" style="--comp-score-col:${col}" data-tooltip="${esc(TT.complianceScore)}" data-tooltip-pos="bottom">
-          <div class="comp-score-value">${fmt.int(score)}</div>
+          <div class="comp-score-value" data-tooltip="${esc(TTI.compliance(score, bySeverity.high))}" data-tooltip-pos="bottom">${fmt.int(score)}</div>
           <div class="comp-score-label">Compliance-Score</div>
         </div>
         <div class="comp-header-kpis">${kpis}</div>
@@ -154,7 +154,7 @@ export default {
           </div>`;
         }).join('');
         return `<div class="comp-group comp-group--${sev}">
-          <div class="comp-group-head" data-tooltip="${esc(SEV_TT[sev] || '')}"><span class="comp-dot comp-dot--${sev}"></span>${SEV_LABELS[sev]} · ${rows.length}</div>
+          <div class="comp-group-head" data-tooltip="${esc(`${rows.length} Befund(e) der Stufe „${SEV_LABELS[sev]}" in dieser Auswahl.`)}"><span class="comp-dot comp-dot--${sev}"></span>${SEV_LABELS[sev]} · ${rows.length}</div>
           ${items}
         </div>`;
       }).join('');

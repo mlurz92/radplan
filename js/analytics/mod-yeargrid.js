@@ -61,7 +61,23 @@ export default {
           ? `<span class="yg-bd" style="color:${heat.fg}">${mon.bd}<span class="yg-bd-lbl">D</span></span>`
           : '<span class="yg-dash">—</span>';
         const title = `${esc(emp)} · ${MONTHS[m]} ${year}: ${mon.bd}× D${d.isFa ? ', ' + mon.hg + '× HG' : ''}`;
-        return `<td class="yg-td-cell${isNow ? ' yg-td-now' : ''}" style="background:${heat.bg}" data-month="${m}" title="${title}"><div class="yg-cell-inner">${bdPart}${hgPart}</div></td>`;
+        // Wert-Interpretation: BD dieses Monats relativ zum Kollegiums-Ø.
+        const r1 = (n) => (Math.round(n * 10) / 10).toLocaleString('de-DE', { maximumFractionDigits: 1 });
+        let devTxt;
+        if (!d.isDutyCapable) {
+          devTxt = 'von Bereitschaftsdiensten befreit.';
+        } else {
+          const dev = mon.bd - meansBD[m];
+          const rel = dev >= 1.5 ? `deutlich über dem Monats-Ø (${r1(meansBD[m])})`
+            : dev >= 0.5 ? `über dem Monats-Ø (${r1(meansBD[m])})`
+            : dev > -0.5 ? `etwa im Monats-Ø (${r1(meansBD[m])})`
+            : dev > -1.5 ? `unter dem Monats-Ø (${r1(meansBD[m])})`
+            : `deutlich unter dem Monats-Ø (${r1(meansBD[m])})`;
+          devTxt = `${mon.bd} Bereitschaftsdienst(e) – ${rel}.`;
+        }
+        const hgTxt = d.isFa && mon.hg > 0 ? ` Außerdem ${mon.hg}× Hintergrunddienst.` : '';
+        const cellTip = esc(`${emp} · ${MONTHS[m]} ${year}: ${devTxt}${hgTxt}`);
+        return `<td class="yg-td-cell${isNow ? ' yg-td-now' : ''}" style="background:${heat.bg}" data-month="${m}" title="${title}" data-tooltip="${cellTip}"><div class="yg-cell-inner">${bdPart}${hgPart}</div></td>`;
       }).join('');
 
       const totalBd = d.isDutyCapable ? `<span class="yg-total-bd">${d.totalBD}<span class="yg-total-lbl">D</span></span>` : '<span class="yg-dash">—</span>';
