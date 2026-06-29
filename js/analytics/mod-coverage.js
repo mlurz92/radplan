@@ -7,7 +7,7 @@
 // ===========================================================================
 
 import {
-  computeCoverage, eachDay, fmt, scoreColor, MONTHS, MONTHS_SHORT, DOW_ABBR, TT,
+  computeCoverage, eachDay, fmt, scoreColor, MONTHS, MONTHS_SHORT, DOW_ABBR, TT, TTI,
 } from './engine.js';
 
 // HTML-Escape für tooltips / Texte.
@@ -77,15 +77,20 @@ export default {
     const weHolGaps = cov.weHolDGaps + cov.weHolHgGaps;
     const kpis = [
       { label: 'D-Abdeckung', tip: TT.dPct, value: fmt.pct(cov.dPct), color: scoreColor(cov.dPct),
-        sub: `${fmt.int(cov.dCovered)} / ${fmt.int(cov.totalDays)} Tage` },
+        sub: `${fmt.int(cov.dCovered)} / ${fmt.int(cov.totalDays)} Tage`,
+        vtip: TTI.coveragePct(cov.dPct, 'Bereitschaftsdienst (D)') },
       { label: 'HG-Abdeckung', tip: TT.hgPct, value: fmt.pct(cov.hgPct), color: scoreColor(cov.hgPct),
-        sub: `${fmt.int(cov.hgCovered)} / ${fmt.int(cov.totalDays)} Tage` },
+        sub: `${fmt.int(cov.hgCovered)} / ${fmt.int(cov.totalDays)} Tage`,
+        vtip: TTI.coveragePct(cov.hgPct, 'Hintergrunddienst (HG)') },
       { label: 'Risiko-Index', tip: TT.riskScore, value: fmt.int(cov.riskScore), color: scoreColor(cov.riskScore),
-        sub: `${fmt.int(cov.fullDays)} voll · ${fmt.int(cov.partialDays)} teilw.` },
+        sub: `${fmt.int(cov.fullDays)} voll · ${fmt.int(cov.partialDays)} teilw.`,
+        vtip: TTI.risk(cov.riskScore, weHolGaps) },
       { label: 'Offene Tage', tip: TT.openDays, value: fmt.int(cov.openDays), color: cov.openDays > 0 ? '#EF4444' : '#22C55E',
-        sub: 'D und HG fehlen' },
+        sub: 'D und HG fehlen',
+        vtip: TTI.openDays(cov.openDays) },
       { label: 'WE/Feiertagslücken', tip: TT.weHolGaps, value: fmt.int(weHolGaps), color: weHolGaps > 0 ? '#EF4444' : '#22C55E',
-        sub: `D: ${fmt.int(cov.weHolDGaps)} · HG: ${fmt.int(cov.weHolHgGaps)}` },
+        sub: `D: ${fmt.int(cov.weHolDGaps)} · HG: ${fmt.int(cov.weHolHgGaps)}`,
+        vtip: TTI.weHolGaps(weHolGaps) },
     ];
 
     const kpiHtml = `
@@ -94,7 +99,7 @@ export default {
         ${kpis.map((k) => `
           <div class="ah-kpi">
             <div class="ah-kpi-label" data-tooltip="${esc(k.tip)}">${esc(k.label)}</div>
-            <div class="ah-kpi-value" style="color:${k.color}">${esc(k.value)}</div>
+            <div class="ah-kpi-value" style="color:${k.color}" data-tooltip="${esc(k.vtip)}">${esc(k.value)}</div>
             <div class="ah-kpi-sub">${esc(k.sub)}</div>
           </div>`).join('')}
       </div>`;

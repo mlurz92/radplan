@@ -30,7 +30,7 @@ import {
 
 import { openProfileModal } from './render-modals.js';
 import { render } from './render-grid.js';
-import { TT } from './analytics/engine.js';
+import { TT, TTI } from './analytics/engine.js';
 
 // HTML-attribut-sicheres Escaping für Tooltip-Texte (kann doppelte Anführungszeichen enthalten).
 const ttAttr = (s) => `data-tooltip="${String(s).replace(/"/g, '&quot;')}"`;
@@ -80,16 +80,16 @@ export function renderEmployeeDashboard() {
   }, { lead: 0, fa: 0, aa: 0, other: 0 });
   
   const kpiItems = [
-    { label: "Mitarbeitende im Jahr", value: employees.length, sub: `${activeCount} mit Aktivität`, tone: "#0EA5E9", tip: "Anzahl eindeutiger Mitarbeitender mit Plandaten im Jahr. „mit Aktivität“ = Personen mit mindestens einem aktiven Monat." },
-    { label: "Aktueller Monatsbestand", value: currentMonthData.employees.length, sub: `${MONTHS[m]} ${y}`, tone: "#22C55E", tip: "Anzahl der im aktuell gewählten Monat eingeplanten Mitarbeitenden." },
-    { label: "Dienste im Jahr", value: dutyCount, sub: "D + HG kumuliert", tone: "#F97316", tip: TT.duty + " Summe aller Bereitschafts- (D) und Hintergrunddienste (HG) über das ganze Jahr." },
-    { label: "Rollenmix", value: `${roles.lead}/${roles.fa}/${roles.aa}`, sub: "Leitung · FA · AA", tone: "#A855F7", tip: "Verteilung nach Rolle: Leitung (CA/LOA/OA) · Fachärzte (FA) · Assistenzärzte (AA)." },
+    { label: "Mitarbeitende im Jahr", value: employees.length, sub: `${activeCount} mit Aktivität`, tone: "#0EA5E9", tip: "Anzahl eindeutiger Mitarbeitender mit Plandaten im Jahr. „mit Aktivität“ = Personen mit mindestens einem aktiven Monat.", valTip: `${employees.length} eindeutige Mitarbeitende mit Plandaten im Jahr ${y}, davon ${activeCount} mit mindestens einem aktiven Monat.` },
+    { label: "Aktueller Monatsbestand", value: currentMonthData.employees.length, sub: `${MONTHS[m]} ${y}`, tone: "#22C55E", tip: "Anzahl der im aktuell gewählten Monat eingeplanten Mitarbeitenden.", valTip: `${currentMonthData.employees.length} Mitarbeitende sind im Monat ${MONTHS[m]} ${y} eingeplant.` },
+    { label: "Dienste im Jahr", value: dutyCount, sub: "D + HG kumuliert", tone: "#F97316", tip: TT.duty + " Summe aller Bereitschafts- (D) und Hintergrunddienste (HG) über das ganze Jahr.", valTip: `Insgesamt ${dutyCount} Dienste (D + HG) im Jahr ${y} über alle Mitarbeitenden hinweg.` },
+    { label: "Rollenmix", value: `${roles.lead}/${roles.fa}/${roles.aa}`, sub: "Leitung · FA · AA", tone: "#A855F7", tip: "Verteilung nach Rolle: Leitung (CA/LOA/OA) · Fachärzte (FA) · Assistenzärzte (AA).", valTip: `Rollenverteilung: ${roles.lead} Leitung, ${roles.fa} Fachärzte, ${roles.aa} Assistenzärzte (ohne Profil: ${roles.other}).` },
   ];
 
   summaryEl.innerHTML = kpiItems.map((item) => `
     <article class="empdash-kpi">
       <div class="empdash-kpi-label" ${ttAttr(item.tip)}>${item.label}</div>
-      <div class="empdash-kpi-value" style="color:${item.tone}">${item.value}</div>
+      <div class="empdash-kpi-value" style="color:${item.tone}" ${ttAttr(item.valTip)}>${item.value}</div>
       <div class="empdash-kpi-sub">${item.sub}</div>
     </article>
   `).join("");
@@ -198,18 +198,18 @@ export function renderEmployeeDashboard() {
             </div>
           </div>
           <div class="empdash-card-stats">
-            <span><strong>${item.ys.totals.totalActive || 0}</strong><small ${ttAttr("Aktive Arbeitstage im Jahr (Tage mit Arbeitsplatz oder Dienst).")}>Aktiv</small></span>
-            <span><strong style="color:#EF4444">${item.ys.totals.dutyD || 0}</strong><small ${ttAttr(TT.bd)}>D</small></span>
-            <span><strong style="color:#0369A1">${item.ys.totals.dutyHG || 0}</strong><small ${ttAttr(TT.hg)}>HG</small></span>
-            <span><strong style="color:#7C3AED">${vac}</strong><small ${ttAttr(TT.vac)}>Urlaub</small></span>
-            <span><strong style="color:${sick>0?"#DC2626":"#64748B"}">${sick}</strong><small ${ttAttr(TT.sick)}>Krank</small></span>
-            <span><strong style="color:#3730A3">${fza}</strong><small ${ttAttr(TT.fza)}>FZA</small></span>
+            <span><strong ${ttAttr(`${item.ys.totals.totalActive || 0} aktive Arbeitstage von ${item.emp} im Jahr ${y}.`)}>${item.ys.totals.totalActive || 0}</strong><small ${ttAttr("Aktive Arbeitstage im Jahr (Tage mit Arbeitsplatz oder Dienst).")}>Aktiv</small></span>
+            <span><strong style="color:#EF4444" ${ttAttr(`${item.ys.totals.dutyD || 0} Bereitschaftsdienste (D) von ${item.emp} im Jahr ${y}.`)}>${item.ys.totals.dutyD || 0}</strong><small ${ttAttr(TT.bd)}>D</small></span>
+            <span><strong style="color:#0369A1" ${ttAttr(`${item.ys.totals.dutyHG || 0} Hintergrunddienste (HG) von ${item.emp} im Jahr ${y}.`)}>${item.ys.totals.dutyHG || 0}</strong><small ${ttAttr(TT.hg)}>HG</small></span>
+            <span><strong style="color:#7C3AED" ${ttAttr(`${vac} Urlaubstage im Jahr ${y}.`)}>${vac}</strong><small ${ttAttr(TT.vac)}>Urlaub</small></span>
+            <span><strong style="color:${sick>0?"#DC2626":"#64748B"}" ${ttAttr(`${sick} Kranktage (K/KK) im Jahr ${y}.`)}>${sick}</strong><small ${ttAttr(TT.sick)}>Krank</small></span>
+            <span><strong style="color:#3730A3" ${ttAttr(`${fza} Tage Freizeitausgleich (FZA) im Jahr ${y}.`)}>${fza}</strong><small ${ttAttr(TT.fza)}>FZA</small></span>
           </div>
           <div class="empdash-card-cov-wrap" ${ttAttr("Abdeckung: Anteil der erforderlichen Werktage im Jahr, die diese Person tatsächlich aktiv war.")}>
-            <div class="empdash-card-cov-bar" title="${item.coverage}% Abdeckung">
+            <div class="empdash-card-cov-bar" title="${item.coverage}% Abdeckung" ${ttAttr(TTI.utilization(item.coverage))}>
               <div class="empdash-card-cov-fill" style="width:${item.coverage}%;background:${covColor}"></div>
             </div>
-            <span class="empdash-card-cov-pct" style="color:${covColor}">${item.coverage}%</span>
+            <span class="empdash-card-cov-pct" style="color:${covColor}" ${ttAttr(TTI.utilization(item.coverage))}>${item.coverage}%</span>
           </div>
           <div class="empdash-card-foot">
             <span ${ttAttr(TT.empActiveMonths)}>${item.activeMonths}/12 Monate aktiv</span>
@@ -369,9 +369,9 @@ function renderEmployeeTeamAnalytics(teamPanelEl, teamControlsEl) {
   teamPanelEl.innerHTML = `
     <div class="empdash-team-kpis">
       <article class="empdash-kpi"><div class="empdash-kpi-label" ${ttAttr(TT.range)}>Zeitraum</div><div class="empdash-kpi-value" style="color:#0EA5E9">${rangeMonths.length} M</div><div class="empdash-kpi-sub">${MONTHS[rangeMonths[0].month]} ${rangeMonths[0].year} – ${MONTHS[rangeMonths.at(-1).month]} ${rangeMonths.at(-1).year}</div></article>
-      <article class="empdash-kpi"><div class="empdash-kpi-label" ${ttAttr("Team-Abdeckung: Anteil der erforderlichen Arbeitstage im Zeitraum, die das gesamte Team tatsächlich aktiv abgedeckt hat (aktiv / erforderlich).")}>Team-Abdeckung</div><div class="empdash-kpi-value" style="color:${teamCoverage >= 80 ? "#22C55E" : teamCoverage >= 60 ? "#F59E0B" : "#EF4444"}">${teamCoverage}%</div><div class="empdash-kpi-sub">${agg.active} aktiv / ${agg.required} erforderlich</div></article>
-      <article class="empdash-kpi"><div class="empdash-kpi-label" ${ttAttr(TT.bd + " / " + TT.hg)}>Dienste D/HG</div><div class="empdash-kpi-value" style="color:#F97316">${agg.d}/${agg.hg}</div><div class="empdash-kpi-sub">Gesamt im Zeitraum</div></article>
-      <article class="empdash-kpi"><div class="empdash-kpi-label" ${ttAttr("Ausfalltage: Summe aller Abwesenheiten im Zeitraum – Urlaub (U), Krank (K/KK), Freizeitausgleich (FZA) und Weiterbildung (WB).")}>Ausfalltage</div><div class="empdash-kpi-value" style="color:#A855F7">${agg.vac + agg.sick + agg.fza + agg.wb}</div><div class="empdash-kpi-sub">U/K/FZA/WB kumuliert</div></article>
+      <article class="empdash-kpi"><div class="empdash-kpi-label" ${ttAttr("Team-Abdeckung: Anteil der erforderlichen Arbeitstage im Zeitraum, die das gesamte Team tatsächlich aktiv abgedeckt hat (aktiv / erforderlich).")}>Team-Abdeckung</div><div class="empdash-kpi-value" style="color:${teamCoverage >= 80 ? "#22C55E" : teamCoverage >= 60 ? "#F59E0B" : "#EF4444"}" ${ttAttr(TTI.utilization(teamCoverage))}>${teamCoverage}%</div><div class="empdash-kpi-sub">${agg.active} aktiv / ${agg.required} erforderlich</div></article>
+      <article class="empdash-kpi"><div class="empdash-kpi-label" ${ttAttr(TT.bd + " / " + TT.hg)}>Dienste D/HG</div><div class="empdash-kpi-value" style="color:#F97316" ${ttAttr(`Im Zeitraum wurden ${agg.d} Bereitschafts- (D) und ${agg.hg} Hintergrunddienste (HG) geleistet, zusammen ${agg.d + agg.hg} Dienste.`)}>${agg.d}/${agg.hg}</div><div class="empdash-kpi-sub">Gesamt im Zeitraum</div></article>
+      <article class="empdash-kpi"><div class="empdash-kpi-label" ${ttAttr("Ausfalltage: Summe aller Abwesenheiten im Zeitraum – Urlaub (U), Krank (K/KK), Freizeitausgleich (FZA) und Weiterbildung (WB).")}>Ausfalltage</div><div class="empdash-kpi-value" style="color:#A855F7" ${ttAttr(`Insgesamt ${agg.vac + agg.sick + agg.fza + agg.wb} Ausfalltage im Zeitraum: ${agg.vac} Urlaub, ${agg.sick} Krank, ${agg.fza} FZA, ${agg.wb} Weiterbildung.`)}>${agg.vac + agg.sick + agg.fza + agg.wb}</div><div class="empdash-kpi-sub">U/K/FZA/WB kumuliert</div></article>
     </div>
     <div class="empdash-team-insights">
       <div class="empdash-team-note" ${ttAttr("Person mit den meisten aktiven Arbeitstagen im Zeitraum.")}><strong>Top Aktivität:</strong> ${busiest}</div>
@@ -457,16 +457,16 @@ function renderTeamFairnessBlock(teamPanelEl, year) {
 
   const t = report.team;
   const equityCards = [
-    { label: "Equity-Index gesamt", value: Math.round(t.equityTotal), unit: "", tone: equityColor(t.equityTotal), sub: "100 = perfekt fair", tip: TT.equityTotal },
-    { label: "Wochenend-Equity", value: Math.round(t.equityWeekend), unit: "", tone: equityColor(t.equityWeekend), sub: "WE/FT-Dienste", tip: "Equity-Index 0–100 nur für Wochenend- und Feiertagsdienste (WE/FT) – die belastendsten Einsätze. 100 = perfekt gleichmäßige Verteilung." },
-    { label: "Spannweite gesamt", value: `${t.minTotal}–${t.maxTotal}`, unit: "", tone: "#0EA5E9", sub: `Differenz ${t.spreadTotal}`, tip: TT.spread + " Hier: kleinste bis größte Gesamtdienstzahl einer Person im Team." },
-    { label: "Variationskoeffizient", value: Math.round(t.cvTotal), unit: "%", tone: t.cvTotal <= 15 ? "#22C55E" : t.cvTotal <= 30 ? "#F59E0B" : "#EF4444", sub: "Streuung Gesamtlast", tip: "Variationskoeffizient: relative Streuung der Gesamtdienstlast (Standardabweichung / Mittelwert). Niedriger = gleichmäßiger verteilt." },
+    { label: "Equity-Index gesamt", value: Math.round(t.equityTotal), unit: "", tone: equityColor(t.equityTotal), sub: "100 = perfekt fair", tip: TT.equityTotal, valTip: TTI.equity(t.equityTotal, "aller Dienste") },
+    { label: "Wochenend-Equity", value: Math.round(t.equityWeekend), unit: "", tone: equityColor(t.equityWeekend), sub: "WE/FT-Dienste", tip: "Equity-Index 0–100 nur für Wochenend- und Feiertagsdienste (WE/FT) – die belastendsten Einsätze. 100 = perfekt gleichmäßige Verteilung.", valTip: TTI.equity(t.equityWeekend, "der Wochenend-/Feiertagsdienste") },
+    { label: "Spannweite gesamt", value: `${t.minTotal}–${t.maxTotal}`, unit: "", tone: "#0EA5E9", sub: `Differenz ${t.spreadTotal}`, tip: TT.spread + " Hier: kleinste bis größte Gesamtdienstzahl einer Person im Team.", valTip: TTI.spread(t.minTotal, t.maxTotal, t.spreadTotal) },
+    { label: "Variationskoeffizient", value: Math.round(t.cvTotal), unit: "%", tone: t.cvTotal <= 15 ? "#22C55E" : t.cvTotal <= 30 ? "#F59E0B" : "#EF4444", sub: "Streuung Gesamtlast", tip: "Variationskoeffizient: relative Streuung der Gesamtdienstlast (Standardabweichung / Mittelwert). Niedriger = gleichmäßiger verteilt.", valTip: TTI.cv(t.cvTotal) },
   ];
 
   const equityHtml = equityCards.map((c) => `
     <article class="empdash-kpi">
       <div class="empdash-kpi-label" ${ttAttr(c.tip)}>${c.label}</div>
-      <div class="empdash-kpi-value" style="color:${c.tone}">${c.value}${c.unit}</div>
+      <div class="empdash-kpi-value" style="color:${c.tone}" ${ttAttr(c.valTip)}>${c.value}${c.unit}</div>
       <div class="empdash-kpi-sub">${c.sub}</div>
     </article>
   `).join("");
@@ -490,13 +490,13 @@ function renderTeamFairnessBlock(teamPanelEl, year) {
         <td class="dept-td dept-td-num dept-duty-hg">${r.hg || "—"}</td>
         <td class="dept-td dept-td-num">${r.total || "—"}</td>
         <td class="dept-td dept-td-num">${r.weekendDuties || "—"}</td>
-        <td class="dept-td dept-td-num">${r.bdTarget}</td>
-        <td class="dept-td dept-td-num" style="color:${bdDeltaColor}">${fmtSignedInt(r.bdDelta)}</td>
-        <td class="dept-td dept-td-num" style="color:${devColor};font-weight:700">${fmtSignedFloat(dev)}</td>
-        <td class="dept-td">
+        <td class="dept-td dept-td-num" ${ttAttr(`FTE-gewichtetes Jahres-Soll für Bereitschaftsdienste: ${r.bdTarget}. Ist: ${r.bd || 0}.`)}>${r.bdTarget}</td>
+        <td class="dept-td dept-td-num" style="color:${bdDeltaColor}" ${ttAttr(TTI.bdDelta(r.bdDelta))}>${fmtSignedInt(r.bdDelta)}</td>
+        <td class="dept-td dept-td-num" style="color:${devColor};font-weight:700" ${ttAttr(TTI.fairDelta(dev, r.status))}>${fmtSignedFloat(dev)}</td>
+        <td class="dept-td" ${ttAttr(TTI.fairDelta(dev, r.status))}>
           <div class="fair-dev-bar"><span class="fair-dev-zero"></span>${barFill}</div>
         </td>
-        <td class="dept-td"><span class="fair-status-pill fair-status-${r.status}" style="color:${devColor}">${statusLabel}</span></td>
+        <td class="dept-td"><span class="fair-status-pill fair-status-${r.status}" style="color:${devColor}" ${ttAttr(TTI.status(r.status))}>${statusLabel}</span></td>
       </tr>
     `;
   }).join("");

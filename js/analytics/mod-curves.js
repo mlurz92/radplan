@@ -77,13 +77,21 @@ export default {
               const cells = vals.map((v, m) => {
                 if (v === null) return '<td class="ah-td-num crv-nd">—</td>';
                 const h = heatColor(v - means[m]);
-                return `<td class="ah-td-num" style="background:${h.bg};color:${h.fg}" title="Ø ${means[m].toFixed(1)}">${v}</td>`;
+                const dv = v - means[m];
+                const rel = dv >= 1.5 ? 'deutlich über' : dv >= 0.5 ? 'über' : dv > -0.5 ? 'etwa im' : dv > -1.5 ? 'unter' : 'deutlich unter';
+                const cTip = esc(`${emp} · ${MONTHS_SHORT[m]}: ${v} ${modeLabel} – ${rel} Monats-Ø (${means[m].toFixed(1).replace('.', ',')}).`);
+                return `<td class="ah-td-num" style="background:${h.bg};color:${h.fg}" title="Ø ${means[m].toFixed(1)}" data-tooltip="${cTip}">${v}</td>`;
               }).join('');
+              const devTip = esc(
+                devNum > 0.5 ? `Jahressumme liegt ${String(devNum).replace('.', ',')} ${modeLabel} ÜBER dem aufsummierten fairen Anteil – überdurchschnittlich belastet.`
+                : devNum < -0.5 ? `Jahressumme liegt ${String(Math.abs(devNum)).replace('.', ',')} ${modeLabel} UNTER dem aufsummierten fairen Anteil – unterdurchschnittlich belastet.`
+                : 'Jahressumme entspricht dem aufsummierten fairen Anteil – ausgeglichen.'
+              );
               return `<tr class="clickable" data-emp="${esc(emp)}">
                 <td style="border-left:3px solid ${pc.border}">${esc(emp)}</td>
                 ${cells}
                 <td class="ah-td-num"><strong>${total}</strong></td>
-                <td class="ah-td-num" style="color:${devCol};font-weight:700">${devNum > 0 ? '+' : ''}${String(devNum).replace('.', ',')}</td>
+                <td class="ah-td-num" style="color:${devCol};font-weight:700" data-tooltip="${devTip}">${devNum > 0 ? '+' : ''}${String(devNum).replace('.', ',')}</td>
               </tr>`;
             }).join('')}
           </tbody>

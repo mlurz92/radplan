@@ -8,7 +8,7 @@
 // ===========================================================================
 
 import {
-  computeForecast, computeWishFulfillment, getRange, fmt, scoreColor, TT,
+  computeForecast, computeWishFulfillment, getRange, fmt, scoreColor, TT, TTI,
 } from './engine.js';
 
 // HTML-Escape für Texte/Attribute.
@@ -45,20 +45,26 @@ export default {
     // ---- KPIs ------------------------------------------------------------
     parts.push('<div class="ah-kpi-grid">');
     parts.push(kpi('Datenmonate', `${fc.monthsWithData}/12`, 'Monate mit Plandaten',
-      'Anzahl der Monate, in denen bereits Dienste vergeben sind. Basis der linearen Hochrechnung.'));
+      'Anzahl der Monate, in denen bereits Dienste vergeben sind. Basis der linearen Hochrechnung.',
+      `${fc.monthsWithData} von 12 Monaten liefern Plandaten – je mehr, desto belastbarer die Hochrechnung; bei wenigen Monaten ist sie nur grob.`));
     parts.push(kpi('Hochrechnungsfaktor', `× ${fmt.dec1(fc.factor)}`, 'lineare Skalierung',
-      'Skalierungsfaktor 12 geteilt durch die Anzahl der Datenmonate. Rechnet die bisherigen Dienste linear auf das Gesamtjahr hoch.'));
+      'Skalierungsfaktor 12 geteilt durch die Anzahl der Datenmonate. Rechnet die bisherigen Dienste linear auf das Gesamtjahr hoch.',
+      `Bisherige Dienste werden mit ${fmt.dec1(fc.factor)} multipliziert, um das Jahresende zu schätzen – ein höherer Faktor bedeutet weniger Datenmonate und damit eine unsicherere Prognose.`));
     parts.push(kpi(
       'Wunscherfüllung',
       `<span style="color:${wf.rate == null ? 'var(--text-faint)' : scoreColor(wf.rate)}">${rateTxt}</span>`,
       `${fmt.int(wf.fulfilled)} von ${fmt.int(wf.wishes)} Wünschen`,
       TT.wishRate,
+      TTI.wishRate(wf.rate, wf.fulfilled, wf.wishes),
     ));
     parts.push(kpi(
       'Verletzte Wünsche',
       `<span style="color:${wf.violated > 0 ? '#EF4444' : '#22C55E'}">${fmt.int(wf.violated)}</span>`,
       'nicht erfüllbare Sperrwünsche',
       TT.wishViolated,
+      wf.violated > 0
+        ? `${fmt.int(wf.violated)} Sperrwunsch(e) konnten nicht eingehalten werden – Konfliktpunkte im Plan.`
+        : 'Alle Sperrwünsche eingehalten – keine Wunschkonflikte.',
     ));
     parts.push('</div>');
 
@@ -99,7 +105,7 @@ export default {
       parts.push(`<td>${fmt.int(r.projBd)}</td>`);
       parts.push(`<td>${fmt.int(r.projTotal)}</td>`);
       parts.push(`<td>${fmt.int(r.yearTarget)}</td>`);
-      parts.push(`<td style="color:${dColor};font-weight:700">${fmt.signedInt(r.projDelta)}</td>`);
+      parts.push(`<td style="color:${dColor};font-weight:700" data-tooltip="${esc(TTI.forecastDelta(r.projDelta))}">${fmt.signedInt(r.projDelta)}</td>`);
       parts.push(`<td>${dualBar(r, max)}</td>`);
       parts.push('</tr>');
     });
@@ -172,10 +178,11 @@ export default {
 // ---------------------------------------------------------------------------
 //  Bausteine
 // ---------------------------------------------------------------------------
-function kpi(label, value, sub, tip) {
+function kpi(label, value, sub, tip, valueTip) {
   const tipAttr = tip ? ` data-tooltip="${esc(tip)}"` : '';
+  const valTipAttr = valueTip ? ` data-tooltip="${esc(valueTip)}"` : '';
   return `<div class="ah-kpi"><div class="ah-kpi-label"${tipAttr}>${esc(label)}</div>`
-    + `<div class="ah-kpi-value">${value}</div>`
+    + `<div class="ah-kpi-value"${valTipAttr}>${value}</div>`
     + `<div class="ah-kpi-sub">${esc(sub)}</div></div>`;
 }
 
