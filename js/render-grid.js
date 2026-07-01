@@ -174,7 +174,7 @@ function syncViewportCssVars() {
   const vv = window.visualViewport;
   const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator?.standalone === true;
 
-  const rawKeyboardInset = vv
+  const rawKeyboardInset = (vv && Number.isFinite(vv.height) && Number.isFinite(vv.offsetTop))
     ? Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)))
     : 0;
   // On iOS standalone, the home-indicator safe area can look like a small
