@@ -139,12 +139,14 @@ export function getViewportWidth() {
 }
 
 export function getViewportHeight() {
-  const vv = window.visualViewport?.height;
-  const dw = document.documentElement?.clientHeight;
-  const ww = window.innerHeight;
-  // Prioritize stable dimensions on desktop, but allow visualViewport for mobile/keyboard overlays
-  const vals = [vv, dw, ww].filter(v => Number.isFinite(v) && v > 0);
-  return vals.length ? Math.min(...vals) : 0;
+  const visualH = window.visualViewport?.height;
+  if (Number.isFinite(visualH) && visualH > 0) return visualH;
+
+  const innerH = window.innerHeight;
+  if (Number.isFinite(innerH) && innerH > 0) return innerH;
+
+  const docH = document.documentElement?.clientHeight;
+  return Number.isFinite(docH) && docH > 0 ? docH : 0;
 }
 
 function syncViewportCssVars() {
@@ -154,16 +156,16 @@ function syncViewportCssVars() {
   const viewportW = getViewportWidth();
   const viewportH = getViewportHeight();
   const vv = window.visualViewport;
+  const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator?.standalone === true;
 
-  const keyboardInset = vv
-    ? Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)))
-    : 0;
+  const keyboardInset = standalone || !vv
+    ? 0
+    : Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)));
 
   root.style.setProperty("--app-vw", `${Math.max(320, Math.round(viewportW || 0))}px`);
   root.style.setProperty("--app-vh", `${Math.max(320, Math.round(viewportH || 0))}px`);
   root.style.setProperty("--kb-inset", `${keyboardInset}px`);
 
-  const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator?.standalone === true;
   document.body.classList.toggle("is-standalone", !!standalone);
 }
 
