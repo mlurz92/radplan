@@ -147,7 +147,7 @@ export function getViewportHeight() {
   if (!vals.length) return 0;
 
   const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator?.standalone === true;
-  const keyboardInset = vv
+  const keyboardInset = (vv && Number.isFinite(vv.height) && Number.isFinite(vv.offsetTop))
     ? Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)))
     : 0;
 
