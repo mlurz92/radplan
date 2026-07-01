@@ -139,12 +139,30 @@ export function getViewportWidth() {
 }
 
 export function getViewportHeight() {
-  const vv = window.visualViewport?.height;
-  const dw = document.documentElement?.clientHeight;
-  const ww = window.innerHeight;
-  // Prioritize stable dimensions on desktop, but allow visualViewport for mobile/keyboard overlays
-  const vals = [vv, dw, ww].filter(v => Number.isFinite(v) && v > 0);
-  return vals.length ? Math.min(...vals) : 0;
+  const vv = window.visualViewport;
+  const visualH = vv?.height;
+  const docH = document.documentElement?.clientHeight;
+  const innerH = window.innerHeight;
+  const vals = [visualH, docH, innerH].filter(v => Number.isFinite(v) && v > 0);
+  if (!vals.length) return 0;
+
+  const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator?.standalone === true;
+  const keyboardInset = vv
+    ? Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)))
+    : 0;
+
+  // In installed iOS PWAs, visualViewport.height can exclude the home-indicator
+  // safe area even when the keyboard is closed. Using the smallest viewport in
+  // that state shortens the app shell and leaves a visible strip below the
+  // bottom navigation. Keep the keyboard-aware visual viewport only while a
+  // keyboard is actually taking space; otherwise use the full layout viewport.
+  if (standalone && keyboardInset < 80) {
+    return Math.max(...vals);
+  }
+
+  // Prioritize stable dimensions on desktop, but allow visualViewport for
+  // mobile browser chrome and keyboard overlays.
+  return Math.min(...vals);
 }
 
 function syncViewportCssVars() {
