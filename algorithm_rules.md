@@ -45,6 +45,14 @@ Deterministische Verknüpfungen, die noch vor der freien Optimierung gesetzt wer
 - **Modell "Wochenend-Kette":** Ein FA mit Samstags-BD übernimmt zwingend den Sonntag-HG (HG-D-HG Kette).
 - **Modell "Feiertags-Vortag":** Hat ein AA am Vortag eines Feiertags BD, übernimmt der FA des Feiertags-BDs den HG am Vortag.
 
+### 2.4 Personelle Sonderregeln (`SPECIAL_RULES`, konstants.js)
+Zusätzlich zu den allgemeinen Regeln gelten datengetrieben konfigurierte, namentliche Sonderfälle:
+- **Prof. Schäfer:** Komplett dienstbefreit (BD-Ziel 0).
+- **Reduzierte BD-Monatsziele:** Dr. Polednia, Dr. Becker und Hr. Sebastian haben ein Standardziel von 3 statt 4 BD/Monat.
+- **Dr. Becker (Samstags-BD als Ultima Ratio):** Erhält einen Samstags-BD nur, wenn keine andere Fachärztin/kein anderer Facharzt verfügbar ist. Nach einem solchen Samstags-BD wird ihr am nächsten regulären Werktag zwingend ein FZA-Tag eingetragen.
+- **Fr. Dalitz vs. Hr. Torki/Hr. Sebastian:** Fr. Dalitz darf sonntags oder montags keinen HG übernehmen, wenn Hr. Torki oder Hr. Sebastian am selben Tag den BD leisten (Mammographie-Schicht am Folgetag kollidiert mit zeitintensiver AA-Befundfreigabe).
+- **Donnerstags-Urlaubsverlängerer:** Donnerstags-BD wird bevorzugt an Personen vergeben, die in der Folgewoche Urlaub haben (das automatische F am Freitag verlängert so das Wochenende bzw. den Urlaubsantritt).
+
 ## 3. Mathematische Kostenfaktoren (Objective Penalties)
 
 Der Scheduler sucht iterativ nach der Lösung mit dem niedrigsten Gesamt-Score.
