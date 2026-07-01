@@ -139,14 +139,30 @@ export function getViewportWidth() {
 }
 
 export function getViewportHeight() {
-  const visualH = window.visualViewport?.height;
-  if (Number.isFinite(visualH) && visualH > 0) return visualH;
-
-  const innerH = window.innerHeight;
-  if (Number.isFinite(innerH) && innerH > 0) return innerH;
-
+  const vv = window.visualViewport;
+  const visualH = vv?.height;
   const docH = document.documentElement?.clientHeight;
-  return Number.isFinite(docH) && docH > 0 ? docH : 0;
+  const innerH = window.innerHeight;
+  const vals = [visualH, docH, innerH].filter(v => Number.isFinite(v) && v > 0);
+  if (!vals.length) return 0;
+
+  const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator?.standalone === true;
+  const keyboardInset = vv
+    ? Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)))
+    : 0;
+
+  // In installed iOS PWAs, visualViewport.height can exclude the home-indicator
+  // safe area even when the keyboard is closed. Using the smallest viewport in
+  // that state shortens the app shell and leaves a visible strip below the
+  // bottom navigation. Keep the keyboard-aware visual viewport only while a
+  // keyboard is actually taking space; otherwise use the full layout viewport.
+  if (standalone && keyboardInset < 80) {
+    return Math.max(...vals);
+  }
+
+  // Prioritize stable dimensions on desktop, but allow visualViewport for
+  // mobile browser chrome and keyboard overlays.
+  return Math.min(...vals);
 }
 
 function syncViewportCssVars() {
@@ -158,9 +174,13 @@ function syncViewportCssVars() {
   const vv = window.visualViewport;
   const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator?.standalone === true;
 
-  const keyboardInset = standalone || !vv
-    ? 0
-    : Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)));
+  const rawKeyboardInset = (vv && Number.isFinite(vv.height) && Number.isFinite(vv.offsetTop))
+    ? Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)))
+    : 0;
+  // On iOS standalone, the home-indicator safe area can look like a small
+  // visualViewport gap. Do not treat that as keyboard space, otherwise the
+  // fixed mobile nav is lifted above the screen edge and leaves a bottom strip.
+  const keyboardInset = standalone && rawKeyboardInset < 80 ? 0 : rawKeyboardInset;
 
   root.style.setProperty("--app-vw", `${Math.max(320, Math.round(viewportW || 0))}px`);
   root.style.setProperty("--app-vh", `${Math.max(320, Math.round(viewportH || 0))}px`);
