@@ -863,6 +863,59 @@ export function openEditor(emp, day, options = {}) {
   showOverlay("modal-editor");
 }
 
+// Delegierte Klick-Handler für die Editor-Chip-Gruppen (Arbeitsplatz, Status,
+// Dienst, Wunsch): ein einziger Listener pro Container statt eines Listeners
+// pro Chip, der bei jedem refreshEditorChips()-Aufruf (also bei jedem
+// Chip-Klick) neu vergeben würde.
+export function initEditorChipDelegation() {
+  const wpC = document.getElementById("ed-wp");
+  wpC?.addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip-wp");
+    if (!chip || chip.classList.contains("dim") || !wpC.contains(chip)) return;
+    const code = chip.dataset.code;
+    const { isRbnRow } = state.edit;
+    const i = state.ed.wp.indexOf(code);
+    if (i >= 0) {
+      state.ed.wp.splice(i, 1);
+    } else if (isRbnRow) {
+      state.ed.wp = [code];
+    } else {
+      state.ed.wp.push(code);
+    }
+    refreshEditorChips();
+  });
+
+  const stC = document.getElementById("ed-st");
+  stC?.addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip-st");
+    if (!chip || chip.dataset.clickable !== "1" || !stC.contains(chip)) return;
+    const code = chip.dataset.code;
+    state.ed.st = state.ed.st === code ? null : code;
+    if (state.ed.st) {
+      state.ed.wp = [];
+    }
+    refreshEditorChips();
+  });
+
+  const dtC = document.getElementById("ed-duty");
+  dtC?.addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip-duty");
+    if (!chip || chip.classList.contains("blocked") || !dtC.contains(chip)) return;
+    const code = chip.dataset.code;
+    state.ed.duty = state.ed.duty === code ? null : code;
+    refreshEditorChips();
+  });
+
+  const wishC = document.getElementById("ed-wish");
+  wishC?.addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip-wish");
+    if (!chip || !wishC.contains(chip)) return;
+    const { emp, day } = state.edit;
+    toggleWish(emp, day, chip.dataset.code);
+    refreshEditorChips();
+  });
+}
+
 export function refreshEditorChips() {
   const { year: y, month: m } = state;
   const { wp, st, duty } = state.ed;
@@ -907,8 +960,9 @@ export function refreshEditorChips() {
       
       const chip = document.createElement("div");
       chip.className = `chip-wp${on ? " on" : ""}${dimC ? " dim" : ""}`;
+      chip.dataset.code = w.code;
       chip.style.cssText = `background:${on ? w.fg : w.bg};color:${on ? "#fff" : w.fg};position:relative`;
-      
+
       if (isRbnRow) {
         chip.style.minWidth = "190px";
         chip.style.alignItems = "flex-start";
@@ -927,19 +981,6 @@ export function refreshEditorChips() {
         chip.innerHTML = `${kbdBadge}${esc(w.code)}<span class="chip-sub">${esc(w.label)}</span>`;
       }
       
-      if (!dimC) {
-        chip.addEventListener("click", () => {
-          const i = state.ed.wp.indexOf(w.code);
-          if (i >= 0) {
-            state.ed.wp.splice(i, 1);
-          } else if (isRbnRow) {
-            state.ed.wp = [w.code];
-          } else {
-            state.ed.wp.push(w.code);
-          }
-          refreshEditorChips();
-        });
-      }
       wpC.appendChild(chip);
     });
     
@@ -996,18 +1037,10 @@ export function refreshEditorChips() {
       
       const chip = document.createElement("div");
       chip.className = `chip-st${on ? " on" : ""}${dimC ? " dim" : ""}`;
+      chip.dataset.code = s.code;
+      chip.dataset.clickable = (!dimC || on) ? "1" : "";
       chip.style.cssText = `background:${on ? s.fg : s.bg};color:${on ? "#fff" : s.fg}`;
       chip.innerHTML = `${s.code}<span class="chip-sub">${s.label}</span>`;
-      
-      if (!dimC || on) {
-        chip.addEventListener("click", () => {
-          state.ed.st = state.ed.st === s.code ? null : s.code;
-          if (state.ed.st) {
-            state.ed.wp = [];
-          }
-          refreshEditorChips();
-        });
-      }
       stC.appendChild(chip);
     });
   }
@@ -1024,14 +1057,10 @@ export function refreshEditorChips() {
       
       const chip = document.createElement("div");
       chip.className = `chip-duty ${on ? "duty-" + dc + "-on" : "duty-" + dc + "-off"}${taken ? " blocked" : ""}`;
+      chip.dataset.code = dc;
       chip.innerHTML = `${dc}<span class="duty-sub">${dc === "D" ? "Bereitschaftsdienst" : "Hintergrunddienst"}</span>`;
-      
-      if (!taken) {
-        chip.addEventListener("click", () => {
-          state.ed.duty = state.ed.duty === dc ? null : dc;
-          refreshEditorChips();
-        });
-      } else {
+
+      if (taken) {
         warnParts.push(`${dc} bereits vergeben: ${owner}`);
       }
       dtC.appendChild(chip);
@@ -1077,12 +1106,9 @@ export function refreshEditorChips() {
         const on = currentWish === wt.code;
         const chip = document.createElement("div");
         chip.className = `chip-wish${on ? " wish-on" : ""}`;
+        chip.dataset.code = wt.code;
         chip.style.cssText = on ? `background:${wt.fg};color:#fff;border-color:${wt.fg}` : `background:${wt.bg};color:${wt.fg};border-color:${wt.border}`;
         chip.innerHTML = `<span class="wish-icon">${wt.icon}</span>${wt.label}`;
-        chip.addEventListener("click", () => {
-          toggleWish(emp, day, wt.code);
-          refreshEditorChips();
-        });
         wishC.appendChild(chip);
       });
     } else {
@@ -2772,6 +2798,7 @@ export function wireEvents() {
   document.getElementById("btn-theme")?.addEventListener("click", (e) => toggleTheme(e));
   document.getElementById("btn-density")?.addEventListener("click", toggleDensity);
   initCommandPalette();
+  initEditorChipDelegation();
 
   document.getElementById("btn-employees")?.addEventListener("click", () => {
     const { year: y } = state;
