@@ -598,7 +598,7 @@ export function setPinned(emp, day, val) {
 
 export function togglePinned(emp, day) {
   setPinned(emp, day, !isPinned(emp, day));
-  render();
+  updateGridCell(emp, day);
   showToast(isPinned(emp, day) ? `Zelle fixiert: ${emp}, Tag ${day}` : `Fixierung aufgehoben: ${emp}, Tag ${day}`);
 }
 
@@ -1108,7 +1108,7 @@ export function refreshEditorChips() {
       chip.addEventListener("click", () => {
         setPinned(emp, day, !isPinned(emp, day));
         refreshEditorChips();
-        render();
+        updateGridCell(emp, day);
       });
       pinC.appendChild(chip);
     } else {
@@ -1143,7 +1143,9 @@ export function saveEditor() {
     setRbnValue(y, m, day, state.ed.wp[0] || "");
     if (planMode) recordPlanHistory();
     hideOverlay("modal-editor");
-    render();
+    updateGridCell(RBN_ROW_KEY, day);
+    updateAllConflicts();
+    updateGridStatsAndHeader();
     return;
   }
   
@@ -1153,12 +1155,14 @@ export function saveEditor() {
   if (planMode) recordPlanHistory();
   
   let autoFCount = 0;
+  const touchedDays = new Set();
   days.forEach((targetDay) => {
     setCell(y, m, emp, targetDay, {
       assignment: assignment || null,
       duty: duty || null,
     });
-    
+    touchedDays.add(targetDay);
+
     if (duty === "D") {
       const next = nextCalendarDay(y, m, targetDay);
       const ex = getCell(next.y, next.m, emp, next.d);
@@ -1168,10 +1172,13 @@ export function saveEditor() {
           duty: ex.duty || null,
         });
         autoFCount++;
+        if (next.y === y && next.m === m) {
+          touchedDays.add(next.d);
+        }
       }
     }
   });
-  
+
   if (planMode) recordPlanHistory();
 
   if (!isRbnRow) {
@@ -1189,7 +1196,9 @@ export function saveEditor() {
   } else if (autoFCount > 0) {
     showToast("F automatisch gesetzt");
   }
-  render();
+  touchedDays.forEach((d) => updateGridCell(emp, d));
+  updateAllConflicts();
+  updateGridStatsAndHeader();
 }
 
 export function confirmRemoveEmployee(name, refreshList = false) {
@@ -3052,7 +3061,13 @@ export function wireEvents() {
 
     state.multiEdit = { emp: null, days: [], anchor: null };
     hideOverlay("modal-editor");
-    render();
+    if (isRbnRow) {
+      updateGridCell(RBN_ROW_KEY, day);
+    } else {
+      days.forEach((d) => updateGridCell(emp, d));
+    }
+    updateAllConflicts();
+    updateGridStatsAndHeader();
   });
   
   document.getElementById("import-confirm")?.addEventListener("click", () => {
