@@ -61,6 +61,7 @@ import { contextMenu } from './contextmenu.js';
 import { hideOverlay, showToast, openProfileModal } from './render-modals.js';
 import { renderDeptContent } from './render-dept.js';
 import { renderEmployeeDashboard } from './render-employee-dashboard.js';
+import { esc } from './utils.js';
 
 const dragSelectionState = {
   active: false,
@@ -441,7 +442,7 @@ function buildQuickPopoverHtml(emp, day) {
 
   const headerHtml = `
     <div class="cqp-header">
-      <span class="cqp-header-emp">${emp}</span>
+      <span class="cqp-header-emp">${esc(emp)}</span>
       <span class="cqp-header-right">
         <span class="cqp-header-meta">${multi ? `${selCount} Tage` : `${day}. ${MONTHS[m]}`}</span>
         <button type="button" class="cqp-close" data-action="close" title="Schließen (Esc)" aria-label="Schnellmenü schließen">
@@ -709,7 +710,7 @@ export function openRadialQuickMenu(emp, day, x, y) {
   `).join('');
 
   el.innerHTML = `
-    <div class="radial-center"><span class="radial-center-emp">${emp}</span></div>
+    <div class="radial-center"><span class="radial-center-emp">${esc(emp)}</span></div>
     ${itemsHtml}
   `;
 
@@ -1277,7 +1278,7 @@ export function renderTbody(y, m, dim, hols, md) {
     tdN.setAttribute("aria-label", emp);
     tdN.setAttribute("tabindex", "0");
     
-    let tdNHtml = `<span class="emp-label">${emp}</span>`;
+    let tdNHtml = `<span class="emp-label">${esc(emp)}</span>`;
     if (meta.position !== "—") {
       tdNHtml += `<span class="emp-pos-tag" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span>`;
     }

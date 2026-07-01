@@ -24,6 +24,7 @@ import { openEditor, switchPeriod } from './app.js';
 import { renderEmployeeDetailDashboard, renderEmployeeDashboard } from './render-employee-dashboard.js';
 import { autoPlanResult } from './autoplan.js';
 import { closeCellQuickPopover, updateModalLayout } from './render-grid.js';
+import { esc } from './utils.js';
 
 // Registry der aktiven Chart.js-Instanzen des Profil-Modals (Donut, Trend …),
 // damit sie vor dem Neuaufbau sauber zerstört werden und keine Leaks/Doppel-
@@ -75,7 +76,7 @@ function populatePersonSelect(empName) {
   const emps = getEmployeesForYear(state.year).slice();
   if (empName && !emps.includes(empName)) emps.unshift(empName);
   sel.innerHTML = emps
-    .map((e) => `<option value="${e}"${e === empName ? " selected" : ""}>${e}</option>`)
+    .map((e) => `<option value="${esc(e)}"${e === empName ? " selected" : ""}>${esc(e)}</option>`)
     .join("");
 }
 
@@ -458,7 +459,7 @@ export function openProfileModal(empName) {
   const fairnessEl = document.getElementById("pm-fairness");
   if (fairnessEl) {
     if (isDutyExempt(empName)) {
-      fairnessEl.innerHTML = `<div class="pm-empty-hint">${meta.fullName !== empName ? meta.fullName : empName} ist von Bereitschafts- und Hintergrunddiensten befreit — keine Fairness-Auswertung.</div>`;
+      fairnessEl.innerHTML = `<div class="pm-empty-hint">${esc(meta.fullName !== empName ? meta.fullName : empName)} ist von Bereitschafts- und Hintergrunddiensten befreit — keine Fairness-Auswertung.</div>`;
     } else {
       const { row, team } = getEmployeeFairness(empName, y);
       if (!row || team.count === 0) {
@@ -552,7 +553,7 @@ export function openProfileModal(empName) {
               </div>
               <div class="pm-fair-pos-track">
                 <span class="pm-fair-pos-mean" style="left:${meanPct}%" title="Team-Durchschnitt ${dec1(team.meanTotal)}"></span>
-                <span class="pm-fair-pos-dot" style="left:${posPct}%" title="${empName}: ${row.total}"></span>
+                <span class="pm-fair-pos-dot" style="left:${posPct}%" title="${esc(empName)}: ${row.total}"></span>
               </div>
               <div class="pm-fair-pos-scale">
                 <span>min ${team.minTotal}</span>

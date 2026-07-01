@@ -31,6 +31,7 @@ import {
 import { openProfileModal } from './render-modals.js';
 import { render } from './render-grid.js';
 import { TT, TTI } from './analytics/engine.js';
+import { esc } from './utils.js';
 
 // HTML-attribut-sicheres Escaping für Tooltip-Texte (behandelt Sonderzeichen und leere Werte robust).
 const ttAttr = (s) => s ? `data-tooltip="${String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}"` : '';
@@ -184,16 +185,16 @@ export function renderEmployeeDashboard() {
 
       // Open profile button (name is clickable for opening full profile)
       return `
-        <div class="empdash-card${selectedCls}" data-emp="${item.emp}" role="listitem" tabindex="0">
+        <div class="empdash-card${selectedCls}" data-emp="${esc(item.emp)}" role="listitem" tabindex="0">
           <div class="empdash-card-top">
-            <span class="empdash-avatar" style="background:linear-gradient(135deg,${pc.border},${pc.fg})">${empInitials(item.emp)}</span>
+            <span class="empdash-avatar" style="background:linear-gradient(135deg,${pc.border},${pc.fg})">${esc(empInitials(item.emp))}</span>
             <div class="empdash-card-meta">
-              <span class="empdash-card-name" data-open-profile="${item.emp}">${item.emp}</span>
-              <span class="empdash-card-sub">${item.meta.posLabel !== "—" ? item.meta.posLabel : "ohne Stammdaten"}</span>
-              ${item.meta.area ? `<span class="empdash-card-area">${item.meta.area}</span>` : ""}
+              <span class="empdash-card-name" data-open-profile="${esc(item.emp)}">${esc(item.emp)}</span>
+              <span class="empdash-card-sub">${esc(item.meta.posLabel !== "—" ? item.meta.posLabel : "ohne Stammdaten")}</span>
+              ${item.meta.area ? `<span class="empdash-card-area">${esc(item.meta.area)}</span>` : ""}
             </div>
             <div class="empdash-card-right">
-              <span class="empdash-pos" style="background:${pc.bg};color:${pc.fg}">${item.meta.position}</span>
+              <span class="empdash-pos" style="background:${pc.bg};color:${pc.fg}">${esc(item.meta.position)}</span>
               ${todayBadge}
             </div>
           </div>
@@ -374,8 +375,8 @@ function renderEmployeeTeamAnalytics(teamPanelEl, teamControlsEl) {
       <article class="empdash-kpi"><div class="empdash-kpi-label" ${ttAttr("Ausfalltage: Summe aller Abwesenheiten im Zeitraum – Urlaub (U), Krank (K/KK), Freizeitausgleich (FZA) und Weiterbildung (WB).")}>Ausfalltage</div><div class="empdash-kpi-value" style="color:#A855F7" ${ttAttr(`Insgesamt ${agg.vac + agg.sick + agg.fza + agg.wb} Ausfalltage im Zeitraum: ${agg.vac} Urlaub, ${agg.sick} Krank, ${agg.fza} FZA, ${agg.wb} Weiterbildung.`)}>${agg.vac + agg.sick + agg.fza + agg.wb}</div><div class="empdash-kpi-sub">U/K/FZA/WB kumuliert</div></article>
     </div>
     <div class="empdash-team-insights">
-      <div class="empdash-team-note" ${ttAttr("Person mit den meisten aktiven Arbeitstagen im Zeitraum.")}><strong>Top Aktivität:</strong> ${busiest}</div>
-      <div class="empdash-team-note" ${ttAttr("Person mit den meisten Diensten (D+HG) im Zeitraum.")}><strong>Dienst-Fokus:</strong> ${dutyLeader}</div>
+      <div class="empdash-team-note" ${ttAttr("Person mit den meisten aktiven Arbeitstagen im Zeitraum.")}><strong>Top Aktivität:</strong> ${esc(busiest)}</div>
+      <div class="empdash-team-note" ${ttAttr("Person mit den meisten Diensten (D+HG) im Zeitraum.")}><strong>Dienst-Fokus:</strong> ${esc(dutyLeader)}</div>
       <div class="empdash-team-note" ${ttAttr("Erforderliche Arbeitstage im Zeitraum, die nicht durch eine aktive Einplanung abgedeckt waren.")}><strong>Offene Abdeckung:</strong> ${agg.uncovered} Tage</div>
     </div>
     <div class="dept-table-wrap">
@@ -397,8 +398,8 @@ function renderEmployeeTeamAnalytics(teamPanelEl, teamControlsEl) {
             const cov = row.required > 0 ? Math.round((row.active / row.required) * 100) : 0;
             const covCls = cov >= 80 ? "dept-cov-good" : cov >= 60 ? "dept-cov-mid" : "dept-cov-low";
             return `
-            <tr class="dept-tr" data-team-emp="${row.emp}">
-              <td class="dept-td-name"><span class="dept-emp-name">${row.emp}</span></td>
+            <tr class="dept-tr" data-team-emp="${esc(row.emp)}">
+              <td class="dept-td-name"><span class="dept-emp-name">${esc(row.emp)}</span></td>
               <td class="dept-td dept-td-num">${row.active || "—"}</td>
               <td class="dept-td dept-td-num dept-duty-d">${row.d || "—"}</td>
               <td class="dept-td dept-td-num dept-duty-hg">${row.hg || "—"}</td>
@@ -484,8 +485,8 @@ function renderTeamFairnessBlock(teamPanelEl, year) {
       : `<span class="fair-dev-fill" style="right:50%;width:${w}%;background:#2563EB"></span>`;
     const bdDeltaColor = r.bdDelta > 0 ? "#EF4444" : r.bdDelta < 0 ? "#22C55E" : "#94A3B8";
     return `
-      <tr class="dept-tr fair-tr" data-fair-emp="${r.emp}">
-        <td class="dept-td-name"><span class="dept-emp-name">${r.emp}</span></td>
+      <tr class="dept-tr fair-tr" data-fair-emp="${esc(r.emp)}">
+        <td class="dept-td-name"><span class="dept-emp-name">${esc(r.emp)}</span></td>
         <td class="dept-td dept-td-num dept-duty-d">${r.bd || "—"}</td>
         <td class="dept-td dept-td-num dept-duty-hg">${r.hg || "—"}</td>
         <td class="dept-td dept-td-num">${r.total || "—"}</td>
@@ -589,13 +590,13 @@ export function renderEmployeeDetailDashboard(emp, year) {
   const profileHead = `
     <div class="empdash-detail-profile">
       <div class="empdash-detail-profile-head">
-        <span class="empdash-avatar lg" style="background:linear-gradient(135deg,${pc.border},${pc.fg})">${empInitials(emp)}</span>
+        <span class="empdash-avatar lg" style="background:linear-gradient(135deg,${pc.border},${pc.fg})">${esc(empInitials(emp))}</span>
         <div style="min-width:0;flex:1">
-          <div class="empdash-detail-name">${meta.fullName !== emp ? meta.fullName : emp}</div>
-          <div class="empdash-detail-meta">${meta.posLabel}${meta.type && meta.type !== "—" ? " · " + meta.type : ""}${meta.since ? " · seit " + meta.since : ""}</div>
-          ${meta.area ? `<div class="empdash-detail-area">${meta.area}</div>` : ""}
+          <div class="empdash-detail-name">${esc(meta.fullName !== emp ? meta.fullName : emp)}</div>
+          <div class="empdash-detail-meta">${esc(meta.posLabel)}${meta.type && meta.type !== "—" ? " · " + esc(meta.type) : ""}${meta.since ? " · seit " + esc(meta.since) : ""}</div>
+          ${meta.area ? `<div class="empdash-detail-area">${esc(meta.area)}</div>` : ""}
         </div>
-        <button type="button" class="empdash-open-profile mbtn mbtn-ghost" data-open-profile="${emp}" title="Vollständiges Profil öffnen" aria-label="Profil öffnen">
+        <button type="button" class="empdash-open-profile mbtn mbtn-ghost" data-open-profile="${esc(emp)}" title="Vollständiges Profil öffnen" aria-label="Profil öffnen">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           Profil
         </button>
@@ -940,13 +941,13 @@ export function renderEmployeeDetailDashboard(emp, year) {
     return `
       <div class="emp-row">
         <div class="emp-row-left">
-          <span class="emp-avatar" style="background:linear-gradient(135deg,${pos.border},${pos.fg})">${empInitials(name)}</span>
+          <span class="emp-avatar" style="background:linear-gradient(135deg,${pos.border},${pos.fg})">${esc(empInitials(name))}</span>
           <div class="emp-row-info">
-            <span class="emp-row-name">${name}</span>
-            <span class="emp-row-meta">${metaItem.posLabel}</span>
+            <span class="emp-row-name">${esc(name)}</span>
+            <span class="emp-row-meta">${esc(metaItem.posLabel)}</span>
           </div>
         </div>
-        <button type="button" class="emp-row-del" data-remove="${name}" aria-label="${name} entfernen">
+        <button type="button" class="emp-row-del" data-remove="${esc(name)}" aria-label="${esc(name)} entfernen">
           <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <path d="M1 1l9 9M10 1L1 10"/>
           </svg>

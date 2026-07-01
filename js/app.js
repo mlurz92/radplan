@@ -133,6 +133,7 @@ import { initCellTooltips } from './celltooltip.js';
 import { initTooltips } from './tooltip.js';
 import { openPrintPreview } from './printpreview.js';
 import { icon, setIcon, injectBrandIcon } from './icons.js';
+import { esc } from './utils.js';
 
 let localAutoPlanResult = null;
 let localAutoPlanTargets = {};
@@ -921,9 +922,9 @@ export function refreshEditorChips() {
       const kbdBadge = `<span style="position:absolute;top:2px;right:2px;font-family:var(--font-mono);font-size:7px;font-weight:700;line-height:1;opacity:${dimC ? 0.3 : 0.55};background:rgba(0,0,0,0.12);color:inherit;padding:1px 3px;border-radius:2px;pointer-events:none">${idx + 1}</span>`;
       
       if (isRbnRow) {
-        chip.innerHTML = `${w.label}`;
+        chip.innerHTML = `${esc(w.label)}`;
       } else {
-        chip.innerHTML = `${kbdBadge}${w.code}<span class="chip-sub">${w.label}</span>`;
+        chip.innerHTML = `${kbdBadge}${esc(w.code)}<span class="chip-sub">${esc(w.label)}</span>`;
       }
       
       if (!dimC) {
@@ -1336,10 +1337,10 @@ export function openMobileDay(day) {
     const hgH = md.employees.find(e => md.assignments?.[e]?.[day]?.duty === "HG");
     
     if (bdH) {
-      html += `<span class="mday-duty-pill d"><span class="mday-duty-pill-letter">D</span>${bdH}</span>`;
+      html += `<span class="mday-duty-pill d"><span class="mday-duty-pill-letter">D</span>${esc(bdH)}</span>`;
     }
     if (hgH) {
-      html += `<span class="mday-duty-pill hg"><span class="mday-duty-pill-letter">H</span>${hgH}</span>`;
+      html += `<span class="mday-duty-pill hg"><span class="mday-duty-pill-letter">H</span>${esc(hgH)}</span>`;
     }
     dutyBadgesEl.innerHTML = html;
   }
@@ -1394,11 +1395,11 @@ export function openMobileDay(day) {
       }
       
       bodyHtml += `
-        <div class="mday-emp-row${isEditable ? " mday-editable" : ""}" data-emp="${emp}">
+        <div class="mday-emp-row${isEditable ? " mday-editable" : ""}" data-emp="${esc(emp)}">
           <span class="mday-pos-dot" style="background:${pc.border}"></span>
           <div class="mday-emp-info">
-            <span class="mday-emp-name">${emp}</span>
-            <span class="mday-emp-sub">${meta.posLabel !== "—" ? meta.posLabel : meta.position}</span>
+            <span class="mday-emp-name">${esc(emp)}</span>
+            <span class="mday-emp-sub">${esc(meta.posLabel !== "—" ? meta.posLabel : meta.position)}</span>
           </div>
           <div class="mday-badges">${badgesHtml}</div>
           ${isEditable ? `
@@ -1783,13 +1784,13 @@ export async function renderAutoPlanModal(renderToken = null) {
         <div class="ap-emp-card">
           <div class="ap-card-top">
             <div class="ap-card-name-group">
-              <span class="ap-card-name">${e}</span>
-              <span class="ap-card-pos" style="color:${pc.border}">${meta.posLabel}</span>
+              <span class="ap-card-name">${esc(e)}</span>
+              <span class="ap-card-pos" style="color:${pc.border}">${esc(meta.posLabel)}</span>
             </div>
             <div class="ap-input-stepper">
-              <button type="button" class="ap-step-btn minus" data-emp="${e}">−</button>
-              <input type="number" class="ap-card-input" data-emp="${e}" value="${target}" min="0" max="10" step="1" readonly>
-              <button type="button" class="ap-step-btn plus" data-emp="${e}">+</button>
+              <button type="button" class="ap-step-btn minus" data-emp="${esc(e)}">−</button>
+              <input type="number" class="ap-card-input" data-emp="${esc(e)}" value="${target}" min="0" max="10" step="1" readonly>
+              <button type="button" class="ap-step-btn plus" data-emp="${esc(e)}">+</button>
             </div>
           </div>
           
@@ -2032,7 +2033,7 @@ export async function streamProgressLogs(result) {
       const div = document.createElement("div");
       div.className = "ap-log-entry";
       const t = ((performance.now() - logStarted) / 1000).toFixed(2);
-      div.innerHTML = `<span class="ap-log-icon">${entry.icon}</span><span class="ap-log-msg">[${t}s] ${entry.msg}</span>`;
+      div.innerHTML = `<span class="ap-log-icon">${esc(entry.icon)}</span><span class="ap-log-msg">[${t}s] ${esc(entry.msg)}</span>`;
       logContainer.appendChild(div);
       logContainer.scrollTop = logContainer.scrollHeight;
     }
@@ -2261,7 +2262,7 @@ export function renderResultView() {
     bdHtml += `
       <tr>
         <td class="ap-td-name" style="border-left:3px solid ${pc.border}">
-          <span>${e}</span>
+          <span>${esc(e)}</span>
         </td>
         <td class="ap-td ap-td-num">${bd.target}</td>
         <td class="ap-td ap-td-num" style="font-weight:700;color:${bd.count >= bd.target ? '#15803D' : '#B91C1C'}">${bd.count}</td>
@@ -2312,7 +2313,7 @@ export function renderResultView() {
     hgHtml += `
       <tr>
         <td class="ap-td-name" style="border-left:3px solid ${pc.border}">
-          <span>${e}</span>
+          <span>${esc(e)}</span>
         </td>
         <td class="ap-td ap-td-num" style="font-weight:700">${hg.count}</td>
         <td class="ap-td ap-td-days">${hg.days.map(d => dayTag(d)).join("")}</td>
@@ -2357,7 +2358,7 @@ export function renderResultView() {
           <div class="ap-collapse-content-inner">
             <div class="ap-collapse-content-pad">
               <div class="ap-infos">
-                ${summary.infos.map(i => `<div class="ap-info-item">${i}</div>`).join("")}
+                ${summary.infos.map(i => `<div class="ap-info-item">${esc(i)}</div>`).join("")}
               </div>
             </div>
           </div>
@@ -2382,7 +2383,7 @@ export function renderResultView() {
           <div class="ap-collapse-content-inner">
             <div class="ap-collapse-content-pad">
               <div class="ap-warnings">
-                ${summary.warnings.map(w => `<div class="ap-warn-item${w.startsWith('KRITISCH') ? ' ap-warn-item-critical' : ''}">${w}</div>`).join("")}
+                ${summary.warnings.map(w => `<div class="ap-warn-item${w.startsWith('KRITISCH') ? ' ap-warn-item-critical' : ''}">${esc(w)}</div>`).join("")}
               </div>
             </div>
           </div>
@@ -2444,23 +2445,23 @@ export function renderReportModal() {
     itemEl.className = "ap-report-item";
     itemEl.innerHTML = `
       <div class="ap-report-header">
-        <span class="ap-report-date">${dName}, ${item.day}. ${MONTHS_SHORT[m]} ${holNm ? "(" + holNm + ")" : ""}</span>
-        <span class="ap-report-duty ${item.duty}">${item.duty}</span>
-        <span class="ap-report-emp">${item.emp}</span>
-        ${hasAlternatives ? `<button type="button" class="ap-report-why-btn">Warum ${item.emp}?</button>` : ""}
+        <span class="ap-report-date">${esc(dName)}, ${item.day}. ${esc(MONTHS_SHORT[m])} ${holNm ? "(" + esc(holNm) + ")" : ""}</span>
+        <span class="ap-report-duty ${esc(item.duty)}">${esc(item.duty)}</span>
+        <span class="ap-report-emp">${esc(item.emp)}</span>
+        ${hasAlternatives ? `<button type="button" class="ap-report-why-btn">Warum ${esc(item.emp)}?</button>` : ""}
       </div>
-      <div class="ap-report-body">${item.reason}</div>
+      <div class="ap-report-body">${esc(item.reason)}</div>
       <div class="ap-report-tags">
-        ${item.tags.map(t => `<span class="ap-report-tag">${t}</span>`).join("")}
+        ${item.tags.map(t => `<span class="ap-report-tag">${esc(t)}</span>`).join("")}
       </div>
       ${hasAlternatives ? `
         <div class="ap-report-alts" hidden>
           <div class="ap-report-alts-lbl">Nächstbeste Alternativen (verworfen):</div>
           ${item.alternatives.map((a) => `
             <div class="ap-report-alt-row">
-              <span class="ap-report-alt-emp">${a.emp}</span>
+              <span class="ap-report-alt-emp">${esc(a.emp)}</span>
               <span class="ap-report-alt-score">Score ${a.score}</span>
-              <span class="ap-report-alt-tags">${a.tags.join(" · ") || "—"}</span>
+              <span class="ap-report-alt-tags">${esc(a.tags.join(" · ") || "—")}</span>
             </div>
           `).join("")}
         </div>

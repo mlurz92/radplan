@@ -8,18 +8,12 @@
 // ===========================================================================
 
 import { computeDutyFairness, fmt, scoreColor, TT, TTI } from './engine.js';
+import { esc } from '../utils.js';
 
 let chartInstance = null;
 
 const ICON =
   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 6a4 4 0 0 0 6 0z"/><path d="M19 7l-3 6a4 4 0 0 0 6 0z"/><path d="M7 21h10"/></svg>';
-
-// HTML-Escape für Mitarbeitendennamen.
-function esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, (c) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-  ));
-}
 
 // Status → Pillen-Text, Pillen-Klasse, Fair-Δ-Farbe.
 const STATUS_META = {
