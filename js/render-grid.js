@@ -172,16 +172,20 @@ function syncViewportCssVars() {
   const viewportW = getViewportWidth();
   const viewportH = getViewportHeight();
   const vv = window.visualViewport;
+  const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator?.standalone === true;
 
-  const keyboardInset = vv
+  const rawKeyboardInset = (vv && Number.isFinite(vv.height) && Number.isFinite(vv.offsetTop))
     ? Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)))
     : 0;
+  // On iOS standalone, the home-indicator safe area can look like a small
+  // visualViewport gap. Do not treat that as keyboard space, otherwise the
+  // fixed mobile nav is lifted above the screen edge and leaves a bottom strip.
+  const keyboardInset = standalone && rawKeyboardInset < 80 ? 0 : rawKeyboardInset;
 
   root.style.setProperty("--app-vw", `${Math.max(320, Math.round(viewportW || 0))}px`);
   root.style.setProperty("--app-vh", `${Math.max(320, Math.round(viewportH || 0))}px`);
   root.style.setProperty("--kb-inset", `${keyboardInset}px`);
 
-  const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator?.standalone === true;
   document.body.classList.toggle("is-standalone", !!standalone);
 }
 
