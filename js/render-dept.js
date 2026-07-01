@@ -1,6 +1,7 @@
 import { MONTHS, VACATION_CODES, getEmpMeta, posColor, getSaxonyHolidaysCached, daysInMonth, isWorkday } from './constants.js';
 import { state, deptTab } from './state.js';
 import { getMonthData, buildProfileStats, buildYearlyStats, getEmployeesForYear, computeDutyFairness } from './model.js';
+import { esc } from './utils.js';
 
 export function renderDeptContent() {
   const { year: y, month: m } = state;
@@ -123,8 +124,8 @@ export function renderDeptMonth(y, m) {
     rowsHtml += `
       <tr class="dept-tr">
         <td class="dept-td-name" style="border-left:3px solid ${pc.border}">
-          <span class="dept-emp-name">${emp}</span>
-          ${meta.position !== "—" ? `<span class="dept-pos-badge" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span>` : ""}
+          <span class="dept-emp-name">${esc(emp)}</span>
+          ${meta.position !== "—" ? `<span class="dept-pos-badge" style="background:${pc.bg};color:${pc.fg}">${esc(meta.position)}</span>` : ""}
         </td>
         <td class="dept-td dept-td-num">${s.totalActive || "—"}</td>
         <td class="dept-td dept-td-num">${s.wpCounts["MR"] || ""}</td>
@@ -227,8 +228,8 @@ function buildDeptFairnessHtml(year) {
     rowsHtml += `
       <tr class="dept-tr fair-tr">
         <td class="dept-td-name" style="border-left:3px solid ${pc.border}">
-          <span class="dept-emp-name">${r.emp}</span>
-          ${r.meta.position !== "—" ? `<span class="dept-pos-badge" style="background:${pc.bg};color:${pc.fg}">${r.meta.position}</span>` : ""}
+          <span class="dept-emp-name">${esc(r.emp)}</span>
+          ${r.meta.position !== "—" ? `<span class="dept-pos-badge" style="background:${pc.bg};color:${pc.fg}">${esc(r.meta.position)}</span>` : ""}
         </td>
         <td class="dept-td dept-td-num dept-duty-d">${r.bd || "—"}</td>
         <td class="dept-td dept-td-num dept-duty-hg">${r.hg || "—"}</td>
@@ -361,8 +362,8 @@ export function renderDeptYear(year) {
     rowsHtml += `
       <tr class="dept-tr">
         <td class="dept-td-name" style="border-left:3px solid ${pc.border}">
-          <span class="dept-emp-name">${emp}</span>
-          ${meta.position !== "—" ? `<span class="dept-pos-badge" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span>` : ""}
+          <span class="dept-emp-name">${esc(emp)}</span>
+          ${meta.position !== "—" ? `<span class="dept-pos-badge" style="background:${pc.bg};color:${pc.fg}">${esc(meta.position)}</span>` : ""}
         </td>
         <td class="dept-td dept-td-num">${t.totalActive || "—"}</td>
         <td class="dept-td dept-td-num dept-vac">${t.vacationDays || "—"}</td>

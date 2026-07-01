@@ -3,6 +3,7 @@ import { state } from './state.js';
 import { getEmployeesForYear } from './model.js';
 import { showOverlay, hideOverlay, openProfileModal } from './render-modals.js';
 import { switchPeriod, toggleTheme, toggleDensity } from './app.js';
+import { esc } from './utils.js';
 
 const OVERLAY_ID = "modal-command-palette";
 
@@ -133,13 +134,13 @@ function renderResults(items) {
   let html = "";
   items.forEach((item, i) => {
     if (item.group !== lastGroup) {
-      html += `<div class="cmdk-group-label">${item.group}</div>`;
+      html += `<div class="cmdk-group-label">${esc(item.group)}</div>`;
       lastGroup = item.group;
     }
     html += `
       <button type="button" class="cmdk-item${i === 0 ? " cmdk-active" : ""}" data-idx="${i}" role="option" aria-selected="${i === 0}">
-        <span class="cmdk-item-label">${item.label}</span>
-        ${item.hint ? `<span class="cmdk-item-hint">${item.hint}</span>` : ""}
+        <span class="cmdk-item-label">${esc(item.label)}</span>
+        ${item.hint ? `<span class="cmdk-item-hint">${esc(item.hint)}</span>` : ""}
       </button>
     `;
   });

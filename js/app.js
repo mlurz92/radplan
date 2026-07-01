@@ -133,6 +133,7 @@ import { initCellTooltips } from './celltooltip.js';
 import { initTooltips } from './tooltip.js';
 import { openPrintPreview } from './printpreview.js';
 import { icon, setIcon, injectBrandIcon } from './icons.js';
+import { esc } from './utils.js';
 
 let localAutoPlanResult = null;
 let localAutoPlanTargets = {};
@@ -597,7 +598,7 @@ export function setPinned(emp, day, val) {
 
 export function togglePinned(emp, day) {
   setPinned(emp, day, !isPinned(emp, day));
-  render();
+  updateGridCell(emp, day);
   showToast(isPinned(emp, day) ? `Zelle fixiert: ${emp}, Tag ${day}` : `Fixierung aufgehoben: ${emp}, Tag ${day}`);
 }
 
@@ -862,6 +863,59 @@ export function openEditor(emp, day, options = {}) {
   showOverlay("modal-editor");
 }
 
+// Delegierte Klick-Handler für die Editor-Chip-Gruppen (Arbeitsplatz, Status,
+// Dienst, Wunsch): ein einziger Listener pro Container statt eines Listeners
+// pro Chip, der bei jedem refreshEditorChips()-Aufruf (also bei jedem
+// Chip-Klick) neu vergeben würde.
+export function initEditorChipDelegation() {
+  const wpC = document.getElementById("ed-wp");
+  wpC?.addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip-wp");
+    if (!chip || chip.classList.contains("dim") || !wpC.contains(chip)) return;
+    const code = chip.dataset.code;
+    const { isRbnRow } = state.edit;
+    const i = state.ed.wp.indexOf(code);
+    if (i >= 0) {
+      state.ed.wp.splice(i, 1);
+    } else if (isRbnRow) {
+      state.ed.wp = [code];
+    } else {
+      state.ed.wp.push(code);
+    }
+    refreshEditorChips();
+  });
+
+  const stC = document.getElementById("ed-st");
+  stC?.addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip-st");
+    if (!chip || chip.dataset.clickable !== "1" || !stC.contains(chip)) return;
+    const code = chip.dataset.code;
+    state.ed.st = state.ed.st === code ? null : code;
+    if (state.ed.st) {
+      state.ed.wp = [];
+    }
+    refreshEditorChips();
+  });
+
+  const dtC = document.getElementById("ed-duty");
+  dtC?.addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip-duty");
+    if (!chip || chip.classList.contains("blocked") || !dtC.contains(chip)) return;
+    const code = chip.dataset.code;
+    state.ed.duty = state.ed.duty === code ? null : code;
+    refreshEditorChips();
+  });
+
+  const wishC = document.getElementById("ed-wish");
+  wishC?.addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip-wish");
+    if (!chip || !wishC.contains(chip)) return;
+    const { emp, day } = state.edit;
+    toggleWish(emp, day, chip.dataset.code);
+    refreshEditorChips();
+  });
+}
+
 export function refreshEditorChips() {
   const { year: y, month: m } = state;
   const { wp, st, duty } = state.ed;
@@ -906,8 +960,9 @@ export function refreshEditorChips() {
       
       const chip = document.createElement("div");
       chip.className = `chip-wp${on ? " on" : ""}${dimC ? " dim" : ""}`;
+      chip.dataset.code = w.code;
       chip.style.cssText = `background:${on ? w.fg : w.bg};color:${on ? "#fff" : w.fg};position:relative`;
-      
+
       if (isRbnRow) {
         chip.style.minWidth = "190px";
         chip.style.alignItems = "flex-start";
@@ -921,24 +976,11 @@ export function refreshEditorChips() {
       const kbdBadge = `<span style="position:absolute;top:2px;right:2px;font-family:var(--font-mono);font-size:7px;font-weight:700;line-height:1;opacity:${dimC ? 0.3 : 0.55};background:rgba(0,0,0,0.12);color:inherit;padding:1px 3px;border-radius:2px;pointer-events:none">${idx + 1}</span>`;
       
       if (isRbnRow) {
-        chip.innerHTML = `${w.label}`;
+        chip.innerHTML = `${esc(w.label)}`;
       } else {
-        chip.innerHTML = `${kbdBadge}${w.code}<span class="chip-sub">${w.label}</span>`;
+        chip.innerHTML = `${kbdBadge}${esc(w.code)}<span class="chip-sub">${esc(w.label)}</span>`;
       }
       
-      if (!dimC) {
-        chip.addEventListener("click", () => {
-          const i = state.ed.wp.indexOf(w.code);
-          if (i >= 0) {
-            state.ed.wp.splice(i, 1);
-          } else if (isRbnRow) {
-            state.ed.wp = [w.code];
-          } else {
-            state.ed.wp.push(w.code);
-          }
-          refreshEditorChips();
-        });
-      }
       wpC.appendChild(chip);
     });
     
@@ -995,18 +1037,10 @@ export function refreshEditorChips() {
       
       const chip = document.createElement("div");
       chip.className = `chip-st${on ? " on" : ""}${dimC ? " dim" : ""}`;
+      chip.dataset.code = s.code;
+      chip.dataset.clickable = (!dimC || on) ? "1" : "";
       chip.style.cssText = `background:${on ? s.fg : s.bg};color:${on ? "#fff" : s.fg}`;
       chip.innerHTML = `${s.code}<span class="chip-sub">${s.label}</span>`;
-      
-      if (!dimC || on) {
-        chip.addEventListener("click", () => {
-          state.ed.st = state.ed.st === s.code ? null : s.code;
-          if (state.ed.st) {
-            state.ed.wp = [];
-          }
-          refreshEditorChips();
-        });
-      }
       stC.appendChild(chip);
     });
   }
@@ -1023,14 +1057,10 @@ export function refreshEditorChips() {
       
       const chip = document.createElement("div");
       chip.className = `chip-duty ${on ? "duty-" + dc + "-on" : "duty-" + dc + "-off"}${taken ? " blocked" : ""}`;
+      chip.dataset.code = dc;
       chip.innerHTML = `${dc}<span class="duty-sub">${dc === "D" ? "Bereitschaftsdienst" : "Hintergrunddienst"}</span>`;
-      
-      if (!taken) {
-        chip.addEventListener("click", () => {
-          state.ed.duty = state.ed.duty === dc ? null : dc;
-          refreshEditorChips();
-        });
-      } else {
+
+      if (taken) {
         warnParts.push(`${dc} bereits vergeben: ${owner}`);
       }
       dtC.appendChild(chip);
@@ -1076,12 +1106,9 @@ export function refreshEditorChips() {
         const on = currentWish === wt.code;
         const chip = document.createElement("div");
         chip.className = `chip-wish${on ? " wish-on" : ""}`;
+        chip.dataset.code = wt.code;
         chip.style.cssText = on ? `background:${wt.fg};color:#fff;border-color:${wt.fg}` : `background:${wt.bg};color:${wt.fg};border-color:${wt.border}`;
         chip.innerHTML = `<span class="wish-icon">${wt.icon}</span>${wt.label}`;
-        chip.addEventListener("click", () => {
-          toggleWish(emp, day, wt.code);
-          refreshEditorChips();
-        });
         wishC.appendChild(chip);
       });
     } else {
@@ -1107,7 +1134,7 @@ export function refreshEditorChips() {
       chip.addEventListener("click", () => {
         setPinned(emp, day, !isPinned(emp, day));
         refreshEditorChips();
-        render();
+        updateGridCell(emp, day);
       });
       pinC.appendChild(chip);
     } else {
@@ -1142,7 +1169,9 @@ export function saveEditor() {
     setRbnValue(y, m, day, state.ed.wp[0] || "");
     if (planMode) recordPlanHistory();
     hideOverlay("modal-editor");
-    render();
+    updateGridCell(RBN_ROW_KEY, day);
+    updateAllConflicts();
+    updateGridStatsAndHeader();
     return;
   }
   
@@ -1152,12 +1181,14 @@ export function saveEditor() {
   if (planMode) recordPlanHistory();
   
   let autoFCount = 0;
+  const touchedDays = new Set();
   days.forEach((targetDay) => {
     setCell(y, m, emp, targetDay, {
       assignment: assignment || null,
       duty: duty || null,
     });
-    
+    touchedDays.add(targetDay);
+
     if (duty === "D") {
       const next = nextCalendarDay(y, m, targetDay);
       const ex = getCell(next.y, next.m, emp, next.d);
@@ -1167,10 +1198,13 @@ export function saveEditor() {
           duty: ex.duty || null,
         });
         autoFCount++;
+        if (next.y === y && next.m === m) {
+          touchedDays.add(next.d);
+        }
       }
     }
   });
-  
+
   if (planMode) recordPlanHistory();
 
   if (!isRbnRow) {
@@ -1188,7 +1222,9 @@ export function saveEditor() {
   } else if (autoFCount > 0) {
     showToast("F automatisch gesetzt");
   }
-  render();
+  touchedDays.forEach((d) => updateGridCell(emp, d));
+  updateAllConflicts();
+  updateGridStatsAndHeader();
 }
 
 export function confirmRemoveEmployee(name, refreshList = false) {
@@ -1336,10 +1372,10 @@ export function openMobileDay(day) {
     const hgH = md.employees.find(e => md.assignments?.[e]?.[day]?.duty === "HG");
     
     if (bdH) {
-      html += `<span class="mday-duty-pill d"><span class="mday-duty-pill-letter">D</span>${bdH}</span>`;
+      html += `<span class="mday-duty-pill d"><span class="mday-duty-pill-letter">D</span>${esc(bdH)}</span>`;
     }
     if (hgH) {
-      html += `<span class="mday-duty-pill hg"><span class="mday-duty-pill-letter">H</span>${hgH}</span>`;
+      html += `<span class="mday-duty-pill hg"><span class="mday-duty-pill-letter">H</span>${esc(hgH)}</span>`;
     }
     dutyBadgesEl.innerHTML = html;
   }
@@ -1394,11 +1430,11 @@ export function openMobileDay(day) {
       }
       
       bodyHtml += `
-        <div class="mday-emp-row${isEditable ? " mday-editable" : ""}" data-emp="${emp}">
+        <div class="mday-emp-row${isEditable ? " mday-editable" : ""}" data-emp="${esc(emp)}">
           <span class="mday-pos-dot" style="background:${pc.border}"></span>
           <div class="mday-emp-info">
-            <span class="mday-emp-name">${emp}</span>
-            <span class="mday-emp-sub">${meta.posLabel !== "—" ? meta.posLabel : meta.position}</span>
+            <span class="mday-emp-name">${esc(emp)}</span>
+            <span class="mday-emp-sub">${esc(meta.posLabel !== "—" ? meta.posLabel : meta.position)}</span>
           </div>
           <div class="mday-badges">${badgesHtml}</div>
           ${isEditable ? `
@@ -1783,13 +1819,13 @@ export async function renderAutoPlanModal(renderToken = null) {
         <div class="ap-emp-card">
           <div class="ap-card-top">
             <div class="ap-card-name-group">
-              <span class="ap-card-name">${e}</span>
-              <span class="ap-card-pos" style="color:${pc.border}">${meta.posLabel}</span>
+              <span class="ap-card-name">${esc(e)}</span>
+              <span class="ap-card-pos" style="color:${pc.border}">${esc(meta.posLabel)}</span>
             </div>
             <div class="ap-input-stepper">
-              <button type="button" class="ap-step-btn minus" data-emp="${e}">−</button>
-              <input type="number" class="ap-card-input" data-emp="${e}" value="${target}" min="0" max="10" step="1" readonly>
-              <button type="button" class="ap-step-btn plus" data-emp="${e}">+</button>
+              <button type="button" class="ap-step-btn minus" data-emp="${esc(e)}">−</button>
+              <input type="number" class="ap-card-input" data-emp="${esc(e)}" value="${target}" min="0" max="10" step="1" readonly>
+              <button type="button" class="ap-step-btn plus" data-emp="${esc(e)}">+</button>
             </div>
           </div>
           
@@ -2032,7 +2068,7 @@ export async function streamProgressLogs(result) {
       const div = document.createElement("div");
       div.className = "ap-log-entry";
       const t = ((performance.now() - logStarted) / 1000).toFixed(2);
-      div.innerHTML = `<span class="ap-log-icon">${entry.icon}</span><span class="ap-log-msg">[${t}s] ${entry.msg}</span>`;
+      div.innerHTML = `<span class="ap-log-icon">${esc(entry.icon)}</span><span class="ap-log-msg">[${t}s] ${esc(entry.msg)}</span>`;
       logContainer.appendChild(div);
       logContainer.scrollTop = logContainer.scrollHeight;
     }
@@ -2261,7 +2297,7 @@ export function renderResultView() {
     bdHtml += `
       <tr>
         <td class="ap-td-name" style="border-left:3px solid ${pc.border}">
-          <span>${e}</span>
+          <span>${esc(e)}</span>
         </td>
         <td class="ap-td ap-td-num">${bd.target}</td>
         <td class="ap-td ap-td-num" style="font-weight:700;color:${bd.count >= bd.target ? '#15803D' : '#B91C1C'}">${bd.count}</td>
@@ -2312,7 +2348,7 @@ export function renderResultView() {
     hgHtml += `
       <tr>
         <td class="ap-td-name" style="border-left:3px solid ${pc.border}">
-          <span>${e}</span>
+          <span>${esc(e)}</span>
         </td>
         <td class="ap-td ap-td-num" style="font-weight:700">${hg.count}</td>
         <td class="ap-td ap-td-days">${hg.days.map(d => dayTag(d)).join("")}</td>
@@ -2357,7 +2393,7 @@ export function renderResultView() {
           <div class="ap-collapse-content-inner">
             <div class="ap-collapse-content-pad">
               <div class="ap-infos">
-                ${summary.infos.map(i => `<div class="ap-info-item">${i}</div>`).join("")}
+                ${summary.infos.map(i => `<div class="ap-info-item">${esc(i)}</div>`).join("")}
               </div>
             </div>
           </div>
@@ -2382,7 +2418,7 @@ export function renderResultView() {
           <div class="ap-collapse-content-inner">
             <div class="ap-collapse-content-pad">
               <div class="ap-warnings">
-                ${summary.warnings.map(w => `<div class="ap-warn-item${w.startsWith('KRITISCH') ? ' ap-warn-item-critical' : ''}">${w}</div>`).join("")}
+                ${summary.warnings.map(w => `<div class="ap-warn-item${w.startsWith('KRITISCH') ? ' ap-warn-item-critical' : ''}">${esc(w)}</div>`).join("")}
               </div>
             </div>
           </div>
@@ -2444,23 +2480,23 @@ export function renderReportModal() {
     itemEl.className = "ap-report-item";
     itemEl.innerHTML = `
       <div class="ap-report-header">
-        <span class="ap-report-date">${dName}, ${item.day}. ${MONTHS_SHORT[m]} ${holNm ? "(" + holNm + ")" : ""}</span>
-        <span class="ap-report-duty ${item.duty}">${item.duty}</span>
-        <span class="ap-report-emp">${item.emp}</span>
-        ${hasAlternatives ? `<button type="button" class="ap-report-why-btn">Warum ${item.emp}?</button>` : ""}
+        <span class="ap-report-date">${esc(dName)}, ${item.day}. ${esc(MONTHS_SHORT[m])} ${holNm ? "(" + esc(holNm) + ")" : ""}</span>
+        <span class="ap-report-duty ${esc(item.duty)}">${esc(item.duty)}</span>
+        <span class="ap-report-emp">${esc(item.emp)}</span>
+        ${hasAlternatives ? `<button type="button" class="ap-report-why-btn">Warum ${esc(item.emp)}?</button>` : ""}
       </div>
-      <div class="ap-report-body">${item.reason}</div>
+      <div class="ap-report-body">${esc(item.reason)}</div>
       <div class="ap-report-tags">
-        ${item.tags.map(t => `<span class="ap-report-tag">${t}</span>`).join("")}
+        ${item.tags.map(t => `<span class="ap-report-tag">${esc(t)}</span>`).join("")}
       </div>
       ${hasAlternatives ? `
         <div class="ap-report-alts" hidden>
           <div class="ap-report-alts-lbl">Nächstbeste Alternativen (verworfen):</div>
           ${item.alternatives.map((a) => `
             <div class="ap-report-alt-row">
-              <span class="ap-report-alt-emp">${a.emp}</span>
+              <span class="ap-report-alt-emp">${esc(a.emp)}</span>
               <span class="ap-report-alt-score">Score ${a.score}</span>
-              <span class="ap-report-alt-tags">${a.tags.join(" · ") || "—"}</span>
+              <span class="ap-report-alt-tags">${esc(a.tags.join(" · ") || "—")}</span>
             </div>
           `).join("")}
         </div>
@@ -2762,6 +2798,7 @@ export function wireEvents() {
   document.getElementById("btn-theme")?.addEventListener("click", (e) => toggleTheme(e));
   document.getElementById("btn-density")?.addEventListener("click", toggleDensity);
   initCommandPalette();
+  initEditorChipDelegation();
 
   document.getElementById("btn-employees")?.addEventListener("click", () => {
     const { year: y } = state;
@@ -3051,7 +3088,13 @@ export function wireEvents() {
 
     state.multiEdit = { emp: null, days: [], anchor: null };
     hideOverlay("modal-editor");
-    render();
+    if (isRbnRow) {
+      updateGridCell(RBN_ROW_KEY, day);
+    } else {
+      days.forEach((d) => updateGridCell(emp, d));
+    }
+    updateAllConflicts();
+    updateGridStatsAndHeader();
   });
   
   document.getElementById("import-confirm")?.addEventListener("click", () => {

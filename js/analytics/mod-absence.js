@@ -12,18 +12,12 @@ import {
   getCell, daysInMonth, weekday, isWorkday, getSaxonyHolidaysCached,
   MONTHS_SHORT, ABSENCE_CODES, TT, TTI,
 } from './engine.js';
+import { esc } from '../utils.js';
 
 const ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
 
 // Modulinterner Chart-Handle (für sauberes dispose()).
 let _chart = null;
-
-// HTML-Escape für Mitarbeitenden-Namen in Attributen/Text.
-function esc(s) {
-  return String(s).replace(/[&<>"']/g, (c) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-  ));
-}
 
 // Kurzes Tagesdatum „T.M." aus einem daySeries-/Datenpunkt.
 function shortDate(p) {

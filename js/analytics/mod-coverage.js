@@ -9,13 +9,7 @@
 import {
   computeCoverage, eachDay, fmt, scoreColor, MONTHS, MONTHS_SHORT, DOW_ABBR, TT, TTI,
 } from './engine.js';
-
-// HTML-Escape für tooltips / Texte.
-function esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, (c) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-  ));
-}
+import { esc } from '../utils.js';
 
 // Was fehlt an einem Tag?
 function missingLabel(day) {

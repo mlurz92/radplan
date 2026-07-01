@@ -15,6 +15,7 @@ import { DATA, state } from './state.js';
 import { getEmpMeta, monthKey, prevMK, MONTHS, RBN_ROW_KEY } from './constants.js';
 import { getCell, getComment } from './model.js';
 import { getLastChange } from './history.js';
+import { esc } from './utils.js';
 
 let tipEl = null;
 let hoverTimer = null;
@@ -30,10 +31,6 @@ function ensureTip() {
   tipEl.hidden = true;
   document.body.appendChild(tipEl);
   return tipEl;
-}
-
-function esc(s) {
-  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // Sammelt die letzten Dienste (D/HG) einer Person über den aktuellen und

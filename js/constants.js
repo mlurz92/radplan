@@ -467,7 +467,7 @@ export function hasKnownRole(empName) {
 /**
  * Zentrale, datengetriebene Konfiguration aller personen- und paarbezogenen
  * Sonderregeln. Ersetzt die früher über den Algorithmus verstreuten
- * namentlichen Sonderfälle (Empfehlung §9 der Algorithmus-Kriterien).
+ * namentlichen Sonderfälle (siehe algorithm_rules.md, Abschnitt 2.4).
  */
 export const SPECIAL_RULES = {
   // Komplett dienstbefreite Personen (BD-Ziel 0).

@@ -611,9 +611,8 @@ radplan/
 ├── index.html                   # SPA-Einstiegsseite, enthält das DOM-Grundgerüst aller Bereiche
 ├── manifest.json                # PWA-Konfiguration (Icons, Start-URL, Anzeigemodus)
 ├── package.json                 # Projektspezifikationen und Test-Skripte
-├── Algorithmusregeln.txt        # Beschreibung der fachlichen Dienstplanregeln (Klinikvorgaben)
-├── Algorithmus-Kriterien.txt    # Kriterienkatalog für die Dienstplanerzeugung
-├── algorithm_rules.md           # Technische Spezifikation der Algorithmen (v3.2)
+├── Algorithmusregeln.txt        # Fachliche Dienstplanregeln (Klinikvorgaben) in Prosaform
+├── algorithm_rules.md           # Kanonische technische Spezifikation der Algorithmen (v3.2)
 ├── radplan.json                 # Beispiel-Datenstand für Test- und Entwicklungszwecke
 ├── functions/
 │   └── api.js                   # Cloudflare Edge Function zur KV-Persistierung und Synchronisation

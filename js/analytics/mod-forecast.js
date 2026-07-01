@@ -10,13 +10,7 @@
 import {
   computeForecast, computeWishFulfillment, getRange, fmt, scoreColor, TT, TTI,
 } from './engine.js';
-
-// HTML-Escape für Texte/Attribute.
-function esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, (c) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-  ));
-}
+import { esc } from '../utils.js';
 
 let _root = null;
 let _chart = null;

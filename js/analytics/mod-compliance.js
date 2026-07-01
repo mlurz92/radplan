@@ -8,6 +8,7 @@
 // ===========================================================================
 
 import { computeCompliance, fmt, scoreColor, MONTHS_SHORT, TT, TTI } from './engine.js';
+import { esc } from '../utils.js';
 
 const TYPE_LABELS = {
   rest: 'Ruhezeit-Verstöße',
@@ -31,9 +32,6 @@ const SEV_TT = {
   mid: TT.sevMid,
   low: 'Geringer Befund – nachrangiger Hinweis ohne harte Regelverletzung.',
 };
-
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
-  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const fmtDate = (f) => `${f.day}. ${MONTHS_SHORT[f.month]} ${f.year}`;
 
