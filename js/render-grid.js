@@ -138,25 +138,38 @@ export function getViewportWidth() {
   return Math.min(...[vv, dw, ww].filter((v) => Number.isFinite(v) && v > 0));
 }
 
-export function getViewportHeight() {
+// Anything below this is never a software keyboard: it is browser chrome or
+// the iOS home-indicator safe area leaking into visualViewport (notably in
+// installed standalone PWAs). Treating it as keyboard space lifts the fixed
+// bottom nav off the screen edge and leaves a dead strip below it.
+const KEYBOARD_MIN_INSET = 100;
+
+const supportsDvh = typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("height", "100dvh");
+
+function isStandaloneDisplay() {
+  return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator?.standalone === true;
+}
+
+function getKeyboardInset() {
   const vv = window.visualViewport;
-  const visualH = vv?.height;
+  if (!vv || !Number.isFinite(vv.height) || !Number.isFinite(vv.offsetTop)) return 0;
+  const raw = Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)));
+  return raw < KEYBOARD_MIN_INSET ? 0 : raw;
+}
+
+export function getViewportHeight() {
+  const visualH = window.visualViewport?.height;
   const docH = document.documentElement?.clientHeight;
   const innerH = window.innerHeight;
   const vals = [visualH, docH, innerH].filter(v => Number.isFinite(v) && v > 0);
   if (!vals.length) return 0;
-
-  const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator?.standalone === true;
-  const keyboardInset = vv
-    ? Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)))
-    : 0;
 
   // In installed iOS PWAs, visualViewport.height can exclude the home-indicator
   // safe area even when the keyboard is closed. Using the smallest viewport in
   // that state shortens the app shell and leaves a visible strip below the
   // bottom navigation. Keep the keyboard-aware visual viewport only while a
   // keyboard is actually taking space; otherwise use the full layout viewport.
-  if (standalone && keyboardInset < 80) {
+  if (getKeyboardInset() === 0 && isStandaloneDisplay()) {
     return Math.max(...vals);
   }
 
@@ -171,28 +184,47 @@ function syncViewportCssVars() {
 
   const viewportW = getViewportWidth();
   const viewportH = getViewportHeight();
-  const vv = window.visualViewport;
-  const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator?.standalone === true;
-
-  const rawKeyboardInset = (vv && Number.isFinite(vv.height) && Number.isFinite(vv.offsetTop))
-    ? Math.max(0, Math.round(window.innerHeight - (vv.height + vv.offsetTop)))
-    : 0;
-  // On iOS standalone, the home-indicator safe area can look like a small
-  // visualViewport gap. Do not treat that as keyboard space, otherwise the
-  // fixed mobile nav is lifted above the screen edge and leaves a bottom strip.
-  const keyboardInset = standalone && rawKeyboardInset < 80 ? 0 : rawKeyboardInset;
+  const keyboardInset = getKeyboardInset();
 
   root.style.setProperty("--app-vw", `${Math.max(320, Math.round(viewportW || 0))}px`);
-  root.style.setProperty("--app-vh", `${Math.max(320, Math.round(viewportH || 0))}px`);
+
+  // JS-measured heights are unreliable on iOS in standalone mode: at launch
+  // (and after rotation) innerHeight/visualViewport can report the viewport
+  // minus the home-indicator area and WebKit never fires a corrective resize
+  // event. A stale pixel value then pins the app shell short of the screen
+  // edge. Whenever no keyboard is open, hand the height back to the
+  // stylesheet's `--app-vh: 100dvh`, which the engine always resolves against
+  // the true layout viewport. The pixel override remains only for keyboard
+  // overlays and for engines without dvh support.
+  if (keyboardInset > 0 || !supportsDvh) {
+    root.style.setProperty("--app-vh", `${Math.max(320, Math.round(viewportH || 0))}px`);
+  } else {
+    root.style.removeProperty("--app-vh");
+  }
   root.style.setProperty("--kb-inset", `${keyboardInset}px`);
 
-  document.body.classList.toggle("is-standalone", !!standalone);
+  if (document.body) document.body.classList.toggle("is-standalone", isStandaloneDisplay());
 }
 
-// Ensure the layout syncs on every relevant event
+// Ensure the layout syncs on every relevant event. iOS standalone corrects its
+// viewport metrics late and without a resize event, so also re-sync after
+// rotation settles, on page restore/visibility, and on visualViewport scroll.
 window.addEventListener("resize", syncViewportCssVars);
+window.addEventListener("orientationchange", () => {
+  syncViewportCssVars();
+  setTimeout(syncViewportCssVars, 250);
+  setTimeout(syncViewportCssVars, 600);
+});
+window.addEventListener("pageshow", syncViewportCssVars);
+document.addEventListener("visibilitychange", syncViewportCssVars);
 window.visualViewport?.addEventListener("resize", syncViewportCssVars);
+window.visualViewport?.addEventListener("scroll", syncViewportCssVars);
+try {
+  window.matchMedia?.("(display-mode: standalone)")?.addEventListener?.("change", syncViewportCssVars);
+} catch { /* legacy engines without MediaQueryList events */ }
 syncViewportCssVars(); // Immediate initial sync
+requestAnimationFrame(syncViewportCssVars);
+setTimeout(syncViewportCssVars, 350);
 
 
 export function updateModalLayout(target) {
