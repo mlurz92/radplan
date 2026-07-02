@@ -1181,7 +1181,12 @@
 
 .empdash-mini-empty { color: var(--gray-500); font-size: 12px; }
 
-.empdash-admin-layout { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 16px; }
+/* align-items: start — without it, CSS Grid's default stretch makes the short
+   "Ausgewählte Person" card match the height of its sibling (the month list,
+   which can run to a dozen+ rows), then spreads that leftover height as huge
+   gaps between its own title/meta/button instead of leaving them packed at
+   their natural size. Each card should size to its own content. */
+.empdash-admin-layout { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 16px; align-items: start; }
 .empdash-admin-card { border: 1px solid var(--gray-200); border-radius: 16px; padding: 14px; background: linear-gradient(180deg,#fff,#F8FAFC); display: grid; gap: 12px; }
 .empdash-admin-title { font-size: 14px; font-weight: 700; color: var(--gray-800); }
 .empdash-admin-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; color: var(--gray-500); align-items: center; }
@@ -1919,21 +1924,24 @@ body.is-mobile .mcd {
   letter-spacing: .02em;
 }
 
-/* 6-column stats grid */
+/* 3x2 stats grid. A flat 6-column row (one prior iteration of this rule) gives
+   each of the 6 stats only ~1/6 of the card's width — too narrow for the two
+   full German words in this set ("Urlaub", "Krank") to keep clear separation
+   from their neighbors at a legible size: the gap between adjacent cells
+   reads as smaller than a word-space, so "Urlaub" and "Krank" visually run
+   together into "UrlaubKrank". Three columns over two rows roughly doubles
+   the width each label gets, which restores a normal reading gap and allows
+   a larger, more legible font size. */
 .empdash-card-stats {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .empdash-card-stats small {
-  font-size: 8.5px;
-}
-
-@media (max-width: 720px) {
-  .empdash-card-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  font-size: 9.5px;
 }
 
 @media (max-width: 420px) {
-  .empdash-card-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .empdash-card-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Coverage bar in cards */
@@ -2638,6 +2646,12 @@ body.is-mobile .mcd {
   scrollbar-width: thin;
 }
 .pm-tab {
+  /* flex: 0 0 auto pins every tab to its own text width inside the
+     horizontally scrolling .pm-tabbar. Without it (the same defect fixed for
+     the Analytics Hub's mobile nav) a flex row can compress items below
+     their natural content width on layout changes, causing neighboring tab
+     labels to visually overlap instead of scrolling. */
+  flex: 0 0 auto;
   position: relative;
   border: none;
   background: transparent;
