@@ -977,7 +977,10 @@
 .empdash-team-insights { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .empdash-team-note { padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px solid var(--gray-200); font-size: 12px; color: var(--gray-700); }
 
-.empdash-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+/* auto-fit, not a fixed repeat(4,...): the tile count varies (a 5th "Fairness"
+   tile only renders once duty data exists for the year), so a fixed column
+   count would leave either a gap or an orphaned single tile on its own row. */
+.empdash-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
 
 .empdash-kpi {
   background: linear-gradient(180deg,#fff,#F8FAFC);

@@ -604,12 +604,13 @@
               </label>
             </div>
             <div class="empdash-toolbar-right">
-              <label class="empdash-sort-wrap" for="emp-sort" data-tooltip="Reihenfolge der Mitarbeitendenkarten festlegen: Name (A–Z), Position (Leitung zuerst), Dienste, Urlaub, Krank oder aktive Monate – jeweils absteigend.">
+              <label class="empdash-sort-wrap" for="emp-sort" data-tooltip="Reihenfolge der Mitarbeitendenkarten festlegen: Name (A–Z), Position (Leitung zuerst), Dienste gesamt, Hintergrunddienste, Urlaub, Krank oder aktive Monate – jeweils absteigend.">
                 <span class="empdash-sort-lbl">Sortieren</span>
                 <select id="emp-sort" class="empdash-sort" aria-label="Mitarbeitende sortieren">
                   <option value="name">Name (A–Z)</option>
                   <option value="position">Position</option>
-                  <option value="duty">Dienste (absteigend)</option>
+                  <option value="duty">Dienste gesamt (D+HG, absteigend)</option>
+                  <option value="hg">Hintergrunddienste (absteigend)</option>
                   <option value="vacation">Urlaub (absteigend)</option>
                   <option value="sick">Krank (absteigend)</option>
                   <option value="active">Aktive Monate (absteigend)</option>
