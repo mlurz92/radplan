@@ -1927,17 +1927,17 @@ body.is-mobile .mcd {
 /* 3x2 stats grid. A flat 6-column row (one prior iteration of this rule) gives
    each of the 6 stats only ~1/6 of the card's width — too narrow for the two
    full German words in this set ("Urlaub", "Krank") to keep clear separation
-   from their neighbors at a legible size: the gap between adjacent cells
-   reads as smaller than a word-space, so "Urlaub" and "Krank" visually run
-   together into "UrlaubKrank". Three columns over two rows roughly doubles
-   the width each label gets, which restores a normal reading gap and allows
-   a larger, more legible font size. */
+   from their neighbors: the gap between adjacent cells reads as smaller than
+   a word-space, so "Urlaub" and "Krank" visually run together into
+   "UrlaubKrank". Three columns over two rows roughly doubles the width each
+   label gets, which restores a normal reading gap at the original font size
+   — no size increase needed, this was a width problem, not a size problem. */
 .empdash-card-stats {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .empdash-card-stats small {
-  font-size: 9.5px;
+  font-size: 8.5px;
 }
 
 @media (max-width: 420px) {
