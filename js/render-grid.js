@@ -193,8 +193,10 @@ function syncViewportCssVars() {
   // minus the home-indicator area and WebKit never fires a corrective resize
   // event. A stale pixel value then pins the app shell short of the screen
   // edge. Whenever no keyboard is open, hand the height back to the
-  // stylesheet's `--app-vh: 100dvh`, which the engine always resolves against
-  // the true layout viewport. The pixel override remains only for keyboard
+  // stylesheet's `--app-vh` (100dvh in-browser, forced to 100vh in standalone
+  // by core.css — see the comment there on the standalone `dvh` cold-start
+  // bug), which the engine always resolves against the true layout viewport.
+  // The pixel override remains only for keyboard
   // overlays and for engines without dvh support.
   if (keyboardInset > 0 || !supportsDvh) {
     root.style.setProperty("--app-vh", `${Math.max(320, Math.round(viewportH || 0))}px`);

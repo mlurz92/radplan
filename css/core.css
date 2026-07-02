@@ -174,6 +174,21 @@
   --ease-spring-soft: cubic-bezier(.34,1.12,.64,1);
 }
 
+/* Installed iOS PWAs (Add to Home Screen, display-mode: standalone) have no
+   browser toolbar, so the classic 100vh-vs-100dvh discrepancy this variable
+   exists for does not apply there. Worse, WebKit's dynamic viewport unit
+   (dvh) is not computed correctly on a standalone cold start — it only
+   settles to the right value after a real geometry change (e.g. a device
+   rotation), which cannot be triggered programmatically. `100vh` has no such
+   defect and is accurate from the very first paint when there is no toolbar
+   to retract, so use it here to avoid a persistent gap above the home
+   indicator. The media query applies before any JS runs; `body.is-standalone`
+   (set in render-grid.js, further below in the cascade) reinforces the same
+   value for engines that don't report `display-mode` via media query. */
+@media (display-mode: standalone) {
+  :root { --app-vh: 100vh; }
+}
+
 [data-theme="light"] {
   --navy-900: #F4F1EA;
   --navy-800: #ECE7DC;
@@ -254,6 +269,15 @@ html, body {
   overflow: hidden;
   touch-action: manipulation;
   scrollbar-color: rgba(148,163,184,.4) transparent;
+}
+
+/* Belt-and-braces reinforcement of the `@media (display-mode: standalone)`
+   rule above: render-grid.js sets this class from `navigator.standalone`
+   too, covering older iOS engines that never reported `display-mode` via
+   media query. Higher specificity than the `:root` media-query rule, so it
+   always wins once JS has run. */
+body.is-standalone {
+  --app-vh: 100vh;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -350,7 +374,7 @@ body.is-mobile .overlay {
 
 /* Rigorous modal sizing */
 .modal {
-  max-height: min(var(--modal-max-height, calc(100dvh - (2 * var(--overlay-pad)))), calc(100dvh - (2 * var(--overlay-pad)))) !important;
+  max-height: min(var(--modal-max-height, calc(var(--app-vh) - (2 * var(--overlay-pad)))), calc(var(--app-vh) - (2 * var(--overlay-pad)))) !important;
 }
 
 /* --- VIEW TRANSITIONS: month/year navigation choreography --- */

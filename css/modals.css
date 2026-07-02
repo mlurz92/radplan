@@ -34,7 +34,7 @@
   box-shadow: var(--elev-shadow-3), 0 0 0 1px rgba(var(--ink-rgb),.15), 0 0 80px rgba(var(--accent-rgb),.05);
   overflow: hidden;
   width: min(100%, var(--modal-max-width, 100%));
-  max-height: min(var(--modal-max-height, calc(100dvh - (2 * var(--overlay-pad)))), calc(100dvh - (2 * var(--overlay-pad))));
+  max-height: min(var(--modal-max-height, calc(var(--app-vh) - (2 * var(--overlay-pad)))), calc(var(--app-vh) - (2 * var(--overlay-pad))));
   display: flex;
   flex-direction: column;
   animation: modalIn var(--dur-3) var(--ease-spring);
@@ -104,7 +104,7 @@
 .modal-yearplan { --modal-max-width: min(1440px, 98vw); }
 
 .modal-fit-content { height: auto !important; }
-.modal-fit-viewport { height: min(var(--modal-max-height, calc(100dvh - (2 * var(--overlay-pad)))), calc(100dvh - (2 * var(--overlay-pad)))) !important; }
+.modal-fit-viewport { height: min(var(--modal-max-height, calc(var(--app-vh) - (2 * var(--overlay-pad)))), calc(var(--app-vh) - (2 * var(--overlay-pad)))) !important; }
 
 .modal.modal-closing {
   animation: modalOut .2s ease forwards;
@@ -2119,7 +2119,7 @@
 @media (max-width: 768px) {
   .modal {
     border-radius: var(--radius);
-    max-height: min(var(--modal-max-height, calc(100dvh - (2 * var(--overlay-pad)))), calc(100dvh - (2 * var(--overlay-pad))));
+    max-height: min(var(--modal-max-height, calc(var(--app-vh) - (2 * var(--overlay-pad)))), calc(var(--app-vh) - (2 * var(--overlay-pad))));
   }
   .modal-hd { padding: 12px 14px; }
   .modal-bd { padding: 14px; }
@@ -3155,8 +3155,8 @@ body.is-mobile #modal-mobile-menu .modal-bd {
 
 @media (max-width: 700px) {
   #modal-yearplan .modal {
-    height: 100dvh;
-    max-height: 100dvh;
+    height: var(--app-vh);
+    max-height: var(--app-vh);
     border-radius: 0;
   }
 

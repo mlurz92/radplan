@@ -242,8 +242,7 @@ body.is-mobile .overlay .modal .yp-grid-scroll {
 /* ── Jahresplaner: Notch/Safe-Area auf dem iPhone berücksichtigen ───────── */
 @media (max-width: 700px) {
   #modal-yearplan .modal {
-    height: 100dvh;
-    height: 100svh;
+    height: var(--app-vh);
     padding-top: var(--safe-top);
     padding-bottom: var(--safe-bottom);
     box-sizing: border-box;
