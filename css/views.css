@@ -844,7 +844,7 @@
   box-shadow: var(--shadow-xl);
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
-  max-height: min(80dvh, calc(100dvh - 88px));
+  max-height: min(80dvh, calc(var(--app-vh) - 88px));
   overflow: auto;
 }
 
@@ -1537,7 +1537,7 @@ body.is-mobile.plan-mode-active .mobile-day-list {
 }
 
 @media (max-width: 768px) {
-  .period-flyout { top: calc(var(--header-h) + 8px); right: 12px; left: 12px; width: auto; max-height: calc(100dvh - var(--header-h) - 20px); }
+  .period-flyout { top: calc(var(--header-h) + 8px); right: 12px; left: 12px; width: auto; max-height: calc(var(--app-vh) - var(--header-h) - 20px); }
   .period-grid { grid-template-columns: minmax(0, 1fr); }
   .period-actions { display: grid; }
   .empdash-hd, .empdash-toolbar, .empdash-detail-head { flex-direction: column; align-items: stretch; }
