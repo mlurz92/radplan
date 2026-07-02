@@ -139,23 +139,88 @@
 
 /* ---- Responsive ---- */
 @media (max-width: 720px) {
-  .modal-analytics { width: 100vw; height: 100vh; border-radius: 0; }
+  /* Full-bleed, not "fits its content": on mobile this is a dedicated app
+     screen, not a floating dialog. updateModalLayout() (render-grid.js)
+     still measures content height and toggles .modal-fit-content /
+     .modal-fit-viewport on every .modal — including this one — to make
+     small dialogs hug their content. For the analytics hub that shrink-to-
+     content behavior is wrong (a short "Übersicht" tab would collapse the
+     whole hub to a small floating card, leaving dead space above/below).
+     The two-class selectors below outrank the single-class rules that set
+     `height: auto !important` / a fitted max-height, so the hub always
+     fills the true viewport regardless of which tab's content is showing. */
+  /* The generic .overlay centers its child inside a padded box (var(--overlay-pad)
+     on every side). A child sized to exactly the viewport (100vw/var(--app-vh))
+     then overflows that padded box symmetrically and, at the overlay's default
+     zero scroll position, ends up shifted upward by one pad's worth — clipped
+     at the top and leaving a gap at the bottom that exposes the app shell
+     behind it. Stripping the overlay's own padding/centering here lets the
+     full-bleed modal sit flush at 0/0 instead. */
+  /* !important: core.css/mobile-optimization.css set padding-bottom and
+     align-items on .overlay (and body.is-mobile .overlay) with !important
+     of their own for the normal centered-dialog / bottom-sheet cases; an
+     ID selector alone doesn't outrank an !important declaration, so this
+     needs !important too to actually win. */
+  #modal-analytics { padding: 0 !important; align-items: stretch !important; justify-content: stretch !important; }
+  .modal-analytics { width: 100vw; height: var(--app-vh); border-radius: 0; }
+  .modal-analytics.modal-fit-content,
+  .modal-analytics.modal-fit-viewport {
+    height: var(--app-vh) !important;
+    max-height: var(--app-vh) !important;
+  }
+
   .ah-body { flex-direction: column; }
   .ah-nav {
-    width: 100%; flex-direction: row; overflow-x: auto; border-right: none;
-    border-bottom: 1px solid var(--gray-200); padding: 8px;
+    width: 100%; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+    border-right: none; gap: 6px;
+    border-bottom: 1px solid var(--gray-200); padding: 8px 10px;
+    /* Snap + hidden scrollbar + faded edges signal "more tabs this way"
+       without needing extra markup, and keep touch scrolling smooth on iOS. */
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to right, transparent, black 14px, black calc(100% - 14px), transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 14px, black calc(100% - 14px), transparent);
   }
-  .ah-nav-item { white-space: nowrap; }
+  .ah-nav::-webkit-scrollbar { display: none; }
+  .ah-nav-item {
+    /* WebKit/Safari can miscompute intrinsic widths for shrinkable flex
+       items inside an overflow-x:auto row, especially right after layout
+       changes (modal open, tab switch) — items can render compressed
+       below their text width, so neighboring labels visually overlap.
+       Pinning every tab to its natural content width removes the
+       shrink calculation entirely: items can only ever be their own
+       width, never less, so labels can never overlap regardless of
+       engine quirks. */
+    flex: 0 0 auto;
+    white-space: nowrap;
+    scroll-snap-align: start;
+  }
   .ah-nav-lbl { font-size: 11.5px; }
 }
 
 /* ---- Portrait-/Schmal-Mobile (Hochkant) ---- */
 @media (max-width: 560px) {
-  /* Header darf nicht überlappen: Titel links, Close rechts, Range-Bar in eigene Zeile umbrechen. */
-  .ah-hd { gap: 8px 12px; padding: 12px 14px; }
-  .ah-hd-left { flex: 1 1 100%; min-width: 0; }
+  /* Header darf nicht überlappen: Titel+Close bleiben in einer Zeile
+     (order steuert die visuelle Reihenfolge unabhängig von der DOM-
+     Reihenfolge), die Range-Bar bricht als einzige in eine eigene,
+     volle Zeile um. Vorher beanspruchten sowohl .ah-hd-left als auch
+     .ah-range-bar `flex-basis: 100%`, wodurch beide je eine eigene Zeile
+     erzwangen und der Close-Button — als letztes Element ohne eigene
+     Breitenregel — isoliert in eine dritte Zeile darunter rutschte. */
+  .ah-hd { gap: 6px 12px; padding: 12px 14px; }
+  .ah-hd-left { order: 1; flex: 1 1 auto; min-width: 0; }
   .ah-hd-left * { overflow-wrap: anywhere; }
-  .ah-range-bar { flex: 1 1 100%; gap: 8px; min-width: 0; }
+  .ah-hd-left .modal-hd-sub {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .ah-close { order: 2; flex: none; }
+  .ah-range-bar { order: 3; flex: 1 1 100%; gap: 8px; min-width: 0; }
   /* Range-Pills horizontal scrollbar statt Überlappung. */
   .ah-range-pills {
     flex: 1 1 auto; max-width: 100%;
