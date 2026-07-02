@@ -83,6 +83,10 @@ function renderNav() {
   nav.querySelectorAll('[data-mod]').forEach((btn) => {
     btn.addEventListener('click', () => hub.goto(btn.dataset.mod));
   });
+  // On mobile the nav is a horizontally scrolling row (9 modules don't fit
+  // 430px wide), so the newly active tab can be scrolled out of view —
+  // bring it back into frame instead of leaving the user to hunt for it.
+  nav.querySelector('.ah-nav-item.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
 }
 
 function renderRangeBar() {
