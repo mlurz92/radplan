@@ -189,13 +189,13 @@ export function openProfileModal(empName) {
       });
     }
     if (meta.area) metaHtml += `<span class="pm-meta-chip pm-chip-area">${meta.area}</span>`;
-    if (meta.phone) metaHtml += `<span class="pm-meta-chip pm-chip-phone">
+    if (meta.phone) metaHtml += `<span class="pm-meta-chip pm-chip-phone" data-tooltip="Interne Kurzwahl-Telefonnummer von ${esc(meta.fullName !== empName ? meta.fullName : empName)}.">
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0" aria-hidden="true"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.86 10.8 19.79 19.79 0 01.79 2.18 2 2 0 012.76.01h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.91a16 16 0 006.06 6.06l1.07-1.07a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-      ${meta.phone}
+      ${esc(meta.phone)}
     </span>`;
-    if (meta.deputy) metaHtml += `<span class="pm-meta-chip pm-chip-deputy">
+    if (meta.deputy) metaHtml += `<span class="pm-meta-chip pm-chip-deputy" data-tooltip="Standard-Vertretung: ${esc(meta.deputy)} übernimmt planerische und fachliche Aufgaben, wenn ${esc(meta.fullName !== empName ? meta.fullName : empName)} nicht verfügbar ist.">
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0" aria-hidden="true"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-      V: ${meta.deputy}
+      Vertr.: ${esc(meta.deputy)}
     </span>`;
     if (meta.tags && meta.tags.length) {
       meta.tags.slice(0, 3).forEach(tag => {

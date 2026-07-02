@@ -69,8 +69,16 @@ export function renderEmployeeDashboard() {
   
   const metrics = employees.map((emp) => getEmployeeYearCardMetrics(emp, y));
   const activeCount = metrics.filter((item) => item.activeMonths > 0).length;
-  const dutyCount = metrics.reduce((sum, item) => sum + item.ys.totals.dutyD + item.ys.totals.dutyHG, 0);
-  
+  // D und HG getrennt summieren statt nur die Gesamtzahl zu zeigen: beide
+  // Dienstarten unterliegen völlig unterschiedlichen Regeln (Qualifikation,
+  // Fairness-Formel, Anti-Clustering) — dieselbe Trennung, die der Scheduler,
+  // die Fairness-Tabelle und der Auswertungs-Hub überall sonst durchhalten,
+  // sollte auch hier in der Kopfzeile sichtbar sein statt in einer Summe zu
+  // verschwinden.
+  const totalD = metrics.reduce((sum, item) => sum + item.ys.totals.dutyD, 0);
+  const totalHG = metrics.reduce((sum, item) => sum + item.ys.totals.dutyHG, 0);
+  const dutyCount = totalD + totalHG;
+
   const roles = metrics.reduce((acc, item) => {
     const pos = item.meta.position;
     if (["CA", "LOA", "OA", "OÄ"].includes(pos)) acc.lead++;
@@ -79,11 +87,23 @@ export function renderEmployeeDashboard() {
     else acc.other++;
     return acc;
   }, { lead: 0, fa: 0, aa: 0, other: 0 });
-  
+
+  // Equity-Index direkt in die Kopfzeile: dieser Bereich existiert primär, um
+  // die Dienstlast fair zu verteilen (siehe Dienst-Fairness weiter unten und
+  // der komplette Scheduler-Algorithmus) — das Kernsignal "ist die Verteilung
+  // gerade fair?" sollte auf den ersten Blick sichtbar sein, nicht erst nach
+  // dem Scrollen zur Fairness-Tabelle.
+  let equityTotal = null;
+  try {
+    const fairnessReport = computeDutyFairness(y);
+    if (fairnessReport?.team) equityTotal = Math.round(fairnessReport.team.equityTotal);
+  } catch (e) { /* keine Dienstdaten im Jahr -> Equity-Kachel entfällt unten */ }
+
   const kpiItems = [
     { label: "Mitarbeitende im Jahr", value: employees.length, sub: `${activeCount} mit Aktivität`, tone: "#0EA5E9", tip: "Anzahl eindeutiger Mitarbeitender mit Plandaten im Jahr. „mit Aktivität“ = Personen mit mindestens einem aktiven Monat.", valTip: `${employees.length} eindeutige Mitarbeitende mit Plandaten im Jahr ${y}, davon ${activeCount} mit mindestens einem aktiven Monat.` },
     { label: "Aktueller Monatsbestand", value: currentMonthData.employees.length, sub: `${MONTHS[m]} ${y}`, tone: "#22C55E", tip: "Anzahl der im aktuell gewählten Monat eingeplanten Mitarbeitenden.", valTip: `${currentMonthData.employees.length} Mitarbeitende sind im Monat ${MONTHS[m]} ${y} eingeplant.` },
-    { label: "Dienste im Jahr", value: dutyCount, sub: "D + HG kumuliert", tone: "#F97316", tip: TT.duty + " Summe aller Bereitschafts- (D) und Hintergrunddienste (HG) über das ganze Jahr.", valTip: `Insgesamt ${dutyCount} Dienste (D + HG) im Jahr ${y} über alle Mitarbeitenden hinweg.` },
+    { label: "Dienste im Jahr", value: dutyCount, sub: `${totalD} D · ${totalHG} HG`, tone: "#F97316", tip: TT.duty + " Summe aller Bereitschafts- (D) und Hintergrunddienste (HG) über das ganze Jahr. Die Unterzeile schlüsselt beide getrennt auf, da sie unterschiedlichen Regeln unterliegen.", valTip: `Insgesamt ${dutyCount} Dienste im Jahr ${y}: ${totalD} Bereitschaftsdienste (D) und ${totalHG} Hintergrunddienste (HG).` },
+    ...(equityTotal !== null ? [{ label: "Fairness (Equity)", value: equityTotal, sub: "100 = perfekt fair", tone: equityColor(equityTotal), tip: TT.equityTotal, valTip: TTI.equity(equityTotal, "aller Dienste") }] : []),
     { label: "Rollenmix", value: `${roles.lead}/${roles.fa}/${roles.aa}`, sub: "Leitung · FA · AA", tone: "#A855F7", tip: "Verteilung nach Rolle: Leitung (CA/LOA/OA) · Fachärzte (FA) · Assistenzärzte (AA).", valTip: `Rollenverteilung: ${roles.lead} Leitung, ${roles.fa} Fachärzte, ${roles.aa} Assistenzärzte (ohne Profil: ${roles.other}).` },
   ];
 
@@ -122,6 +142,13 @@ export function renderEmployeeDashboard() {
       }
       case "duty":
         return (b.ys.totals.dutyD + b.ys.totals.dutyHG) - (a.ys.totals.dutyD + a.ys.totals.dutyHG);
+      case "hg":
+        // Eigene Sortierung nur nach Hintergrunddienst: HG ist fachärztlich
+        // exklusiv und unterliegt einer eigenen, vom Bereitschaftsdienst
+        // getrennten Fairness-Formel (siehe computeDutyFairness) — für die
+        // Frage "ist der Hintergrunddienst gerade ausgewogen verteilt?"
+        // reicht die kombinierte "Dienste gesamt"-Sortierung nicht aus.
+        return (b.ys.totals.dutyHG || 0) - (a.ys.totals.dutyHG || 0);
       case "vacation":
         return (b.ys.totals.vacationDays || 0) - (a.ys.totals.vacationDays || 0);
       case "sick":
