@@ -2558,7 +2558,7 @@ export function applyAutoPlan() {
 export function clearMultiSelection() {
   state.multiEdit = { emp: null, days: [], anchor: null };
   closeCellQuickPopover();
-  render();
+  syncSelectionClasses();
   showToast("Auswahl aufgehoben");
 }
 
