@@ -8,7 +8,7 @@
 // ===========================================================================
 
 import {
-  computeForecast, computeWishFulfillment, getRange, fmt, scoreColor, TT, TTI,
+  computeForecast, computeWishFulfillment, getRange, fmt, scoreColor, TT, TTI, MONTHS_SHORT,
 } from './engine.js';
 import { esc } from '../utils.js';
 
@@ -61,6 +61,9 @@ export default {
         : 'Alle Sperrwünsche eingehalten – keine Wunschkonflikte.',
     ));
     parts.push('</div>');
+
+    // ---- Saisonale Ausfallquote (historisches Krankheitsmuster) ----------
+    parts.push(seasonalRiskSection(fc));
 
     // ---- Leerer Zustand --------------------------------------------------
     if (!fc.rows.length) {
@@ -178,6 +181,48 @@ function kpi(label, value, sub, tip, valueTip) {
   return `<div class="ah-kpi"><div class="ah-kpi-label"${tipAttr}>${esc(label)}</div>`
     + `<div class="ah-kpi-value"${valTipAttr}>${value}</div>`
     + `<div class="ah-kpi-sub">${esc(sub)}</div></div>`;
+}
+
+// Saisonale Ausfallquote: zeigt für jeden Kalendermonat, wie stark die
+// historische Krankheitsquote (K/KK, siehe computeSeasonalAbsenceIndex) vom
+// Jahresdurchschnitt abweicht, und warnt vor den Restmonaten des Jahres, die
+// historisch überdurchschnittlich betroffen waren (z.B. Grippewelle im
+// Winter) — als zusätzlicher, rein historisch-deskriptiver Hinweis neben der
+// linearen Hochrechnung oben.
+function seasonalRiskSection(fc) {
+  const hasAnyData = fc.seasonalIndex.some((s) => s.hasData);
+  if (!hasAnyData) return '';
+
+  const parts = [];
+  parts.push(`<div class="ah-section-title" data-tooltip="${esc(TT.seasonalAbsence || '')}">Saisonale Ausfallquote (historisch, K/KK)</div>`);
+
+  if (fc.seasonalRiskMonths.length > 0) {
+    const names = fc.seasonalRiskMonths.map((s) => esc(MONTHS_SHORT[s.month])).join(', ');
+    parts.push(
+      `<div class="fc-seasonal-warning">⚠ Historisch erhöhte Krankheitsquote in den restlichen Monaten dieses Jahres: `
+      + `<strong>${names}</strong> — zusätzliche Rufbereitschaftsreserve für diese Monate empfehlenswert.</div>`
+    );
+  }
+
+  const maxIdx = Math.max(1, ...fc.seasonalIndex.filter((s) => s.hasData).map((s) => s.indexVsAverage));
+  parts.push('<div class="fc-seasonal-bars">');
+  fc.seasonalIndex.forEach((s) => {
+    const heightPct = s.hasData ? Math.max(4, Math.min(100, (s.indexVsAverage / maxIdx) * 100)) : 0;
+    const elevated = s.hasData && s.indexVsAverage >= 1.15;
+    const title = s.hasData
+      ? `${MONTHS_SHORT[s.month]}: ${Math.round(s.rate * 1000) / 10}‰ Krankheitsquote (${Math.round(s.indexVsAverage * 100)}% des Jahresdurchschnitts, ${s.sampleDays} Personen-Werktage historisch)`
+      : `${MONTHS_SHORT[s.month]}: zu wenig historische Daten (${s.sampleDays} Personen-Werktage)`;
+    parts.push(
+      `<div class="fc-seasonal-col" data-tooltip="${esc(title)}">`
+      + `<div class="fc-seasonal-bar${elevated ? ' fc-seasonal-bar-high' : ''}${!s.hasData ? ' fc-seasonal-bar-nodata' : ''}" style="height:${s.hasData ? heightPct : 4}%"></div>`
+      + `<span class="fc-seasonal-lbl">${esc(MONTHS_SHORT[s.month])}</span>`
+      + '</div>'
+    );
+  });
+  parts.push('</div>');
+  parts.push('<div class="fc-note">Balkenhöhe = Krankheitsquote (K/KK) relativ zum historischen Jahresdurchschnitt über alle in RadPlan erfassten Jahre; blasse Balken markieren Monate mit zu wenig Datengrundlage.</div>');
+
+  return parts.join('');
 }
 
 // Dualer Balken: Ist (solid) vs. Prognose (heller, gestreift) mit Ziel-Marker.

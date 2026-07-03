@@ -1,6 +1,27 @@
 import { STORAGE_KEY, normalizeMonthDataShape, reconcileEmployeesForMonth, monthKey } from './constants.js';
 
+// `DATA` bleibt absichtlich ein von außen direkt lesbares/mutierbares Objekt:
+// die Zell-Ebene (model.js getCell/setCell u.a., render-grid.js, autoplan.js)
+// greift an Dutzenden Stellen granular auf einzelne Monat->Mitarbeiter->Tag-
+// Pfade zu, und das ohne Framework/Build-Schritt über eine Setter-Methode pro
+// Feld zu kapseln, würde die Codebase aufblähen ohne einen echten Fehlerklasse
+// zu verhindern (die Cell-Shape wird zentral in constants.js normalisiert).
+// Was NICHT dezentral nachgebaut werden soll, ist das komplette Ersetzen des
+// gesamten Datenbestands (Server-Sync, Undo/Redo-Restore, Import) — dafür gibt
+// es ausschließlich `replaceAllData()` weiter unten; siehe dort.
 export let DATA = {};
+
+// Einzige zulässige Stelle, um den kompletten Dateninhalt von `DATA` durch
+// einen neuen Stand zu ersetzen (Server-Sync, Undo/Redo, Import). Ersetzt die
+// vormals an vier Stellen (dreimal hier, einmal dupliziert in history.js)
+// unabhängig voneinander geschriebene "delete alle Keys, dann Object.assign"-
+// Sequenz. Reine Objektinhalts-Ersetzung ohne Normalisierung/Persistenz —
+// beides bleibt bewusst Sache der jeweiligen Aufrufer, deren Anforderungen
+// daran sich leicht unterscheiden (siehe applyServerSnapshot vs. loadFromStorage).
+export function replaceAllData(newData) {
+  Object.keys(DATA).forEach((k) => delete DATA[k]);
+  Object.assign(DATA, newData || {});
+}
 
 export let state = {
   year: new Date().getFullYear(),
@@ -73,7 +94,7 @@ function deepEqual(a, b) {
 // plain-object trees (month -> employee -> day -> cell) so only the individual
 // fields that genuinely changed on both sides since `base` are treated as
 // conflicts; everything else is merged automatically without data loss.
-function mergeThreeWay(base, local, server, stats) {
+export function mergeThreeWay(base, local, server, stats) {
   if (deepEqual(local, server)) return local;
   if (deepEqual(local, base)) {
     stats.serverWins++;
@@ -138,8 +159,7 @@ function applyServerSnapshot(serverData) {
   serverLastModified = parseInt(serverData.lastModified, 10) || 0;
   const newMain = serverData.main ? serverData.main : serverData;
 
-  Object.keys(DATA).forEach((k) => delete DATA[k]);
-  Object.assign(DATA, newMain);
+  replaceAllData(newMain);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
 
   let snapshotChanged = false;
@@ -202,8 +222,7 @@ async function flushSaveToServer() {
         const stats = { conflicts: 0, localWins: 0, serverWins: 0 };
         const mergedMain = mergeThreeWay(base, DATA, serverMain, stats);
 
-        Object.keys(DATA).forEach((k) => delete DATA[k]);
-        Object.assign(DATA, mergedMain);
+        replaceAllData(mergedMain);
         Object.values(DATA).forEach((md) => normalizeMonthDataShape(md));
         localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
 
@@ -284,8 +303,7 @@ export async function loadFromStorage() {
   }
   
   if (loadedData && !loadedFromServer) {
-    Object.keys(DATA).forEach((k) => delete DATA[k]);
-    Object.assign(DATA, loadedData);
+    replaceAllData(loadedData);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
   }
   
@@ -419,10 +437,4 @@ export function setResponsiveLayoutRaf(val) {
   responsiveLayoutRaf = val; 
 }
 
-export const store = {
-  get DATA() { return DATA; },
-  set DATA(val) { DATA = val; },
-  get serverFetchSuccessful() { return serverFetchSuccessful; },
-  set serverFetchSuccessful(val) { serverFetchSuccessful = val; }
-};
 

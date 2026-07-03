@@ -88,7 +88,7 @@ function extractGrid(includeRbn) {
     if (!cells.length) return;
     const row = [];
     const meta = [];
-    cells.forEach((c, i) => {
+    cells.forEach((/** @type {HTMLElement} */ c, i) => {
       if (i === 0) {
         row.push(collapse(c.querySelector('.emp-label')?.textContent || c.textContent));
         meta.push({ name: true });
@@ -173,7 +173,7 @@ function renderPreview() {
   header.innerHTML = `<strong>${TITLE}</strong><span>${periodLabel()}${planMode ? ' · Planungsentwurf' : ''}</span>`;
   page.appendChild(header);
 
-  const clone = document.getElementById('plan-table')?.cloneNode(true);
+  const clone = /** @type {HTMLElement} */ (document.getElementById('plan-table')?.cloneNode(true));
   if (clone) {
     clone.removeAttribute('id');
     clone.classList.add('pp-table');
@@ -564,7 +564,7 @@ function buildModal() {
   overlay.querySelectorAll('[data-pp-close]').forEach((b) => b.addEventListener('click', closePreview));
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closePreview(); });
 
-  overlay.querySelectorAll('.pp-opt').forEach((b) => {
+  overlay.querySelectorAll('.pp-opt').forEach((/** @type {HTMLElement} */ b) => {
     b.addEventListener('click', () => {
       options.orientation = b.dataset.orient;
       overlay.querySelectorAll('.pp-opt').forEach((o) => {
@@ -577,7 +577,7 @@ function buildModal() {
   });
 
   overlay.querySelector('#pp-include-rbn')?.addEventListener('change', (e) => {
-    options.includeRbn = e.target.checked;
+    options.includeRbn = /** @type {HTMLInputElement} */ (e.target).checked;
     renderPreview();
   });
 

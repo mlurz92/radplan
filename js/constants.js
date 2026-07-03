@@ -679,7 +679,7 @@ export function isoWeekNumber(y, m, d) {
   thu.setDate(dt.getDate() - (dt.getDay() === 0 ? 6 : dt.getDay() - 1) + 3);
   const ft = new Date(thu.getFullYear(), 0, 4);
   ft.setDate(4 - (ft.getDay() === 0 ? 6 : ft.getDay() - 1));
-  return 1 + Math.round((thu - ft) / 604800000);
+  return 1 + Math.round((thu.getTime() - ft.getTime()) / 604800000);
 }
 
 export function nextCalendarDay(y, m, d) {

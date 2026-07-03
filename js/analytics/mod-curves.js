@@ -108,11 +108,11 @@ export default {
     // Chart.js Liniendiagramm (optional, mit Guard).
     const canvas = root.querySelector('#crv-canvas');
     if (!canvas || typeof Chart === 'undefined') return;
-    const datasets = relEmps.map((emp) => ({
+    const datasets = /** @type {any[]} */ (relEmps.map((emp) => ({
       label: emp, data: cumDevs[emp],
       borderColor: perEmp[emp].color, backgroundColor: perEmp[emp].color + '18',
       borderWidth: 2, pointRadius: 3, pointHoverRadius: 6, tension: 0.35, spanGaps: false,
-    }));
+    })));
     datasets.push({ label: 'Ideal (Ø)', data: Array(12).fill(0), borderColor: 'rgba(100,116,139,0.35)', borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5, tension: 0, fill: false });
 
     if (_chart) { try { _chart.destroy(); } catch (_) {} }

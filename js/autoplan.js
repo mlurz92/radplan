@@ -35,17 +35,20 @@ import {
   posColor
 } from './constants.js';
 
-import { 
-  state, 
-  planMode, 
-  planData, 
-  DATA 
+import {
+  state,
+  planMode,
+  planData,
+  DATA,
+  setPlanMode,
+  setPlanData,
 } from './state.js';
 
-import { 
-  getMonthData, 
-  getCell, 
-  dutyOwner 
+import {
+  getMonthData,
+  getCell,
+  dutyOwner,
+  createPlanSession,
 } from './model.js';
 
 export let autoPlanResult = null;
@@ -62,6 +65,49 @@ export const AUTO_PLAN_WEIGHT_PROFILES = {
   fairness: { key: "fairness", label: "Fairness-optimiert", hint: "Gewichtet die gleichmäßige Verteilung von WE-/Samstags-/HG-Diensten stärker, Wünsche treten zurück.", wish: 0.5, fairness: 1.6 },
   wish: { key: "wish", label: "Wunscherfüllung-optimiert", hint: "Gewichtet erfüllte Dienstwünsche deutlich stärker, Fairness-Ausgleich tritt zurück.", wish: 2.4, fairness: 0.65 }
 };
+
+// Kontinuierlicher Fairness/Wunsch-Mix-Regler (0..100) als Alternative zu den
+// drei festen Presets oben: 0 = reine Fairness-Gewichtung, 50 = Ausgewogen
+// (identisch zu "standard"), 100 = reine Wunscherfüllungs-Gewichtung.
+// Stückweise linear über die beiden Segmente [0,50] und [50,100], sodass alle
+// drei benannten Presets an ihrer jeweiligen Position exakt reproduziert
+// werden (0 -> "fairness", 50 -> "standard", 100 -> "wish") und dazwischen
+// stetig interpoliert wird.
+export function weightProfileFromMix(mixPct) {
+  const clamped = Math.max(0, Math.min(100, Math.round(mixPct)));
+  const fairness = AUTO_PLAN_WEIGHT_PROFILES.fairness;
+  const standard = AUTO_PLAN_WEIGHT_PROFILES.standard;
+  const wish = AUTO_PLAN_WEIGHT_PROFILES.wish;
+
+  const [from, to, t] = clamped <= 50
+    ? [fairness, standard, clamped / 50]
+    : [standard, wish, (clamped - 50) / 50];
+
+  const lerp = (a, b) => a + (b - a) * t;
+
+  return {
+    key: "custom",
+    mixPct: clamped,
+    label: `Individuell (${clamped})`,
+    hint: `Benutzerdefinierte Mischung zwischen Fairness- und Wunsch-Gewichtung (Regler-Position ${clamped}/100).`,
+    wish: lerp(from.wish, to.wish),
+    fairness: lerp(from.fairness, to.fairness),
+  };
+}
+
+// Löst den zweiten Parameter von computeAutoPlan() auf: entweder einer der
+// drei benannten Presets (String-Key aus AUTO_PLAN_WEIGHT_PROFILES) oder ein
+// bereits fertiges { wish, fairness }-Gewichtsobjekt, wie es
+// weightProfileFromMix() für den kontinuierlichen Regler liefert.
+export function resolveWeightProfile(weightProfileKeyOrObject) {
+  if (weightProfileKeyOrObject && typeof weightProfileKeyOrObject === "object") {
+    const { wish, fairness } = weightProfileKeyOrObject;
+    if (Number.isFinite(wish) && Number.isFinite(fairness)) {
+      return weightProfileKeyOrObject;
+    }
+  }
+  return AUTO_PLAN_WEIGHT_PROFILES[weightProfileKeyOrObject] || AUTO_PLAN_WEIGHT_PROFILES.standard;
+}
 
 export function isDutyExempt(empName) { 
   return DUTY_EXEMPT.includes(empName); 
@@ -256,13 +302,19 @@ function cellHasVacationLikeCode(cell) {
 // Wie isNextDayVacation, aber mit erweiterter "urlaubsähnlicher" Definition
 // (zusätzlich FZA und WB). Wird als harte Sperre "kein Dienst am Tag vor
 // Urlaub" für D und HG genutzt.
-export function isNextDayVacationLike(y, m, emp, d, assignments) {
+// `externalAssignments` (optional) sind monatsübergreifend bereits im
+// laufenden Autoplan-Durchlauf vorgemerkte, aber noch nicht in DATA
+// persistierte Zellen (siehe queueExternalAssignment) — ohne sie würde ein
+// Wechsel in den Folgemonat frisch geplante Urlaubstage dort übersehen.
+export function isNextDayVacationLike(y, m, emp, d, assignments, externalAssignments) {
   const next = nextCalendarDay(y, m, d);
   if (next.y === y && next.m === m) {
     return cellHasVacationLikeCode(assignments[emp]?.[next.d]);
   }
   const nk = monthKey(next.y, next.m);
-  return cellHasVacationLikeCode(DATA[nk]?.assignments?.[emp]?.[next.d]);
+  const stored = DATA[nk]?.assignments?.[emp]?.[next.d] || {};
+  const queued = externalAssignments?.[nk]?.[emp]?.[next.d] || {};
+  return cellHasVacationLikeCode({ ...stored, ...queued });
 }
 
 export function hasCTLeadershipConflict(y, m, emp, day, assignments) {
@@ -621,7 +673,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
   const { year: y, month: m } = state;
   if (!planMode || !planData) return null;
 
-  const W = AUTO_PLAN_WEIGHT_PROFILES[weightProfileKey] || AUTO_PLAN_WEIGHT_PROFILES.standard;
+  const W = resolveWeightProfile(weightProfileKey);
 
   const hols = getSaxonyHolidaysCached(y);
   const dim = daysInMonth(y, m);
@@ -1589,16 +1641,32 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     GLOBAL_DAY_DOUBLE_BOOKED: 100000,
   };
 
-  function computeBDObjective() {
+  // BD_DAY_UNCOVERED_LOCAL/BD_DAY_DOUBLE_BOOKED hängen ausschließlich davon
+  // ab, WIE VIELE Personen an einem Tag einen D-Dienst haben, nicht davon,
+  // WER es ist. Als eigene Funktion ausgelagert, damit Swap-Loops, die einen
+  // D-Dienst am selben Tag lediglich von Person A auf Person B umhängen
+  // (Belegungszahl pro Tag bleibt dabei unverändert, siehe canDoBD's
+  // existingDuty-Prüfung), diesen O(dim·|emps|)-Anteil überspringen können,
+  // statt ihn bei jedem einzelnen Tauschversuch neu zu berechnen (siehe
+  // computeBDAggregateObjective / runPhase4_BDOptimize).
+  function computeBDCoveragePenalty() {
     let score = 0;
     for (let day = 1; day <= dim; day++) {
-      let dCount = 0; 
-      emps.forEach(e => { 
-        if(result[e]?.[day]?.duty === "D") dCount++; 
+      let dCount = 0;
+      emps.forEach(e => {
+        if (result[e]?.[day]?.duty === "D") dCount++;
       });
       if (dCount === 0) score += PENALTY.BD_DAY_UNCOVERED_LOCAL;
       if (dCount > 1) score += PENALTY.BD_DAY_DOUBLE_BOOKED * dCount;
     }
+    return score;
+  }
+
+  // Alle personenbezogenen/aggregierten BD-Kostenterme (O(|dutyEmps|), nicht
+  // O(dim·|dutyEmps|)) — der Teil des Objectives, der sich bei einem
+  // Tages-internen Personentausch tatsächlich ändern kann.
+  function computeBDAggregateObjective() {
+    let score = 0;
 
     // Sum of cached individual employee scores
     dutyEmps.forEach(e => {
@@ -1631,9 +1699,13 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
         score += (currentSatBD[emp] - satAvg) * (currentSatBD[emp] - satAvg) * PENALTY.BD_SATURDAY_SPREAD * W.fairness;
       }
     });
-    
+
     score += deficitSum * PENALTY.BD_TARGET_DEFICIT_SUM + surplusSum * PENALTY.BD_TARGET_SURPLUS_SUM + Math.abs(deficitSum - surplusSum) * PENALTY.BD_TARGET_IMBALANCE;
     return score;
+  }
+
+  function computeBDObjective() {
+    return computeBDCoveragePenalty() + computeBDAggregateObjective();
   }
 
   let bundledHGDays = new Set();
@@ -1798,17 +1870,25 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     return { score, histScore, tags };
   }
 
-  function computeHGObjective() {
+  // Analog zu computeBDCoveragePenalty: hängt nur von der Anzahl HG-Träger
+  // pro Tag ab, nicht davon wer es ist — für Tages-interne Personentausche
+  // (runPhase7_HGOptimize) invariant und daher separat auslagerbar.
+  function computeHGCoveragePenalty() {
     let score = 0;
     for (let day = 1; day <= dim; day++) {
       let hgCount = 0;
-      emps.forEach(e => { 
-        if(result[e]?.[day]?.duty === "HG") hgCount++; 
+      emps.forEach(e => {
+        if (result[e]?.[day]?.duty === "HG") hgCount++;
       });
       if (hgCount === 0) score += PENALTY.HG_DAY_UNCOVERED_LOCAL;
       if (hgCount > 1) score += PENALTY.HG_DAY_DOUBLE_BOOKED * hgCount;
     }
-    
+    return score;
+  }
+
+  function computeHGAggregateObjective() {
+    let score = 0;
+
     // Sum of cached individual employee scores
     hgFAs.forEach(e => {
       score += hgEmpScoresCache[e] || 0;
@@ -1845,6 +1925,10 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     return score;
   }
 
+  function computeHGObjective() {
+    return computeHGCoveragePenalty() + computeHGAggregateObjective();
+  }
+
   function computeGlobalObjective() {
     const bdObjective = computeBDObjective();
     const hgObjective = hgFAs.length > 0 ? computeHGObjective() : 0;
@@ -1870,7 +1954,14 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       .map(({ day }) => day);
 
     rebuildCurrentCounters();
-    let bestBD = computeBDObjective();
+    // Trial-Swaps innerhalb dieser Phase tauschen den D-Träger eines Tages
+    // 1:1 gegen eine andere Person (canDoBD verlangt, dass der Kandidat an
+    // diesem Tag noch KEINEN Dienst hat) — die Belegungszahl pro Tag bleibt
+    // dabei exakt gleich, also ist computeBDCoveragePenalty() über die ganze
+    // Phase hinweg konstant und muss nicht bei jedem Versuch neu berechnet
+    // werden (spart den dominanten O(dim)-Anteil von computeBDObjective()
+    // pro Tauschversuch, siehe computeBDAggregateObjective()).
+    let bestBD = computeBDAggregateObjective();
 
     for (let pass = 0; pass < BD_MAX_PASSES; pass++) {
       let improved = false;
@@ -1895,9 +1986,9 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
           }
           
           setDutyAssignment(candidate, day, "D");
-          
-          const newBD = computeBDObjective();
-          if (newBD + 0.01 < bestBD) { 
+
+          const newBD = computeBDAggregateObjective();
+          if (newBD + 0.01 < bestBD) {
             bestBD = newBD; 
             improved = true; 
             swaps++; 
@@ -2025,8 +2116,12 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       .map(({ day }) => day);
 
     rebuildCurrentCounters();
-    let bestHG = computeHGObjective();
-    
+    // Gleiche Überlegung wie in runPhase4_BDOptimize: canDoHG verlangt einen
+    // dienstfreien Kandidaten am Zieltag, die Tages-Belegungszahl bleibt beim
+    // Tausch also konstant -> computeHGCoveragePenalty() muss pro
+    // Tauschversuch nicht neu berechnet werden.
+    let bestHG = computeHGAggregateObjective();
+
     for (let pass = 0; pass < HG_MAX_PASSES; pass++) {
       let improved = false;
       for (const day of mutableHGDays) {
@@ -2055,8 +2150,8 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
           }
           
           setDutyAssignment(candidate, day, "HG");
-          
-          const newHG = computeHGObjective();
+
+          const newHG = computeHGAggregateObjective();
           if (newHG + 0.01 < bestHG) {
             bestHG = newHG;
             improved = true;
@@ -2522,4 +2617,138 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
   
   rebuildCurrentCounters();
   return { assignments: result, summary, log, report: finalReport, externalAssignments, ruleTelemetry, fluxTraces };
+}
+
+const AUTO_PLAN_RANGE_MAX_MONTHS = 24;
+
+function* monthSequence(startYear, startMonth, endYear, endMonth) {
+  let cy = startYear;
+  let cm = startMonth;
+  while (cy < endYear || (cy === endYear && cm <= endMonth)) {
+    yield { year: cy, month: cm };
+    cm++;
+    if (cm > 11) {
+      cm = 0;
+      cy++;
+    }
+  }
+}
+
+/**
+ * Plant mehrere aufeinanderfolgende Monate als segmentierte Kette anstelle
+ * eines einzigen Solver-Laufs über den gesamten Zeitraum. computeAutoPlan()
+ * ist bewusst auf Monatsgröße ausgelegt (siehe computeBDCoveragePenalty /
+ * computeHGCoveragePenalty: O(dim) pro Aufruf, mit dim ≈ 28–31) — ein
+ * einzelner Lauf über z. B. 365 Tage würde diesen Anteil und damit die
+ * gesamte Multi-Zyklus-Optimierung quadratisch verlangsamen. Stattdessen
+ * wird hier jeder Monat einzeln mit dem bestehenden, unveränderten
+ * computeAutoPlan() geplant.
+ *
+ * Die jahresweite Soll/Ist-Fairness (siehe collectHistoricalDutyStats)
+ * trägt sich dabei automatisch fort: das Ergebnis jedes Monats wird VOR der
+ * Planung des nächsten Monats in `DATA` geschrieben, sodass
+ * collectHistoricalDutyStats() für den Folgemonat die soeben geplanten
+ * Dienste des Vormonats bereits als Ist-Belastung berücksichtigt — exakt
+ * dieselbe Logik, die auch beim manuellen "Monat für Monat"-Planen einer
+ * Nutzerin greifen würde.
+ *
+ * Standardmäßig (`options.apply` nicht gesetzt) ist der Aufruf
+ * seiteneffektfrei: alle während der Berechnung vorgenommenen
+ * Zwischenschreibungen in `DATA` werden am Ende wieder auf den
+ * ursprünglichen Stand zurückgesetzt (Vorschau, analog zum Entwurfscharakter
+ * von computeAutoPlan()/dem Planungsmodus selbst). Erst mit
+ * `options.apply = true` bleiben die geplanten Monate dauerhaft in `DATA`
+ * stehen (der Aufrufer ist dafür verantwortlich, anschließend
+ * saveToStorage() aufzurufen).
+ *
+ * @param {number} startYear
+ * @param {number} startMonth 0-basiert
+ * @param {number} endYear
+ * @param {number} endMonth 0-basiert, inklusive
+ * @param {{
+ *   weightProfileKey?: string,
+ *   customTargets?: Object<string, number>,
+ *   apply?: boolean,
+ *   onMonthStart?: (info: {year: number, month: number, index: number, total: number}) => void,
+ * }} [options]
+ */
+export async function computeAutoPlanRange(startYear, startMonth, endYear, endMonth, options = {}) {
+  const { weightProfileKey = "standard", customTargets, apply = false, onMonthStart } = options;
+
+  const sequence = [...monthSequence(startYear, startMonth, endYear, endMonth)];
+  if (sequence.length === 0) {
+    throw new Error("computeAutoPlanRange: Enddatum liegt vor dem Startdatum.");
+  }
+  if (sequence.length > AUTO_PLAN_RANGE_MAX_MONTHS) {
+    throw new Error(`computeAutoPlanRange: Zeitraum zu groß (max. ${AUTO_PLAN_RANGE_MAX_MONTHS} Monate).`);
+  }
+
+  const prevYear = state.year;
+  const prevMonth = state.month;
+  const prevPlanMode = planMode;
+  const prevPlanData = planData;
+  // Vollständige Sicherung von DATA statt einer Liste der geplanten Monate:
+  // Lesezugriffe innerhalb von computeAutoPlan() können über Monatsgrenzen
+  // hinweg unbeteiligte Monate als Nebeneffekt neu anlegen (getMonthDataRaw
+  // vivifiziert fehlende Monate automatisch, z. B. beim vorausschauenden
+  // Prüfen von Urlaub in der Folgewoche nahe eines Monatsendes). Ohne eine
+  // vollständige Sicherung blieben solche "mitgerissenen" Monate auch im
+  // reinen Vorschau-Modus (apply:false) fälschlich in DATA zurück.
+  const dataBackup = apply ? null : structuredClone(DATA);
+
+  const months = [];
+  const aggregate = { monthsPlanned: 0, totalWarnings: 0, totalReportEntries: 0 };
+
+  try {
+    for (let i = 0; i < sequence.length; i++) {
+      const { year, month } = sequence[i];
+      const mk = monthKey(year, month);
+
+      if (typeof onMonthStart === "function") {
+        onMonthStart({ year, month, index: i, total: sequence.length });
+      }
+
+      state.year = year;
+      state.month = month;
+      setPlanMode(true);
+      setPlanData(createPlanSession(year, month));
+
+      const result = await computeAutoPlan(customTargets, weightProfileKey);
+      if (!result) {
+        throw new Error(`computeAutoPlanRange: Planung für ${mk} lieferte kein Ergebnis (Planungsmodus/-daten fehlten unerwartet).`);
+      }
+
+      const md = getMonthData(year, month);
+      DATA[mk] = {
+        ...md,
+        employees: [...planData.employees],
+        assignments: result.assignments,
+      };
+
+      months.push({
+        year,
+        month,
+        assignments: result.assignments,
+        summary: result.summary,
+        report: result.report,
+        log: result.log,
+      });
+      aggregate.monthsPlanned++;
+      aggregate.totalWarnings += result.summary?.warnings?.length || 0;
+      aggregate.totalReportEntries += result.report?.length || 0;
+    }
+
+    return { months, aggregate };
+  } finally {
+    if (dataBackup) {
+      for (const k of Object.keys(DATA)) {
+        if (!(k in dataBackup)) delete DATA[k];
+      }
+      Object.assign(DATA, dataBackup);
+    }
+    state.year = prevYear;
+    state.month = prevMonth;
+    setPlanMode(prevPlanMode);
+    setPlanData(prevPlanData);
+  }
 }

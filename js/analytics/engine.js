@@ -25,7 +25,7 @@ import {
   getEmployeesForYear, computeDutyFairness, getEmployeeFairness, isDutyExempt,
 } from '../model.js';
 
-import { state, TOD_Y, TOD_M } from '../state.js';
+import { state, TOD_Y, TOD_M, DATA } from '../state.js';
 import { posColor } from '../constants.js';
 
 // Re-Exports, damit Module nur ./engine.js importieren müssen.
@@ -399,6 +399,72 @@ export function computeCompliance(range) {
 }
 
 // ---------------------------------------------------------------------------
+//  Saisonale Ausfallquote (historische Krankheitsquote pro Kalendermonat)
+// ---------------------------------------------------------------------------
+// Krankheitsbedingte Codes im engeren Sinn (nicht Urlaub/Weiterbildung o.ä.),
+// siehe Glossar. Grundlage für die saisonale Risikoeinschätzung im Forecast.
+const SICK_CODES = ['K', 'KK'];
+// Unterhalb dieser Personen-Werktage-Stichprobe gilt eine Kalendermonats-
+// Quote als statistisch nicht belastbar genug für eine Risikowarnung.
+const SEASONAL_MIN_SAMPLE_DAYS = 20;
+// Schwelle für "auffällig erhöht": mindestens 15% über dem Jahresdurchschnitt.
+const SEASONAL_RISK_THRESHOLD = 1.15;
+
+/**
+ * Ermittelt für jeden Kalendermonat (0–11), wie sich die krankheitsbedingte
+ * Ausfallquote (K/KK bezogen auf alle Werktage aktiver Mitarbeitender)
+ * historisch über ALLE in DATA vorhandenen Jahre hinweg verhält — z.B. um
+ * saisonale Muster wie eine erhöhte Grippewelle im Winter sichtbar zu
+ * machen. Rein deskriptiv/historisch (kein Modelltraining, keine externen
+ * Daten): mehr vorhandene Jahre mit tatsächlichen Diensteinträgen verbessern
+ * die Aussagekraft automatisch, da einfach mehr Personen-Werktage in die
+ * jeweilige Kalendermonats-Quote einfließen.
+ * @returns {Array<{month:number, sampleDays:number, rate:number, indexVsAverage:number, hasData:boolean}>}
+ */
+export function computeSeasonalAbsenceIndex() {
+  const monthly = Array.from({ length: 12 }, () => ({ sickDays: 0, activeDays: 0 }));
+
+  for (const [key, md] of Object.entries(DATA)) {
+    if (!md || !Array.isArray(md.employees) || !md.assignments) continue;
+    const [yearPart, monthPart] = key.split('-');
+    const y = parseInt(yearPart, 10);
+    const m = parseInt(monthPart, 10);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || m < 0 || m > 11) continue;
+
+    const hols = getSaxonyHolidaysCached(y);
+    const dim = daysInMonth(y, m);
+    const bucket = monthly[m];
+
+    md.employees.forEach((emp) => {
+      for (let d = 1; d <= dim; d++) {
+        if (!isWorkday(y, m, d, hols)) continue;
+        bucket.activeDays++;
+        const cell = md.assignments?.[emp]?.[d];
+        const codes = (cell?.assignment || '').split('/').map((x) => x.trim());
+        if (codes.some((c) => SICK_CODES.includes(c))) {
+          bucket.sickDays++;
+        }
+      }
+    });
+  }
+
+  const rates = monthly.map((b) => (b.activeDays > 0 ? b.sickDays / b.activeDays : null));
+  const validRates = rates.filter((r) => r !== null);
+  const overallAvg = validRates.length ? validRates.reduce((a, b) => a + b, 0) / validRates.length : 0;
+
+  return monthly.map((b, m) => {
+    const rate = rates[m] ?? 0;
+    return {
+      month: m,
+      sampleDays: b.activeDays,
+      rate,
+      indexVsAverage: overallAvg > 0 ? rate / overallAvg : 1,
+      hasData: b.activeDays >= SEASONAL_MIN_SAMPLE_DAYS,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
 //  Prognose (Jahresend-Hochrechnung der Dienste)
 // ---------------------------------------------------------------------------
 export function computeForecast(year) {
@@ -436,7 +502,27 @@ export function computeForecast(year) {
     };
   });
 
-  return { year, monthsWithData, factor, rows, team: fairness.team };
+  // Saisonale Risikoeinschätzung für die noch unbeplanten Restmonate des
+  // Jahres: Kalendermonate mit historisch überdurchschnittlicher
+  // Krankheitsquote (siehe computeSeasonalAbsenceIndex) bedeuten, dass die
+  // lineare Hochrechnung oben die tatsächlich zu erwartende Dienstlast der
+  // dann noch verfügbaren Mitarbeitenden eher unterschätzt. Rein informativ
+  // (verändert die obige Prognosezahlen bewusst nicht, um sie nicht durch
+  // ein zusätzliches, für Laien schwer nachvollziehbares Gewichtungsmodell
+  // zu verschleiern) — wird im Auswertungs-Hub als separater Hinweis samt
+  // saisonalem Verlauf dargestellt.
+  const seasonalIndex = computeSeasonalAbsenceIndex();
+  const remainingMonths = [];
+  for (let m = monthsWithData; m < 12; m++) remainingMonths.push(m);
+  const seasonalRiskMonths = remainingMonths
+    .map((m) => seasonalIndex[m])
+    .filter((s) => s.hasData && s.indexVsAverage >= SEASONAL_RISK_THRESHOLD)
+    .sort((a, b) => b.indexVsAverage - a.indexVsAverage);
+
+  return {
+    year, monthsWithData, factor, rows, team: fairness.team,
+    seasonalIndex, seasonalRiskMonths,
+  };
 }
 
 // Wunscherfüllungsrate über einen Zeitraum (erfüllte vs. eingetragene Wünsche).
@@ -555,6 +641,7 @@ export const TT = {
   projDelta: 'Erwartete Jahresabweichung: Prognose minus Jahres-Soll.',
   wishRate: 'Wunscherfüllungsrate: Anteil der eingetragenen Dienstwünsche, die der Plan erfüllt.',
   wishViolated: 'Verletzte „Kein Dienst"-Wünsche: an einem Wunschtag wurde dennoch ein Dienst zugeteilt.',
+  seasonalAbsence: 'Historische Krankheitsquote (K/KK) je Kalendermonat über alle in RadPlan erfassten Jahre hinweg — zeigt saisonale Muster (z.B. Grippewelle im Winter), unabhängig von der linearen Hochrechnung oben.',
 
   // — Jahresgitter & Kurven —
   yeargrid: 'Monats-Heatmap: Dienste je Person und Monat über das Jahr. Farbe = Abweichung vom Monats-Kollegiums-Durchschnitt.',

@@ -116,13 +116,15 @@ import { renderEmployeeDashboard, exportEmployeeDashboardCSV } from './render-em
 
 import {
   computeAutoPlan,
+  computeAutoPlanRange,
   collectHistoricalDutyStatsAsync,
   sleep,
   TARGET_WEEKEND_DUTY,
   RELAXED_WEEKEND_DUTY_LIMIT,
   isDutyExempt,
   DUTY_EXEMPT,
-  AUTO_PLAN_WEIGHT_PROFILES
+  AUTO_PLAN_WEIGHT_PROFILES,
+  weightProfileFromMix
 } from './autoplan.js';
 
 import { NeuralGraph } from './neuralgraph.js';
@@ -142,6 +144,7 @@ let localApViewMode = "config";
 let localAutoPlanConfigRenderToken = 0;
 let localApAnimationId = null;
 let neuralGraphInstance = null;
+/** @type {string | ReturnType<typeof weightProfileFromMix>} */
 let localWeightProfile = "standard";
 let localAutoPlanAlternatives = {};
 
@@ -268,13 +271,14 @@ export function openHeaderMenu() {
   menu.removeAttribute("hidden");
   wrap?.classList.add("open");
   btn?.setAttribute("aria-expanded", "true");
-  menu.querySelector(".hmenu-item")?.focus();
+  /** @type {HTMLElement} */ (menu.querySelector(".hmenu-item"))?.focus();
   headerMenuOutsideHandler = (e) => {
     if (e.type === "keydown") {
-      if (e.key === "Escape") { closeHeaderMenu(); btn?.focus(); }
+      if (/** @type {KeyboardEvent} */ (e).key === "Escape") { closeHeaderMenu(); btn?.focus(); }
       return;
     }
-    if (!menu.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
+    const target = /** @type {Node} */ (e.target);
+    if (!menu.contains(target) && target !== btn && !btn?.contains(target)) {
       closeHeaderMenu();
     }
   };
@@ -289,7 +293,7 @@ function initHeaderOverflowMenu() {
 
   menu.querySelectorAll(".hmenu-item[data-icon]").forEach((item) => {
     const ico = item.querySelector(".hmenu-ico");
-    if (ico && !ico.childElementCount) setIcon(ico, item.dataset.icon, { size: 16 });
+    if (ico && !ico.childElementCount) setIcon(ico, /** @type {HTMLElement} */ (item).dataset.icon, { size: 16 });
   });
 
   btn.addEventListener("click", (e) => {
@@ -298,7 +302,7 @@ function initHeaderOverflowMenu() {
   });
 
   menu.addEventListener("click", (e) => {
-    const item = e.target.closest(".hmenu-item");
+    const item = /** @type {HTMLElement} */ (e.target).closest(".hmenu-item");
     if (!item) return;
     if (item.id === "btn-colorblind" || item.id === "btn-density") return;
     closeHeaderMenu();
@@ -307,8 +311,8 @@ function initHeaderOverflowMenu() {
   menu.addEventListener("keydown", (e) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
     e.preventDefault();
-    const items = [...menu.querySelectorAll(".hmenu-item")];
-    const idx = items.indexOf(document.activeElement);
+    const items = /** @type {HTMLElement[]} */ ([...menu.querySelectorAll(".hmenu-item")]);
+    const idx = items.indexOf(/** @type {HTMLElement} */ (document.activeElement));
     const next = e.key === "ArrowDown"
       ? items[(idx + 1) % items.length]
       : items[(idx - 1 + items.length) % items.length];
@@ -360,7 +364,7 @@ export function isPeriodFlyoutOpen() {
 }
 
 export function populatePeriodMonthSelect() {
-  const sel = document.getElementById("period-month-select");
+  const sel = /** @type {HTMLSelectElement} */ (document.getElementById("period-month-select"));
   if (!sel || sel.options.length) {
     return;
   }
@@ -374,8 +378,8 @@ export function populatePeriodMonthSelect() {
 }
 
 export function syncPeriodControls() {
-  const monthSelect = document.getElementById("period-month-select");
-  const yearInput = document.getElementById("period-year-input");
+  const monthSelect = /** @type {HTMLSelectElement} */ (document.getElementById("period-month-select"));
+  const yearInput = /** @type {HTMLInputElement} */ (document.getElementById("period-year-input"));
   const context = document.getElementById("period-context");
   
   if (monthSelect) {
@@ -469,8 +473,8 @@ export function changeYear(delta) {
 }
 
 export function applyPeriodDraft() {
-  const year = Math.max(2000, Math.min(2100, parseInt(state.periodDraft.year, 10) || state.year));
-  const month = Math.max(0, Math.min(11, parseInt(state.periodDraft.month, 10) || 0));
+  const year = Math.max(2000, Math.min(2100, parseInt(String(state.periodDraft.year), 10) || state.year));
+  const month = Math.max(0, Math.min(11, parseInt(String(state.periodDraft.month), 10) || 0));
   switchPeriod(year, month);
 }
 
@@ -506,8 +510,8 @@ export function recordPlanHistory() {
 }
 
 export function updatePlanBarUI() {
-  const undoBtn = document.getElementById("btn-plan-undo");
-  const redoBtn = document.getElementById("btn-plan-redo");
+  const undoBtn = /** @type {HTMLButtonElement} */ (document.getElementById("btn-plan-undo"));
+  const redoBtn = /** @type {HTMLButtonElement} */ (document.getElementById("btn-plan-redo"));
   
   if (!undoBtn || !redoBtn) {
     return;
@@ -843,7 +847,7 @@ export function openEditor(emp, day, options = {}) {
     if (planBadge) planBadge.style.display = "none";
   }
   
-  const commentTa = document.getElementById("ed-comment-ta");
+  const commentTa = /** @type {HTMLTextAreaElement & {_ypCountHandler?: () => void}} */ (document.getElementById("ed-comment-ta"));
   const commentCount = document.getElementById("ed-comment-count");
   const commentSection = document.getElementById("ed-comment-section");
   if (commentSection) commentSection.style.display = isRbnRow ? "none" : "";
@@ -871,7 +875,7 @@ export function openEditor(emp, day, options = {}) {
 export function initEditorChipDelegation() {
   const wpC = document.getElementById("ed-wp");
   wpC?.addEventListener("click", (e) => {
-    const chip = e.target.closest(".chip-wp");
+    const chip = /** @type {HTMLElement | null} */ (/** @type {HTMLElement} */ (e.target).closest(".chip-wp"));
     if (!chip || chip.classList.contains("dim") || !wpC.contains(chip)) return;
     const code = chip.dataset.code;
     const { isRbnRow } = state.edit;
@@ -888,7 +892,7 @@ export function initEditorChipDelegation() {
 
   const stC = document.getElementById("ed-st");
   stC?.addEventListener("click", (e) => {
-    const chip = e.target.closest(".chip-st");
+    const chip = /** @type {HTMLElement | null} */ (/** @type {HTMLElement} */ (e.target).closest(".chip-st"));
     if (!chip || chip.dataset.clickable !== "1" || !stC.contains(chip)) return;
     const code = chip.dataset.code;
     state.ed.st = state.ed.st === code ? null : code;
@@ -900,7 +904,7 @@ export function initEditorChipDelegation() {
 
   const dtC = document.getElementById("ed-duty");
   dtC?.addEventListener("click", (e) => {
-    const chip = e.target.closest(".chip-duty");
+    const chip = /** @type {HTMLElement | null} */ (/** @type {HTMLElement} */ (e.target).closest(".chip-duty"));
     if (!chip || chip.classList.contains("blocked") || !dtC.contains(chip)) return;
     const code = chip.dataset.code;
     state.ed.duty = state.ed.duty === code ? null : code;
@@ -909,7 +913,7 @@ export function initEditorChipDelegation() {
 
   const wishC = document.getElementById("ed-wish");
   wishC?.addEventListener("click", (e) => {
-    const chip = e.target.closest(".chip-wish");
+    const chip = /** @type {HTMLElement | null} */ (/** @type {HTMLElement} */ (e.target).closest(".chip-wish"));
     if (!chip || !wishC.contains(chip)) return;
     const { emp, day } = state.edit;
     toggleWish(emp, day, chip.dataset.code);
@@ -1172,7 +1176,7 @@ export function saveEditor() {
     hideOverlay("modal-editor");
     updateGridCell(RBN_ROW_KEY, day);
     updateAllConflicts();
-    updateGridStatsAndHeader();
+    updateGridStatsAndHeader([day]);
     return;
   }
   
@@ -1209,7 +1213,7 @@ export function saveEditor() {
   if (planMode) recordPlanHistory();
 
   if (!isRbnRow) {
-    const commentTa = document.getElementById("ed-comment-ta");
+    const commentTa = /** @type {HTMLTextAreaElement} */ (document.getElementById("ed-comment-ta"));
     if (commentTa) {
       setComment(y, m, emp, day, commentTa.value);
     }
@@ -1225,7 +1229,7 @@ export function saveEditor() {
   }
   touchedDays.forEach((d) => updateGridCell(emp, d));
   updateAllConflicts();
-  updateGridStatsAndHeader();
+  updateGridStatsAndHeader([...touchedDays]);
 }
 
 export function confirmRemoveEmployee(name, refreshList = false) {
@@ -1282,8 +1286,61 @@ export function confirmRemoveEmployeeFuture(name) {
   }
 }
 
+/**
+ * Jahresplanung: plant alle verbleibenden Monate des aktuellen Kalenderjahres
+ * (ab der aktuell angezeigten Ansicht) automatisch durch, einen Monat nach
+ * dem anderen (siehe computeAutoPlanRange in autoplan.js — segmentierte
+ * Monatskette statt eines Monolith-Laufs). Anders als der reguläre
+ * Planungsmodus-Workflow gibt es hier KEINE Vorschau/Review pro Monat: nach
+ * Bestätigung wird direkt gespeichert. Bereits gesetzte Dienste bleiben als
+ * Fixpunkte erhalten (siehe fixedDutyKeys in computeAutoPlan), alles andere
+ * kann der Solver frei neu verteilen.
+ */
+export async function runYearAutoPlan() {
+  if (planMode) {
+    showToast("Bitte zuerst den Planungsmodus verlassen");
+    return;
+  }
+
+  const { year, month: startMonth } = state;
+  const endMonth = 11;
+  const monthCount = endMonth - startMonth + 1;
+
+  if (monthCount <= 1) {
+    showToast(`${MONTHS[startMonth]} ist bereits der letzte Monat des Jahres ${year}`);
+    return;
+  }
+
+  const label = `${MONTHS[startMonth]} – ${MONTHS[endMonth]} ${year}`;
+  const confirmed = confirm(
+    `Jahresplanung: ${monthCount} Monate (${label}) automatisch mit dem RadPlan Neural Scheduler planen?\n\n` +
+    `Jeder Monat wird einzeln geplant, die Belastung trägt sich dabei von Monat zu Monat fort. ` +
+    `Bereits gesetzte Dienste bleiben als Fixpunkte erhalten. Das Ergebnis wird direkt gespeichert, ` +
+    `OHNE die übliche Vorschau pro Monat — für eine Kontrolle vor dem Speichern bitte stattdessen ` +
+    `Monat für Monat über den Planungsmodus planen.`
+  );
+  if (!confirmed) return;
+
+  showToast(`Jahresplanung gestartet: ${label} …`);
+
+  try {
+    const { aggregate } = await computeAutoPlanRange(year, startMonth, year, endMonth, {
+      apply: true,
+    });
+    saveToStorage();
+    render();
+    showToast(
+      `Jahresplanung abgeschlossen: ${aggregate.monthsPlanned} Monate geplant` +
+      (aggregate.totalWarnings > 0 ? ` · ${aggregate.totalWarnings} Warnung(en)` : "")
+    );
+  } catch (e) {
+    console.error("runYearAutoPlan error:", e);
+    showToast(`Jahresplanung fehlgeschlagen: ${e.message}`);
+  }
+}
+
 function bindMobileDaySwipe(day, dim) {
-  const sheet = document.querySelector("#modal-mobile-day .modal");
+  const sheet = /** @type {HTMLElement} */ (document.querySelector("#modal-mobile-day .modal"));
   if (!sheet) return;
   sheet.dataset.mdaySwipeDay = String(day);
   sheet.dataset.mdaySwipeDim = String(dim);
@@ -1297,7 +1354,7 @@ function bindMobileDaySwipe(day, dim) {
 
   sheet.addEventListener("pointerdown", (e) => {
     if (e.pointerType === "mouse") return;
-    if (e.target.closest(".mday-editable")) return;
+    if (/** @type {HTMLElement} */ (e.target).closest(".mday-editable")) return;
     startX = e.clientX;
     startY = e.clientY;
     pointerId = e.pointerId;
@@ -1455,7 +1512,7 @@ export function openMobileDay(day) {
 
   bindMobileDaySwipe(day, dim);
 
-  bodyEl.querySelectorAll(".mday-editable[data-emp]").forEach(row => {
+  bodyEl.querySelectorAll(".mday-editable[data-emp]").forEach((/** @type {HTMLElement} */ row) => {
     let startX = 0;
     let startY = 0;
     let pointerId = null;
@@ -1549,25 +1606,25 @@ export function doExport() {
 }
 
 export function openImportModal() {
-  const ta = document.getElementById("import-ta");
+  const ta = /** @type {HTMLTextAreaElement} */ (document.getElementById("import-ta"));
   if (ta) ta.value = "";
-  
+
   const err = document.getElementById("import-err");
   if (err) err.style.display = "none";
-  
+
   const dz = document.getElementById("import-dropzone");
   const fn = document.getElementById("dz-filename");
-  const fi = document.getElementById("import-file-input");
-  
+  const fi = /** @type {HTMLInputElement} */ (document.getElementById("import-file-input"));
+
   if (dz) dz.classList.remove("has-file", "drag-over");
   if (fn) fn.textContent = "";
   if (fi) fi.value = "";
-  
+
   showOverlay("modal-import");
 }
 
 export function doImport() {
-  const ta = document.getElementById("import-ta");
+  const ta = /** @type {HTMLTextAreaElement} */ (document.getElementById("import-ta"));
   if (!ta) return;
   
   const raw = ta.value.trim();
@@ -1609,22 +1666,23 @@ export function doImport() {
 
 export function initDragDrop() {
   const dz = document.getElementById("import-dropzone");
-  const fi = document.getElementById("import-file-input");
-  
+  const fi = /** @type {HTMLInputElement} */ (document.getElementById("import-file-input"));
+
   if (!dz || !fi) return;
-  
+
   dz.addEventListener("click", (e) => {
     if (e.target !== fi) {
       fi.click();
     }
   });
-  
+
   fi.addEventListener("change", (e) => {
-    const f = e.target.files[0];
+    const target = /** @type {HTMLInputElement} */ (e.target);
+    const f = target.files[0];
     if (f) {
       handleDroppedFile(f);
     }
-    e.target.value = "";
+    target.value = "";
   });
   
   dz.addEventListener("dragenter", (e) => {
@@ -1639,7 +1697,7 @@ export function initDragDrop() {
   });
   
   dz.addEventListener("dragleave", (e) => {
-    if (!dz.contains(e.relatedTarget)) {
+    if (!dz.contains(/** @type {Node} */ (e.relatedTarget))) {
       dz.classList.remove("drag-over");
     }
   });
@@ -1673,8 +1731,8 @@ export function handleDroppedFile(file) {
   
   const reader = new FileReader();
   reader.onload = (ev) => {
-    const ta = document.getElementById("import-ta");
-    if (ta) ta.value = ev.target.result;
+    const ta = /** @type {HTMLTextAreaElement} */ (document.getElementById("import-ta"));
+    if (ta) ta.value = /** @type {string} */ (/** @type {FileReader} */ (ev.target).result);
     if (fnEl) {
       fnEl.textContent = file.name;
     }
@@ -1807,6 +1865,21 @@ export async function renderAutoPlanModal(renderToken = null) {
           </div>
         </div>
 
+        <div class="ap-weight-slider-row" id="ap-weight-slider-row" title="Kontinuierliche Mischung zwischen Fairness- und Wunsch-Gewichtung, unabhängig von den drei Presets oben">
+          <span class="ap-weight-slider-lbl">Fairness</span>
+          <input
+            type="range"
+            id="ap-weight-slider"
+            min="0"
+            max="100"
+            step="1"
+            value="${typeof localWeightProfile === "object" ? localWeightProfile.mixPct : 50}"
+            aria-label="Individuelle Mischung zwischen Fairness- und Wunsch-Gewichtung"
+          >
+          <span class="ap-weight-slider-lbl">Wunsch</span>
+          <span class="ap-weight-slider-value" id="ap-weight-slider-value">${typeof localWeightProfile === "object" ? localWeightProfile.mixPct : "–"}</span>
+        </div>
+
         <div class="ap-config-list">
     `;
 
@@ -1866,38 +1939,58 @@ export async function renderAutoPlanModal(renderToken = null) {
     const updateTotal = () => {
       const tot = dutyEmps.reduce((s, e) => s + (localAutoPlanTargets[e] ?? 0), 0);
       const totEl = document.getElementById("ap-total-target");
-      if (totEl) totEl.textContent = tot;
+      if (totEl) totEl.textContent = String(tot);
     };
 
-    body.querySelectorAll(".ap-step-btn").forEach((btn) => {
+    body.querySelectorAll(".ap-step-btn").forEach((/** @type {HTMLElement} */ btn) => {
       btn.addEventListener("click", () => {
         const emp = btn.dataset.emp;
         const isPlus = btn.classList.contains("plus");
         const current = localAutoPlanTargets[emp] ?? defaultBDTarget(emp);
         const next = isPlus ? Math.min(10, current + 1) : Math.max(0, current - 1);
-        
+
         localAutoPlanTargets[emp] = next;
-        const input = body.querySelector(`.ap-card-input[data-emp="${emp}"]`);
-        if (input) input.value = next;
+        const input = /** @type {HTMLInputElement} */ (body.querySelector(`.ap-card-input[data-emp="${emp}"]`));
+        if (input) input.value = String(next);
         updateTotal();
       });
     });
-    
-    body.querySelectorAll(".ap-weight-chip").forEach((chip) => {
+
+    const weightSlider = /** @type {HTMLInputElement} */ (document.getElementById("ap-weight-slider"));
+    const weightSliderValue = document.getElementById("ap-weight-slider-value");
+    const presetMixPct = { fairness: 0, standard: 50, wish: 100 };
+
+    body.querySelectorAll(".ap-weight-chip").forEach((/** @type {HTMLElement} */ chip) => {
       chip.addEventListener("click", () => {
         localWeightProfile = chip.dataset.profile;
-        body.querySelectorAll(".ap-weight-chip").forEach((c) => {
+        body.querySelectorAll(".ap-weight-chip").forEach((/** @type {HTMLElement} */ c) => {
           c.classList.toggle("is-active", c.dataset.profile === localWeightProfile);
         });
+        // Regler auf die dem Preset entsprechende Position zurücksetzen, damit
+        // beide Bedienelemente stets denselben Zustand widerspiegeln.
+        if (weightSlider) weightSlider.value = String(presetMixPct[localWeightProfile] ?? 50);
+        if (weightSliderValue) weightSliderValue.textContent = "–";
+      });
+    });
+
+    weightSlider?.addEventListener("input", () => {
+      const mixPct = parseInt(weightSlider.value, 10);
+      localWeightProfile = weightProfileFromMix(mixPct);
+      if (weightSliderValue) weightSliderValue.textContent = String(mixPct);
+      // Kein Preset ist mehr exakt aktiv, sobald der Regler manuell bewegt
+      // wurde (auch wenn er zufällig auf 0/50/100 steht) -- Chips optisch
+      // deaktivieren, um keinen falschen Eindruck zu erwecken.
+      body.querySelectorAll(".ap-weight-chip").forEach((/** @type {HTMLElement} */ c) => {
+        c.classList.remove("is-active");
       });
     });
 
     document.getElementById("ap-reset-defaults")?.addEventListener("click", () => {
-      dutyEmps.forEach((e) => { 
-        localAutoPlanTargets[e] = defaultBDTarget(e); 
+      dutyEmps.forEach((e) => {
+        localAutoPlanTargets[e] = defaultBDTarget(e);
       });
-      body.querySelectorAll(".ap-card-input").forEach((inp) => { 
-        inp.value = localAutoPlanTargets[inp.dataset.emp]; 
+      body.querySelectorAll(".ap-card-input").forEach((/** @type {HTMLInputElement} */ inp) => {
+        inp.value = String(localAutoPlanTargets[inp.dataset.emp]);
       });
       updateTotal();
     });
@@ -1918,9 +2011,10 @@ export async function renderAutoPlanModal(renderToken = null) {
               return;
             }
             localAutoPlanResult = result;
-            localAutoPlanAlternatives = { [localWeightProfile]: result };
+            const activeWeightKey = typeof localWeightProfile === "string" ? localWeightProfile : "custom";
+            localAutoPlanAlternatives = { [activeWeightKey]: result };
             Object.keys(AUTO_PLAN_WEIGHT_PROFILES).forEach((key) => {
-              if (key === localWeightProfile) return;
+              if (key === activeWeightKey) return;
               const altResult = computeAutoPlan(localAutoPlanTargets, key);
               if (altResult && typeof altResult.then === "function") {
                 altResult.then((r) => { if (r) localAutoPlanAlternatives[key] = r; });
@@ -2125,10 +2219,10 @@ export async function streamProgressLogs(result) {
       }
     }
 
-    if (bdEl) bdEl.textContent = bdCount;
-    if (hgEl) hgEl.textContent = hgCount;
-    if (swapEl) swapEl.textContent = swapCount;
-    if (rulesEl) rulesEl.textContent = telemetry.length;
+    if (bdEl) bdEl.textContent = String(bdCount);
+    if (hgEl) hgEl.textContent = String(hgCount);
+    if (swapEl) swapEl.textContent = String(swapCount);
+    if (rulesEl) rulesEl.textContent = String(telemetry.length);
 
     if (barEl) barEl.style.width = entry.pct + "%";
     if (pctEl) pctEl.textContent = entry.pct + "%";
@@ -2247,7 +2341,7 @@ export function renderResultView() {
           ${altKeys.map((key) => {
             const profile = AUTO_PLAN_WEIGHT_PROFILES[key];
             const altResult = localAutoPlanAlternatives[key];
-            const isActive = key === localWeightProfile;
+            const isActive = typeof localWeightProfile === "string" && key === localWeightProfile;
             if (!altResult) {
               return `
                 <div class="ap-alt-card is-loading">
@@ -2445,7 +2539,7 @@ export function renderResultView() {
     openScoreInfoModal(localAutoPlanResult);
   });
 
-  body.querySelectorAll(".ap-alt-use-btn").forEach((btn) => {
+  body.querySelectorAll(".ap-alt-use-btn").forEach((/** @type {HTMLElement} */ btn) => {
     btn.addEventListener("click", () => {
       const key = btn.dataset.profile;
       const altResult = localAutoPlanAlternatives[key];
@@ -2505,7 +2599,7 @@ export function renderReportModal() {
     `;
 
     itemEl.querySelector(".ap-report-why-btn")?.addEventListener("click", () => {
-      const alts = itemEl.querySelector(".ap-report-alts");
+      const alts = /** @type {HTMLElement} */ (itemEl.querySelector(".ap-report-alts"));
       if (alts) alts.hidden = !alts.hidden;
     });
 
@@ -2623,7 +2717,7 @@ export function quickToggleWorkplace(emp, day, wpCode) {
       updateGridCell(emp, d);
     });
     updateAllConflicts();
-    updateGridStatsAndHeader();
+    updateGridStatsAndHeader(days);
   }
 }
 
@@ -2690,7 +2784,7 @@ export function quickToggleDuty(emp, day, dutyCode) {
   } else {
     affectedCells.forEach(c => updateGridCell(c.emp, c.day));
     updateAllConflicts();
-    updateGridStatsAndHeader();
+    updateGridStatsAndHeader(affectedCells.map((c) => c.day));
   }
 }
 
@@ -2732,7 +2826,7 @@ export function moveDutyBadge(srcEmp, srcDay, dstEmp, dstDay) {
     updateGridCell(srcEmp, srcDay);
     updateGridCell(dstEmp, dstDay);
     updateAllConflicts();
-    updateGridStatsAndHeader();
+    updateGridStatsAndHeader([srcDay, dstDay]);
   }
 }
 
@@ -2755,7 +2849,7 @@ export function quickClearCell(emp, day) {
   } else {
     days.forEach(d => updateGridCell(emp, d));
     updateAllConflicts();
-    updateGridStatsAndHeader();
+    updateGridStatsAndHeader(days);
   }
 }
 
@@ -2788,7 +2882,7 @@ export function quickSetStatus(emp, day, statusCode) {
   } else {
     days.forEach(d => updateGridCell(emp, d));
     updateAllConflicts();
-    updateGridStatsAndHeader();
+    updateGridStatsAndHeader(days);
   }
 }
 
@@ -2827,14 +2921,14 @@ export function wireEvents() {
   document.getElementById("emp-open-period")?.addEventListener("click", openPeriodFlyout);
   document.getElementById("period-flyout-close")?.addEventListener("click", closePeriodFlyout);
   
-  document.getElementById("period-month-select")?.addEventListener("change", (e) => { 
-    state.periodDraft.month = parseInt(e.target.value, 10); 
-    syncPeriodControls(); 
+  document.getElementById("period-month-select")?.addEventListener("change", (e) => {
+    state.periodDraft.month = parseInt(/** @type {HTMLSelectElement} */ (e.target).value, 10);
+    syncPeriodControls();
   });
-  
-  document.getElementById("period-year-input")?.addEventListener("input", (e) => { 
-    state.periodDraft.year = parseInt(e.target.value, 10) || state.year; 
-    syncPeriodControls(); 
+
+  document.getElementById("period-year-input")?.addEventListener("input", (e) => {
+    state.periodDraft.year = parseInt(/** @type {HTMLInputElement} */ (e.target).value, 10) || state.year;
+    syncPeriodControls();
   });
   
   document.getElementById("period-apply")?.addEventListener("click", applyPeriodDraft);
@@ -2869,12 +2963,12 @@ export function wireEvents() {
     syncPeriodControls(); 
   });
   
-  document.getElementById("emp-search")?.addEventListener("input", (e) => { 
-    state.employeeDashboard.filter = e.target.value; 
-    renderEmployeeDashboard(); 
+  document.getElementById("emp-search")?.addEventListener("input", (e) => {
+    state.employeeDashboard.filter = /** @type {HTMLInputElement} */ (e.target).value;
+    renderEmployeeDashboard();
   });
-  
-  document.querySelectorAll("#modal-emps .emp-screen-btn").forEach((btn) => {
+
+  document.querySelectorAll("#modal-emps .emp-screen-btn").forEach((/** @type {HTMLElement} */ btn) => {
     btn.addEventListener("click", () => {
       if (btn.dataset.screen === "person") showPersonScreen();
       else showTeamScreen();
@@ -2883,28 +2977,28 @@ export function wireEvents() {
 
   document.getElementById("emp-person-back")?.addEventListener("click", showTeamScreen);
 
-  document.querySelectorAll("#modal-emps .pm-tab").forEach((btn) => {
+  document.querySelectorAll("#modal-emps .pm-tab").forEach((/** @type {HTMLElement} */ btn) => {
     btn.addEventListener("click", () => applyPersonTab(btn.dataset.ptab));
   });
 
   document.getElementById("emp-person-select")?.addEventListener("change", (e) => {
-    openProfileModal(e.target.value);
+    openProfileModal(/** @type {HTMLSelectElement} */ (e.target).value);
   });
 
-  const empSortEl = document.getElementById("emp-sort");
+  const empSortEl = /** @type {HTMLSelectElement} */ (document.getElementById("emp-sort"));
   if (empSortEl) {
     empSortEl.value = state.employeeDashboard.sort || "name";
     empSortEl.addEventListener("change", (e) => {
-      state.employeeDashboard.sort = e.target.value;
+      state.employeeDashboard.sort = /** @type {HTMLSelectElement} */ (e.target).value;
       renderEmployeeDashboard();
     });
   }
 
-  const empActiveEl = document.getElementById("emp-active-only");
+  const empActiveEl = /** @type {HTMLInputElement} */ (document.getElementById("emp-active-only"));
   if (empActiveEl) {
     empActiveEl.checked = !!state.employeeDashboard.activeOnly;
     empActiveEl.addEventListener("change", (e) => {
-      state.employeeDashboard.activeOnly = e.target.checked;
+      state.employeeDashboard.activeOnly = /** @type {HTMLInputElement} */ (e.target).checked;
       renderEmployeeDashboard();
     });
   }
@@ -2920,7 +3014,8 @@ export function wireEvents() {
     const inlineBtn = document.getElementById("emp-open-period");
     
     if (!isPeriodFlyoutOpen()) return;
-    if (flyout?.contains(e.target) || trigger?.contains(e.target) || inlineBtn?.contains(e.target)) {
+    const target = /** @type {Node} */ (e.target);
+    if (flyout?.contains(target) || trigger?.contains(target) || inlineBtn?.contains(target)) {
       return;
     }
     
@@ -2931,7 +3026,7 @@ export function wireEvents() {
     openAnalyticsHub();
   });
 
-  const commentTa = document.getElementById("ed-comment-ta");
+  const commentTa = /** @type {HTMLTextAreaElement} */ (document.getElementById("ed-comment-ta"));
   const commentCount = document.getElementById("ed-comment-count");
   if (commentTa && commentCount) {
     commentTa.addEventListener("input", () => {
@@ -3095,7 +3190,7 @@ export function wireEvents() {
       days.forEach((d) => updateGridCell(emp, d));
     }
     updateAllConflicts();
-    updateGridStatsAndHeader();
+    updateGridStatsAndHeader(isRbnRow ? [day] : days);
   });
   
   document.getElementById("import-confirm")?.addEventListener("click", () => {
@@ -3116,7 +3211,7 @@ export function wireEvents() {
     renderDeptContent();
   });
   
-  document.querySelectorAll("[data-close]").forEach((btn) => {
+  document.querySelectorAll("[data-close]").forEach((/** @type {HTMLElement} */ btn) => {
     btn.addEventListener("click", () => hideOverlay(btn.dataset.close));
   });
   
@@ -3227,7 +3322,8 @@ export function wireEvents() {
       return;
     }
 
-    const typingTarget = ["INPUT", "TEXTAREA", "SELECT"].includes((e.target?.tagName || "").toUpperCase()) || e.target?.isContentEditable;
+    const eventTarget = /** @type {HTMLElement} */ (e.target);
+    const typingTarget = ["INPUT", "TEXTAREA", "SELECT"].includes((eventTarget?.tagName || "").toUpperCase()) || eventTarget?.isContentEditable;
 
     if (planMode) {
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "z") {
@@ -3263,8 +3359,8 @@ export function wireEvents() {
   
   const gridWrapper = document.getElementById("grid-wrapper");
   if (gridWrapper) {
-    gridWrapper.addEventListener("wheel", (e) => { 
-      const isEmployeeCol = e.target.closest('.td-name, .th-corner');
+    gridWrapper.addEventListener("wheel", (e) => {
+      const isEmployeeCol = /** @type {HTMLElement} */ (e.target).closest('.td-name, .th-corner');
       const scrollingVertical = e.shiftKey || isEmployeeCol;
       
       const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
@@ -3319,7 +3415,7 @@ export async function init() {
   // Navigation aus dem Auswertungs-Hub (z. B. Klick auf eine Jahresgitter-Zelle):
   // Hub schließen und in den gewählten Monat springen.
   window.addEventListener('radplan-navigate', (e) => {
-    const { year, month } = e.detail || {};
+    const { year, month } = /** @type {CustomEvent} */ (e).detail || {};
     if (Number.isFinite(year) && Number.isFinite(month)) {
       hideOverlay('modal-analytics');
       setTimeout(() => switchPeriod(year, month), 180);
@@ -3372,7 +3468,7 @@ export async function init() {
 
   window.addEventListener("radplan-sync-conflict", (e) => {
     render();
-    const stats = e.detail || {};
+    const stats = /** @type {CustomEvent} */ (e).detail || {};
     if (stats.conflicts > 0) {
       showToast(`Speicher-Konflikt: ${stats.conflicts} Feld(er) kollidierten, lokaler Stand übernommen`);
     } else if (stats.localWins > 0 || stats.serverWins > 0) {

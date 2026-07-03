@@ -63,7 +63,9 @@ RadPlan ist konsequent als **Single-Page-Application (SPA) ohne Build-Schritt** 
 
 * **HTML5 (`index.html`, ca. 58 KB):** Das statische Anwendungsgerüst. Enthält alle Skelette der Modal-Dialoge (Editor, Mitarbeitende, Auswertungen, Abteilung, Jahresplan, Import, Autoplan, Befehlspalette …), die feste Kopfzeile, die Planungsleiste, die Statistikleiste, den Tabellen-Container sowie die mobile Navigationsleiste. Ein Inline-`<script>` im `<head>` verhindert Theme-Flackern (siehe [19.1](#191-dynamische-themes-hell-dunkelmodus)).
 * **ECMAScript-Module (ESM):** Der gesamte JavaScript-Code (`<script type="module" src="js/app.js">`) ist in klar getrennte, über `import`/`export` verbundene Module aufgeteilt (siehe die vollständige Dateiliste in [Kapitel 23](#23-vollständige-projektstruktur--dateibeschreibungen)). Es gibt keine globalen Variablen außerhalb dieser Modulgrenzen.
-* **CSS3:** Das Styling ist auf 20 thematisch getrennte Dateien aufgeteilt (Kern-Variablen, Layout, Komponenten, Modals, Ansichten, mobile Optimierung, Druck sowie ein Basis- plus acht Modul-Stylesheets für den Auswertungs-Hub). Durchgehender Einsatz von CSS Custom Properties (Variablen) für das Farbschema-Theming, von Flexbox/Grid für Layouts, von Container-Queries für adaptive Schriftgrößen in Tabellenzellen und von `@media (display-mode: standalone)` für PWA-spezifische Anpassungen.
+* **CSS3:** Das Styling ist auf 21 thematisch getrennte Dateien aufgeteilt (Kern-Variablen, Layout, Komponenten, drei Modal-Dateien nach Dialog getrennt, Ansichten, mobile Optimierung, Druck sowie ein Basis- plus acht Modul-Stylesheets für den Auswertungs-Hub). Durchgehender Einsatz von CSS Custom Properties (Variablen) für das Farbschema-Theming, von Flexbox/Grid für Layouts, von Container-Queries für adaptive Schriftgrößen in Tabellenzellen und von `@media (display-mode: standalone)` für PWA-spezifische Anpassungen.
+  * Die früher monolithische `modals.css` (3.245 Zeilen) wurde reihenfolgeerhaltend in `modals-base.css` (Basis-Chrome + Editor), `modals-autoplan.css` (Auto-Plan-Dialog) und `modals-yearplan.css` (Jahresplaner-Dialog) aufgeteilt — die Kaskadenreihenfolge in `index.html` entspricht exakt der ursprünglichen Zeilenreihenfolge, es gibt also keine Verhaltensänderung.
+  * Modal-Oberflächen sind bewusst theme-unabhängig immer hell gestaltet (siehe Kommentar in `modals-base.css`); ihre Hex-Farben sind daher größtenteils **kein** Aufräum-Fall für die theme-gebundenen `--gray-*`-Variablen. Wiederholtes reines Weiß (`#fff`/`#FFFFFF`) wurde auf das bereits vorhandene `--white` vereinheitlicht. Die zahlreichen `!important`-Deklarationen in den Modal-Dateien liegen fast ausschließlich in `body.is-mobile`-Overrides, die absichtlich die höhere Selektor-Spezifität der Desktop-Basisregeln kontern — ein Audit ergab keine sichere, risikofreie Entfernungsmöglichkeit ohne Layout-Regressionstests auf echten mobilen Geräten.
 
 ### 2.2 Externe Bibliotheken (per CDN eingebunden)
 
@@ -77,8 +79,8 @@ Alle externen Bibliotheken werden über `<script>`-Tags am Ende von `index.html`
 ### 2.3 Edge-Backend & Persistenz
 
 * **Cloudflare Pages Functions (`functions/api.js`):** Eine einzelne, serverlose Handler-Funktion `onRequest(context)`, die alle Anfragen an `/api` beantwortet.
-* **Cloudflare KV (Key-Value-Namespace):** Der persistente Datenspeicher auf Cloudflare-Edge-Servern, gebunden unter dem Namen `RADPLAN_KV`. Der gesamte Datenbestand wird unter dem einzigen Schlüssel `"RADPLAN_DATA"` als JSON-Blob gespeichert (Struktur `{ main, plans, lastModified }`).
-* **HTTP-Verhalten:** `GET` liefert den gespeicherten Stand zurück (oder ein leeres Grundgerüst `{main:{}, plans:{}, lastModified:0}`, falls noch nichts gespeichert wurde). `POST` schreibt neue Daten unter einer optimistischen Nebenläufigkeitskontrolle (siehe [5.2](#52-server-interaktion--3-wege-merge-mergethreeway)); alle anderen HTTP-Methoden werden mit `405` abgelehnt. CORS ist mit `*` vollständig offen, alle Antworten tragen `no-cache`-Header, und es findet keine Authentifizierung statt — die Anwendung setzt auf ein vertrauenswürdiges, internes Klinik-Netzwerk bzw. eine entsprechend abgesicherte Netzwerkumgebung.
+* **Cloudflare KV (Key-Value-Namespace):** Der persistente Datenspeicher auf Cloudflare-Edge-Servern, gebunden unter dem Namen `RADPLAN_KV`. Der Datenbestand ist **nach Kalenderjahr partitioniert** statt in einem einzigen, unbegrenzt wachsenden JSON-Blob abgelegt: `RADPLAN_META` (`{ years, lastModified }`) verzeichnet die vorhandenen Jahre, jedes Jahr liegt separat unter `RADPLAN_YEAR_<jahr>` (`{ months, lastModified }`), Planungsentwürfe liegen gesammelt unter `RADPLAN_PLANS`. Der Wire-Vertrag gegenüber dem Client bleibt dabei unverändert (`{ main, plans, lastModified }`) — `functions/api.js` setzt die Jahres-Fragmente serverseitig transparent zum flachen `main`-Objekt zusammen bzw. zerlegt es beim Schreiben wieder. Ein noch vorhandener alter `"RADPLAN_DATA"`-Einzelblob (Vorgänger-Layout) wird beim ersten Zugriff automatisch und rückstandsfrei in das neue Layout migriert, ohne den alten Schlüssel zu löschen (dient als Fallback).
+* **HTTP-Verhalten:** `GET` liefert den gespeicherten Stand zurück (oder ein leeres Grundgerüst `{main:{}, plans:{}, lastModified:0}`, falls noch nichts gespeichert wurde). `POST` schreibt neue Daten unter einer optimistischen Nebenläufigkeitskontrolle, die dank der Jahres-Partitionierung **pro Jahr** statt für den gesamten Bestand ausgewertet wird: bearbeiten zwei Personen gleichzeitig unterschiedliche Jahre, entsteht serverseitig gar kein Konflikt mehr (vorher führte jede gleichzeitige Änderung irgendwo im Datenbestand zu einem 409, siehe [5.2](#52-server-interaktion--3-wege-merge-mergethreeway)); alle anderen HTTP-Methoden werden mit `405` abgelehnt. CORS ist mit `*` vollständig offen, alle Antworten tragen `no-cache`-Header, und es findet keine Authentifizierung statt — die Anwendung setzt auf ein vertrauenswürdiges, internes Klinik-Netzwerk bzw. eine entsprechend abgesicherte Netzwerkumgebung.
 
 ---
 
@@ -223,7 +225,7 @@ graph TD
 
 ### 5.2 Server-Interaktion & 3-Wege-Merge (`mergeThreeWay`)
 
-Die Synchronisation arbeitet optimistisch. Bei jedem Speichervorgang sendet der Client den Zeitstempel seines letzten erfolgreichen Server-Abgleichs mit. Hat eine andere Planerin in der Zwischenzeit Daten gespeichert, meldet der Server ein **HTTP 409 (Conflict)** und liefert seinen neueren Datenstand aus (`latestData`).
+Die Synchronisation arbeitet optimistisch. Bei jedem Speichervorgang sendet der Client den Zeitstempel seines letzten erfolgreichen Server-Abgleichs mit. Hat eine andere Planerin in der Zwischenzeit Daten gespeichert, meldet der Server ein **HTTP 409 (Conflict)** und liefert seinen neueren Datenstand aus (`latestData`). Da der Datenbestand serverseitig nach Kalenderjahr partitioniert ist (siehe [2.3](#23-edge-backend--persistenz)), prüft `functions/api.js` diese Bedingung **pro Jahr**: Ändert die andere Planerin nur ein anderes Jahr als der speichernde Client, entsteht serverseitig gar kein Konflikt und beide Speichervorgänge gelingen ohne Merge. Ein echtes 409 tritt nur noch auf, wenn dasselbe Jahr betroffen ist.
 
 Der Client löst diesen Konflikt feldgenau auf, ausgehend von drei Ständen:
 
@@ -269,6 +271,8 @@ Die Benutzeroberfläche gliedert sich in fünf Hauptbereiche:
 ## 7. Das Dienstplan-Raster im Detail
 
 Das Monatsraster (`#plan-table`, gerendert in `render-grid.js`) stellt alle Informationen extrem verdichtet dar.
+
+**Gezielte DOM-Updates statt Full-Rerender:** Eine einzelne Zellbearbeitung (Editor speichern, Schnellaktionen, Drag&Drop von Dienst-Badges) baut nicht die komplette Tabelle neu auf. `updateGridCell(emp, day)` ersetzt gezielt nur das betroffene `<td>`; `updateGridStatsAndHeader(touchedDays)` aktualisiert im Tabellenkopf und im Statistik-Fuß (Zeilen MRT/CT/D/HG/Anwesend) ebenfalls nur die Spalte(n) der tatsächlich geänderten Tage (`updateTheadDay`/`updateTfootDay`), statt Kopf- und Fußzeile über alle Tage hinweg neu zu erzeugen. Ein vollständiger Rebuild (`render()`) bleibt reserviert für Fälle, die die Spaltenstruktur selbst betreffen können (Monatswechsel, Import, Mitarbeiter hinzufügen/entfernen, mobile Kartenansicht).
 
 ### 7.1 Intelligenter Tabellenkopf (`renderThead`)
 
@@ -454,11 +458,12 @@ Ein winziger Feinabzug (Deep-Move-Korrelation) verhindert zusätzlich eine küns
 [HG-Rhythmisierung] (HG-Lücken füllen unter Anti-Clustering-Logik)
        |
        v
-[Multi-Zyklus-Optimierung (25 Zyklen)]
-  |-- 1. BD-Swap-Pass (80 Durchläufe, Gerechtigkeit glätten)
-  |-- 2. HG-Swap-Pass (120 Durchläufe, Abstände optimieren)
-  |-- 3. Deep-Optimize-Pass (150 Durchläufe, rollenübergreifende Swaps)
-  |-- 4. Coverage-Repair (Lücken zwangsbesetzen)
+[Multi-Zyklus-Optimierung (max. 8 Zyklen, Abbruch bei Konvergenz)]
+  |-- 1. BD-Swap-Pass (max. 20 Durchläufe, Gerechtigkeit glätten)
+  |-- 2. HG-Wochenend-Kopplung & HG-Lücken auffüllen
+  |-- 3. HG-Swap-Pass (max. 30 Durchläufe, Abstände optimieren)
+  |-- 4. Deep-Optimize-Pass (max. 40 Durchläufe, rollenübergreifende Swaps)
+  |-- 5. Coverage-Repair (Lücken zwangsbesetzen) — läuft am Ende jedes Zyklus
        |
        v
 [Validierungs-Prüfung] (Dienst-Exklusivität, harte Constraints)
@@ -477,7 +482,7 @@ Ein winziger Feinabzug (Deep-Move-Korrelation) verhindert zusätzlich eine küns
    * *Abstands-Malus:* Ein Hintergrunddienst innerhalb von 3 Tagen nach einem vorherigen wird hart bestraft.
    * *Direkt-Folge-Malus:* Back-to-back-Hintergrunddienste (außer bei zwingenden Kopplungen) werden noch massiver abgewertet.
    * *Dichte-Prüfung (Rolling Window):* Mehr als ein Hintergrunddienst pro Person in einem rollierenden 7-Tage-Fenster wird abgewertet.
-5. **Multi-Zyklus-Optimierung (25 Zyklen):** In 25 aufeinanderfolgenden Durchläufen führt der Scheduler gezielte Tauschvorgänge (Swaps) zwischen zwei Personen durch und prüft systematisch, ob dies die Gesamt-Fitness verbessert. Verbleibende Lücken werden im letzten Schritt (*Coverage-Repair*) durch Zuweisung an die am wenigsten belasteten Mitarbeiter zwangsweise geschlossen.
+5. **Multi-Zyklus-Optimierung (max. 8 Zyklen):** In bis zu 8 aufeinanderfolgenden Zyklen führt der Scheduler BD-Swaps (max. 20 Durchläufe/Zyklus), HG-Wochenend-Kopplung, HG-Lückenfüllung, HG-Swaps (max. 30 Durchläufe/Zyklus) und eine rollenübergreifende Deep-Optimize-Metaheuristik (max. 40 Durchläufe/Zyklus) durch und prüft nach jedem Swap systematisch, ob dies die Gesamt-Fitness (`computeGlobalObjective`) verbessert. Verbleibende Lücken werden am Ende jedes Zyklus durch *Coverage-Repair* zwangsweise an die am wenigsten belasteten Mitarbeiter geschlossen. Verbessert sich die globale Fitness in einem Zyklus um weniger als 0,01, gilt der Lauf als konvergiert und bricht vorzeitig ab (typischerweise deutlich vor dem 8. Zyklus).
 6. **Validierung:** Abschlussprüfung auf Dienst-Exklusivität (maximal ein Dienst pro Kalendertag pro Person) und Einhaltung aller K.-o.-Kriterien.
 
 ### 12.4 Mathematische Kostenfaktoren (Objective Penalties)
@@ -525,6 +530,15 @@ Um die Rechenschritte des Schedulers grafisch erlebbar zu machen, rendert die Kl
 * **Kürzel-Chips:** `getAbbreviation()` entfernt deutsche Titel (Dr./Prof./Hr./Fr./PD Dr. …) und Namenspräfixe (von/van/de/el …), um kompakte 3-Buchstaben-Kürzel für die Netzknoten zu erzeugen.
 * **Telemetrie-HUD (Minimap, `attachMiniMap`):** Ein rotierender Wireframe-Globus, ein live mit den `#ap-ls-*`-DOM-Statuswerten synchronisiertes EKG-Signal sowie ein Flächendiagramm der CPU-Durchsatzaktivität.
 * **Success-Phase & Lichtschein-Tracing:** Sobald die Optimierung erfolgreich abgeschlossen ist (`phase === 'success'`), wird die Kontur jeder Tageskarte, deren Bereitschafts- und Hintergrunddienst final feststehen, durch eine leuchtend grüne Konturlinie nachgezeichnet — zeitlich versetzt (staggered delay) ab Tag 1, wellenartig bis zum Monatsende, mit weicher Neonglow-Schattierung und sanftem Ausblenden nach 0,8 Sekunden.
+
+### 12.7 Jahresplanung als segmentierte Monatskette (`computeAutoPlanRange`)
+
+`computeAutoPlan()` ist bewusst auf Monatsgröße ausgelegt: seine Objective-Funktionen enthalten einen Tages-Coverage-Scan mit O(Tage)-Aufwand pro Bewertung (siehe [12.4](#124-mathematische-kostenfaktoren-objective-penalties)), der bei einem einzigen Solver-Lauf über z. B. ein ganzes Kalenderjahr (365 statt ~30 Tage) quadratisch teurer würde. `computeAutoPlanRange(startYear, startMonth, endYear, endMonth, options)` in `autoplan.js` löst eine mehrmonatige Planung stattdessen als **segmentierte Kette**: Der bestehende, unveränderte `computeAutoPlan()` wird einmal pro Monat aufgerufen. Die jahresweite Soll/Ist-Fairness trägt sich dabei automatisch fort, weil das Ergebnis jedes Monats vor der Planung des nächsten Monats in `DATA` geschrieben wird — `collectHistoricalDutyStats()` sieht die frisch geplanten Dienste des Vormonats also bereits als Ist-Belastung, exakt wie beim manuellen "Monat für Monat"-Planen.
+
+* **Vorschau-Modus (Standard):** Ohne `options.apply` ist der Aufruf vollständig seiteneffektfrei — `DATA` wird intern per `structuredClone()` gesichert und nach der Berechnung wiederhergestellt (auch etwaige Monate, die durch monatsübergreifende Lesezugriffe wie die vorausschauende Urlaubsprüfung als Nebeneffekt neu angelegt wurden).
+* **`options.apply = true`:** Die geplanten Monate bleiben dauerhaft in `DATA` stehen; der Aufrufer ist für `saveToStorage()` verantwortlich.
+* **Zugriff über die Befehlspalette:** "Jahresplanung (restliche Monate automatisch)" (siehe [16](#16-befehlspalette)) plant über `runYearAutoPlan()` in `app.js` alle verbleibenden Monate des aktuell angezeigten Kalenderjahres durch und speichert direkt — ohne die übliche Monat-für-Monat-Vorschau des Planungsmodus. Bereits gesetzte Dienste bleiben als Fixpunkte erhalten.
+* **Obergrenze:** Aus Versehentlich-Schutz sind maximal 24 Monate pro Aufruf zulässig.
 
 ---
 
@@ -612,6 +626,8 @@ Prüft den Zeitraum über alle Monatsgrenzen hinweg auf Ruhezeit-Verstöße (die
 ### 14.9 Modul „Prognose" (`mod-forecast.js`)
 
 Lineare Hochrechnung der Dienste auf das Jahresende anhand der bislang mit Diensten gefüllten Monate (Faktor = 12 / Datenmonate). Stellt je Person Ist-Dienste, Prognose-Gesamt, das FTE-gewichtete **Jahresziel (BD)** und die erwartete Jahresabweichung dar. Ergänzt um die **Wunscherfüllungsrate** und die Zahl verletzter „Kein Dienst"-Wünsche.
+
+**Saisonale Ausfallquote (`computeSeasonalAbsenceIndex` in `engine.js`):** Zusätzlich zur linearen Hochrechnung wertet das Modul die krankheitsbedingten Codes (K, Kind krank/KK) über **alle** in RadPlan erfassten Jahre hinweg kalendermonatsweise aus und stellt so saisonale Muster dar (z. B. eine erhöhte Grippewelle im Winter) — rein deskriptiv-historisch, ohne die Prognosezahlen selbst zu verändern. Ein zwölfteiliges Balkendiagramm zeigt je Kalendermonat die Krankheitsquote relativ zum historischen Jahresdurchschnitt (blasse, schraffierte Balken markieren Monate mit zu wenig Datengrundlage, mindestens 20 Personen-Werktage). Liegt einer der noch unbeplanten Restmonate des laufenden Jahres historisch mindestens 15 % über dem Durchschnitt, erscheint ein Warnhinweis mit Empfehlung einer zusätzlichen Rufbereitschaftsreserve für diese Monate.
 
 ### 14.10 Modul „Berichte" (`mod-reports.js`)
 
@@ -882,7 +898,9 @@ radplan/
 │   ├── layout.css                  # Header, Navigationsleisten, Grid-Systeme, Hauptcontainer, Breakpoint-Kaskade
 │   ├── components.css               # Buttons, Formulare, Karten, Tabellen, Avatare, Befehlspalette, Zell-Quick-Popover
 │   ├── chips.css                   # Themenbewusste Farbcodierung der Arbeitsplatz-/Status-„Chips"
-│   ├── modals.css                  # Modal-/Bottom-Sheet-System (Overlays, Focus-Traps) + Hilfe-Tooltip-Stil
+│   ├── modals-base.css             # Basis-Modal-Chrome (.overlay/.modal, Focus-Traps) + Editor-Dialog (#modal-editor)
+│   ├── modals-autoplan.css         # Auto-Plan-Modal (#modal-autoplan) inkl. NFI-Score-Infobox
+│   ├── modals-yearplan.css         # Jahresplaner-Modal, Editor-Kommentarbereich, mobile Jahresplan-Anpassungen
 │   ├── views.css                   # Profil-Tabs, Kalenderansichten, Abteilungsübersicht, Mitarbeitenden-Dashboard
 │   ├── contextmenu.css             # Design des Rechtsklick-Kontextmenüs
 │   ├── mobile-optimization.css     # Responsive Anpassungen, iOS-Safe-Area, Bottom-Sheets, mobile Kontrast-Härtung

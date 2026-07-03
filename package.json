@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test test/**/*.test.js"
+    "test": "node --test test/**/*.test.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
   }
 }

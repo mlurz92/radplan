@@ -111,7 +111,7 @@ export function initTooltips() {
 
   document.addEventListener('mouseover', (e) => {
     if (isCoarsePointer()) return;
-    const anchor = e.target.closest?.('[data-tooltip]');
+    const anchor = /** @type {HTMLElement} */ (e.target).closest?.('[data-tooltip]');
     if (!anchor || anchor === currentAnchor) return;
     if (!anchor.getAttribute('data-tooltip')) return;
     cancelHide();
@@ -120,9 +120,9 @@ export function initTooltips() {
   });
 
   document.addEventListener('mouseout', (e) => {
-    const anchor = e.target.closest?.('[data-tooltip]');
+    const anchor = /** @type {HTMLElement} */ (e.target).closest?.('[data-tooltip]');
     if (!anchor) return;
-    const to = e.relatedTarget;
+    const to = /** @type {HTMLElement} */ (e.relatedTarget);
     if (to && to.closest?.('[data-tooltip]') === anchor) return;
     if (showTimer) { clearTimeout(showTimer); showTimer = null; }
     if (anchor === currentAnchor) scheduleHide();
@@ -130,13 +130,13 @@ export function initTooltips() {
 
   // Tastatur-Zugänglichkeit: Tooltip auch bei Fokus zeigen.
   document.addEventListener('focusin', (e) => {
-    const anchor = e.target.closest?.('[data-tooltip]');
+    const anchor = /** @type {HTMLElement} */ (e.target).closest?.('[data-tooltip]');
     if (!anchor || !anchor.getAttribute('data-tooltip')) return;
     cancelHide();
     showFor(anchor);
   });
   document.addEventListener('focusout', (e) => {
-    const anchor = e.target.closest?.('[data-tooltip]');
+    const anchor = /** @type {HTMLElement} */ (e.target).closest?.('[data-tooltip]');
     if (anchor && anchor === currentAnchor) scheduleHide();
   });
 

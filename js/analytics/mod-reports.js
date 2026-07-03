@@ -151,7 +151,7 @@ export default {
 function exportFairnessCSV(year) {
   const { rows } = computeDutyFairness(year);
   if (!rows.length) return setStatus('Keine Fairness-Daten vorhanden.', false);
-  const out = [['Mitarbeitende', 'BD', 'HG', 'Gesamt', 'WE/FT', 'Feiertage', 'Soll BD', 'Delta Soll', 'Fair-Delta', 'Status']];
+  const out = /** @type {(string|number)[][]} */ ([['Mitarbeitende', 'BD', 'HG', 'Gesamt', 'WE/FT', 'Feiertage', 'Soll BD', 'Delta Soll', 'Fair-Delta', 'Status']]);
   rows.forEach((r) => out.push([
     r.emp, r.bd, r.hg, r.total, r.weekendDuties, r.holidayDuties,
     num(r.bdTarget), num(r.bdDelta), num(Math.round(r.totalDev * 10) / 10),
@@ -164,7 +164,7 @@ function exportFairnessCSV(year) {
 async function exportFairnessXLSX(year) {
   const { rows } = computeDutyFairness(year);
   if (!rows.length) return setStatus('Keine Fairness-Daten vorhanden.', false);
-  const aoa = [['Mitarbeitende', 'BD', 'HG', 'Gesamt', 'WE/FT', 'Feiertage', 'Soll BD', 'Δ Soll', 'Fair-Δ', 'Status']];
+  const aoa = /** @type {(string|number)[][]} */ ([['Mitarbeitende', 'BD', 'HG', 'Gesamt', 'WE/FT', 'Feiertage', 'Soll BD', 'Δ Soll', 'Fair-Δ', 'Status']]);
   rows.forEach((r) => aoa.push([
     r.emp, r.bd, r.hg, r.total, r.weekendDuties, r.holidayDuties,
     r.bdTarget, r.bdDelta, Math.round(r.totalDev * 10) / 10,

@@ -2,7 +2,7 @@ import { MONTHS } from './constants.js';
 import { state } from './state.js';
 import { getEmployeesForYear } from './model.js';
 import { showOverlay, hideOverlay, openProfileModal } from './render-modals.js';
-import { switchPeriod, toggleTheme, toggleDensity } from './app.js';
+import { switchPeriod, toggleTheme, toggleDensity, runYearAutoPlan } from './app.js';
 import { esc } from './utils.js';
 
 const OVERLAY_ID = "modal-command-palette";
@@ -48,6 +48,12 @@ function staticCommands() {
       label: "Auto-Plan ausführen",
       hint: "nur im Planungsmodus verfügbar",
       run: () => document.getElementById("btn-plan-auto")?.click()
+    },
+    {
+      group: "Funktionen",
+      label: "Jahresplanung (restliche Monate automatisch)",
+      hint: "segmentierte Monatskette, direktes Speichern ohne Vorschau",
+      run: () => runYearAutoPlan()
     },
     {
       group: "Funktionen",
@@ -146,7 +152,7 @@ function renderResults(items) {
   });
   list.innerHTML = html;
 
-  list.querySelectorAll(".cmdk-item").forEach((btn) => {
+  list.querySelectorAll(".cmdk-item").forEach((/** @type {HTMLElement} */ btn) => {
     btn.addEventListener("click", () => runItem(parseInt(btn.dataset.idx, 10)));
   });
 }
@@ -173,7 +179,7 @@ function runItem(idx) {
 
 export function openCommandPalette() {
   showOverlay(OVERLAY_ID);
-  const input = document.getElementById("cmdk-input");
+  const input = /** @type {HTMLInputElement} */ (document.getElementById("cmdk-input"));
   if (input) {
     input.value = "";
     renderResults(filterCommands(""));
@@ -191,7 +197,7 @@ export function isCommandPaletteOpen() {
 }
 
 export function initCommandPalette() {
-  const input = document.getElementById("cmdk-input");
+  const input = /** @type {HTMLInputElement} */ (document.getElementById("cmdk-input"));
   const overlay = document.getElementById(OVERLAY_ID);
 
   input?.addEventListener("input", () => {

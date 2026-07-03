@@ -467,7 +467,7 @@ export class NeuralGraph {
 
       const dayLabel = document.createElement('div');
       dayLabel.className = 'ng-day-number';
-      dayLabel.textContent = d;
+      dayLabel.textContent = String(d);
 
       // Add soft SVG checkmark icon
       const checkmark = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -835,7 +835,7 @@ export class NeuralGraph {
     const currentOpacity = easeEntrance;
 
     this.gridFloat.style.transform = `scale(${currentScale})`;
-    this.gridFloat.style.opacity = currentOpacity;
+    this.gridFloat.style.opacity = String(currentOpacity);
 
     // Apply micro-scale animations to cells (flat grid transitions)
     for (const [d, cellData] of this.cells.entries()) {

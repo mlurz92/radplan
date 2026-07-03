@@ -247,7 +247,7 @@ export function renderEmployeeDashboard() {
       `;
     }).join("");
     
-    gridEl.querySelectorAll("[data-emp]").forEach((card) => {
+    gridEl.querySelectorAll("[data-emp]").forEach((/** @type {HTMLElement} */ card) => {
       // Ein Klick irgendwo auf die Karte öffnet den Person-Screen für diese Person.
       card.addEventListener("click", () => {
         openProfileModal(card.dataset.emp);
@@ -585,7 +585,7 @@ export function renderRoleFilters(employees) {
     `;
   }).join("");
   
-  el.querySelectorAll("[data-role]").forEach((btn) => {
+  el.querySelectorAll("[data-role]").forEach((/** @type {HTMLElement} */ btn) => {
     btn.addEventListener("click", () => {
       state.employeeDashboard.role = btn.dataset.role;
       renderEmployeeDashboard();
@@ -607,7 +607,7 @@ export function renderEmployeeDetailDashboard(emp, year) {
   const ys = buildYearlyStats(emp, year);
   const currentMonthData = getMonthData(state.year, state.month);
 
-  document.querySelectorAll('.empdash-view-btn').forEach((btn) => {
+  document.querySelectorAll('.empdash-view-btn').forEach((/** @type {HTMLElement} */ btn) => {
     const active = btn.dataset.view === state.employeeDashboard.detailView;
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-selected', active ? 'true' : 'false');
@@ -1015,7 +1015,7 @@ export function renderEmployeeDetailDashboard(emp, year) {
     </div>
   `;
   
-  detailEl.querySelectorAll('[data-remove]').forEach((btn) => {
+  detailEl.querySelectorAll('[data-remove]').forEach((/** @type {HTMLElement} */ btn) => {
     btn.addEventListener('click', () => {
       import('./app.js').then(m => m.confirmRemoveEmployee(btn.dataset.remove, false));
     });
@@ -1032,7 +1032,7 @@ export function renderEmployeeDetailDashboard(emp, year) {
   });
 
   document.getElementById('emp-add-btn')?.addEventListener('click', () => {
-    const input = document.getElementById('emp-input');
+    const input = /** @type {HTMLInputElement} */ (document.getElementById('emp-input'));
     const name = input.value.trim();
     if (!name) return;
     addEmployee(state.year, state.month, name);
