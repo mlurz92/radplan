@@ -1,0 +1,469 @@
+/* Basis-Modal-Chrome (.overlay/.modal, gemeinsame Struktur aller Dialoge)
+   sowie der Editor-Dialog (#modal-editor, .ed-*). Mechanisch aus der
+   früheren monolithischen modals.css abgespalten (Zeilen 1-463, Reihenfolge
+   unverändert) — siehe modals-autoplan.css und modals-yearplan.css für die
+   beiden großen Einzelmodal-Blöcke. */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(6,13,22,.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  padding: var(--overlay-pad);
+  padding-left: max(var(--overlay-pad), var(--safe-left));
+  padding-right: max(var(--overlay-pad), var(--safe-right));
+  padding-top: max(var(--overlay-pad), var(--safe-top));
+  overflow: auto;
+  overscroll-behavior: contain;
+  contain: strict;
+  transition: opacity .25s ease, backdrop-filter .25s ease;
+}
+
+/* Das Profil-Modal wird häufig aus dem Mitarbeiter-Modal heraus (per Klick auf
+   einen Namen) geöffnet. Da alle Overlays dieselbe Basis-z-index teilen und das
+   Profil im DOM vor dem Mitarbeiter-Modal steht, würde es sonst dahinter
+   erscheinen – deshalb hier explizit anheben. */
+.overlay#modal-profile { z-index: 1300; }
+
+.modal {
+  /* .98 (was .92): keeps the frosted feel while lifting muted sublabel text
+     (gray-500) clear of WCAG AA on the modal surface in the dark theme. */
+  background: rgba(255,255,255,.98);
+  backdrop-filter: blur(var(--glass-blur-lg));
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg));
+  border-radius: var(--radius-xl);
+  box-shadow: var(--elev-shadow-3), 0 0 0 1px rgba(var(--ink-rgb),.15), 0 0 80px rgba(var(--accent-rgb),.05);
+  overflow: hidden;
+  width: min(100%, var(--modal-max-width, 100%));
+  max-height: min(var(--modal-max-height, calc(var(--app-vh) - (2 * var(--overlay-pad)))), calc(var(--app-vh) - (2 * var(--overlay-pad))));
+  display: flex;
+  flex-direction: column;
+  animation: modalIn var(--dur-3) var(--ease-spring);
+  will-change: transform, opacity;
+  contain: layout style paint;
+  min-width: 0;
+}
+
+.modal, .modal > * {
+  min-width: 0;
+}
+
+/* Modal content panels are intentionally fixed light surfaces in both themes.
+   Pin body/footer ink to dark slate so labels, hints and form text do not turn
+   white and disappear when the app itself is in dark mode. Headers opt back
+   into the theme ink below because they sit on the themed dark/cream chrome.
+
+   --gray-50..900 must be pinned here too: unlike --ink-rgb/--text-*, that scale
+   is itself theme-dependent (see the [data-theme="light"] overrides in
+   core.css) — it exists to give dark-canvas UI chrome a light-on-dark neutral
+   ramp. Dozens of components inside modal bodies (dept/fairness tables,
+   employee cards, KPI tiles, admin panels, form hints) use --gray-500..900
+   for on-card text under the — correct — assumption that these fixed-white
+   cards never change, but without this pin the dark-mode value of e.g.
+   --gray-800 resolves to near-white, rendering that text invisible on the
+   equally near-white card background. Pinning to the light-theme mapping
+   fixes every such component at once instead of patching each selector. */
+.modal-bd,
+.modal-ft {
+  --ink-rgb: 15,23,42;
+  --ink-strong: #0F172A;
+  --text-1: #0F172A;
+  --text-2: rgba(15,23,42,.88);
+  --text-3: rgba(15,23,42,.76);
+  --text-faint: rgba(15,23,42,.68);
+  --gray-50: #F8FAFC;
+  --gray-100: #F1F5F9;
+  --gray-150: #E9EFF6;
+  --gray-200: #E2E8F0;
+  --gray-300: #CBD5E1;
+  --gray-400: #94A3B8;
+  --gray-500: #64748B;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1E293B;
+  --gray-900: #0F172A;
+  color: var(--text-1);
+}
+
+.modal-hd {
+  --ink-rgb: var(--app-ink-rgb);
+  --ink-strong: var(--app-ink-strong);
+  --text-1: var(--app-ink-strong);
+  --text-2: rgba(var(--app-ink-rgb),.88);
+  --text-3: rgba(var(--app-ink-rgb),.76);
+  --text-faint: rgba(var(--app-ink-rgb),.68);
+}
+
+/* Premium glass sheen — a soft diagonal highlight across the top of the
+   modal, like light catching a glass pane. Sits at z-index 0 behind the
+   header/body (which get their own stacking context below) so it can
+   never wash out actual content; pointer-events: none either way. */
+.modal {
+  position: relative;
+}
+
+.modal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.03) 22%, transparent 45%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.modal-hd, .modal-bd {
+  position: relative;
+  z-index: 1;
+}
+
+.modal-profile { --modal-max-width: 760px; }
+.modal-editor { --modal-max-width: 560px; }
+.modal-import { --modal-max-width: 560px; }
+.modal-dept { --modal-max-width: min(1120px, 96vw); }
+.modal-autoplan { --modal-max-width: 1220px; }
+.modal-report { --modal-max-width: min(1040px, 96vw); }
+.modal-emps { --modal-max-width: min(1320px, 98vw); }
+.modal-score { --modal-max-width: 720px; }
+.modal-yearplan { --modal-max-width: min(1440px, 98vw); }
+
+.modal-fit-content { height: auto !important; }
+.modal-fit-viewport { height: min(var(--modal-max-height, calc(var(--app-vh) - (2 * var(--overlay-pad)))), calc(var(--app-vh) - (2 * var(--overlay-pad)))) !important; }
+
+.modal.modal-closing {
+  animation: modalOut .2s ease forwards;
+}
+
+.overlay#modal-autoplan .modal {
+  width: 1220px;
+  height: 920px;
+  max-width: 96vw;
+  max-height: 96vh;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(.95) translateY(15px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes modalOut {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: scale(.97) translateY(10px); }
+}
+
+.modal-hd {
+  background: rgba(var(--navy-800-rgb),.85);
+  backdrop-filter: blur(var(--glass-blur));
+  color: var(--ink-strong);
+  padding: 16px 20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(var(--ink-rgb),.05);
+}
+
+.modal-hd-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.modal-hd-sub {
+  font-size: 11px;
+  color: rgba(var(--ink-rgb),.62);
+  margin-top: 2px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.modal-x {
+  background: none;
+  border: none;
+  color: rgba(var(--ink-rgb),.55);
+  font-size: 16px;
+  padding: 8px;
+  border-radius: var(--radius-xs);
+  line-height: 1;
+  transition: all .2s cubic-bezier(.34,1.2,.64,1);
+  flex-shrink: 0;
+  margin-top: -2px;
+  margin-right: -4px;
+}
+
+.modal-x:hover {
+  color: var(--ink-strong);
+  background: rgba(var(--ink-rgb),.08);
+  transform: scale(1.1);
+}
+
+.modal-x:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.modal-x:active {
+  transform: scale(0.9);
+}
+
+.modal-bd {
+  padding: 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-bd.ap-progress-bd {
+  overflow: hidden;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.modal-bd > * {
+  max-width: 100%;
+}
+
+.modal-bd :where(img, svg, canvas, iframe, table, pre, textarea, input, select) {
+  max-width: 100%;
+}
+
+.modal-ft {
+  padding: 12px 20px;
+  border-top: 1px solid rgba(226,232,240,.4);
+  background: rgba(248,250,252,.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.preview-box {
+  --ink-rgb: 255,255,255;
+  --ink-strong: var(--white);
+  --text-1: var(--white);
+  --text-2: rgba(255,255,255,.88);
+  --text-3: rgba(255,255,255,.76);
+  --text-faint: rgba(255,255,255,.68);
+  background: rgba(10,21,37,.92);
+  backdrop-filter: blur(var(--glass-blur));
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  border: 1px solid rgba(var(--ink-rgb),.06);
+  box-shadow: 0 2px 12px rgba(0,0,0,.1);
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+.preview-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,.15);
+}
+
+.preview-box-lbl {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 4px;
+}
+
+.preview-box-val {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink-strong);
+  min-width: 48px;
+  line-height: 1;
+}
+
+.preview-box-duties {
+  display: flex;
+  gap: 5px;
+}
+
+.preview-duty-badge {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  line-height: 1.4;
+}
+
+.sect-hd {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+  margin: 18px 0 9px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.sect-hd:first-of-type {
+  margin-top: 0;
+}
+
+.sect-hd::before {
+  content: '';
+  flex: none;
+  width: 3px;
+  height: 12px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.sect-hint {
+  font-size: 8.5px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--gray-500);
+}
+
+.ed-step {
+  background: rgba(var(--navy-800-rgb),.4);
+  border: 1px solid rgba(var(--ink-rgb),.06);
+  border-radius: var(--radius);
+  padding: 14px 16px 16px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.ed-step:last-child {
+  margin-bottom: 0;
+}
+
+.ed-step .sect-hd:first-of-type {
+  margin-top: 0;
+}
+
+.ed-step-hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ed-step-num {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #042231;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.ed-step-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ink-strong);
+}
+
+.ed-step-hd .sect-hint {
+  margin-left: 2px;
+}
+
+.day-type-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-bottom: 12px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.dtl-we {
+  background: var(--gray-100);
+  color: var(--gray-500);
+  border: 1px solid var(--gray-200);
+}
+
+.dtl-hol {
+  background: #FEF3C7;
+  color: #78350F;
+  border: 1px solid #FDE68A;
+}
+
+.duty-warn {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: var(--red-lt);
+  color: #DC2626;
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  line-height: 1.5;
+  border: 1px solid #FCA5A5;
+  flex-shrink: 0;
+}
+
+#modal-editor.plan-mode-editor .modal-hd,
+#ed-modal-hd.plan-mode-hd {
+  background: linear-gradient(180deg, #3B1000 0%, #78350F 100%);
+  border-bottom-color: rgba(251,191,36,.15);
+}
+
+.ed-plan-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(251,191,36,.18);
+  border: 1px solid rgba(251,191,36,.35);
+  color: #FCD34D;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+#modal-editor.plan-mode-editor .preview-box {
+  background: linear-gradient(135deg, #3B1000 0%, #6B2100 100%);
+  border-color: rgba(251,191,36,.12);
+}
+

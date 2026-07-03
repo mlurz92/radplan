@@ -63,7 +63,9 @@ RadPlan ist konsequent als **Single-Page-Application (SPA) ohne Build-Schritt** 
 
 * **HTML5 (`index.html`, ca. 58 KB):** Das statische Anwendungsgerüst. Enthält alle Skelette der Modal-Dialoge (Editor, Mitarbeitende, Auswertungen, Abteilung, Jahresplan, Import, Autoplan, Befehlspalette …), die feste Kopfzeile, die Planungsleiste, die Statistikleiste, den Tabellen-Container sowie die mobile Navigationsleiste. Ein Inline-`<script>` im `<head>` verhindert Theme-Flackern (siehe [19.1](#191-dynamische-themes-hell-dunkelmodus)).
 * **ECMAScript-Module (ESM):** Der gesamte JavaScript-Code (`<script type="module" src="js/app.js">`) ist in klar getrennte, über `import`/`export` verbundene Module aufgeteilt (siehe die vollständige Dateiliste in [Kapitel 23](#23-vollständige-projektstruktur--dateibeschreibungen)). Es gibt keine globalen Variablen außerhalb dieser Modulgrenzen.
-* **CSS3:** Das Styling ist auf 20 thematisch getrennte Dateien aufgeteilt (Kern-Variablen, Layout, Komponenten, Modals, Ansichten, mobile Optimierung, Druck sowie ein Basis- plus acht Modul-Stylesheets für den Auswertungs-Hub). Durchgehender Einsatz von CSS Custom Properties (Variablen) für das Farbschema-Theming, von Flexbox/Grid für Layouts, von Container-Queries für adaptive Schriftgrößen in Tabellenzellen und von `@media (display-mode: standalone)` für PWA-spezifische Anpassungen.
+* **CSS3:** Das Styling ist auf 21 thematisch getrennte Dateien aufgeteilt (Kern-Variablen, Layout, Komponenten, drei Modal-Dateien nach Dialog getrennt, Ansichten, mobile Optimierung, Druck sowie ein Basis- plus acht Modul-Stylesheets für den Auswertungs-Hub). Durchgehender Einsatz von CSS Custom Properties (Variablen) für das Farbschema-Theming, von Flexbox/Grid für Layouts, von Container-Queries für adaptive Schriftgrößen in Tabellenzellen und von `@media (display-mode: standalone)` für PWA-spezifische Anpassungen.
+  * Die früher monolithische `modals.css` (3.245 Zeilen) wurde reihenfolgeerhaltend in `modals-base.css` (Basis-Chrome + Editor), `modals-autoplan.css` (Auto-Plan-Dialog) und `modals-yearplan.css` (Jahresplaner-Dialog) aufgeteilt — die Kaskadenreihenfolge in `index.html` entspricht exakt der ursprünglichen Zeilenreihenfolge, es gibt also keine Verhaltensänderung.
+  * Modal-Oberflächen sind bewusst theme-unabhängig immer hell gestaltet (siehe Kommentar in `modals-base.css`); ihre Hex-Farben sind daher größtenteils **kein** Aufräum-Fall für die theme-gebundenen `--gray-*`-Variablen. Wiederholtes reines Weiß (`#fff`/`#FFFFFF`) wurde auf das bereits vorhandene `--white` vereinheitlicht. Die zahlreichen `!important`-Deklarationen in den Modal-Dateien liegen fast ausschließlich in `body.is-mobile`-Overrides, die absichtlich die höhere Selektor-Spezifität der Desktop-Basisregeln kontern — ein Audit ergab keine sichere, risikofreie Entfernungsmöglichkeit ohne Layout-Regressionstests auf echten mobilen Geräten.
 
 ### 2.2 Externe Bibliotheken (per CDN eingebunden)
 
@@ -894,7 +896,9 @@ radplan/
 │   ├── layout.css                  # Header, Navigationsleisten, Grid-Systeme, Hauptcontainer, Breakpoint-Kaskade
 │   ├── components.css               # Buttons, Formulare, Karten, Tabellen, Avatare, Befehlspalette, Zell-Quick-Popover
 │   ├── chips.css                   # Themenbewusste Farbcodierung der Arbeitsplatz-/Status-„Chips"
-│   ├── modals.css                  # Modal-/Bottom-Sheet-System (Overlays, Focus-Traps) + Hilfe-Tooltip-Stil
+│   ├── modals-base.css             # Basis-Modal-Chrome (.overlay/.modal, Focus-Traps) + Editor-Dialog (#modal-editor)
+│   ├── modals-autoplan.css         # Auto-Plan-Modal (#modal-autoplan) inkl. NFI-Score-Infobox
+│   ├── modals-yearplan.css         # Jahresplaner-Modal, Editor-Kommentarbereich, mobile Jahresplan-Anpassungen
 │   ├── views.css                   # Profil-Tabs, Kalenderansichten, Abteilungsübersicht, Mitarbeitenden-Dashboard
 │   ├── contextmenu.css             # Design des Rechtsklick-Kontextmenüs
 │   ├── mobile-optimization.css     # Responsive Anpassungen, iOS-Safe-Area, Bottom-Sheets, mobile Kontrast-Härtung
