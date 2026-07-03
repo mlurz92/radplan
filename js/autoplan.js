@@ -51,11 +51,6 @@ import {
   createPlanSession,
 } from './model.js';
 
-export let autoPlanResult = null;
-export let autoPlanTargets = {};
-export let apViewMode = "config";
-export let autoPlanConfigRenderToken = 0;
-
 export const DUTY_EXEMPT = SPECIAL_RULES.dutyExempt;
 export const TARGET_WEEKEND_DUTY = 1;
 export const RELAXED_WEEKEND_DUTY_LIMIT = 1.5;

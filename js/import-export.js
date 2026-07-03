@@ -3,8 +3,21 @@
 
 import { DATA, saveToStorage, collectLocalPlans } from './state.js';
 import { ensurePostBDFreiDays } from './model.js';
+import { normalizeMonthDataShape } from './constants.js';
 import { render } from './render-grid.js';
 import { showOverlay, hideOverlay, showToast } from './render-modals.js';
+
+const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+function assertNoUnsafeKeys(value, path = "") {
+  if (!value || typeof value !== "object") return;
+  for (const key of Object.keys(value)) {
+    if (UNSAFE_KEYS.has(key)) {
+      throw new Error(`Unzulässiger Schlüssel "${key}" in ${path || "Daten"}`);
+    }
+    assertNoUnsafeKeys(value[key], path ? `${path}.${key}` : key);
+  }
+}
 
 export function doExport() {
   const exportObj = { main: DATA, plans: collectLocalPlans() };
@@ -50,24 +63,28 @@ export function doImport() {
   
   try {
     const parsed = JSON.parse(raw);
-    if (typeof parsed !== "object" || Array.isArray(parsed)) {
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
       throw new Error("Ungültiges Format");
     }
-    
-    if (parsed.main && typeof parsed.main === "object") {
-      Object.assign(DATA, parsed.main);
-      if (parsed.plans && typeof parsed.plans === "object") {
-        for (const [pk, pv] of Object.entries(parsed.plans)) {
-          if (pv && typeof pv === "object" && !pv.rbn) {
-            pv.rbn = {};
-          }
-          localStorage.setItem(`radplan_v3_plan_${pk}`, JSON.stringify(pv));
-        }
-      }
-    } else {
-      Object.assign(DATA, parsed);
+    assertNoUnsafeKeys(parsed);
+
+    const hasEnvelope = parsed.main && typeof parsed.main === "object" && !Array.isArray(parsed.main);
+    const mainData = hasEnvelope ? parsed.main : parsed;
+    for (const monthData of Object.values(mainData)) {
+      normalizeMonthDataShape(monthData);
     }
-    
+
+    if (hasEnvelope && parsed.plans && typeof parsed.plans === "object") {
+      for (const [pk, pv] of Object.entries(parsed.plans)) {
+        if (pv && typeof pv === "object" && !pv.rbn) {
+          pv.rbn = {};
+        }
+        localStorage.setItem(`radplan_v3_plan_${pk}`, JSON.stringify(pv));
+      }
+    }
+
+    Object.assign(DATA, mainData);
+
     saveToStorage();
     const repaired = ensurePostBDFreiDays();
     hideOverlay("modal-import");

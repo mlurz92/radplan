@@ -9,6 +9,7 @@
 
 import {
   computeForecast, computeWishFulfillment, getRange, fmt, scoreColor, TT, TTI, MONTHS_SHORT,
+  SEASONAL_RISK_THRESHOLD,
 } from './engine.js';
 import { esc } from '../utils.js';
 
@@ -208,7 +209,7 @@ function seasonalRiskSection(fc) {
   parts.push('<div class="fc-seasonal-bars">');
   fc.seasonalIndex.forEach((s) => {
     const heightPct = s.hasData ? Math.max(4, Math.min(100, (s.indexVsAverage / maxIdx) * 100)) : 0;
-    const elevated = s.hasData && s.indexVsAverage >= 1.15;
+    const elevated = s.hasData && s.indexVsAverage >= SEASONAL_RISK_THRESHOLD;
     const title = s.hasData
       ? `${MONTHS_SHORT[s.month]}: ${Math.round(s.rate * 1000) / 10}‰ Krankheitsquote (${Math.round(s.indexVsAverage * 100)}% des Jahresdurchschnitts, ${s.sampleDays} Personen-Werktage historisch)`
       : `${MONTHS_SHORT[s.month]}: zu wenig historische Daten (${s.sampleDays} Personen-Werktage)`;

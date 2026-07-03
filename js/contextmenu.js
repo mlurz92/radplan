@@ -3,6 +3,8 @@
  * Implementiert eine elegante, glassmorphism-basierte Oberfläche für Zeilenaktionen.
  */
 
+import { esc } from './utils.js';
+
 export class ContextMenu {
   constructor() {
     this.el = null;
@@ -94,10 +96,10 @@ export class ContextMenu {
           ${iconHtml}
         </span>
         <div class="context-menu-label" style="display:flex;flex-direction:column;line-height:1.2">
-            <span style="font-size:13px">${item.label}</span>
-            ${item.sub ? `<span style="font-size:10px;opacity:0.5;font-weight:400">${item.sub}</span>` : ''}
+            <span style="font-size:13px">${esc(item.label)}</span>
+            ${item.sub ? `<span style="font-size:10px;opacity:0.5;font-weight:400">${esc(item.sub)}</span>` : ''}
         </div>
-        ${item.shortcut ? `<span class="context-menu-shortcut">${item.shortcut}</span>` : ''}
+        ${item.shortcut ? `<span class="context-menu-shortcut">${esc(item.shortcut)}</span>` : ''}
       `;
       
       btn.onclick = (e) => {

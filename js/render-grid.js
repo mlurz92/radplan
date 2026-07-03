@@ -1010,13 +1010,11 @@ export function renderStatsBar(y, m, dim, md) {
 }
 
 // Berechnet alle abgeleiteten Werte für genau einen Tages-Spaltenkopf.
-// `showKW` ist hier vereinfacht auf "Montag ODER erster Monatstag" (ohne den
-// `kw !== prevKW`-Sequenzabgleich aus dem vollen Aufbau): In jedem
+// `showKW` ist vereinfacht auf "Montag ODER erster Monatstag": In jedem
 // tatsächlichen Kalendermonat unterscheidet sich die ISO-Kalenderwoche eines
 // Monatsersten von der des nächsten Montags immer (Wochen zählen monoton
-// hoch), sodass diese Vereinfachung für ein isoliertes Einzeltages-Update
-// (siehe updateTheadDay) zum selben sichtbaren Ergebnis führt wie der volle,
-// sequentielle Aufbau in renderThead().
+// hoch). renderThead() und updateTheadDay() nutzen beide dieselbe Funktion
+// hier, das Ergebnis ist also für Voll- und Einzeltages-Aufbau identisch.
 function computeTheadCellState(y, m, d, hols, md) {
   const wd = weekday(y, m, d);
   const hol = isHoliday(y, m, d, hols);

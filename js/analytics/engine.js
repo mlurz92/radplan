@@ -30,7 +30,7 @@ import { posColor } from '../constants.js';
 
 // Re-Exports, damit Module nur ./engine.js importieren müssen.
 export {
-  MONTHS, MONTHS_SHORT, MONTHS as MONTH_NAMES, CODE_MAP, WORKPLACES, STATUSES,
+  MONTHS, MONTHS_SHORT, CODE_MAP, WORKPLACES, STATUSES,
   VACATION_CODES, ABSENCE_CODES, VACATION_LIKE_CODES,
   daysInMonth, weekday, isHoliday, isWeekend, isWorkday,
   getSaxonyHolidaysCached, getEmpMeta, isFacharzt, isAssistenzarzt,
@@ -173,11 +173,29 @@ export function getRange(rangeKey, year, month, custom) {
   };
 }
 
+// Ein Monat gilt als tatsächlich geplant, sobald irgendeiner Person an
+// irgendeinem Tag ein D- oder HG-Dienst zugewiesen wurde. Rein personell
+// vorbelegte, aber noch dienstlose Folgemonate (siehe getMonthDataRaw) gelten
+// NICHT als geplant, damit sie nicht fälschlich als Besetzungslücke zählen.
+export function monthHasDutyData(year, month) {
+  const md = getMonthData(year, month);
+  if (!md?.employees?.length) return false;
+  const dim = daysInMonth(year, month);
+  for (const emp of md.employees) {
+    for (let d = 1; d <= dim; d++) {
+      const cell = md.assignments?.[emp]?.[d];
+      if (cell && (cell.duty === 'D' || cell.duty === 'HG')) return true;
+    }
+  }
+  return false;
+}
+
 // Iteriert über alle realen Tage eines Zeitraums (nur Monate mit Daten optional).
-export function eachDay(range, cb, { onlyWithData = false } = {}) {
+export function eachDay(range, cb, { onlyWithData = false, onlyPlanned = false } = {}) {
   range.months.forEach(({ year, month }) => {
     const md = getMonthData(year, month);
     if (onlyWithData && (!md || !md.employees || !md.employees.length)) return;
+    if (onlyPlanned && !monthHasDutyData(year, month)) return;
     const hols = getSaxonyHolidaysCached(year);
     const dim = daysInMonth(year, month);
     for (let d = 1; d <= dim; d++) {
@@ -238,7 +256,7 @@ export function computeCoverage(range) {
       year, month, day, wd: ctx.wd, holiday: ctx.holiday, holName: ctx.holName,
       weekendOrHoliday: ctx.weekendOrHoliday, hasD, hasHG, dOwner, hgOwner, status, required,
     });
-  });
+  }, { onlyPlanned: true });
 
   const totalDays = days.length;
   const dPct = totalDays ? Math.round((dCovered / totalDays) * 100) : 0;
@@ -408,7 +426,7 @@ const SICK_CODES = ['K', 'KK'];
 // Quote als statistisch nicht belastbar genug für eine Risikowarnung.
 const SEASONAL_MIN_SAMPLE_DAYS = 20;
 // Schwelle für "auffällig erhöht": mindestens 15% über dem Jahresdurchschnitt.
-const SEASONAL_RISK_THRESHOLD = 1.15;
+export const SEASONAL_RISK_THRESHOLD = 1.15;
 
 /**
  * Ermittelt für jeden Kalendermonat (0–11), wie sich die krankheitsbedingte

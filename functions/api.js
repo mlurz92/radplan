@@ -215,6 +215,7 @@ export async function onRequest(context) {
       const state = await loadFullState(kv);
       return jsonResponse(state, 200);
     } catch (e) {
+      console.error("RadPlan API GET failed:", e);
       return jsonResponse({ error: "KV read error" }, 500);
     }
   }
@@ -234,6 +235,7 @@ export async function onRequest(context) {
 
       return jsonResponse({ success: true, lastModified: result.lastModified }, 200);
     } catch (e) {
+      console.error("RadPlan API POST failed:", e);
       return jsonResponse({ error: "Invalid JSON or KV write error" }, 400);
     }
   }

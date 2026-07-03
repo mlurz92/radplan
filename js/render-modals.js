@@ -22,7 +22,6 @@ import { state, TOD_Y, TOD_M, TOD_D } from './state.js';
 import { getCell, buildProfileStats, buildYearlyStats, getEmployeesForYear, getEmployeeFairness, isDutyExempt } from './model.js';
 import { openEditor, switchPeriod } from './app.js';
 import { renderEmployeeDetailDashboard, renderEmployeeDashboard } from './render-employee-dashboard.js';
-import { autoPlanResult } from './autoplan.js';
 import { closeCellQuickPopover, updateModalLayout } from './render-grid.js';
 import { esc } from './utils.js';
 
@@ -827,7 +826,7 @@ export function openProfileModal(empName) {
       const hol = isHoliday(y, m, dayNum, hols);
       if (!hol && wd !== 0 && wd !== 6) {
         el.addEventListener("click", () => {
-          hideOverlay("modal-profile");
+          hideOverlay("modal-emps");
           setTimeout(() => openEditor(empName, dayNum), 180);
         });
       }
@@ -886,7 +885,7 @@ export function openProfileModal(empName) {
       const d = parseInt(el.dataset.day, 10);
       const mon = parseInt(el.dataset.mon, 10);
       const open = () => {
-        hideOverlay("modal-profile");
+        hideOverlay("modal-emps");
         setTimeout(() => {
           if (mon !== state.month || y !== state.year) switchPeriod(y, mon);
           openEditor(empName, d);
@@ -1114,7 +1113,7 @@ export function hideOverlay(id) {
   }
 }
 
-export function openScoreInfoModal(resultData = autoPlanResult) {
+export function openScoreInfoModal(resultData = null) {
   const body = document.getElementById("score-info-body");
   if (!body) return;
 

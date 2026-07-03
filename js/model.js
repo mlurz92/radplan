@@ -816,6 +816,8 @@ export function createPlanSession(y, m) {
     baseline: {
       assignments: cloneData(source.assignments || {}),
       rbn: cloneData(sourceRbn),
+      wishes: cloneData(source.wishes || {}),
+      pins: cloneData(source.pins || {}),
     },
     history: [
       {
@@ -828,12 +830,19 @@ export function createPlanSession(y, m) {
 }
 
 export function hasSessionChanges(session) {
-  const currentStr = JSON.stringify({ 
-    assignments: session.assignments, 
-    rbn: session.rbn || {} 
+  const currentStr = JSON.stringify({
+    assignments: session.assignments,
+    rbn: session.rbn || {},
+    wishes: session.wishes || {},
+    pins: session.pins || {},
   });
-  const baselineStr = JSON.stringify(session.baseline);
-  
+  const baselineStr = JSON.stringify({
+    assignments: session.baseline.assignments,
+    rbn: session.baseline.rbn || {},
+    wishes: session.baseline.wishes || {},
+    pins: session.baseline.pins || {},
+  });
+
   return currentStr !== baselineStr;
 }
 
