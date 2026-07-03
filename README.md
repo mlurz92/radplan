@@ -627,6 +627,8 @@ Prüft den Zeitraum über alle Monatsgrenzen hinweg auf Ruhezeit-Verstöße (die
 
 Lineare Hochrechnung der Dienste auf das Jahresende anhand der bislang mit Diensten gefüllten Monate (Faktor = 12 / Datenmonate). Stellt je Person Ist-Dienste, Prognose-Gesamt, das FTE-gewichtete **Jahresziel (BD)** und die erwartete Jahresabweichung dar. Ergänzt um die **Wunscherfüllungsrate** und die Zahl verletzter „Kein Dienst"-Wünsche.
 
+**Saisonale Ausfallquote (`computeSeasonalAbsenceIndex` in `engine.js`):** Zusätzlich zur linearen Hochrechnung wertet das Modul die krankheitsbedingten Codes (K, Kind krank/KK) über **alle** in RadPlan erfassten Jahre hinweg kalendermonatsweise aus und stellt so saisonale Muster dar (z. B. eine erhöhte Grippewelle im Winter) — rein deskriptiv-historisch, ohne die Prognosezahlen selbst zu verändern. Ein zwölfteiliges Balkendiagramm zeigt je Kalendermonat die Krankheitsquote relativ zum historischen Jahresdurchschnitt (blasse, schraffierte Balken markieren Monate mit zu wenig Datengrundlage, mindestens 20 Personen-Werktage). Liegt einer der noch unbeplanten Restmonate des laufenden Jahres historisch mindestens 15 % über dem Durchschnitt, erscheint ein Warnhinweis mit Empfehlung einer zusätzlichen Rufbereitschaftsreserve für diese Monate.
+
 ### 14.10 Modul „Berichte" (`mod-reports.js`)
 
 Generiert kompakte, druck-/exportfähige Auswertungen — u. a. einen Eigenbeleg je Person (Personenauswahl) sowie domänenübergreifende Zusammenfassungen (Monats-Dienstplan-PDF, Jahres-Fairness-CSV/Excel, Abwesenheitsübersicht-CSV, Abdeckungsbericht-CSV). Jede Berichtskarte erläutert ihren Inhalt und ihre Kennzahlen per Tooltip.
