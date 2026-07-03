@@ -1176,7 +1176,7 @@ export function saveEditor() {
     hideOverlay("modal-editor");
     updateGridCell(RBN_ROW_KEY, day);
     updateAllConflicts();
-    updateGridStatsAndHeader();
+    updateGridStatsAndHeader([day]);
     return;
   }
   
@@ -1229,7 +1229,7 @@ export function saveEditor() {
   }
   touchedDays.forEach((d) => updateGridCell(emp, d));
   updateAllConflicts();
-  updateGridStatsAndHeader();
+  updateGridStatsAndHeader([...touchedDays]);
 }
 
 export function confirmRemoveEmployee(name, refreshList = false) {
@@ -2717,7 +2717,7 @@ export function quickToggleWorkplace(emp, day, wpCode) {
       updateGridCell(emp, d);
     });
     updateAllConflicts();
-    updateGridStatsAndHeader();
+    updateGridStatsAndHeader(days);
   }
 }
 
@@ -2784,7 +2784,7 @@ export function quickToggleDuty(emp, day, dutyCode) {
   } else {
     affectedCells.forEach(c => updateGridCell(c.emp, c.day));
     updateAllConflicts();
-    updateGridStatsAndHeader();
+    updateGridStatsAndHeader(affectedCells.map((c) => c.day));
   }
 }
 
@@ -2826,7 +2826,7 @@ export function moveDutyBadge(srcEmp, srcDay, dstEmp, dstDay) {
     updateGridCell(srcEmp, srcDay);
     updateGridCell(dstEmp, dstDay);
     updateAllConflicts();
-    updateGridStatsAndHeader();
+    updateGridStatsAndHeader([srcDay, dstDay]);
   }
 }
 
@@ -2849,7 +2849,7 @@ export function quickClearCell(emp, day) {
   } else {
     days.forEach(d => updateGridCell(emp, d));
     updateAllConflicts();
-    updateGridStatsAndHeader();
+    updateGridStatsAndHeader(days);
   }
 }
 
@@ -2882,7 +2882,7 @@ export function quickSetStatus(emp, day, statusCode) {
   } else {
     days.forEach(d => updateGridCell(emp, d));
     updateAllConflicts();
-    updateGridStatsAndHeader();
+    updateGridStatsAndHeader(days);
   }
 }
 
@@ -3190,7 +3190,7 @@ export function wireEvents() {
       days.forEach((d) => updateGridCell(emp, d));
     }
     updateAllConflicts();
-    updateGridStatsAndHeader();
+    updateGridStatsAndHeader(isRbnRow ? [day] : days);
   });
   
   document.getElementById("import-confirm")?.addEventListener("click", () => {

@@ -270,6 +270,8 @@ Die Benutzeroberfläche gliedert sich in fünf Hauptbereiche:
 
 Das Monatsraster (`#plan-table`, gerendert in `render-grid.js`) stellt alle Informationen extrem verdichtet dar.
 
+**Gezielte DOM-Updates statt Full-Rerender:** Eine einzelne Zellbearbeitung (Editor speichern, Schnellaktionen, Drag&Drop von Dienst-Badges) baut nicht die komplette Tabelle neu auf. `updateGridCell(emp, day)` ersetzt gezielt nur das betroffene `<td>`; `updateGridStatsAndHeader(touchedDays)` aktualisiert im Tabellenkopf und im Statistik-Fuß (Zeilen MRT/CT/D/HG/Anwesend) ebenfalls nur die Spalte(n) der tatsächlich geänderten Tage (`updateTheadDay`/`updateTfootDay`), statt Kopf- und Fußzeile über alle Tage hinweg neu zu erzeugen. Ein vollständiger Rebuild (`render()`) bleibt reserviert für Fälle, die die Spaltenstruktur selbst betreffen können (Monatswechsel, Import, Mitarbeiter hinzufügen/entfernen, mobile Kartenansicht).
+
 ### 7.1 Intelligenter Tabellenkopf (`renderThead`)
 
 Die Spaltenköpfe zeigen gestapelte Informationen:

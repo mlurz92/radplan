@@ -1009,82 +1009,107 @@ export function renderStatsBar(y, m, dim, md) {
   }
 }
 
+// Berechnet alle abgeleiteten Werte für genau einen Tages-Spaltenkopf.
+// `showKW` ist hier vereinfacht auf "Montag ODER erster Monatstag" (ohne den
+// `kw !== prevKW`-Sequenzabgleich aus dem vollen Aufbau): In jedem
+// tatsächlichen Kalendermonat unterscheidet sich die ISO-Kalenderwoche eines
+// Monatsersten von der des nächsten Montags immer (Wochen zählen monoton
+// hoch), sodass diese Vereinfachung für ein isoliertes Einzeltages-Update
+// (siehe updateTheadDay) zum selben sichtbaren Ergebnis führt wie der volle,
+// sequentielle Aufbau in renderThead().
+function computeTheadCellState(y, m, d, hols, md) {
+  const wd = weekday(y, m, d);
+  const hol = isHoliday(y, m, d, hols);
+  const we = isWeekend(y, m, d);
+  const isT = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
+  const fri = isFriday(y, m, d);
+  const kw = isoWeekNumber(y, m, d);
+  const showKW = wd === 1 || d === 1;
+  const hn = hols[dateKey(y, m, d)] || "";
+
+  let cls = "th-day ";
+  cls += hol ? "hol" : we ? "we" : "wd";
+  if (isT) cls += " today";
+  if (fri) cls += " is-fri";
+
+  const hasEmps = md.employees.length > 0;
+  const dCount = hasEmps ? dayCodeCount(y, m, d, "D") : 0;
+  const hgCount = hasEmps ? dayCodeCount(y, m, d, "HG") : 0;
+
+  let stripeColor = "transparent";
+  if (hasEmps) {
+    const bothCovered = dCount > 0 && hgCount > 0;
+    const oneCovered = (dCount > 0) !== (hgCount > 0);
+    if (bothCovered) {
+      stripeColor = "#22C55E";
+    } else if (oneCovered) {
+      stripeColor = "#F59E0B";
+    } else {
+      stripeColor = (we || hol) ? "rgba(249,115,22,0.55)" : "#EF4444";
+    }
+  }
+
+  let title = null;
+  let ariaLabel;
+  if (hasEmps) {
+    const dLabel = dCount > 0 ? `${dCount}× besetzt` : "fehlt";
+    const hgLabel = hgCount > 0 ? `${hgCount}× besetzt` : "fehlt";
+    title = `${d}. ${MONTHS[m]} · D: ${dLabel} · HG: ${hgLabel}`;
+    ariaLabel = `${d}. ${MONTHS[m]} ${DOW_ABBR[wd]} · Bereitschaftsdienst: ${dLabel} · Hintergrunddienst: ${hgLabel}`;
+  } else {
+    ariaLabel = `${d}. ${MONTHS[m]} ${DOW_ABBR[wd]}`;
+  }
+
+  const html = `
+    <div class="th-day-inner">
+      <span class="d-kw">${showKW ? "KW" + kw : ""}</span>
+      <span class="d-num">${d}</span>
+      <span class="d-dow">${DOW_ABBR[wd]}</span>
+      ${hn ? `<span class="d-hol">${hn}</span>` : ""}
+    </div>
+    <div class="day-status-stripe" style="background:${stripeColor}" aria-hidden="true"></div>
+  `;
+
+  return { cls, title, ariaLabel, html };
+}
+
 export function renderThead(y, m, dim, hols, md) {
   const thead = document.getElementById("plan-thead");
   thead.innerHTML = "";
-  
+
   const tr = document.createElement("tr");
   const thC = document.createElement("th");
   thC.className = "th-corner";
   thC.setAttribute("scope", "col");
   thC.innerHTML = '<div class="th-corner-inner">Mitarbeitende</div>';
   tr.appendChild(thC);
-  
-  let prevKW = -1;
-  
+
   for (let d = 1; d <= dim; d++) {
-    const wd = weekday(y, m, d);
-    const hol = isHoliday(y, m, d, hols);
-    const we = isWeekend(y, m, d);
-    const isT = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
-    const fri = isFriday(y, m, d);
-    const kw = isoWeekNumber(y, m, d);
-    const showKW = (wd === 1 || (d === 1 && wd !== 1)) && kw !== prevKW;
-    
-    if (showKW) {
-      prevKW = kw;
-    }
-    
-    const hn = hols[dateKey(y, m, d)] || "";
+    const { cls, title, ariaLabel, html } = computeTheadCellState(y, m, d, hols, md);
     const th = document.createElement("th");
     th.setAttribute("scope", "col");
-
-    let cls = "th-day ";
-    cls += hol ? "hol" : we ? "we" : "wd";
-    if (isT) cls += " today";
-    if (fri) cls += " is-fri";
-
     th.className = cls;
     th.dataset.day = String(d);
-
-    const hasEmps = md.employees.length > 0;
-    const dCount  = hasEmps ? dayCodeCount(y, m, d, "D")  : 0;
-    const hgCount = hasEmps ? dayCodeCount(y, m, d, "HG") : 0;
-
-    let stripeColor = "transparent";
-    if (hasEmps) {
-      const bothCovered = dCount > 0 && hgCount > 0;
-      const oneCovered  = (dCount > 0) !== (hgCount > 0);
-      if (bothCovered) {
-        stripeColor = "#22C55E";
-      } else if (oneCovered) {
-        stripeColor = "#F59E0B";
-      } else {
-        stripeColor = (we || hol) ? "rgba(249,115,22,0.55)" : "#EF4444";
-      }
-    }
-
-    if (hasEmps) {
-      const dLabel  = dCount  > 0 ? `${dCount}× besetzt` : "fehlt";
-      const hgLabel = hgCount > 0 ? `${hgCount}× besetzt` : "fehlt";
-      th.title = `${d}. ${MONTHS[m]} · D: ${dLabel} · HG: ${hgLabel}`;
-      th.setAttribute("aria-label", `${d}. ${MONTHS[m]} ${DOW_ABBR[wd]} · Bereitschaftsdienst: ${dLabel} · Hintergrunddienst: ${hgLabel}`);
-    } else {
-      th.setAttribute("aria-label", `${d}. ${MONTHS[m]} ${DOW_ABBR[wd]}`);
-    }
-
-    th.innerHTML = `
-      <div class="th-day-inner">
-        <span class="d-kw">${showKW ? "KW" + kw : ""}</span>
-        <span class="d-num">${d}</span>
-        <span class="d-dow">${DOW_ABBR[wd]}</span>
-        ${hn ? `<span class="d-hol">${hn}</span>` : ""}
-      </div>
-      <div class="day-status-stripe" style="background:${stripeColor}" aria-hidden="true"></div>
-    `;
+    if (title) th.title = title;
+    th.setAttribute("aria-label", ariaLabel);
+    th.innerHTML = html;
     tr.appendChild(th);
   }
   thead.appendChild(tr);
+}
+
+// Aktualisiert im Tabellenkopf NUR die Spalte des übergebenen Tages, statt
+// wie renderThead() die komplette Kopfzeile neu aufzubauen.
+function updateTheadDay(y, m, d, hols, md) {
+  const th = /** @type {HTMLElement} */ (document.querySelector(`#plan-thead th.th-day[data-day="${d}"]`));
+  if (!th) return false;
+  const { cls, title, ariaLabel, html } = computeTheadCellState(y, m, d, hols, md);
+  th.className = cls;
+  if (title) th.title = title;
+  else th.removeAttribute("title");
+  th.setAttribute("aria-label", ariaLabel);
+  th.innerHTML = html;
+  return true;
 }
 
 function bindCellListeners(tdEl, emp, d) {
@@ -1471,31 +1496,85 @@ export function updateAllConflicts() {
   });
 }
 
-export function updateGridStatsAndHeader() {
+/**
+ * Aktualisiert Statistikleiste, Tabellenkopf und Statistik-Fuß nach einer
+ * Änderung. Mit `touchedDays` (Array betroffener Tage) werden Kopf und Fuß
+ * NUR für diese Spalten aktualisiert statt komplett neu aufgebaut — der
+ * Regelfall nach einer einzelnen Zellbearbeitung, bei der sich Anzeige und
+ * Coverage-Status aller anderen Tage nicht ändern. Ohne `touchedDays` (z.B.
+ * nach Monatswechsel, Import oder Mitarbeiter-Änderungen, die die Spalten-
+ * struktur selbst betreffen können) wird wie bisher vollständig neu gebaut.
+ * @param {number[]} [touchedDays]
+ */
+export function updateGridStatsAndHeader(touchedDays) {
   const { year: y, month: m } = state;
   const dim = daysInMonth(y, m);
   const md = getMonthData(y, m);
   const hols = getSaxonyHolidaysCached(y);
-  
+
   renderStatsBar(y, m, dim, md);
+
+  if (Array.isArray(touchedDays) && touchedDays.length) {
+    const uniqueDays = [...new Set(touchedDays)].filter((d) => Number.isFinite(d) && d >= 1 && d <= dim);
+    const okTfoot = uniqueDays.every((d) => updateTfootDay(y, m, d, hols));
+    const okThead = uniqueDays.every((d) => updateTheadDay(y, m, d, hols, md));
+    if (okTfoot && okThead) return;
+    // Fallback bei unerwartet fehlenden Spalten (z.B. DOM noch nicht
+    // aufgebaut) auf den vollen, garantiert korrekten Aufbau.
+  }
+
   renderTfoot(y, m, dim, md);
   renderThead(y, m, dim, hols, md);
+}
+
+const TFOOT_ROWS = [
+  { code: "MR", label: "MRT", meta: CODE_MAP["MR"] },
+  { code: "CT", label: "CT", meta: CODE_MAP["CT"] },
+  { code: "D", label: "Bereitschaftsdienst", meta: null },
+  { code: "HG", label: "Hintergrunddienst", meta: null },
+  { code: "PRESENT", label: "Mitarbeitende anwesend", meta: null },
+];
+
+// Berechnet Klasse + Anzeigetext für genau eine (Zeile, Tag)-Zelle des
+// Statistik-Fußes. Von renderTfoot() (voller Aufbau) UND updateTfootDay()
+// (gezieltes Update eines einzelnen Tages, siehe updateGridStatsAndHeader)
+// gemeinsam genutzt, damit beide garantiert dasselbe Ergebnis liefern.
+function computeTfootCellState(y, m, d, hols, rowDef) {
+  const { code } = rowDef;
+  const isD = code === "D";
+  const isHG = code === "HG";
+  const isPresent = code === "PRESENT";
+
+  const val = isPresent ? dayPresentCount(y, m, d) : dayCodeCount(y, m, d, code);
+  const we = isWeekend(y, m, d);
+  const hol = isHoliday(y, m, d, hols);
+  const fri = isFriday(y, m, d);
+  const isT = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
+
+  let cls = "td-stat-val";
+  if (isPresent) {
+    cls += (we || hol) ? " dim" : " nz";
+  } else if (we || hol) {
+    cls += " dim";
+  } else if ((isD || isHG) && val > 1) {
+    cls += " warn";
+  } else if (val > 0) {
+    cls += " nz";
+  }
+  if (isT) cls += " today-col";
+  if (fri) cls += " is-fri";
+
+  return { cls, text: val > 0 ? String(val) : "" };
 }
 
 export function renderTfoot(y, m, dim, md) {
   const tfoot = document.getElementById("plan-tfoot");
   tfoot.innerHTML = "";
-  
-  const hols = getSaxonyHolidaysCached(y);
-  const rows = [
-    { code: "MR", label: "MRT", meta: CODE_MAP["MR"] },
-    { code: "CT", label: "CT", meta: CODE_MAP["CT"] },
-    { code: "D", label: "Bereitschaftsdienst", meta: null },
-    { code: "HG", label: "Hintergrunddienst", meta: null },
-    { code: "PRESENT", label: "Mitarbeitende anwesend", meta: null },
-  ];
 
-  rows.forEach(({ code, label, meta }, rowIdx) => {
+  const hols = getSaxonyHolidaysCached(y);
+
+  TFOOT_ROWS.forEach((rowDef, rowIdx) => {
+    const { code, label, meta } = rowDef;
     const isD = code === "D";
     const isHG = code === "HG";
     const isPresent = code === "PRESENT";
@@ -1505,6 +1584,7 @@ export function renderTfoot(y, m, dim, md) {
 
     const tr = document.createElement("tr");
     tr.className = "tr-stat" + (rowIdx === 0 ? " tr-stat-first" : "") + (isPresent ? " tr-stat-present" : "");
+    tr.dataset.statCode = code;
 
     const tdL = document.createElement("td");
     tdL.className = "td-stat-lbl";
@@ -1515,35 +1595,37 @@ export function renderTfoot(y, m, dim, md) {
     tr.appendChild(tdL);
 
     for (let d = 1; d <= dim; d++) {
-      const val = isPresent ? dayPresentCount(y, m, d) : dayCodeCount(y, m, d, code);
-      const we = isWeekend(y, m, d);
-      const hol = isHoliday(y, m, d, hols);
-      const fri = isFriday(y, m, d);
-      const isT = isTodayCol(y, m, d, TOD_Y, TOD_M, TOD_D);
-
+      const { cls, text } = computeTfootCellState(y, m, d, hols, rowDef);
       const td = document.createElement("td");
-      let cls = "td-stat-val";
-
-      if (isPresent) {
-        if (we || hol) cls += " dim";
-        else cls += " nz";
-      } else if (we || hol) {
-        cls += " dim";
-      } else if ((isD || isHG) && val > 1) {
-        cls += " warn";
-      } else if (val > 0) {
-        cls += " nz";
-      }
-
-      if (isT) cls += " today-col";
-      if (fri) cls += " is-fri";
-
       td.className = cls;
-      td.textContent = val > 0 ? val : "";
+      td.textContent = text;
+      td.dataset.day = String(d);
       tr.appendChild(td);
     }
     tfoot.appendChild(tr);
   });
+}
+
+// Aktualisiert im Statistik-Fuß NUR die Spalte(n) der übergebenen Tage, statt
+// wie renderTfoot() alle Zeilen komplett neu aufzubauen. Wird von
+// updateGridStatsAndHeader() genutzt, wenn die aufrufende Stelle die
+// tatsächlich betroffenen Tage kennt (z.B. eine einzelne Zellbearbeitung).
+function updateTfootDay(y, m, d, hols) {
+  const tfoot = document.getElementById("plan-tfoot");
+  if (!tfoot) return false;
+  let allFound = true;
+  TFOOT_ROWS.forEach((rowDef) => {
+    const tr = tfoot.querySelector(`tr[data-stat-code="${rowDef.code}"]`);
+    const td = tr?.querySelector(`td[data-day="${d}"]`);
+    if (!td) {
+      allFound = false;
+      return;
+    }
+    const { cls, text } = computeTfootCellState(y, m, d, hols, rowDef);
+    td.className = cls;
+    td.textContent = text;
+  });
+  return allFound;
 }
 
 document.addEventListener("mousedown", (e) => {
