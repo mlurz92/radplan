@@ -560,6 +560,40 @@
   color: #042231;
 }
 
+.ap-weight-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.ap-weight-slider-lbl {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray-500);
+  flex-shrink: 0;
+}
+
+#ap-weight-slider {
+  flex: 1;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.ap-weight-slider-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gray-700);
+  min-width: 1.8em;
+  text-align: right;
+}
+
 .ap-config-list {
   flex: 1;
   overflow-y: auto;

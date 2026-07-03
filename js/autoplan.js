@@ -66,6 +66,49 @@ export const AUTO_PLAN_WEIGHT_PROFILES = {
   wish: { key: "wish", label: "Wunscherfüllung-optimiert", hint: "Gewichtet erfüllte Dienstwünsche deutlich stärker, Fairness-Ausgleich tritt zurück.", wish: 2.4, fairness: 0.65 }
 };
 
+// Kontinuierlicher Fairness/Wunsch-Mix-Regler (0..100) als Alternative zu den
+// drei festen Presets oben: 0 = reine Fairness-Gewichtung, 50 = Ausgewogen
+// (identisch zu "standard"), 100 = reine Wunscherfüllungs-Gewichtung.
+// Stückweise linear über die beiden Segmente [0,50] und [50,100], sodass alle
+// drei benannten Presets an ihrer jeweiligen Position exakt reproduziert
+// werden (0 -> "fairness", 50 -> "standard", 100 -> "wish") und dazwischen
+// stetig interpoliert wird.
+export function weightProfileFromMix(mixPct) {
+  const clamped = Math.max(0, Math.min(100, Math.round(mixPct)));
+  const fairness = AUTO_PLAN_WEIGHT_PROFILES.fairness;
+  const standard = AUTO_PLAN_WEIGHT_PROFILES.standard;
+  const wish = AUTO_PLAN_WEIGHT_PROFILES.wish;
+
+  const [from, to, t] = clamped <= 50
+    ? [fairness, standard, clamped / 50]
+    : [standard, wish, (clamped - 50) / 50];
+
+  const lerp = (a, b) => a + (b - a) * t;
+
+  return {
+    key: "custom",
+    mixPct: clamped,
+    label: `Individuell (${clamped})`,
+    hint: `Benutzerdefinierte Mischung zwischen Fairness- und Wunsch-Gewichtung (Regler-Position ${clamped}/100).`,
+    wish: lerp(from.wish, to.wish),
+    fairness: lerp(from.fairness, to.fairness),
+  };
+}
+
+// Löst den zweiten Parameter von computeAutoPlan() auf: entweder einer der
+// drei benannten Presets (String-Key aus AUTO_PLAN_WEIGHT_PROFILES) oder ein
+// bereits fertiges { wish, fairness }-Gewichtsobjekt, wie es
+// weightProfileFromMix() für den kontinuierlichen Regler liefert.
+export function resolveWeightProfile(weightProfileKeyOrObject) {
+  if (weightProfileKeyOrObject && typeof weightProfileKeyOrObject === "object") {
+    const { wish, fairness } = weightProfileKeyOrObject;
+    if (Number.isFinite(wish) && Number.isFinite(fairness)) {
+      return weightProfileKeyOrObject;
+    }
+  }
+  return AUTO_PLAN_WEIGHT_PROFILES[weightProfileKeyOrObject] || AUTO_PLAN_WEIGHT_PROFILES.standard;
+}
+
 export function isDutyExempt(empName) { 
   return DUTY_EXEMPT.includes(empName); 
 }
@@ -630,7 +673,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
   const { year: y, month: m } = state;
   if (!planMode || !planData) return null;
 
-  const W = AUTO_PLAN_WEIGHT_PROFILES[weightProfileKey] || AUTO_PLAN_WEIGHT_PROFILES.standard;
+  const W = resolveWeightProfile(weightProfileKey);
 
   const hols = getSaxonyHolidaysCached(y);
   const dim = daysInMonth(y, m);

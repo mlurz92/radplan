@@ -123,7 +123,8 @@ import {
   RELAXED_WEEKEND_DUTY_LIMIT,
   isDutyExempt,
   DUTY_EXEMPT,
-  AUTO_PLAN_WEIGHT_PROFILES
+  AUTO_PLAN_WEIGHT_PROFILES,
+  weightProfileFromMix
 } from './autoplan.js';
 
 import { NeuralGraph } from './neuralgraph.js';
@@ -143,6 +144,7 @@ let localApViewMode = "config";
 let localAutoPlanConfigRenderToken = 0;
 let localApAnimationId = null;
 let neuralGraphInstance = null;
+/** @type {string | ReturnType<typeof weightProfileFromMix>} */
 let localWeightProfile = "standard";
 let localAutoPlanAlternatives = {};
 
@@ -1863,6 +1865,21 @@ export async function renderAutoPlanModal(renderToken = null) {
           </div>
         </div>
 
+        <div class="ap-weight-slider-row" id="ap-weight-slider-row" title="Kontinuierliche Mischung zwischen Fairness- und Wunsch-Gewichtung, unabhängig von den drei Presets oben">
+          <span class="ap-weight-slider-lbl">Fairness</span>
+          <input
+            type="range"
+            id="ap-weight-slider"
+            min="0"
+            max="100"
+            step="1"
+            value="${typeof localWeightProfile === "object" ? localWeightProfile.mixPct : 50}"
+            aria-label="Individuelle Mischung zwischen Fairness- und Wunsch-Gewichtung"
+          >
+          <span class="ap-weight-slider-lbl">Wunsch</span>
+          <span class="ap-weight-slider-value" id="ap-weight-slider-value">${typeof localWeightProfile === "object" ? localWeightProfile.mixPct : "–"}</span>
+        </div>
+
         <div class="ap-config-list">
     `;
 
@@ -1939,12 +1956,32 @@ export async function renderAutoPlanModal(renderToken = null) {
       });
     });
 
+    const weightSlider = /** @type {HTMLInputElement} */ (document.getElementById("ap-weight-slider"));
+    const weightSliderValue = document.getElementById("ap-weight-slider-value");
+    const presetMixPct = { fairness: 0, standard: 50, wish: 100 };
+
     body.querySelectorAll(".ap-weight-chip").forEach((/** @type {HTMLElement} */ chip) => {
       chip.addEventListener("click", () => {
         localWeightProfile = chip.dataset.profile;
         body.querySelectorAll(".ap-weight-chip").forEach((/** @type {HTMLElement} */ c) => {
           c.classList.toggle("is-active", c.dataset.profile === localWeightProfile);
         });
+        // Regler auf die dem Preset entsprechende Position zurücksetzen, damit
+        // beide Bedienelemente stets denselben Zustand widerspiegeln.
+        if (weightSlider) weightSlider.value = String(presetMixPct[localWeightProfile] ?? 50);
+        if (weightSliderValue) weightSliderValue.textContent = "–";
+      });
+    });
+
+    weightSlider?.addEventListener("input", () => {
+      const mixPct = parseInt(weightSlider.value, 10);
+      localWeightProfile = weightProfileFromMix(mixPct);
+      if (weightSliderValue) weightSliderValue.textContent = String(mixPct);
+      // Kein Preset ist mehr exakt aktiv, sobald der Regler manuell bewegt
+      // wurde (auch wenn er zufällig auf 0/50/100 steht) -- Chips optisch
+      // deaktivieren, um keinen falschen Eindruck zu erwecken.
+      body.querySelectorAll(".ap-weight-chip").forEach((/** @type {HTMLElement} */ c) => {
+        c.classList.remove("is-active");
       });
     });
 
@@ -1974,9 +2011,10 @@ export async function renderAutoPlanModal(renderToken = null) {
               return;
             }
             localAutoPlanResult = result;
-            localAutoPlanAlternatives = { [localWeightProfile]: result };
+            const activeWeightKey = typeof localWeightProfile === "string" ? localWeightProfile : "custom";
+            localAutoPlanAlternatives = { [activeWeightKey]: result };
             Object.keys(AUTO_PLAN_WEIGHT_PROFILES).forEach((key) => {
-              if (key === localWeightProfile) return;
+              if (key === activeWeightKey) return;
               const altResult = computeAutoPlan(localAutoPlanTargets, key);
               if (altResult && typeof altResult.then === "function") {
                 altResult.then((r) => { if (r) localAutoPlanAlternatives[key] = r; });
@@ -2303,7 +2341,7 @@ export function renderResultView() {
           ${altKeys.map((key) => {
             const profile = AUTO_PLAN_WEIGHT_PROFILES[key];
             const altResult = localAutoPlanAlternatives[key];
-            const isActive = key === localWeightProfile;
+            const isActive = typeof localWeightProfile === "string" && key === localWeightProfile;
             if (!altResult) {
               return `
                 <div class="ap-alt-card is-loading">
