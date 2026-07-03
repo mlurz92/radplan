@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "./helpers/dom-stubs.js";
-import { mergeThreeWay } from "../js/state.js";
+import { mergeThreeWay, DATA, replaceAllData } from "../js/state.js";
 
 // mergeThreeWay(base, local, server, stats) implementiert den feldweisen
 // 3-Wege-Merge nach einem 409-Sync-Konflikt (siehe README §5.2). `base` ist
@@ -84,5 +84,27 @@ describe("mergeThreeWay (409-Konfliktauflösung)", () => {
     // `assignment` wurde nur serverseitig geändert -> Serverwert (AN).
     assert.equal(merged["2026-5"]["Dr. Martin"][1].assignment, "AN");
     assert.equal(stats.conflicts, 0);
+  });
+});
+
+// replaceAllData() ist die einzige zulässige Stelle zum kompletten Ersetzen
+// des Dateninhalts (Server-Sync, Undo/Redo-Restore, Import) -- siehe die
+// Kapselungs-Doku in state.js direkt über DATA.
+describe("replaceAllData", () => {
+  test("ersetzt den kompletten Inhalt von DATA, ohne die Objektidentität zu ändern", () => {
+    const originalRef = DATA;
+    Object.assign(DATA, { "2026-0": { employees: ["Dr. Martin"] } });
+
+    replaceAllData({ "2026-5": { employees: ["Dr. Becker"] } });
+
+    assert.equal(DATA, originalRef, "DATA bleibt dieselbe Objektreferenz (wichtig für Live-Imports in anderen Modulen)");
+    assert.equal(DATA["2026-0"], undefined, "alte Monate wurden vollständig entfernt");
+    assert.deepEqual(DATA["2026-5"], { employees: ["Dr. Becker"] });
+  });
+
+  test("akzeptiert ein leeres/undefined Argument und leert DATA", () => {
+    Object.assign(DATA, { "2026-0": { employees: [] } });
+    replaceAllData(undefined);
+    assert.deepEqual(DATA, {});
   });
 });

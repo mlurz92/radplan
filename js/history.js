@@ -15,7 +15,7 @@
  * einzelnen Mutationsstellen nötig.
  */
 
-import { DATA, saveToStorage, planMode } from './state.js';
+import { DATA, saveToStorage, planMode, replaceAllData } from './state.js';
 import { monthKey } from './constants.js';
 import { render } from './render-grid.js';
 import { showToast } from './render-modals.js';
@@ -33,11 +33,6 @@ const changeLog = new Map();
 
 function cloneDATAString() {
   return JSON.stringify(DATA);
-}
-
-function replaceData(obj) {
-  Object.keys(DATA).forEach((k) => delete DATA[k]);
-  Object.assign(DATA, obj);
 }
 
 function cellSummary(cell) {
@@ -108,7 +103,7 @@ function applySnapshot(json) {
     return false;
   }
   suppress = true;
-  replaceData(obj);
+  replaceAllData(obj);
   saveToStorage();   // feuert synchron save-queued -> wird durch suppress ignoriert
   baseline = json;
   render();          // ggf. ausgelöste Reconcile-Speicherungen sollen nicht erfasst werden
