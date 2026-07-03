@@ -117,7 +117,7 @@ function applyDragSelection(emp, day) {
  * Synchronisiert nur die `.multi-selected`-Klassen der vorhandenen Zellen,
  * ohne das gesamte Raster neu zu zeichnen. Das hält Ziehgesten flüssig.
  */
-function syncSelectionClasses() {
+export function syncSelectionClasses() {
   const tbody = document.getElementById("plan-tbody");
   if (!tbody) return;
   const me = state.multiEdit;
@@ -1272,7 +1272,7 @@ function createGridCellElement(y, m, emp, d, hols, gridConflicts) {
     innerHtml += `<span class="cell-pin" title="Für Auto-Plan fixiert">📌</span>`;
   }
   if (cellComment) {
-    const escapedComment = cellComment.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const escapedComment = esc(cellComment);
     innerHtml += `<span class="cell-comment-dot" title="${escapedComment}" aria-label="Notiz: ${escapedComment}"></span>`;
   }
   if (cellConflicts?.length) {
@@ -1336,7 +1336,7 @@ export function renderTbody(y, m, dim, hols, md) {
     
     let tdNHtml = `<span class="emp-label">${esc(emp)}</span>`;
     if (meta.position !== "—") {
-      tdNHtml += `<span class="emp-pos-tag" style="background:${pc.bg};color:${pc.fg}">${meta.position}</span>`;
+      tdNHtml += `<span class="emp-pos-tag" style="background:${pc.bg};color:${pc.fg}">${esc(meta.position)}</span>`;
     }
     tdNHtml += `
       <span class="emp-profile-icon">

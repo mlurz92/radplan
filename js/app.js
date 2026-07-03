@@ -96,7 +96,8 @@ import {
   releaseRadialMenu,
   updateGridCell,
   updateAllConflicts,
-  updateGridStatsAndHeader
+  updateGridStatsAndHeader,
+  syncSelectionClasses
 } from './render-grid.js';
 
 import {
@@ -746,7 +747,7 @@ export function openEditor(emp, day, options = {}) {
       state.multiEdit.days = range;
       state.multiEdit.anchor = anchor;
     }
-    render();
+    syncSelectionClasses();
     openCellQuickPopoverFor(emp, day);
     showToast(`${state.multiEdit.days.length} Tage für ${emp} markiert (Bereich)`);
     return;
@@ -765,7 +766,7 @@ export function openEditor(emp, day, options = {}) {
       state.multiEdit.days.sort((a, b) => a - b);
     }
     state.multiEdit.anchor = day;
-    render();
+    syncSelectionClasses();
     if (state.multiEdit.days.length) openCellQuickPopoverFor(emp, day);
     else closeCellQuickPopover();
     showToast(state.multiEdit.days.length ? `${state.multiEdit.days.length} Tage für ${emp} markiert` : "Mehrfachauswahl aufgehoben");

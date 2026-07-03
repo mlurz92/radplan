@@ -884,7 +884,6 @@ radplan/
 │   ├── chips.css                   # Themenbewusste Farbcodierung der Arbeitsplatz-/Status-„Chips"
 │   ├── modals.css                  # Modal-/Bottom-Sheet-System (Overlays, Focus-Traps) + Hilfe-Tooltip-Stil
 │   ├── views.css                   # Profil-Tabs, Kalenderansichten, Abteilungsübersicht, Mitarbeitenden-Dashboard
-│   ├── premium.css                 # Feinschliff-Effekte und gehobene visuelle Akzente
 │   ├── contextmenu.css             # Design des Rechtsklick-Kontextmenüs
 │   ├── mobile-optimization.css     # Responsive Anpassungen, iOS-Safe-Area, Bottom-Sheets, mobile Kontrast-Härtung
 │   ├── enhancements.css            # Stile für den Zell-Detail-Tooltip (celltooltip.js) und die Druckvorschau

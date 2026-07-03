@@ -153,7 +153,10 @@ function applyServerSnapshot(serverData) {
   }
 
   replaceLocalPlans(serverData.plans || {});
-  lastSyncedSnapshot = JSON.parse(JSON.stringify(DATA));
+  // structuredClone() statt JSON.stringify+parse: gleiches Ergebnis (tiefe,
+  // unabhängige Kopie von DATA), aber ohne den Umweg über einen String —
+  // spart bei der Größe von DATA eine vollständige Serialisierung pro Sync.
+  lastSyncedSnapshot = structuredClone(DATA);
 }
 
 async function flushSaveToServer() {
@@ -210,7 +213,7 @@ async function flushSaveToServer() {
 
         serverLastModified = parseInt(conflictData.latestData.lastModified, 10) || 0;
         serverFetchSuccessful = true;
-        lastSyncedSnapshot = JSON.parse(JSON.stringify(DATA));
+        lastSyncedSnapshot = structuredClone(DATA);
 
         window.dispatchEvent(new CustomEvent("radplan-sync-conflict", { detail: stats }));
 
@@ -232,7 +235,7 @@ async function flushSaveToServer() {
       serverLastModified = parseInt(resData.lastModified, 10) || 0;
       serverFetchSuccessful = true;
     }
-    lastSyncedSnapshot = JSON.parse(JSON.stringify(DATA));
+    lastSyncedSnapshot = structuredClone(DATA);
 
     if (requestToken === saveRequestToken) {
       window.dispatchEvent(new CustomEvent("radplan-save-success"));

@@ -33,8 +33,8 @@ import { render } from './render-grid.js';
 import { TT, TTI } from './analytics/engine.js';
 import { esc } from './utils.js';
 
-// HTML-attribut-sicheres Escaping für Tooltip-Texte (behandelt Sonderzeichen und leere Werte robust).
-const ttAttr = (s) => s ? `data-tooltip="${String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}"` : '';
+// HTML-attribut-sicheres Escaping für Tooltip-Texte, via der gemeinsamen esc()-Utility (utils.js).
+const ttAttr = (s) => s ? `data-tooltip="${esc(s)}"` : '';
 
 export function renderEmployeeDashboard() {
   const { year: y, month: m } = state;
