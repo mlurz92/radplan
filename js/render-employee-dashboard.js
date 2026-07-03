@@ -1017,7 +1017,7 @@ export function renderEmployeeDetailDashboard(emp, year) {
   
   detailEl.querySelectorAll('[data-remove]').forEach((/** @type {HTMLElement} */ btn) => {
     btn.addEventListener('click', () => {
-      import('./app.js').then(m => m.confirmRemoveEmployee(btn.dataset.remove, false));
+      import('./app.js').then(m => m.confirmRemoveEmployee(btn.dataset.remove));
     });
   });
   

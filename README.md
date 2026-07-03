@@ -391,7 +391,7 @@ Zusätzlich zum Undo-Stapel führt `history.js` eine separate `changeLog`-Map (S
 
 ### 10.3 Separater Planungsmodus-Verlauf
 
-Der Planungsmodus verfügt über einen eigenen Undo/Redo-Verlauf (`recordPlanHistory`/`undoPlan`/`redoPlan` in `app.js`), der komplett unabhängig vom Hauptverlauf agiert. Dadurch können komplexe Planungsänderungen (inklusive kompletter Auto-Plan-Läufe) gefahrlos schrittweise zurückgenommen und wiederhergestellt werden, ohne den Hauptplan-Verlauf zu berühren. `Strg/Cmd+Z` bzw. `Strg/Cmd+Shift+Z`/`Strg/Cmd+Y` routen automatisch zum jeweils aktiven Verlauf (Planungsmodus vs. Hauptmodus) und werden unterdrückt, während der Tastaturfokus in einem Eingabefeld liegt.
+Der Planungsmodus verfügt über einen eigenen Undo/Redo-Verlauf (`recordPlanHistory`/`undoPlan`/`redoPlan` in `planmode.js`), der komplett unabhängig vom Hauptverlauf agiert. Dadurch können komplexe Planungsänderungen (inklusive kompletter Auto-Plan-Läufe) gefahrlos schrittweise zurückgenommen und wiederhergestellt werden, ohne den Hauptplan-Verlauf zu berühren. `Strg/Cmd+Z` bzw. `Strg/Cmd+Shift+Z`/`Strg/Cmd+Y` routen automatisch zum jeweils aktiven Verlauf (Planungsmodus vs. Hauptmodus) und werden unterdrückt, während der Tastaturfokus in einem Eingabefeld liegt.
 
 ---
 
@@ -537,7 +537,7 @@ Um die Rechenschritte des Schedulers grafisch erlebbar zu machen, rendert die Kl
 
 * **Vorschau-Modus (Standard):** Ohne `options.apply` ist der Aufruf vollständig seiteneffektfrei — `DATA` wird intern per `structuredClone()` gesichert und nach der Berechnung wiederhergestellt (auch etwaige Monate, die durch monatsübergreifende Lesezugriffe wie die vorausschauende Urlaubsprüfung als Nebeneffekt neu angelegt wurden).
 * **`options.apply = true`:** Die geplanten Monate bleiben dauerhaft in `DATA` stehen; der Aufrufer ist für `saveToStorage()` verantwortlich.
-* **Zugriff über die Befehlspalette:** "Jahresplanung (restliche Monate automatisch)" (siehe [16](#16-befehlspalette)) plant über `runYearAutoPlan()` in `app.js` alle verbleibenden Monate des aktuell angezeigten Kalenderjahres durch und speichert direkt — ohne die übliche Monat-für-Monat-Vorschau des Planungsmodus. Bereits gesetzte Dienste bleiben als Fixpunkte erhalten.
+* **Zugriff über die Befehlspalette:** "Jahresplanung (restliche Monate automatisch)" (siehe [16](#16-befehlspalette)) plant über `runYearAutoPlan()` in `autoplan-ui.js` alle verbleibenden Monate des aktuell angezeigten Kalenderjahres durch und speichert direkt — ohne die übliche Monat-für-Monat-Vorschau des Planungsmodus. Bereits gesetzte Dienste bleiben als Fixpunkte erhalten.
 * **Obergrenze:** Aus Versehentlich-Schutz sind maximal 24 Monate pro Aufruf zulässig.
 
 ---
@@ -862,7 +862,15 @@ radplan/
 │   ├── icon.svg                    # Statisches App-Icon im SVG-Format
 │   └── icon_animated.svg           # Animiertes RadPlan-Markenlogo (Lade- und Header-Animation)
 ├── js/
-│   ├── app.js                      # Orchestriert Anwendungs-Lifecycle, globale Event-Listener und Tastatursteuerung
+│   ├── app.js                      # Orchestriert Anwendungs-Lifecycle (`init`), globale Event-Listener (`wireEvents`) und Tastatursteuerung; Barrel-Re-Export der acht Module unten
+│   ├── theme.js                    # Hell-/Dunkelmodus, Spaltendichte, Kopfzeilen-Overflow-Menü, Farbenblind-Modus
+│   ├── period.js                   # Perioden-Navigation: Monats-/Jahreswechsel, Perioden-Flyout, „Heute"-Sprung
+│   ├── planmode.js                 # Planungsmodus-Lebenszyklus (betreten/verlassen/speichern/übernehmen), Undo/Redo der Entwurfs-Historie, Dienstwünsche & Zellen-Fixierungen
+│   ├── editor.js                   # Der Zellen-Editor (#modal-editor): Öffnen/Speichern, Chip-Auswahl, Mitarbeiter entfernen
+│   ├── autoplan-ui.js              # Auto-Plan-Konfigurationsdialog, Fortschrittsanzeige, Ergebnisansicht, „Warum X?"-Bericht, Jahresplanung
+│   ├── mobile.js                   # Mobile Tages-Detailkarte (#modal-mobile-day) mit Swipe-Navigation und Radial-Schnellmenü
+│   ├── import-export.js            # JSON-Export/-Import inkl. Drag & Drop (Drucken selbst lebt in printpreview.js)
+│   ├── quick-actions.js            # Schnellaktionen für (mehrfach ausgewählte) Zellen: Arbeitsplatz/Dienst/Status togglen, Dienst-Badge verschieben
 │   ├── constants.js                # Stammdaten, SPECIAL_RULES, Codes/Farben, Kalender-/Feiertagsmathematik
 │   ├── state.js                    # Verwaltet DATA, LocalStorage-Zugriffe und Server-Synchronisation (3-Wege-Merge)
 │   ├── model.js                    # Datenabfragen (Queries), Fairness-Berechnung, Planungs-Session-Lebenszyklus
@@ -881,6 +889,7 @@ radplan/
 │   ├── viewtransition.js           # View-Transitions-Wrapper: Monatswechsel-Richtung, kreisförmiger Theme-Wechsel
 │   ├── icons.js                    # Zentrales SVG-Icon-Register + animiertes Markenlogo
 │   ├── utils.js                    # HTML-Escaping-Hilfsfunktion (`esc`)
+│   ├── types.js                    # Zentrale JSDoc-Typdefinitionen für `tsc --noEmit` (kein Laufzeitcode)
 │   └── analytics/                  # Der Auswertungs-Hub (frage-/domänenorientierte Analysen)
 │       ├── engine.js               # Gemeinsame Berechnungs-/Zeitraum-Schicht + Tooltip-Glossar (TT) + Interpreter (TTI)
 │       ├── hub.js                  # Shell: Navigation, Zeitraum-Leiste, Modul-Routing

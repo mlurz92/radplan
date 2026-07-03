@@ -126,7 +126,7 @@ function mergePlanDrafts(localPlans, serverPlans, activeKey) {
   return merged;
 }
 
-function collectLocalPlans() {
+export function collectLocalPlans() {
   const plans = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
