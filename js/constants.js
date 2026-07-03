@@ -439,7 +439,7 @@ const AA_POSITIONS = ["AA", "AÄ"];
 
 export function isFacharzt(empName) {
   const override = EMP_ROLE_OVERRIDES[empName];
-  if (override) return FA_POSITIONS.includes(override) || override === "FA";
+  if (override) return FA_POSITIONS.includes(override);
   const m = EMP_META[empName];
   if (m) {
     return FA_POSITIONS.includes(m.position);
@@ -449,7 +449,7 @@ export function isFacharzt(empName) {
 
 export function isAssistenzarzt(empName) {
   const override = EMP_ROLE_OVERRIDES[empName];
-  if (override) return AA_POSITIONS.includes(override) || override === "AA";
+  if (override) return AA_POSITIONS.includes(override);
   const m = EMP_META[empName];
   if (m) {
     return AA_POSITIONS.includes(m.position);

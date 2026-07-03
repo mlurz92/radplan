@@ -80,7 +80,6 @@ export default {
     }).join('');
 
     // Kontext-Leiste: Team-Eckdaten.
-    const fa = fair.rows.filter((r) => r.canFacharzt).length;
     const head = `
       <div class="ah-dash-head">
         <div class="ah-dash-title">Lagebild · ${range.label}</div>

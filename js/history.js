@@ -140,14 +140,6 @@ export function normalRedo() {
   return true;
 }
 
-export function canNormalUndo() {
-  return !planMode && (undoStack.length > 0 || captureTimer !== null);
-}
-
-export function canNormalRedo() {
-  return !planMode && redoStack.length > 0;
-}
-
 export function updateNormalHistoryUI() {
   const undoBtn = /** @type {HTMLButtonElement} */ (document.getElementById('btn-undo'));
   const redoBtn = /** @type {HTMLButtonElement} */ (document.getElementById('btn-redo'));

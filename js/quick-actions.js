@@ -158,6 +158,10 @@ export function moveDutyBadge(srcEmp, srcDay, dstEmp, dstDay) {
     showToast(`Zielzelle hat bereits ${dstCell.duty}-Dienst`);
     return;
   }
+  if (dstCell.duty === dutyCode) {
+    showToast(`Zielzelle hat bereits ${dutyCode}-Dienst`);
+    return;
+  }
 
   if (dstDay !== srcDay) {
     const owner = dutyOwner(y, m, dstDay, dutyCode);

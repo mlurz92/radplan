@@ -78,7 +78,7 @@ export default {
                 if (v === null) return '<td class="ah-td-num crv-nd">—</td>';
                 const h = heatColor(v - means[m]);
                 const dv = v - means[m];
-                const rel = dv >= 1.5 ? 'deutlich über' : dv >= 0.5 ? 'über' : dv > -0.5 ? 'etwa im' : dv > -1.5 ? 'unter' : 'deutlich unter';
+                const rel = dv >= 2 ? 'deutlich über' : dv >= 1 ? 'über' : dv > -0.5 ? 'etwa im' : dv >= -1 ? 'unter' : 'deutlich unter';
                 const cTip = esc(`${emp} · ${MONTHS_SHORT[m]}: ${v} ${modeLabel} – ${rel} Monats-Ø (${means[m].toFixed(1).replace('.', ',')}).`);
                 return `<td class="ah-td-num" style="background:${h.bg};color:${h.fg}" title="Ø ${means[m].toFixed(1)}" data-tooltip="${cTip}">${v}</td>`;
               }).join('');

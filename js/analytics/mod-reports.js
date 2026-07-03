@@ -11,7 +11,7 @@ import {
   computeDutyFairness, computeAbsence, computeCoverage,
   buildYearlyStats, getMonthData, employeesInRange,
   getEmpMeta, daysInMonth, weekday, getSaxonyHolidaysCached, isHoliday,
-  MONTHS, MONTHS_SHORT, DOW_ABBR, TT,
+  MONTHS, MONTHS_SHORT, DOW_ABBR, TT, VACATION_CODES,
 } from './engine.js';
 
 // HTML-Attribut-sicheres Escaping für Tooltip-Texte.
@@ -256,9 +256,8 @@ function exportPersonPDF(emp, year) {
   const ys = buildYearlyStats(emp, year);
   const meta = getEmpMeta(emp);
 
-  const VAC = ['U', 'ZU', 'SU', '§15c'];
   const body = ys.months.map((mon) => {
-    const vac = VAC.reduce((a, c) => a + (mon.stCounts?.[c] || 0), 0);
+    const vac = VACATION_CODES.reduce((a, c) => a + (mon.stCounts?.[c] || 0), 0);
     const sick = (mon.stCounts?.['K'] || 0) + (mon.stCounts?.['KK'] || 0);
     return [
       MONTHS_SHORT[mon.m],

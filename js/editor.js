@@ -553,7 +553,10 @@ export function confirmRemoveEmployeeFuture(name) {
 
     if (planMode && planSessions) {
       Object.keys(planSessions).forEach(key => {
-        if (key >= currentKey && planSessions[key]) {
+        const parts = key.split('-');
+        const kY = parseInt(parts[0], 10);
+        const kM = parseInt(parts[1], 10);
+        if ((kY > cY || (kY === cY && kM >= cM)) && planSessions[key]) {
           const session = planSessions[key];
           if (session.employees) {
             session.employees = session.employees.filter(e => e !== name);

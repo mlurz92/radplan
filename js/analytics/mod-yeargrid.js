@@ -67,10 +67,10 @@ export default {
           devTxt = 'von Bereitschaftsdiensten befreit.';
         } else {
           const dev = mon.bd - meansBD[m];
-          const rel = dev >= 1.5 ? `deutlich über dem Monats-Ø (${r1(meansBD[m])})`
-            : dev >= 0.5 ? `über dem Monats-Ø (${r1(meansBD[m])})`
+          const rel = dev >= 2 ? `deutlich über dem Monats-Ø (${r1(meansBD[m])})`
+            : dev >= 1 ? `über dem Monats-Ø (${r1(meansBD[m])})`
             : dev > -0.5 ? `etwa im Monats-Ø (${r1(meansBD[m])})`
-            : dev > -1.5 ? `unter dem Monats-Ø (${r1(meansBD[m])})`
+            : dev >= -1 ? `unter dem Monats-Ø (${r1(meansBD[m])})`
             : `deutlich unter dem Monats-Ø (${r1(meansBD[m])})`;
           devTxt = `${mon.bd} Bereitschaftsdienst(e) – ${rel}.`;
         }

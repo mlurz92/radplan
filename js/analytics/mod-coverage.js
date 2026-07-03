@@ -58,7 +58,7 @@ export default {
     try {
       cov = computeCoverage(range);
     } catch (e) {
-      root.innerHTML = '<div class="ah-empty">Abdeckung konnte nicht berechnet werden.</div>';
+      root.innerHTML = `<div class="ah-empty ah-error">Abdeckung konnte nicht berechnet werden: ${esc(e?.message || e)}</div>`;
       return;
     }
 

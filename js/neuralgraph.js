@@ -1393,5 +1393,8 @@ export class NeuralGraph {
     this.coreNodes = [];
     this.globeVertices = [];
     this.globeEdges = [];
+    if (window.lastNeuralGraphInstance === this) {
+      window.lastNeuralGraphInstance = null;
+    }
   }
 }
