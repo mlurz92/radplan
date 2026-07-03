@@ -601,19 +601,29 @@ function collectDutyRaw(emp, year, uptoMonth) {
 // eines Jahres. `uptoMonth` (0–11) begrenzt den Betrachtungszeitraum (Default:
 // gesamtes Jahr). Dienstbefreite Personen (z. B. Prof. Schäfer) werden
 // ausgeschlossen, da sie das Fairness-Bild verzerren würden.
+/**
+ * @typedef {import('./types.js').DutyFairnessReport} DutyFairnessReport
+ * @typedef {import('./types.js').DutyFairnessRow} DutyFairnessRow
+ */
+
+/**
+ * @param {number} year
+ * @param {{ uptoMonth?: number }} [opts]
+ * @returns {DutyFairnessReport}
+ */
 export function computeDutyFairness(year, { uptoMonth = 11 } = {}) {
   const employees = getEmployeesForYear(year).filter((e) => !isDutyExempt(e));
   const raw = employees
     .map((emp) => ({ emp, meta: getEmpMeta(emp), ...collectDutyRaw(emp, year, uptoMonth) }))
     .filter((r) => r.activeMonths > 0);
 
-  const rows = raw.map((r) => ({
+  const rows = /** @type {DutyFairnessRow[]} */ (raw.map((r) => ({
     ...r,
     fte: r.meta.fte || 100,
     total: r.bd + r.hg,
     weekendDuties: r.weBd + r.weHg,
     holidayDuties: r.holBd + r.holHg,
-  }));
+  })));
 
   const count = rows.length;
   const sum = (key) => rows.reduce((a, r) => a + r[key], 0);

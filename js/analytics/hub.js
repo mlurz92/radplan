@@ -80,7 +80,7 @@ function renderNav() {
       <span class="ah-nav-ico" aria-hidden="true">${m.icon || ''}</span>
       <span class="ah-nav-lbl">${m.label}</span>
     </button>`).join('');
-  nav.querySelectorAll('[data-mod]').forEach((btn) => {
+  nav.querySelectorAll('[data-mod]').forEach((/** @type {HTMLElement} */ btn) => {
     btn.addEventListener('click', () => hub.goto(btn.dataset.mod));
   });
   // On mobile the nav is a horizontally scrolling row (9 modules don't fit
@@ -114,18 +114,18 @@ function renderRangeBar() {
 
   bar.innerHTML = `<div class="ah-range-pills">${pills}</div>${customUi}`;
 
-  bar.querySelectorAll('[data-range]').forEach((btn) => {
+  bar.querySelectorAll('[data-range]').forEach((/** @type {HTMLElement} */ btn) => {
     btn.addEventListener('click', () => hub.setRange(btn.dataset.range));
   });
   bar.querySelector('#ah-range-start')?.addEventListener('change', (e) => {
-    const [y, m] = e.target.value.split('-').map(Number);
+    const [y, m] = /** @type {HTMLInputElement} */ (e.target).value.split('-').map(Number);
     if (Number.isFinite(y) && Number.isFinite(m)) {
       hubState.custom = { start: { year: y, month: m - 1 }, end: ce };
       renderActive();
     }
   });
   bar.querySelector('#ah-range-end')?.addEventListener('change', (e) => {
-    const [y, m] = e.target.value.split('-').map(Number);
+    const [y, m] = /** @type {HTMLInputElement} */ (e.target).value.split('-').map(Number);
     if (Number.isFinite(y) && Number.isFinite(m)) {
       hubState.custom = { start: cs, end: { year: y, month: m - 1 } };
       renderActive();

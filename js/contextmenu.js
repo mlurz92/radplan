@@ -24,7 +24,7 @@ export class ContextMenu {
 
     // Listen for global click to close
     window.addEventListener('click', (e) => {
-      if (this.visible && !this.el.contains(e.target)) {
+      if (this.visible && !this.el.contains(/** @type {Node} */ (e.target))) {
         this.hide();
       }
     }, { capture: true });

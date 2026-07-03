@@ -73,7 +73,7 @@ function deepEqual(a, b) {
 // plain-object trees (month -> employee -> day -> cell) so only the individual
 // fields that genuinely changed on both sides since `base` are treated as
 // conflicts; everything else is merged automatically without data loss.
-function mergeThreeWay(base, local, server, stats) {
+export function mergeThreeWay(base, local, server, stats) {
   if (deepEqual(local, server)) return local;
   if (deepEqual(local, base)) {
     stats.serverWins++;

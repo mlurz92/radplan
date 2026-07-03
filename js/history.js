@@ -154,10 +154,10 @@ export function canNormalRedo() {
 }
 
 export function updateNormalHistoryUI() {
-  const undoBtn = document.getElementById('btn-undo');
-  const redoBtn = document.getElementById('btn-redo');
-  const mUndo = document.getElementById('mbtn-undo');
-  const mRedo = document.getElementById('mbtn-redo');
+  const undoBtn = /** @type {HTMLButtonElement} */ (document.getElementById('btn-undo'));
+  const redoBtn = /** @type {HTMLButtonElement} */ (document.getElementById('btn-redo'));
+  const mUndo = /** @type {HTMLButtonElement} */ (document.getElementById('mbtn-undo'));
+  const mRedo = /** @type {HTMLButtonElement} */ (document.getElementById('mbtn-redo'));
 
   // Im Planungsmodus übernimmt die Planungsleiste die Undo/Redo-Funktion;
   // die globalen Buttons werden ausgeblendet, um Verwechslungen zu vermeiden.

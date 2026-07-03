@@ -454,11 +454,12 @@ Ein winziger Feinabzug (Deep-Move-Korrelation) verhindert zusätzlich eine küns
 [HG-Rhythmisierung] (HG-Lücken füllen unter Anti-Clustering-Logik)
        |
        v
-[Multi-Zyklus-Optimierung (25 Zyklen)]
-  |-- 1. BD-Swap-Pass (80 Durchläufe, Gerechtigkeit glätten)
-  |-- 2. HG-Swap-Pass (120 Durchläufe, Abstände optimieren)
-  |-- 3. Deep-Optimize-Pass (150 Durchläufe, rollenübergreifende Swaps)
-  |-- 4. Coverage-Repair (Lücken zwangsbesetzen)
+[Multi-Zyklus-Optimierung (max. 8 Zyklen, Abbruch bei Konvergenz)]
+  |-- 1. BD-Swap-Pass (max. 20 Durchläufe, Gerechtigkeit glätten)
+  |-- 2. HG-Wochenend-Kopplung & HG-Lücken auffüllen
+  |-- 3. HG-Swap-Pass (max. 30 Durchläufe, Abstände optimieren)
+  |-- 4. Deep-Optimize-Pass (max. 40 Durchläufe, rollenübergreifende Swaps)
+  |-- 5. Coverage-Repair (Lücken zwangsbesetzen) — läuft am Ende jedes Zyklus
        |
        v
 [Validierungs-Prüfung] (Dienst-Exklusivität, harte Constraints)
@@ -477,7 +478,7 @@ Ein winziger Feinabzug (Deep-Move-Korrelation) verhindert zusätzlich eine küns
    * *Abstands-Malus:* Ein Hintergrunddienst innerhalb von 3 Tagen nach einem vorherigen wird hart bestraft.
    * *Direkt-Folge-Malus:* Back-to-back-Hintergrunddienste (außer bei zwingenden Kopplungen) werden noch massiver abgewertet.
    * *Dichte-Prüfung (Rolling Window):* Mehr als ein Hintergrunddienst pro Person in einem rollierenden 7-Tage-Fenster wird abgewertet.
-5. **Multi-Zyklus-Optimierung (25 Zyklen):** In 25 aufeinanderfolgenden Durchläufen führt der Scheduler gezielte Tauschvorgänge (Swaps) zwischen zwei Personen durch und prüft systematisch, ob dies die Gesamt-Fitness verbessert. Verbleibende Lücken werden im letzten Schritt (*Coverage-Repair*) durch Zuweisung an die am wenigsten belasteten Mitarbeiter zwangsweise geschlossen.
+5. **Multi-Zyklus-Optimierung (max. 8 Zyklen):** In bis zu 8 aufeinanderfolgenden Zyklen führt der Scheduler BD-Swaps (max. 20 Durchläufe/Zyklus), HG-Wochenend-Kopplung, HG-Lückenfüllung, HG-Swaps (max. 30 Durchläufe/Zyklus) und eine rollenübergreifende Deep-Optimize-Metaheuristik (max. 40 Durchläufe/Zyklus) durch und prüft nach jedem Swap systematisch, ob dies die Gesamt-Fitness (`computeGlobalObjective`) verbessert. Verbleibende Lücken werden am Ende jedes Zyklus durch *Coverage-Repair* zwangsweise an die am wenigsten belasteten Mitarbeiter geschlossen. Verbessert sich die globale Fitness in einem Zyklus um weniger als 0,01, gilt der Lauf als konvergiert und bricht vorzeitig ab (typischerweise deutlich vor dem 8. Zyklus).
 6. **Validierung:** Abschlussprüfung auf Dienst-Exklusivität (maximal ein Dienst pro Kalendertag pro Person) und Einhaltung aller K.-o.-Kriterien.
 
 ### 12.4 Mathematische Kostenfaktoren (Objective Penalties)

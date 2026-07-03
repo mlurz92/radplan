@@ -125,7 +125,7 @@ export function syncSelectionClasses() {
   const days = Array.isArray(me?.days) ? me.days : [];
   // Markierung erst ab zwei Zellen sichtbar machen (Einzelzelle → Fokusring genügt).
   const show = days.length > 1;
-  tbody.querySelectorAll(".td-cell").forEach((cell) => {
+  tbody.querySelectorAll(".td-cell").forEach((/** @type {HTMLElement} */ cell) => {
     const sel = show && cell.dataset.emp === emp && days.includes(parseInt(cell.dataset.day, 10));
     cell.classList.toggle("multi-selected", sel);
   });
@@ -323,7 +323,7 @@ export function scrollToToday() {
     return;
   }
 
-  const todayCol = document.querySelector("#plan-thead th.today");
+  const todayCol = /** @type {HTMLElement} */ (document.querySelector("#plan-thead th.today"));
   const todayCell = document.querySelector("#plan-tbody td.today-col");
   const gridWrapper = document.getElementById("grid-wrapper");
 
@@ -358,7 +358,7 @@ export function focusCellAfterRender(emp, day) {
   requestAnimationFrame(() => {
     const tbody = document.getElementById('plan-tbody');
     if (!tbody) return;
-    const cells = tbody.querySelectorAll('.td-cell');
+    const cells = /** @type {NodeListOf<HTMLElement>} */ (tbody.querySelectorAll('.td-cell'));
     for (const cell of cells) {
       if (cell.dataset.emp === emp && parseInt(cell.dataset.day, 10) === day) {
         cell.focus({ preventScroll: true });
@@ -689,7 +689,7 @@ export function openCellQuickPopoverFor(emp, day) {
   if (IS_MOBILE || emp === RBN_ROW_KEY || !Number.isFinite(day)) return;
   requestAnimationFrame(() => {
     const tbody = document.getElementById("plan-tbody");
-    const cell = tbody?.querySelector(`.td-cell[data-emp="${CSS.escape(emp)}"][data-day="${day}"]`);
+    const cell = /** @type {HTMLElement} */ (tbody?.querySelector(`.td-cell[data-emp="${CSS.escape(emp)}"][data-day="${day}"]`));
     if (cell) {
       cell.focus({ preventScroll: true });
       showCellQuickPopover(emp, day, cell);
@@ -776,7 +776,7 @@ export function openRadialQuickMenu(emp, day, x, y) {
 
   radialMenuState = { el, emp, day, sectors, activeIndex: -1 };
 
-  el.querySelectorAll('.radial-item').forEach(btn => {
+  el.querySelectorAll('.radial-item').forEach((/** @type {HTMLElement} */ btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const idx = parseInt(btn.dataset.idx, 10);
@@ -829,7 +829,7 @@ export function initGridKeyboardHandlers() {
   table.addEventListener('keydown', handleGridKeydown);
 
   table.addEventListener('focusin', (e) => {
-    if (e.target.closest?.('#plan-tbody .td-cell')) {
+    if (/** @type {HTMLElement} */ (e.target).closest?.('#plan-tbody .td-cell')) {
       document.body.classList.add('grid-cell-focused');
     }
   });
@@ -1439,7 +1439,7 @@ export function updateAllConflicts() {
   const gridConflicts = computeGridConflicts(y, m);
   
   const cells = document.querySelectorAll("#plan-tbody td.td-cell");
-  cells.forEach(cell => {
+  cells.forEach((/** @type {HTMLElement} */ cell) => {
     const emp = cell.dataset.emp;
     const d = parseInt(cell.dataset.day, 10);
     if (emp === RBN_ROW_KEY) return;
@@ -1548,10 +1548,10 @@ export function renderTfoot(y, m, dim, md) {
 
 document.addEventListener("mousedown", (e) => {
   if (e.button !== 0) return;
-  if (e.target.closest?.(".cell-duty")) return;
+  if (/** @type {HTMLElement} */ (e.target).closest?.(".cell-duty")) return;
   // Strg/Cmd/Shift werden vom Klick-Handler (Toggle/Bereich) verarbeitet.
   if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-  const cell = e.target.closest?.("#plan-tbody .td-cell");
+  const cell = /** @type {HTMLElement} */ (/** @type {HTMLElement} */ (e.target).closest?.("#plan-tbody .td-cell"));
   if (!cell) return;
   const emp = cell.dataset.emp;
   const day = parseInt(cell.dataset.day || "", 10);
@@ -1613,7 +1613,7 @@ document.addEventListener("mousedown", (e) => {
 
 document.addEventListener("mouseover", (e) => {
   if (!dragSelectionState.active) return;
-  const cell = e.target.closest?.("#plan-tbody .td-cell");
+  const cell = /** @type {HTMLElement} */ (/** @type {HTMLElement} */ (e.target).closest?.("#plan-tbody .td-cell"));
   if (!cell) return;
   const emp = cell.dataset.emp;
   const day = parseInt(cell.dataset.day || "", 10);
@@ -1663,7 +1663,7 @@ document.addEventListener("mouseup", () => {
   if (!anchorEmp || !Number.isFinite(anchorDay) || anchorEmp === RBN_ROW_KEY) return;
 
   const tbody = document.getElementById("plan-tbody");
-  const cell = tbody?.querySelector(`.td-cell[data-emp="${CSS.escape(anchorEmp)}"][data-day="${anchorDay}"]`);
+  const cell = /** @type {HTMLElement} */ (tbody?.querySelector(`.td-cell[data-emp="${CSS.escape(anchorEmp)}"][data-day="${anchorDay}"]`));
   if (cell) {
     cell.focus({ preventScroll: true });
     showCellQuickPopover(anchorEmp, anchorDay, cell);

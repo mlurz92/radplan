@@ -154,7 +154,7 @@ export function initCellTooltips() {
   if (!tbody) return;
 
   tbody.addEventListener('mouseover', (e) => {
-    const cell = e.target.closest?.('#plan-tbody .td-cell');
+    const cell = /** @type {HTMLElement} */ (e.target).closest?.('#plan-tbody .td-cell');
     if (!cell || cell === currentAnchor) return;
     // Touch-Geräte und geöffnete Schnellaktion nicht stören.
     if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return;
@@ -164,9 +164,9 @@ export function initCellTooltips() {
   });
 
   tbody.addEventListener('mouseout', (e) => {
-    const to = e.relatedTarget;
+    const to = /** @type {HTMLElement} */ (e.relatedTarget);
     if (to && to.closest?.('.cell-detail-tip')) return;
-    const cell = e.target.closest?.('#plan-tbody .td-cell');
+    const cell = /** @type {HTMLElement} */ (e.target).closest?.('#plan-tbody .td-cell');
     if (!cell) return;
     if (to && to.closest?.('#plan-tbody .td-cell') === cell) return;
     hideCellTip();

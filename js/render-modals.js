@@ -50,7 +50,7 @@ function applyProfileCalView() {
   if (monthEl) monthEl.hidden = view !== "month";
   if (yearEl) yearEl.hidden = view !== "year";
   if (titleEl) titleEl.textContent = view === "year" ? "Jahreskalender" : "Monatskalender";
-  document.querySelectorAll("#modal-emps [data-cal-view]").forEach((btn) => {
+  document.querySelectorAll("#modal-emps [data-cal-view]").forEach((/** @type {HTMLElement} */ btn) => {
     const active = btn.dataset.calView === view;
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-selected", active ? "true" : "false");
@@ -63,7 +63,7 @@ function applyProfileCalView() {
 // und zwischen den Profil-Tabs (Übersicht/Dienste/Kalender/Jahr/Verwaltung) um.
 
 function _setScreenButtons(active) {
-  document.querySelectorAll("#modal-emps .emp-screen-btn").forEach((b) => {
+  document.querySelectorAll("#modal-emps .emp-screen-btn").forEach((/** @type {HTMLElement} */ b) => {
     const on = b.dataset.screen === active;
     b.classList.toggle("active", on);
     b.setAttribute("aria-selected", on ? "true" : "false");
@@ -88,7 +88,7 @@ function ensurePersonScreen(empName) {
   const person = document.getElementById("emp-screen-person");
   if (team) team.hidden = true;
   if (person) person.hidden = false;
-  const personBtn = document.getElementById("emp-screen-person-btn");
+  const personBtn = /** @type {HTMLButtonElement} */ (document.getElementById("emp-screen-person-btn"));
   if (personBtn) personBtn.disabled = false;
   _setScreenButtons("person");
   populatePersonSelect(empName);
@@ -114,12 +114,12 @@ export function applyPersonTab(tab) {
   const valid = ["overview", "duties", "calendar", "year", "admin"];
   if (!valid.includes(tab)) tab = "overview";
   state.profileTab = tab;
-  document.querySelectorAll("#modal-emps .pm-tab").forEach((b) => {
+  document.querySelectorAll("#modal-emps .pm-tab").forEach((/** @type {HTMLElement} */ b) => {
     const on = b.dataset.ptab === tab;
     b.classList.toggle("active", on);
     b.setAttribute("aria-selected", on ? "true" : "false");
   });
-  document.querySelectorAll("#modal-emps .pm-tabpanel").forEach((p) => {
+  document.querySelectorAll("#modal-emps .pm-tabpanel").forEach((/** @type {HTMLElement} */ p) => {
     p.hidden = p.dataset.ptabPanel !== tab;
   });
   if (tab === "admin" && state.profileEmp) {
@@ -821,7 +821,7 @@ export function openProfileModal(empName) {
     calHtml += `</div>`;
     calEl.innerHTML = calHtml;
 
-    calEl.querySelectorAll(".mcd[data-day]").forEach(el => {
+    calEl.querySelectorAll(".mcd[data-day]").forEach((/** @type {HTMLElement} */ el) => {
       const dayNum = parseInt(el.dataset.day);
       const wd = weekday(y, m, dayNum);
       const hol = isHoliday(y, m, dayNum, hols);
@@ -882,7 +882,7 @@ export function openProfileModal(empName) {
     yHtml += `</div>`;
     calYearEl.innerHTML = yHtml;
 
-    calYearEl.querySelectorAll('.pyc-day[role="button"]').forEach((el) => {
+    calYearEl.querySelectorAll('.pyc-day[role="button"]').forEach((/** @type {HTMLElement} */ el) => {
       const d = parseInt(el.dataset.day, 10);
       const mon = parseInt(el.dataset.mon, 10);
       const open = () => {
@@ -902,7 +902,7 @@ export function openProfileModal(empName) {
   // === CALENDAR VIEW TOGGLE (Monat / Jahr) ===
   applyProfileCalView();
   if (!_profileCalWired) {
-    document.querySelectorAll("#modal-emps [data-cal-view]").forEach((btn) => {
+    document.querySelectorAll("#modal-emps [data-cal-view]").forEach((/** @type {HTMLElement} */ btn) => {
       btn.addEventListener("click", () => {
         state.profileCalView = btn.dataset.calView;
         applyProfileCalView();
@@ -1077,7 +1077,7 @@ export function showOverlay(id) {
   
   setupFocusTrap(el);
   
-  const first = el.querySelector('[autofocus],[tabindex="0"],button:not([disabled]),input,textarea');
+  const first = /** @type {HTMLElement} */ (el.querySelector('[autofocus],[tabindex="0"],button:not([disabled]),input,textarea'));
   if (first) {
     setTimeout(() => first.focus(), 60);
   }

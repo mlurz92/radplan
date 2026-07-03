@@ -256,13 +256,19 @@ function cellHasVacationLikeCode(cell) {
 // Wie isNextDayVacation, aber mit erweiterter "urlaubsähnlicher" Definition
 // (zusätzlich FZA und WB). Wird als harte Sperre "kein Dienst am Tag vor
 // Urlaub" für D und HG genutzt.
-export function isNextDayVacationLike(y, m, emp, d, assignments) {
+// `externalAssignments` (optional) sind monatsübergreifend bereits im
+// laufenden Autoplan-Durchlauf vorgemerkte, aber noch nicht in DATA
+// persistierte Zellen (siehe queueExternalAssignment) — ohne sie würde ein
+// Wechsel in den Folgemonat frisch geplante Urlaubstage dort übersehen.
+export function isNextDayVacationLike(y, m, emp, d, assignments, externalAssignments) {
   const next = nextCalendarDay(y, m, d);
   if (next.y === y && next.m === m) {
     return cellHasVacationLikeCode(assignments[emp]?.[next.d]);
   }
   const nk = monthKey(next.y, next.m);
-  return cellHasVacationLikeCode(DATA[nk]?.assignments?.[emp]?.[next.d]);
+  const stored = DATA[nk]?.assignments?.[emp]?.[next.d] || {};
+  const queued = externalAssignments?.[nk]?.[emp]?.[next.d] || {};
+  return cellHasVacationLikeCode({ ...stored, ...queued });
 }
 
 export function hasCTLeadershipConflict(y, m, emp, day, assignments) {
