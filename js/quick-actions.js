@@ -32,6 +32,17 @@ function suffixForSkips(skipped) {
   return skipped ? ` · ${skipped} übersprungen` : "";
 }
 
+function refreshAfterQuickAction(emp, day, affectedCells) {
+  if (IS_MOBILE) {
+    render();
+    focusCellAfterRender(emp, day);
+  } else {
+    affectedCells.forEach(c => updateGridCell(c.emp, c.day));
+    updateAllConflicts();
+    updateGridStatsAndHeader(affectedCells.map(c => c.day));
+  }
+}
+
 export function quickToggleWorkplace(emp, day, wpCode) {
   const { year: y, month: m } = state;
   const days = quickTargetDays(emp, day);
@@ -47,8 +58,8 @@ export function quickToggleWorkplace(emp, day, wpCode) {
   const remove = anchorParts.includes(wpCode);
 
   if (planMode) recordPlanHistory();
-  let changed = 0;
   let skipped = 0;
+  const affectedCells = [];
   days.forEach(d => {
     const cell = getCell(y, m, emp, d);
     const parts = (cell.assignment || "").split("/").map(x => x.trim()).filter(Boolean);
@@ -58,31 +69,20 @@ export function quickToggleWorkplace(emp, day, wpCode) {
       ? wps.filter(w => w !== wpCode)
       : (wps.includes(wpCode) ? wps : [...wps, wpCode]);
     setCell(y, m, emp, d, { assignment: next.length ? next.join("/") : null, duty: cell.duty || null });
-    changed++;
+    affectedCells.push({ emp, day: d });
   });
   if (planMode) recordPlanHistory();
 
   const label = wp?.label || wpCode;
   const verb = remove ? "entfernt" : "gesetzt";
+  const changed = affectedCells.length;
   const msg = multi
     ? `${label} ${verb} · ${changed} ${changed === 1 ? "Tag" : "Tage"}${suffixForSkips(skipped)}`
     : `${label} ${verb}`;
   showToast(msg);
   announceToScreenReader(msg);
 
-  if (IS_MOBILE) {
-    render();
-    focusCellAfterRender(emp, day);
-  } else {
-    days.forEach(d => {
-      const cell = getCell(y, m, emp, d);
-      const parts = (cell.assignment || "").split("/").map(x => x.trim()).filter(Boolean);
-      if (parts.some(p => STATUSES.find(s => s.code === p))) return;
-      updateGridCell(emp, d);
-    });
-    updateAllConflicts();
-    updateGridStatsAndHeader(days);
-  }
+  refreshAfterQuickAction(emp, day, affectedCells);
 }
 
 export function quickToggleDuty(emp, day, dutyCode) {
@@ -142,14 +142,7 @@ export function quickToggleDuty(emp, day, dutyCode) {
   showToast(msg);
   announceToScreenReader(msg);
 
-  if (IS_MOBILE) {
-    render();
-    focusCellAfterRender(emp, day);
-  } else {
-    affectedCells.forEach(c => updateGridCell(c.emp, c.day));
-    updateAllConflicts();
-    updateGridStatsAndHeader(affectedCells.map((c) => c.day));
-  }
+  refreshAfterQuickAction(emp, day, affectedCells);
 }
 
 export function moveDutyBadge(srcEmp, srcDay, dstEmp, dstDay) {
@@ -183,15 +176,10 @@ export function moveDutyBadge(srcEmp, srcDay, dstEmp, dstDay) {
   showToast(msg);
   announceToScreenReader(msg);
 
-  if (IS_MOBILE) {
-    render();
-    focusCellAfterRender(dstEmp, dstDay);
-  } else {
-    updateGridCell(srcEmp, srcDay);
-    updateGridCell(dstEmp, dstDay);
-    updateAllConflicts();
-    updateGridStatsAndHeader([srcDay, dstDay]);
-  }
+  refreshAfterQuickAction(dstEmp, dstDay, [
+    { emp: srcEmp, day: srcDay },
+    { emp: dstEmp, day: dstDay },
+  ]);
 }
 
 export function quickClearCell(emp, day) {
@@ -207,14 +195,7 @@ export function quickClearCell(emp, day) {
   showToast(msg);
   announceToScreenReader(msg);
 
-  if (IS_MOBILE) {
-    render();
-    focusCellAfterRender(emp, day);
-  } else {
-    days.forEach(d => updateGridCell(emp, d));
-    updateAllConflicts();
-    updateGridStatsAndHeader(days);
-  }
+  refreshAfterQuickAction(emp, day, days.map(d => ({ emp, day: d })));
 }
 
 export function quickSetStatus(emp, day, statusCode) {
@@ -240,13 +221,6 @@ export function quickSetStatus(emp, day, statusCode) {
   showToast(msg);
   announceToScreenReader(msg);
 
-  if (IS_MOBILE) {
-    render();
-    focusCellAfterRender(emp, day);
-  } else {
-    days.forEach(d => updateGridCell(emp, d));
-    updateAllConflicts();
-    updateGridStatsAndHeader(days);
-  }
+  refreshAfterQuickAction(emp, day, days.map(d => ({ emp, day: d })));
 }
 

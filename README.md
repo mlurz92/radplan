@@ -869,7 +869,7 @@ radplan/
 │   ├── editor.js                   # Der Zellen-Editor (#modal-editor): Öffnen/Speichern, Chip-Auswahl, Mitarbeiter entfernen
 │   ├── autoplan-ui.js              # Auto-Plan-Konfigurationsdialog, Fortschrittsanzeige, Ergebnisansicht, „Warum X?"-Bericht, Jahresplanung
 │   ├── mobile.js                   # Mobile Tages-Detailkarte (#modal-mobile-day) mit Swipe-Navigation und Radial-Schnellmenü
-│   ├── import-export.js            # Drucken, JSON-Export/-Import inkl. Drag & Drop
+│   ├── import-export.js            # JSON-Export/-Import inkl. Drag & Drop (Drucken selbst lebt in printpreview.js)
 │   ├── quick-actions.js            # Schnellaktionen für (mehrfach ausgewählte) Zellen: Arbeitsplatz/Dienst/Status togglen, Dienst-Badge verschieben
 │   ├── constants.js                # Stammdaten, SPECIAL_RULES, Codes/Farben, Kalender-/Feiertagsmathematik
 │   ├── state.js                    # Verwaltet DATA, LocalStorage-Zugriffe und Server-Synchronisation (3-Wege-Merge)

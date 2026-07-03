@@ -1,45 +1,13 @@
 // RadPlan — Drucken, JSON-Export/-Import (inkl. Drag & Drop) für den
 // gesamten Datenbestand. Extrahiert aus dem früher monolithischen app.js.
 
-import { MONTHS } from './constants.js';
-import { state, planMode, DATA, saveToStorage } from './state.js';
+import { DATA, saveToStorage, collectLocalPlans } from './state.js';
 import { ensurePostBDFreiDays } from './model.js';
 import { render } from './render-grid.js';
 import { showOverlay, hideOverlay, showToast } from './render-modals.js';
 
-export function printPlan() {
-  const { year, month } = state;
-  const titleEl = document.getElementById("print-header-period");
-  if (titleEl) titleEl.textContent = `${MONTHS[month]} ${year}`;
-  const metaEl = document.getElementById("print-header-meta");
-  if (metaEl) {
-    metaEl.textContent = `Gedruckt am ${new Date().toLocaleDateString("de-DE")}${planMode ? " · Planungsentwurf" : ""}`;
-  }
-  document.title = `RadPlan — ${MONTHS[month]} ${year}`;
-
-  const table = document.getElementById("plan-table");
-  const rows = table ? table.querySelectorAll("tr").length : 0;
-  const USABLE_H = 680;
-  const PRINT_ROW_H = 15;
-  const estHeight = rows * PRINT_ROW_H + 24;
-  const scale = Math.min(1, USABLE_H / Math.max(estHeight, 1));
-  document.documentElement.style.setProperty("--print-scale", scale.toFixed(4));
-
-  window.print();
-}
-
 export function doExport() {
-  const plans = {};
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (k && k.startsWith("radplan_v3_plan_")) {
-      try {
-        plans[k.replace("radplan_v3_plan_", "")] = JSON.parse(localStorage.getItem(k));
-      } catch (e) {}
-    }
-  }
-  
-  const exportObj = { main: DATA, plans };
+  const exportObj = { main: DATA, plans: collectLocalPlans() };
   const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = Object.assign(document.createElement("a"), {

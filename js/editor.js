@@ -526,16 +526,12 @@ export function saveEditor() {
   updateGridStatsAndHeader([...touchedDays]);
 }
 
-export function confirmRemoveEmployee(name, refreshList = false) {
+export function confirmRemoveEmployee(name) {
   const { year: y, month: m } = state;
   if (confirm(`„${name}" aus ${MONTHS[m]} ${y} entfernen?`)) {
     removeEmployee(y, m, name);
     render();
-    if (refreshList) {
-      renderEmployeeDashboard();
-    } else {
-      renderEmployeeDashboard();
-    }
+    renderEmployeeDashboard();
   }
 }
 

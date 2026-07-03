@@ -109,7 +109,7 @@ import {
 export { openMobileDay } from './mobile.js';
 
 export {
-  printPlan, doExport, openImportModal, doImport, initDragDrop, handleDroppedFile,
+  doExport, openImportModal, doImport, initDragDrop, handleDroppedFile,
 } from './import-export.js';
 import { doExport, doImport, openImportModal, initDragDrop } from './import-export.js';
 
