@@ -116,6 +116,7 @@ import { renderEmployeeDashboard, exportEmployeeDashboardCSV } from './render-em
 
 import {
   computeAutoPlan,
+  computeAutoPlanRange,
   collectHistoricalDutyStatsAsync,
   sleep,
   TARGET_WEEKEND_DUTY,
@@ -1280,6 +1281,59 @@ export function confirmRemoveEmployeeFuture(name) {
 
     render();
     showToast(`„${name}" kaskadierend entfernt`);
+  }
+}
+
+/**
+ * Jahresplanung: plant alle verbleibenden Monate des aktuellen Kalenderjahres
+ * (ab der aktuell angezeigten Ansicht) automatisch durch, einen Monat nach
+ * dem anderen (siehe computeAutoPlanRange in autoplan.js — segmentierte
+ * Monatskette statt eines Monolith-Laufs). Anders als der reguläre
+ * Planungsmodus-Workflow gibt es hier KEINE Vorschau/Review pro Monat: nach
+ * Bestätigung wird direkt gespeichert. Bereits gesetzte Dienste bleiben als
+ * Fixpunkte erhalten (siehe fixedDutyKeys in computeAutoPlan), alles andere
+ * kann der Solver frei neu verteilen.
+ */
+export async function runYearAutoPlan() {
+  if (planMode) {
+    showToast("Bitte zuerst den Planungsmodus verlassen");
+    return;
+  }
+
+  const { year, month: startMonth } = state;
+  const endMonth = 11;
+  const monthCount = endMonth - startMonth + 1;
+
+  if (monthCount <= 1) {
+    showToast(`${MONTHS[startMonth]} ist bereits der letzte Monat des Jahres ${year}`);
+    return;
+  }
+
+  const label = `${MONTHS[startMonth]} – ${MONTHS[endMonth]} ${year}`;
+  const confirmed = confirm(
+    `Jahresplanung: ${monthCount} Monate (${label}) automatisch mit dem RadPlan Neural Scheduler planen?\n\n` +
+    `Jeder Monat wird einzeln geplant, die Belastung trägt sich dabei von Monat zu Monat fort. ` +
+    `Bereits gesetzte Dienste bleiben als Fixpunkte erhalten. Das Ergebnis wird direkt gespeichert, ` +
+    `OHNE die übliche Vorschau pro Monat — für eine Kontrolle vor dem Speichern bitte stattdessen ` +
+    `Monat für Monat über den Planungsmodus planen.`
+  );
+  if (!confirmed) return;
+
+  showToast(`Jahresplanung gestartet: ${label} …`);
+
+  try {
+    const { aggregate } = await computeAutoPlanRange(year, startMonth, year, endMonth, {
+      apply: true,
+    });
+    saveToStorage();
+    render();
+    showToast(
+      `Jahresplanung abgeschlossen: ${aggregate.monthsPlanned} Monate geplant` +
+      (aggregate.totalWarnings > 0 ? ` · ${aggregate.totalWarnings} Warnung(en)` : "")
+    );
+  } catch (e) {
+    console.error("runYearAutoPlan error:", e);
+    showToast(`Jahresplanung fehlgeschlagen: ${e.message}`);
   }
 }
 

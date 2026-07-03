@@ -2,7 +2,7 @@ import { MONTHS } from './constants.js';
 import { state } from './state.js';
 import { getEmployeesForYear } from './model.js';
 import { showOverlay, hideOverlay, openProfileModal } from './render-modals.js';
-import { switchPeriod, toggleTheme, toggleDensity } from './app.js';
+import { switchPeriod, toggleTheme, toggleDensity, runYearAutoPlan } from './app.js';
 import { esc } from './utils.js';
 
 const OVERLAY_ID = "modal-command-palette";
@@ -48,6 +48,12 @@ function staticCommands() {
       label: "Auto-Plan ausführen",
       hint: "nur im Planungsmodus verfügbar",
       run: () => document.getElementById("btn-plan-auto")?.click()
+    },
+    {
+      group: "Funktionen",
+      label: "Jahresplanung (restliche Monate automatisch)",
+      hint: "segmentierte Monatskette, direktes Speichern ohne Vorschau",
+      run: () => runYearAutoPlan()
     },
     {
       group: "Funktionen",

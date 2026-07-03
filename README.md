@@ -527,6 +527,15 @@ Um die Rechenschritte des Schedulers grafisch erlebbar zu machen, rendert die Kl
 * **Telemetrie-HUD (Minimap, `attachMiniMap`):** Ein rotierender Wireframe-Globus, ein live mit den `#ap-ls-*`-DOM-Statuswerten synchronisiertes EKG-Signal sowie ein Flächendiagramm der CPU-Durchsatzaktivität.
 * **Success-Phase & Lichtschein-Tracing:** Sobald die Optimierung erfolgreich abgeschlossen ist (`phase === 'success'`), wird die Kontur jeder Tageskarte, deren Bereitschafts- und Hintergrunddienst final feststehen, durch eine leuchtend grüne Konturlinie nachgezeichnet — zeitlich versetzt (staggered delay) ab Tag 1, wellenartig bis zum Monatsende, mit weicher Neonglow-Schattierung und sanftem Ausblenden nach 0,8 Sekunden.
 
+### 12.7 Jahresplanung als segmentierte Monatskette (`computeAutoPlanRange`)
+
+`computeAutoPlan()` ist bewusst auf Monatsgröße ausgelegt: seine Objective-Funktionen enthalten einen Tages-Coverage-Scan mit O(Tage)-Aufwand pro Bewertung (siehe [12.4](#124-mathematische-kostenfaktoren-objective-penalties)), der bei einem einzigen Solver-Lauf über z. B. ein ganzes Kalenderjahr (365 statt ~30 Tage) quadratisch teurer würde. `computeAutoPlanRange(startYear, startMonth, endYear, endMonth, options)` in `autoplan.js` löst eine mehrmonatige Planung stattdessen als **segmentierte Kette**: Der bestehende, unveränderte `computeAutoPlan()` wird einmal pro Monat aufgerufen. Die jahresweite Soll/Ist-Fairness trägt sich dabei automatisch fort, weil das Ergebnis jedes Monats vor der Planung des nächsten Monats in `DATA` geschrieben wird — `collectHistoricalDutyStats()` sieht die frisch geplanten Dienste des Vormonats also bereits als Ist-Belastung, exakt wie beim manuellen "Monat für Monat"-Planen.
+
+* **Vorschau-Modus (Standard):** Ohne `options.apply` ist der Aufruf vollständig seiteneffektfrei — `DATA` wird intern per `structuredClone()` gesichert und nach der Berechnung wiederhergestellt (auch etwaige Monate, die durch monatsübergreifende Lesezugriffe wie die vorausschauende Urlaubsprüfung als Nebeneffekt neu angelegt wurden).
+* **`options.apply = true`:** Die geplanten Monate bleiben dauerhaft in `DATA` stehen; der Aufrufer ist für `saveToStorage()` verantwortlich.
+* **Zugriff über die Befehlspalette:** "Jahresplanung (restliche Monate automatisch)" (siehe [16](#16-befehlspalette)) plant über `runYearAutoPlan()` in `app.js` alle verbleibenden Monate des aktuell angezeigten Kalenderjahres durch und speichert direkt — ohne die übliche Monat-für-Monat-Vorschau des Planungsmodus. Bereits gesetzte Dienste bleiben als Fixpunkte erhalten.
+* **Obergrenze:** Aus Versehentlich-Schutz sind maximal 24 Monate pro Aufruf zulässig.
+
 ---
 
 ## 13. Mitarbeitendenbereich (Team- & Personen-Dashboard)

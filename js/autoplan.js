@@ -35,17 +35,20 @@ import {
   posColor
 } from './constants.js';
 
-import { 
-  state, 
-  planMode, 
-  planData, 
-  DATA 
+import {
+  state,
+  planMode,
+  planData,
+  DATA,
+  setPlanMode,
+  setPlanData,
 } from './state.js';
 
-import { 
-  getMonthData, 
-  getCell, 
-  dutyOwner 
+import {
+  getMonthData,
+  getCell,
+  dutyOwner,
+  createPlanSession,
 } from './model.js';
 
 export let autoPlanResult = null;
@@ -2571,4 +2574,138 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
   
   rebuildCurrentCounters();
   return { assignments: result, summary, log, report: finalReport, externalAssignments, ruleTelemetry, fluxTraces };
+}
+
+const AUTO_PLAN_RANGE_MAX_MONTHS = 24;
+
+function* monthSequence(startYear, startMonth, endYear, endMonth) {
+  let cy = startYear;
+  let cm = startMonth;
+  while (cy < endYear || (cy === endYear && cm <= endMonth)) {
+    yield { year: cy, month: cm };
+    cm++;
+    if (cm > 11) {
+      cm = 0;
+      cy++;
+    }
+  }
+}
+
+/**
+ * Plant mehrere aufeinanderfolgende Monate als segmentierte Kette anstelle
+ * eines einzigen Solver-Laufs über den gesamten Zeitraum. computeAutoPlan()
+ * ist bewusst auf Monatsgröße ausgelegt (siehe computeBDCoveragePenalty /
+ * computeHGCoveragePenalty: O(dim) pro Aufruf, mit dim ≈ 28–31) — ein
+ * einzelner Lauf über z. B. 365 Tage würde diesen Anteil und damit die
+ * gesamte Multi-Zyklus-Optimierung quadratisch verlangsamen. Stattdessen
+ * wird hier jeder Monat einzeln mit dem bestehenden, unveränderten
+ * computeAutoPlan() geplant.
+ *
+ * Die jahresweite Soll/Ist-Fairness (siehe collectHistoricalDutyStats)
+ * trägt sich dabei automatisch fort: das Ergebnis jedes Monats wird VOR der
+ * Planung des nächsten Monats in `DATA` geschrieben, sodass
+ * collectHistoricalDutyStats() für den Folgemonat die soeben geplanten
+ * Dienste des Vormonats bereits als Ist-Belastung berücksichtigt — exakt
+ * dieselbe Logik, die auch beim manuellen "Monat für Monat"-Planen einer
+ * Nutzerin greifen würde.
+ *
+ * Standardmäßig (`options.apply` nicht gesetzt) ist der Aufruf
+ * seiteneffektfrei: alle während der Berechnung vorgenommenen
+ * Zwischenschreibungen in `DATA` werden am Ende wieder auf den
+ * ursprünglichen Stand zurückgesetzt (Vorschau, analog zum Entwurfscharakter
+ * von computeAutoPlan()/dem Planungsmodus selbst). Erst mit
+ * `options.apply = true` bleiben die geplanten Monate dauerhaft in `DATA`
+ * stehen (der Aufrufer ist dafür verantwortlich, anschließend
+ * saveToStorage() aufzurufen).
+ *
+ * @param {number} startYear
+ * @param {number} startMonth 0-basiert
+ * @param {number} endYear
+ * @param {number} endMonth 0-basiert, inklusive
+ * @param {{
+ *   weightProfileKey?: string,
+ *   customTargets?: Object<string, number>,
+ *   apply?: boolean,
+ *   onMonthStart?: (info: {year: number, month: number, index: number, total: number}) => void,
+ * }} [options]
+ */
+export async function computeAutoPlanRange(startYear, startMonth, endYear, endMonth, options = {}) {
+  const { weightProfileKey = "standard", customTargets, apply = false, onMonthStart } = options;
+
+  const sequence = [...monthSequence(startYear, startMonth, endYear, endMonth)];
+  if (sequence.length === 0) {
+    throw new Error("computeAutoPlanRange: Enddatum liegt vor dem Startdatum.");
+  }
+  if (sequence.length > AUTO_PLAN_RANGE_MAX_MONTHS) {
+    throw new Error(`computeAutoPlanRange: Zeitraum zu groß (max. ${AUTO_PLAN_RANGE_MAX_MONTHS} Monate).`);
+  }
+
+  const prevYear = state.year;
+  const prevMonth = state.month;
+  const prevPlanMode = planMode;
+  const prevPlanData = planData;
+  // Vollständige Sicherung von DATA statt einer Liste der geplanten Monate:
+  // Lesezugriffe innerhalb von computeAutoPlan() können über Monatsgrenzen
+  // hinweg unbeteiligte Monate als Nebeneffekt neu anlegen (getMonthDataRaw
+  // vivifiziert fehlende Monate automatisch, z. B. beim vorausschauenden
+  // Prüfen von Urlaub in der Folgewoche nahe eines Monatsendes). Ohne eine
+  // vollständige Sicherung blieben solche "mitgerissenen" Monate auch im
+  // reinen Vorschau-Modus (apply:false) fälschlich in DATA zurück.
+  const dataBackup = apply ? null : structuredClone(DATA);
+
+  const months = [];
+  const aggregate = { monthsPlanned: 0, totalWarnings: 0, totalReportEntries: 0 };
+
+  try {
+    for (let i = 0; i < sequence.length; i++) {
+      const { year, month } = sequence[i];
+      const mk = monthKey(year, month);
+
+      if (typeof onMonthStart === "function") {
+        onMonthStart({ year, month, index: i, total: sequence.length });
+      }
+
+      state.year = year;
+      state.month = month;
+      setPlanMode(true);
+      setPlanData(createPlanSession(year, month));
+
+      const result = await computeAutoPlan(customTargets, weightProfileKey);
+      if (!result) {
+        throw new Error(`computeAutoPlanRange: Planung für ${mk} lieferte kein Ergebnis (Planungsmodus/-daten fehlten unerwartet).`);
+      }
+
+      const md = getMonthData(year, month);
+      DATA[mk] = {
+        ...md,
+        employees: [...planData.employees],
+        assignments: result.assignments,
+      };
+
+      months.push({
+        year,
+        month,
+        assignments: result.assignments,
+        summary: result.summary,
+        report: result.report,
+        log: result.log,
+      });
+      aggregate.monthsPlanned++;
+      aggregate.totalWarnings += result.summary?.warnings?.length || 0;
+      aggregate.totalReportEntries += result.report?.length || 0;
+    }
+
+    return { months, aggregate };
+  } finally {
+    if (dataBackup) {
+      for (const k of Object.keys(DATA)) {
+        if (!(k in dataBackup)) delete DATA[k];
+      }
+      Object.assign(DATA, dataBackup);
+    }
+    state.year = prevYear;
+    state.month = prevMonth;
+    setPlanMode(prevPlanMode);
+    setPlanData(prevPlanData);
+  }
 }
