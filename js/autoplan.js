@@ -1595,16 +1595,32 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     GLOBAL_DAY_DOUBLE_BOOKED: 100000,
   };
 
-  function computeBDObjective() {
+  // BD_DAY_UNCOVERED_LOCAL/BD_DAY_DOUBLE_BOOKED hängen ausschließlich davon
+  // ab, WIE VIELE Personen an einem Tag einen D-Dienst haben, nicht davon,
+  // WER es ist. Als eigene Funktion ausgelagert, damit Swap-Loops, die einen
+  // D-Dienst am selben Tag lediglich von Person A auf Person B umhängen
+  // (Belegungszahl pro Tag bleibt dabei unverändert, siehe canDoBD's
+  // existingDuty-Prüfung), diesen O(dim·|emps|)-Anteil überspringen können,
+  // statt ihn bei jedem einzelnen Tauschversuch neu zu berechnen (siehe
+  // computeBDAggregateObjective / runPhase4_BDOptimize).
+  function computeBDCoveragePenalty() {
     let score = 0;
     for (let day = 1; day <= dim; day++) {
-      let dCount = 0; 
-      emps.forEach(e => { 
-        if(result[e]?.[day]?.duty === "D") dCount++; 
+      let dCount = 0;
+      emps.forEach(e => {
+        if (result[e]?.[day]?.duty === "D") dCount++;
       });
       if (dCount === 0) score += PENALTY.BD_DAY_UNCOVERED_LOCAL;
       if (dCount > 1) score += PENALTY.BD_DAY_DOUBLE_BOOKED * dCount;
     }
+    return score;
+  }
+
+  // Alle personenbezogenen/aggregierten BD-Kostenterme (O(|dutyEmps|), nicht
+  // O(dim·|dutyEmps|)) — der Teil des Objectives, der sich bei einem
+  // Tages-internen Personentausch tatsächlich ändern kann.
+  function computeBDAggregateObjective() {
+    let score = 0;
 
     // Sum of cached individual employee scores
     dutyEmps.forEach(e => {
@@ -1637,9 +1653,13 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
         score += (currentSatBD[emp] - satAvg) * (currentSatBD[emp] - satAvg) * PENALTY.BD_SATURDAY_SPREAD * W.fairness;
       }
     });
-    
+
     score += deficitSum * PENALTY.BD_TARGET_DEFICIT_SUM + surplusSum * PENALTY.BD_TARGET_SURPLUS_SUM + Math.abs(deficitSum - surplusSum) * PENALTY.BD_TARGET_IMBALANCE;
     return score;
+  }
+
+  function computeBDObjective() {
+    return computeBDCoveragePenalty() + computeBDAggregateObjective();
   }
 
   let bundledHGDays = new Set();
@@ -1804,17 +1824,25 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     return { score, histScore, tags };
   }
 
-  function computeHGObjective() {
+  // Analog zu computeBDCoveragePenalty: hängt nur von der Anzahl HG-Träger
+  // pro Tag ab, nicht davon wer es ist — für Tages-interne Personentausche
+  // (runPhase7_HGOptimize) invariant und daher separat auslagerbar.
+  function computeHGCoveragePenalty() {
     let score = 0;
     for (let day = 1; day <= dim; day++) {
       let hgCount = 0;
-      emps.forEach(e => { 
-        if(result[e]?.[day]?.duty === "HG") hgCount++; 
+      emps.forEach(e => {
+        if (result[e]?.[day]?.duty === "HG") hgCount++;
       });
       if (hgCount === 0) score += PENALTY.HG_DAY_UNCOVERED_LOCAL;
       if (hgCount > 1) score += PENALTY.HG_DAY_DOUBLE_BOOKED * hgCount;
     }
-    
+    return score;
+  }
+
+  function computeHGAggregateObjective() {
+    let score = 0;
+
     // Sum of cached individual employee scores
     hgFAs.forEach(e => {
       score += hgEmpScoresCache[e] || 0;
@@ -1851,6 +1879,10 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     return score;
   }
 
+  function computeHGObjective() {
+    return computeHGCoveragePenalty() + computeHGAggregateObjective();
+  }
+
   function computeGlobalObjective() {
     const bdObjective = computeBDObjective();
     const hgObjective = hgFAs.length > 0 ? computeHGObjective() : 0;
@@ -1876,7 +1908,14 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       .map(({ day }) => day);
 
     rebuildCurrentCounters();
-    let bestBD = computeBDObjective();
+    // Trial-Swaps innerhalb dieser Phase tauschen den D-Träger eines Tages
+    // 1:1 gegen eine andere Person (canDoBD verlangt, dass der Kandidat an
+    // diesem Tag noch KEINEN Dienst hat) — die Belegungszahl pro Tag bleibt
+    // dabei exakt gleich, also ist computeBDCoveragePenalty() über die ganze
+    // Phase hinweg konstant und muss nicht bei jedem Versuch neu berechnet
+    // werden (spart den dominanten O(dim)-Anteil von computeBDObjective()
+    // pro Tauschversuch, siehe computeBDAggregateObjective()).
+    let bestBD = computeBDAggregateObjective();
 
     for (let pass = 0; pass < BD_MAX_PASSES; pass++) {
       let improved = false;
@@ -1901,9 +1940,9 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
           }
           
           setDutyAssignment(candidate, day, "D");
-          
-          const newBD = computeBDObjective();
-          if (newBD + 0.01 < bestBD) { 
+
+          const newBD = computeBDAggregateObjective();
+          if (newBD + 0.01 < bestBD) {
             bestBD = newBD; 
             improved = true; 
             swaps++; 
@@ -2031,8 +2070,12 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       .map(({ day }) => day);
 
     rebuildCurrentCounters();
-    let bestHG = computeHGObjective();
-    
+    // Gleiche Überlegung wie in runPhase4_BDOptimize: canDoHG verlangt einen
+    // dienstfreien Kandidaten am Zieltag, die Tages-Belegungszahl bleibt beim
+    // Tausch also konstant -> computeHGCoveragePenalty() muss pro
+    // Tauschversuch nicht neu berechnet werden.
+    let bestHG = computeHGAggregateObjective();
+
     for (let pass = 0; pass < HG_MAX_PASSES; pass++) {
       let improved = false;
       for (const day of mutableHGDays) {
@@ -2061,8 +2104,8 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
           }
           
           setDutyAssignment(candidate, day, "HG");
-          
-          const newHG = computeHGObjective();
+
+          const newHG = computeHGAggregateObjective();
           if (newHG + 0.01 < bestHG) {
             bestHG = newHG;
             improved = true;
