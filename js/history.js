@@ -86,7 +86,11 @@ function capture() {
 
   if (baseline) {
     try {
-      recordCellDiffs(JSON.parse(baseline), JSON.parse(cur));
+      // `cur` wurde soeben synchron aus DATA gebaut (kein await dazwischen) —
+      // wir können DATA direkt als "neuen" Stand übergeben statt cur erneut
+      // zu parsen. Spart einen vollständigen JSON.parse des Gesamtdatensatzes
+      // bei jeder erfassten Änderung.
+      recordCellDiffs(JSON.parse(baseline), DATA);
     } catch (e) { /* defensiv: Diff darf die Historie nie blockieren */ }
     undoStack.push(baseline);
     if (undoStack.length > MAX_HISTORY) undoStack.shift();

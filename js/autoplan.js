@@ -1554,6 +1554,41 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     }
   }
 
+  // Benannte Straffaktoren für die drei "Objective"-Funktionen unten
+  // (computeBDObjective / computeHGObjective / computeGlobalObjective).
+  // Werte sind unverändert aus dem bisherigen Inline-Code übernommen — siehe
+  // algorithm_rules.md Abschnitt 3 für die fachliche Herleitung und den
+  // Hinweis zur bewusst doppelten Coverage-Gewichtung (lokal + global).
+  // Die übrigen Scoring-Funktionen (scoreBDCandidate/scoreHGCandidate, s.u.)
+  // behalten ihre Inline-Konstanten bei — sie kodieren viele einmalig
+  // genutzte Spezialregeln, für die eine gemeinsame Konstanten-Tabelle keinen
+  // Klarheitsgewinn brächte.
+  const PENALTY = {
+    // computeBDObjective (lokale BD-Kostenfunktion)
+    BD_DAY_UNCOVERED_LOCAL: 20000,
+    BD_DAY_DOUBLE_BOOKED: 50000,
+    BD_WEEKEND_SPREAD_FA_GROUP: 9000,
+    BD_WEEKEND_OVER_RELAXED_LIMIT: 30000,
+    BD_SATURDAY_SPREAD: 12000,
+    BD_TARGET_DEFICIT_SUM: 15000,
+    BD_TARGET_SURPLUS_SUM: 12000,
+    BD_TARGET_IMBALANCE: 10000,
+    // computeHGObjective (lokale HG-Kostenfunktion)
+    HG_DAY_UNCOVERED_LOCAL: 15000,
+    HG_DAY_DOUBLE_BOOKED: 40000,
+    HG_FAIRNESS_IDEAL: 25000,
+    HG_TYPE_BALANCE_AA: 15000,
+    HG_TYPE_BALANCE_FA: 8000,
+    HG_WEEKEND_TARGET_DEV: 5000,
+    HG_WEEKEND_SPREAD_FA_GROUP: 4500,
+    HG_WEEKEND_OVER_RELAXED_LIMIT: 20000,
+    // computeGlobalObjective (globale Cross-Role-Kostenfunktion; addiert sich
+    // zu bdObjective + hgObjective, siehe Hinweis oben)
+    GLOBAL_BD_DAY_UNCOVERED: 25000,
+    GLOBAL_HG_DAY_UNCOVERED: 18000,
+    GLOBAL_DAY_DOUBLE_BOOKED: 100000,
+  };
+
   function computeBDObjective() {
     let score = 0;
     for (let day = 1; day <= dim; day++) {
@@ -1561,10 +1596,10 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       emps.forEach(e => { 
         if(result[e]?.[day]?.duty === "D") dCount++; 
       });
-      if (dCount === 0) score += 20000; 
-      if (dCount > 1) score += 50000 * dCount;
+      if (dCount === 0) score += PENALTY.BD_DAY_UNCOVERED_LOCAL;
+      if (dCount > 1) score += PENALTY.BD_DAY_DOUBLE_BOOKED * dCount;
     }
-    
+
     // Sum of cached individual employee scores
     dutyEmps.forEach(e => {
       score += bdEmpScoresCache[e] || 0;
@@ -1586,18 +1621,18 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
 
       const weCountEmp = weCountsCache[emp] || 0;
       const weSpreadDiff = weCountEmp - weAvg;
-      score += weSpreadDiff * weSpreadDiff * 9000 * W.fairness;
+      score += weSpreadDiff * weSpreadDiff * PENALTY.BD_WEEKEND_SPREAD_FA_GROUP * W.fairness;
 
       if (weCountEmp > RELAXED_WEEKEND_DUTY_LIMIT) {
-        score += (weCountEmp - RELAXED_WEEKEND_DUTY_LIMIT) * 30000 * W.fairness;
+        score += (weCountEmp - RELAXED_WEEKEND_DUTY_LIMIT) * PENALTY.BD_WEEKEND_OVER_RELAXED_LIMIT * W.fairness;
       }
 
       if (isFacharzt(emp)) {
-        score += (currentSatBD[emp] - satAvg) * (currentSatBD[emp] - satAvg) * 12000 * W.fairness;
+        score += (currentSatBD[emp] - satAvg) * (currentSatBD[emp] - satAvg) * PENALTY.BD_SATURDAY_SPREAD * W.fairness;
       }
     });
     
-    score += deficitSum * 15000 + surplusSum * 12000 + Math.abs(deficitSum - surplusSum) * 10000;
+    score += deficitSum * PENALTY.BD_TARGET_DEFICIT_SUM + surplusSum * PENALTY.BD_TARGET_SURPLUS_SUM + Math.abs(deficitSum - surplusSum) * PENALTY.BD_TARGET_IMBALANCE;
     return score;
   }
 
@@ -1770,8 +1805,8 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       emps.forEach(e => { 
         if(result[e]?.[day]?.duty === "HG") hgCount++; 
       });
-      if (hgCount === 0) score += 15000;
-      if (hgCount > 1) score += 40000 * hgCount;
+      if (hgCount === 0) score += PENALTY.HG_DAY_UNCOVERED_LOCAL;
+      if (hgCount > 1) score += PENALTY.HG_DAY_DOUBLE_BOOKED * hgCount;
     }
     
     // Sum of cached individual employee scores
@@ -1792,19 +1827,19 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
 
     hgFAs.forEach((emp) => {
       const idealHG = avgHG + (avgBDforFAs - currentBD[emp]) * 1.0;
-      score += Math.pow(currentHG[emp] - idealHG, 2) * 25000 * W.fairness;
-      score += Math.pow(currentHGForAA[emp] - avgHGForAA, 2) * 15000 * W.fairness;
-      score += Math.pow(currentHGForFA[emp] - avgHGForFA, 2) * 8000 * W.fairness;
+      score += Math.pow(currentHG[emp] - idealHG, 2) * PENALTY.HG_FAIRNESS_IDEAL * W.fairness;
+      score += Math.pow(currentHGForAA[emp] - avgHGForAA, 2) * PENALTY.HG_TYPE_BALANCE_AA * W.fairness;
+      score += Math.pow(currentHGForFA[emp] - avgHGForFA, 2) * PENALTY.HG_TYPE_BALANCE_FA * W.fairness;
 
       const weCount = weCountsCache[emp] || 0;
-      score += Math.pow(weCount - TARGET_WEEKEND_DUTY, 2) * 5000 * W.fairness;
+      score += Math.pow(weCount - TARGET_WEEKEND_DUTY, 2) * PENALTY.HG_WEEKEND_TARGET_DEV * W.fairness;
       // Personenübergreifende WE-Fairness unter den Fachärzten (Streuung um den
       // FA-Gruppendurchschnitt), analog zum BD-Objective.
       const diffVal = weCount - weAvgFA;
-      score += diffVal * diffVal * 4500 * W.fairness;
+      score += diffVal * diffVal * PENALTY.HG_WEEKEND_SPREAD_FA_GROUP * W.fairness;
 
       if (weCount > RELAXED_WEEKEND_DUTY_LIMIT) {
-        score += (weCount - RELAXED_WEEKEND_DUTY_LIMIT) * 20000 * W.fairness;
+        score += (weCount - RELAXED_WEEKEND_DUTY_LIMIT) * PENALTY.HG_WEEKEND_OVER_RELAXED_LIMIT * W.fairness;
       }
     });
     return score;
@@ -1821,9 +1856,9 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
         if(result[e]?.[day]?.duty === "D") dCount++;
         if(result[e]?.[day]?.duty === "HG") hgCount++;
       });
-      if (dCount === 0) coveragePenalty += 25000;
-      if (hgCount === 0) coveragePenalty += 18000;
-      if (dCount > 1 || hgCount > 1) coveragePenalty += 100000;
+      if (dCount === 0) coveragePenalty += PENALTY.GLOBAL_BD_DAY_UNCOVERED;
+      if (hgCount === 0) coveragePenalty += PENALTY.GLOBAL_HG_DAY_UNCOVERED;
+      if (dCount > 1 || hgCount > 1) coveragePenalty += PENALTY.GLOBAL_DAY_DOUBLE_BOOKED;
     }
     
     return bdObjective + hgObjective + coveragePenalty;

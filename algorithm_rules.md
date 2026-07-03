@@ -3,17 +3,19 @@
 Der RadPlan Neural Scheduler ist ein hochkomplexes Optimierungssystem, das darauf ausgelegt ist, eine mathematisch perfekte Verteilung von Bereitschaftsdiensten (BD) und Hintergrunddiensten (HG) zu generieren. Er operiert in einem hoch-iterativen Umfeld und nutzt eine Kombination aus deterministischen Regeln, probabilistischem Scoring und einer globalen Metaheuristik (Swap-Optimierung). Der gesamte Prozess wird transparent durch den **Neural Fitness Index (NFI)** gemessen und bewertet.
 
 ## 1. Systemarchitektur & Prozesssteuerung
-Das System arbeitet nicht linear, sondern in einer massiv erweiterten 25-fachen Schleife (Cycles). In jedem Zyklus werden tausende von potenziellen Dienst-Konfigurationen simuliert und gegeneinander abgewogen. Das Ziel ist die Minimierung der "Global Objective Function" – einer Kostenfunktion, die Regelverstöße und Unfairness mit massiven Strafpunkten (Penalties) belegt.
+Das System arbeitet nicht linear, sondern in einer 8-fachen Zyklus-Schleife (`MAX_OPTIMIZATION_CYCLES`, `js/autoplan.js`). In jedem Zyklus werden potenzielle Dienst-Konfigurationen simuliert und gegeneinander abgewogen. Das Ziel ist die Minimierung der "Global Objective Function" – einer Kostenfunktion, die Regelverstöße und Unfairness mit massiven Strafpunkten (Penalties) belegt.
+
+> Hinweis: Diese Passzahlen sind die einzige kanonische Quelle für die Iterationstiefe des Schedulers. `Algorithmusregeln.txt` beschreibt bewusst nur die fachlichen Kriterien ohne konkrete Zyklen-/Pass-Zahlen, um Drift zwischen den beiden Dokumenten zu vermeiden — bei Änderungen an den Konstanten in `js/autoplan.js` ist ausschließlich dieser Abschnitt zu aktualisieren.
 
 ### Die Optimierungs-Pipeline:
 1. **Initialisierungs-Phase:** Aggregation historischer Statistiken (seit dem 01.01. des laufenden Jahres) und Sicherung manuell gesetzter Dienste. Automatische Korrektur fehlender Ruhetage (F) nach fixen Bereitschaftsdiensten.
 2. **Konstruktive Phase (Greedy):** Erstverteilung der BDs an Wochenenden und Feiertagen, gefolgt von Werktagen. Hierbei werden harte Ausschlusskriterien (Urlaub, gesetzliche Abstände, spezifische Sperren) strikt beachtet.
 3. **Deterministische Kopplung (HG-Bundling):** Automatische Bindung von HG-Diensten an spezifische BD-Szenarien (z. B. AA-Freitags-Kopplung, FA-Wochenend-Kette, Feiertags-Vortags-Kopplung).
 4. **HG-Rhythmisierung:** Erstverteilung der verbleibenden HG-Lücken unter strengster Berücksichtigung der neuen Anti-Clustering-Logik.
-5. **Multi-Zyklus-Optimierung (25 Zyklen):**
-   - **BD-Swap-Pass (80 Durchläufe):** Verfeinerung der BD-Gerechtigkeit und Auflösung lokaler Unausgewogenheiten.
-   - **HG-Swap-Pass (120 Durchläufe):** Aktives Aufbrechen von HG-Clustern und Glättung des monatlichen Arbeitsrhythmus.
-   - **Globaler Deep-Optimize-Pass (150 Durchläufe):** Systemweite Cross-Role-Swaps zur Behebung hochkomplexer Interdependenz-Konflikte (z. B. CT-Leitung).
+5. **Multi-Zyklus-Optimierung (8 Zyklen, `MAX_OPTIMIZATION_CYCLES`):**
+   - **BD-Swap-Pass (max. 20 Durchläufe, `BD_MAX_PASSES`):** Verfeinerung der BD-Gerechtigkeit und Auflösung lokaler Unausgewogenheiten. Bricht früher ab, sobald keine verbessernde Vertauschung mehr gefunden wird (Konvergenz).
+   - **HG-Swap-Pass (max. 30 Durchläufe, `HG_MAX_PASSES`):** Aktives Aufbrechen von HG-Clustern und Glättung des monatlichen Arbeitsrhythmus.
+   - **Globaler Deep-Optimize-Pass (max. 40 Durchläufe, `DEEP_MAX_PASSES`):** Systemweite Cross-Role-Swaps zur Behebung hochkomplexer Interdependenz-Konflikte (z. B. CT-Leitung).
    - **Coverage-Repair:** Dynamische Schließung etwaiger verbleibender Lücken durch Zwangs-Zuweisungen an die am wenigsten belasteten Mitarbeiter.
 6. **Validierungs-Phase:** Letzte Integritätsprüfung der Dienst-Exklusivität (max. ein Dienst pro Tag) und Datenkonsistenz.
 
@@ -59,11 +61,12 @@ Der Scheduler sucht iterativ nach der Lösung mit dem niedrigsten Gesamt-Score.
 
 | Metrik / Verstoß | Straffaktor (Gewichtung in der Objective Function) |
 | :--- | :--- |
-| **Ungedeckter BD-Tag** | + 25.000 |
-| **Ungedeckter HG-Tag** | + 18.000 |
+| **Ungedeckter BD-Tag** | + 20.000 (lokal, `computeBDObjective`) **zusätzlich** + 25.000 (global, `computeGlobalObjective`) = effektiv + 45.000 |
+| **Ungedeckter HG-Tag** | + 15.000 (lokal, `computeHGObjective`) **zusätzlich** + 18.000 (global, `computeGlobalObjective`) = effektiv + 33.000 |
 | **Abweichung vom BD-Monatsziel** | (Diff² * 25.000) + (\|Diff\| * 10.000) |
 | **HG-Fairness (Abweichung v. Ideal)** | (Diff_zu_Ideal)² * 25.000 |
-| **HG-Typ-Balance (AA-HG vs. FA-HG)** | (Diff_zu_Avg)² * 15.000 |
+| **HG-Typ-Balance AA-Anteil (Abweichung v. AA-HG-Durchschnitt)** | (Diff_zu_Avg)² * 15.000 |
+| **HG-Typ-Balance FA-Anteil (Abweichung v. FA-HG-Durchschnitt)** | (Diff_zu_Avg)² * 8.000 |
 | **Fr. Dalitz vs. Torki/Sebastian (So/Mo)** | + 100.000 (K.O.-Kriterium im Swap) |
 | **Illegale BD-Folge (D-D)** | + 100.000 |
 | **HG vor eigenem BD (außer Fr)** | + 60.000 |
@@ -73,6 +76,8 @@ Der Scheduler sucht iterativ nach der Lösung mit dem niedrigsten Gesamt-Score.
 | **Zweiter Samstags-BD im Monat** | + 80.000 |
 | **Becker-Samstag (Notlösung)** | + 40.000 |
 | **D-F-D-F Muster** | + 1.200 |
+
+> Hinweis zur Doppelzählung bei Coverage-Lücken: `computeGlobalObjective` summiert `computeBDObjective`/`computeHGObjective` (die selbst schon einen Coverage-Malus enthalten) und addiert *zusätzlich* ihre eigene, unabhängig gewichtete Coverage-Prüfung. Das ist keine Inkonsistenz, sondern bewusst so gebaut: In den rollenspezifischen Swap-Pässen (BD-Swap, HG-Swap) zählt nur der jeweils lokale Malus, während der globale Cross-Role-Pass (Deep-Optimize, Zyklus-Vergleich) Deckungslücken zusätzlich verstärkt gewichtet, damit Cross-Role-Swaps niemals eine Deckungslücke zugunsten reiner Fairness in Kauf nehmen. Bei Änderungen an einem der beiden Werte ist zu prüfen, ob die Verstärkung im globalen Pass weiterhin gewünscht ist.
 
 ## 4. Workload-Fairness-Kalkül (HG-Berechnung)
 Die Lastverteilung der HG-Dienste erfolgt streng mathematisch auf Basis der aktuellen BD-Belastung:
