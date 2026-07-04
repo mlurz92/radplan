@@ -204,8 +204,3 @@ export function openAnalyticsHub(moduleId) {
   renderRangeBar();
   renderActive();
 }
-
-// Für die Befehlspalette / externe Sprungziele.
-export function analyticsModuleList() {
-  return MODULES.map((m) => ({ id: m.id, label: m.label }));
-}

@@ -37,10 +37,6 @@ export function resetAutoPlanTargets() {
   localAutoPlanTargets = {};
 }
 
-export function getAutoPlanResult() {
-  return localAutoPlanResult;
-}
-
 export function disposeNeuralGraphInstance() {
   if (neuralGraphInstance) {
     neuralGraphInstance.dispose();

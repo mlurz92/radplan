@@ -118,10 +118,6 @@ export function changeMonth(delta) {
   switchPeriod(next.year, next.month, { direction: delta > 0 ? "forward" : "backward" });
 }
 
-export function changeYear(delta) {
-  switchPeriod(state.year + delta, state.month, { direction: delta > 0 ? "forward" : "backward" });
-}
-
 export function applyPeriodDraft() {
   const year = Math.max(2000, Math.min(2100, parseInt(String(state.periodDraft.year), 10) || state.year));
   const month = Math.max(0, Math.min(11, parseInt(String(state.periodDraft.month), 10) || 0));

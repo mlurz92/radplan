@@ -816,10 +816,6 @@ const SICK_CODES = ['K', 'KK'];
 // Unterhalb dieser Personen-Werktage-Stichprobe gilt eine Kalendermonats-
 // Quote als statistisch nicht belastbar genug für eine Risikowarnung.
 const SEASONAL_MIN_SAMPLE_DAYS = 20;
-// Schwelle für "auffällig erhöht": mindestens 15% über dem Jahresdurchschnitt
-// (Standardwert — per Auswertungs-Hub → Einstellungen konfigurierbar, siehe
-// getThresholds().seasonalRiskFactor).
-export const SEASONAL_RISK_THRESHOLD = 1.15;
 // Rezenz-Gewichtung: pro Jahr Abstand zur Gegenwart (TOD_Y) verbleiben 85%
 // des ursprünglichen Gewichts (einfacher, nachvollziehbarer exponentieller
 // Abfall). Ohne diese Gewichtung würde ein einzelnes altes Ausreißerjahr

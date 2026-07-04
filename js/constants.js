@@ -724,4 +724,3 @@ export function empInitials(name) {
 }
 
 export const MOBILE_BREAKPOINT = 600;
-export const TOUCH_DEVICE_RE = /iPhone|iPad|iPod|Android/i;

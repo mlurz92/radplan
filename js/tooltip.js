@@ -146,5 +146,3 @@ export function initTooltips() {
   window.addEventListener('blur', hide);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
 }
-
-export function hideTooltip() { hide(); }

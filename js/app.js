@@ -39,7 +39,6 @@ import {
   hideOverlay,
   showToast,
   openProfileModal,
-  openScoreInfoModal,
   showTeamScreen,
   showPersonScreen,
   applyPersonTab
@@ -74,7 +73,7 @@ import {
 export {
   isPeriodFlyoutOpen, populatePeriodMonthSelect, syncPeriodControls,
   openPeriodFlyout, closePeriodFlyout, shiftMonth, switchPeriod,
-  changeMonth, changeYear, applyPeriodDraft, handleTodayClick,
+  changeMonth, applyPeriodDraft, handleTodayClick,
 } from './period.js';
 import {
   syncPeriodControls, switchPeriod, handleTodayClick, closePeriodFlyout,
@@ -100,13 +99,13 @@ export {
 import { isEditorOpen, initEditorChipDelegation, saveEditor, refreshEditorChips } from './editor.js';
 
 export {
-  resetAutoPlanTargets, getAutoPlanResult, disposeNeuralGraphInstance,
+  resetAutoPlanTargets, disposeNeuralGraphInstance,
   runYearAutoPlan, defaultBDTarget, openAutoPlanModal, renderAutoPlanModal,
   renderProgressShell, streamProgressLogs, renderResultView, renderReportModal,
   applyAutoPlan,
 } from './autoplan-ui.js';
 import {
-  getAutoPlanResult, disposeNeuralGraphInstance, openAutoPlanModal,
+  disposeNeuralGraphInstance, openAutoPlanModal,
   applyAutoPlan, renderReportModal,
 } from './autoplan-ui.js';
 
@@ -744,13 +743,6 @@ export async function init() {
 }
 
 document.addEventListener("DOMContentLoaded", init);
-
-window.openScoreInfoModal = () => {
-  const result = getAutoPlanResult();
-  if (result) {
-    openScoreInfoModal(result);
-  }
-};
 
 export function announceToScreenReader(message) {
   const announcer = document.getElementById("aria-announcer");
