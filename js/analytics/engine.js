@@ -17,7 +17,7 @@ import {
   VACATION_CODES, ABSENCE_CODES, VACATION_LIKE_CODES,
   daysInMonth, weekday, isHoliday, isWeekend, isWorkday,
   getSaxonyHolidaysCached, getEmpMeta, isFacharzt, isAssistenzarzt,
-  SPECIAL_RULES, dateKey, monthKey, DOW_ABBR, DOW_LONG,
+  SPECIAL_RULES, dateKey, monthKey, DOW_ABBR, DOW_LONG, getReducedBdTarget,
 } from '../constants.js';
 
 import {
@@ -223,10 +223,173 @@ export function employeesInRange(range) {
 }
 
 // ---------------------------------------------------------------------------
+//  Fairness über einen beliebigen Zeitraum (Monat/Quartal/Rolling12/Frei)
+// ---------------------------------------------------------------------------
+// model.js#computeDutyFairness ist historisch auf ein Kalenderjahr zugeschnitten
+// (uptoMonth begrenzt den Betrachtungszeitraum ab Januar desselben Jahres) und
+// wird von mehreren Stellen außerhalb dieser Modul-Gruppe so verwendet
+// (Mitarbeitendenprofil, Berichte, Dept-Jahresansicht) — deren Aufrufe bleiben
+// unverändert. Das Fairness-Modul im Auswertungs-Hub deklariert aber
+// `usesRange: true` und muss daher auch Monats-/Quartals-/Rolling12-/Frei-
+// Zeiträume (ctx.range) korrekt auswerten können, nicht nur das Gesamtjahr.
+// Da model.js außerhalb der Eigentümerschaft dieser Datei liegt, wird hier
+// eine eigenständige, zeitraum-fähige Variante bereitgestellt, die dieselbe
+// fachliche Formel (FTE-gewichteter fairer Anteil, Gini-Equity-Index,
+// Soll/Ist Bereitschaftsdienst) auf `range.months` statt auf ein festes
+// Kalenderjahr anwendet.
+function _giniCoefficient(values) {
+  const n = values.length;
+  if (n === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const sum = sorted.reduce((a, b) => a + b, 0);
+  if (sum === 0) return 0;
+  let cumulative = 0;
+  for (let i = 0; i < n; i++) cumulative += (i + 1) * sorted[i];
+  return (2 * cumulative) / (n * sum) - (n + 1) / n;
+}
+function _coefficientOfVariation(values) {
+  const n = values.length;
+  if (n === 0) return 0;
+  const mean = values.reduce((a, b) => a + b, 0) / n;
+  if (mean === 0) return 0;
+  const variance = values.reduce((a, v) => a + (v - mean) ** 2, 0) / n;
+  return (Math.sqrt(variance) / mean) * 100;
+}
+function _equityIndex(values) {
+  if (values.length <= 1) return 100;
+  return Math.round((1 - _giniCoefficient(values)) * 100);
+}
+function _fairnessStatus(dev, fairShare) {
+  const tol = Math.max(1, fairShare * 0.18);
+  if (dev > tol) return 'over';
+  if (dev < -tol) return 'under';
+  return 'balanced';
+}
+const _RANGE_DEFAULT_BD_TARGET = 4;
+
+/**
+ * @typedef {import('../types.js').DutyFairnessRow} DutyFairnessRow
+ */
+
+/**
+ * Zeitraum-Variante von computeDutyFairness: identische Kennzahlen-Formel,
+ * aber über `range.months` (siehe getRange) statt über ein festes Kalenderjahr.
+ * @param {ReturnType<typeof getRange>} range
+ */
+export function computeDutyFairnessForRange(range) {
+  const employees = employeesInRange(range).filter((e) => !isDutyExempt(e));
+
+  const raw = employees.map((emp) => {
+    let bd = 0, hg = 0, weBd = 0, weHg = 0, holBd = 0, holHg = 0, activeMonths = 0;
+    range.months.forEach(({ year, month }) => {
+      const md = getMonthData(year, month);
+      if (!md?.employees?.includes(emp)) return;
+      activeMonths++;
+      const hols = getSaxonyHolidaysCached(year);
+      const dim = daysInMonth(year, month);
+      for (let d = 1; d <= dim; d++) {
+        const cell = getCell(year, month, emp, d);
+        if (cell.duty !== 'D' && cell.duty !== 'HG') continue;
+        const wd = weekday(year, month, d);
+        const hol = isHoliday(year, month, d, hols);
+        const heavy = wd === 0 || wd === 6 || hol;
+        if (cell.duty === 'D') { bd++; if (heavy) weBd++; if (hol) holBd++; }
+        else { hg++; if (heavy) weHg++; if (hol) holHg++; }
+      }
+    });
+    return { emp, meta: getEmpMeta(emp), bd, hg, weBd, weHg, holBd, holHg, activeMonths };
+  }).filter((r) => r.activeMonths > 0);
+
+  const rows = /** @type {DutyFairnessRow[]} */ (raw.map((r) => ({
+    ...r,
+    fte: r.meta.fte || 100,
+    total: r.bd + r.hg,
+    weekendDuties: r.weBd + r.weHg,
+    holidayDuties: r.holBd + r.holHg,
+  })));
+
+  const count = rows.length;
+  const sum = (key) => rows.reduce((a, r) => a + r[key], 0);
+  const totalBd = sum('bd');
+  const totalHg = sum('hg');
+  const totalWeekend = sum('weekendDuties');
+  const totalHoliday = sum('holidayDuties');
+  const totalDuties = totalBd + totalHg;
+  const fteSum = rows.reduce((a, r) => a + r.fte, 0) || 1;
+
+  rows.forEach((r) => {
+    const w = r.fte / fteSum;
+    r.fairBd = totalBd * w;
+    r.fairHg = totalHg * w;
+    r.fairWeekend = totalWeekend * w;
+    r.fairTotal = totalDuties * w;
+    r.bdDev = r.bd - r.fairBd;
+    r.hgDev = r.hg - r.fairHg;
+    r.weekendDev = r.weekendDuties - r.fairWeekend;
+    r.totalDev = r.total - r.fairTotal;
+
+    // Soll/Ist BD: monatliches Ziel (reduziert oder Default 4), FTE- und
+    // aktivitäts-skaliert über die im Zeitraum tatsächlich aktiven Monate.
+    const monthlyTarget = getReducedBdTarget(r.emp) ?? _RANGE_DEFAULT_BD_TARGET;
+    r.bdTarget = Math.round(monthlyTarget * r.activeMonths * (r.fte / 100) * 10) / 10;
+    r.bdDelta = Math.round((r.bd - r.bdTarget) * 10) / 10;
+    r.bdTargetPct = r.bdTarget > 0 ? Math.round((r.bd / r.bdTarget) * 100) : 0;
+
+    r.status = _fairnessStatus(r.totalDev, r.fairTotal);
+    r.weekendStatus = _fairnessStatus(r.weekendDev, r.fairWeekend);
+    r.canFacharzt = isFacharzt(r.emp);
+  });
+
+  const rankBy = (key, target) => {
+    [...rows].sort((a, b) => b[key] - a[key]).forEach((r, i) => { r[target] = i + 1; });
+  };
+  rankBy('total', 'rankTotal');
+  rankBy('weekendDuties', 'rankWeekend');
+  rankBy('holidayDuties', 'rankHoliday');
+
+  const team = {
+    count, totalBd, totalHg, totalWeekend, totalHoliday, totalDuties,
+    meanBd: count ? totalBd / count : 0,
+    meanHg: count ? totalHg / count : 0,
+    meanWeekend: count ? totalWeekend / count : 0,
+    meanTotal: count ? totalDuties / count : 0,
+    equityBd: _equityIndex(rows.map((r) => r.bd)),
+    equityHg: _equityIndex(rows.map((r) => r.hg)),
+    equityWeekend: _equityIndex(rows.map((r) => r.weekendDuties)),
+    equityTotal: _equityIndex(rows.map((r) => r.total)),
+    cvTotal: Math.round(_coefficientOfVariation(rows.map((r) => r.total))),
+    cvWeekend: Math.round(_coefficientOfVariation(rows.map((r) => r.weekendDuties))),
+    minTotal: rows.length ? Math.min(...rows.map((r) => r.total)) : 0,
+    maxTotal: rows.length ? Math.max(...rows.map((r) => r.total)) : 0,
+    minWeekend: rows.length ? Math.min(...rows.map((r) => r.weekendDuties)) : 0,
+    maxWeekend: rows.length ? Math.max(...rows.map((r) => r.weekendDuties)) : 0,
+  };
+  team.spreadTotal = team.maxTotal - team.minTotal;
+  team.spreadWeekend = team.maxWeekend - team.minWeekend;
+
+  rows.sort((a, b) => b.total - a.total || b.weekendDuties - a.weekendDuties || a.emp.localeCompare(b.emp, 'de'));
+
+  return { range, rows, team };
+}
+
+// ---------------------------------------------------------------------------
 //  Abdeckung & Risiko
 // ---------------------------------------------------------------------------
 // Liefert tagesgenaue Besetzung von Bereitschafts- (D) und Hintergrunddienst
 // (HG) inkl. Lücken, Wochenend-/Feiertagslücken und einem Risiko-Score.
+//
+// WICHTIG (Konsistenz mit render-dept.js): Frühere Fassungen filterten hier
+// per `{ onlyPlanned: true }` Monate ganz ohne D-/HG-Einträge aus dem Nenner
+// heraus, sodass ein Monat ohne jegliche Diensteinträge stillschweigend aus
+// der Abdeckungsquote verschwand. render-dept.js (Monatsansicht) hat diesen
+// Filter nie besessen und zählt ehrlich JEDEN Werktag/Kalendertag, auch wenn
+// für den Monat gar keine Dienste vergeben wurden (Ergebnis dort: 0 %). Beide
+// Ansichten wichen dadurch für dieselben Rohdaten voneinander ab. Wir
+// übernehmen hier bewusst die ehrliche render-dept-Semantik: „Abdeckung"
+// bedeutet tatsächliche Besetzung an realen Kalendertagen, nicht nur an
+// Tagen, für die überhaupt schon geplant wurde. Ein komplett unbeplanter
+// Monat zählt also korrekt als 0 % Abdeckung statt gar nicht mitgezählt zu
+// werden — das macht Versorgungslücken sichtbar, statt sie zu verschleiern.
 export function computeCoverage(range) {
   const days = [];
   let workdays = 0, weekendHolidayDays = 0;
@@ -256,7 +419,7 @@ export function computeCoverage(range) {
       year, month, day, wd: ctx.wd, holiday: ctx.holiday, holName: ctx.holName,
       weekendOrHoliday: ctx.weekendOrHoliday, hasD, hasHG, dOwner, hgOwner, status, required,
     });
-  }, { onlyPlanned: true });
+  });
 
   const totalDays = days.length;
   const dPct = totalDays ? Math.round((dCovered / totalDays) * 100) : 0;
@@ -278,7 +441,16 @@ export function computeCoverage(range) {
 // ---------------------------------------------------------------------------
 //  Abwesenheiten & Kapazität
 // ---------------------------------------------------------------------------
-export function computeAbsence(range) {
+// ASYNC (siehe Issue 35): Für ein großes Team über ein volles Jahr ist dies
+// eine synchrone Vollberechnung über alle Monate × alle Mitarbeitenden plus
+// eine tagesgenaue Kapazitätsauswertung — in einem einzigen synchronen Block
+// kann das bei großen Rostern spürbar den Main-Thread blockieren (UI-Jank).
+// Die Berechnung wird daher in Chunks (ein Kalendermonat pro Tick) verarbeitet
+// und gibt die Kontrolle nach jedem Monat mit einem Makrotask-Tick
+// (`setTimeout(…, 0)`) an die Ereignisschleife zurück. Aufrufer MÜSSEN daher
+// `await computeAbsence(range)` verwenden statt den Rückgabewert synchron zu
+// erwarten.
+export async function computeAbsence(range) {
   const emps = employeesInRange(range);
   const perEmp = new Map(emps.map((e) => [e, {
     emp: e, meta: getEmpMeta(e), vac: 0, sick: 0, fza: 0, wb: 0, su: 0, total: 0, byCode: {},
@@ -286,8 +458,9 @@ export function computeAbsence(range) {
 
   let totalAbsenceDays = 0;
   const daySeries = []; // pro Werktag: gleichzeitige Abwesenheiten
+  const yieldTick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-  range.months.forEach(({ year, month }) => {
+  for (const { year, month } of range.months) {
     for (const emp of emps) {
       const md = getMonthData(year, month);
       if (!md?.employees?.includes(emp)) continue;
@@ -307,25 +480,33 @@ export function computeAbsence(range) {
       row.total += vac + sick + (s.stCounts['FZA'] || 0) + (s.stCounts['WB'] || 0);
       totalAbsenceDays += vac + sick + (s.stCounts['FZA'] || 0) + (s.stCounts['WB'] || 0);
     }
-  });
+    await yieldTick();
+  }
 
-  // Gleichzeitige Abwesenheiten je Werktag (Kapazitäts-/Engpasssicht).
-  eachDay(range, (ctx) => {
-    if (!ctx.workday) return;
-    const { year, month, day, md } = ctx;
-    let present = 0, absent = 0;
-    (md?.employees || []).forEach((emp) => {
-      const cell = md.assignments?.[emp]?.[day] || {};
-      const base = (cell.assignment || '').split('/')[0].trim();
-      // Echte Abwesenheit = ABSENCE_CODES. Dienstfrei (F) ist KEINE Abwesenheit
-      // (z. B. dienstfreier Folgetag nach Dienst) und wird konsistent zur
-      // Tabelle/totalAbsenceDays nicht mitgezählt.
-      const isAbs = !!base && ABSENCE_CODES.includes(base);
-      if (isAbs) absent++; else present++;
-    });
-    const head = (md?.employees || []).length;
-    daySeries.push({ year, month, day, wd: ctx.wd, present, absent, head, rate: head ? Math.round((absent / head) * 100) : 0 });
-  });
+  // Gleichzeitige Abwesenheiten je Werktag (Kapazitäts-/Engpasssicht) —
+  // ebenfalls chunkweise pro Monat statt eines einzigen eachDay()-Durchlaufs
+  // über den kompletten Zeitraum.
+  for (const { year, month } of range.months) {
+    const md = getMonthData(year, month);
+    const hols = getSaxonyHolidaysCached(year);
+    const dim = daysInMonth(year, month);
+    for (let day = 1; day <= dim; day++) {
+      if (!isWorkday(year, month, day, hols)) continue;
+      let present = 0, absent = 0;
+      (md?.employees || []).forEach((emp) => {
+        const cell = md.assignments?.[emp]?.[day] || {};
+        const base = (cell.assignment || '').split('/')[0].trim();
+        // Echte Abwesenheit = ABSENCE_CODES. Dienstfrei (F) ist KEINE Abwesenheit
+        // (z. B. dienstfreier Folgetag nach Dienst) und wird konsistent zur
+        // Tabelle/totalAbsenceDays nicht mitgezählt.
+        const isAbs = !!base && ABSENCE_CODES.includes(base);
+        if (isAbs) absent++; else present++;
+      });
+      const head = (md?.employees || []).length;
+      daySeries.push({ year, month, day, wd: weekday(year, month, day), present, absent, head, rate: head ? Math.round((absent / head) * 100) : 0 });
+    }
+    await yieldTick();
+  }
 
   const rows = [...perEmp.values()].filter((r) => r.total > 0).sort((a, b) => b.total - a.total);
   const peak = daySeries.slice().sort((a, b) => b.absent - a.absent)[0] || null;
@@ -358,12 +539,54 @@ export function computeCompliance(range) {
         // dienstfrei sein (kein Arbeitsplatz/Dienst). Folgetag auch über die
         // Monatsgrenze hinweg prüfen.
         if (cell.duty === 'D') {
-          const next = (d < dim)
-            ? getCell(year, month, emp, d + 1)
-            : getCell(month === 11 ? year + 1 : year, month === 11 ? 0 : month + 1, emp, 1);
-          const nextBase = (next.assignment || '').split('/')[0].trim();
-          const nextWorks = (nextBase && WORKPLACES.some((w) => w.code === nextBase)) || next.duty;
-          if (nextWorks) {
+          let nextWorks = false;
+          let unverifiable = false;
+          if (d < dim) {
+            const next = getCell(year, month, emp, d + 1);
+            const nextBase = (next.assignment || '').split('/')[0].trim();
+            nextWorks = !!((nextBase && WORKPLACES.some((w) => w.code === nextBase)) || next.duty);
+          } else if (month === 11) {
+            // Silvester-Grenzfall: Folgetag liegt im nächsten Jahr. Ohne
+            // Absicherung würde `getCell(year+1, 0, emp, 1)` für ein noch gar
+            // nicht angelegtes Folgejahr (oder für eine im Folgejahr nicht
+            // mehr geführte Person) einfach eine leere Zelle liefern, die
+            // stillschweigend als "dienstfrei" (= konform) durchgeht — obwohl
+            // in Wahrheit schlicht nichts verifiziert werden konnte. Wir
+            // unterscheiden daher explizit:
+            //  - Für year+1 liegen GAR KEINE Plandaten vor: nicht prüfbar
+            //    (separate, klar gekennzeichnete Kategorie statt "konform").
+            //  - Für year+1 liegen Daten vor, die Person ist dort aber nicht
+            //    im Personal-Roster geführt: sehr wahrscheinlich zum
+            //    Jahreswechsel ausgeschieden -> es existiert kein Folgedienst,
+            //    gegen den verstoßen werden könnte, die Prüfung entfällt
+            //    korrekt (kein falsches "konform", sondern schlicht kein
+            //    prüfbarer Sachverhalt mehr).
+            // Bewusst das ROHE DATA-Objekt prüfen statt getMonthData(year+1,
+            // 0): Letzteres würde beim ersten Zugriff auf ein noch gar nicht
+            // angelegtes Folgejahr automatisch einen vom 31.12. geerbten
+            // Personal-Eintrag anlegen (Lazy-Fill-Nebenwirkung, siehe
+            // getMonthDataRaw) — die Person würde dann fälschlich als "im
+            // Folgejahr geführt" erscheinen, obwohl in Wahrheit schlicht noch
+            // gar nichts für year+1 geplant wurde. Genau dieses Lazy-Fill war
+            // die Ursache dafür, dass der Ruhezeit-Check bislang stets eine
+            // leere (= "konforme") Zelle sah.
+            const nextYearMonth0 = DATA[monthKey(year + 1, 0)];
+            const nextYearHasData = !!(nextYearMonth0 && Array.isArray(nextYearMonth0.employees) && nextYearMonth0.employees.length);
+            const empInNextYear = nextYearHasData && nextYearMonth0.employees.includes(emp);
+            if (!nextYearHasData) {
+              unverifiable = true;
+            } else if (empInNextYear) {
+              const next = getCell(year + 1, 0, emp, 1);
+              const nextBase = (next.assignment || '').split('/')[0].trim();
+              nextWorks = !!((nextBase && WORKPLACES.some((w) => w.code === nextBase)) || next.duty);
+            }
+            // else: Person nicht mehr im Folgejahr-Roster -> nextWorks bleibt
+            // false, kein Befund (siehe Kommentar oben).
+          }
+          if (unverifiable) {
+            findings.push({ type: 'restUnverifiable', severity: 'low', emp, year, month, day: d,
+              text: `Ruhezeit nicht prüfbar: D am ${d}.${month + 1}. (Jahreswechsel) — für ${year + 1} liegen noch keine Plandaten vor, der Folgetag kann nicht verifiziert werden.` });
+          } else if (nextWorks) {
             findings.push({ type: 'rest', severity: 'high', emp, year, month, day: d,
               text: `Ruhezeit verletzt: D am ${d}.${month + 1}. ohne dienstfreien Folgetag.` });
           }
@@ -427,6 +650,16 @@ const SICK_CODES = ['K', 'KK'];
 const SEASONAL_MIN_SAMPLE_DAYS = 20;
 // Schwelle für "auffällig erhöht": mindestens 15% über dem Jahresdurchschnitt.
 export const SEASONAL_RISK_THRESHOLD = 1.15;
+// Rezenz-Gewichtung: pro Jahr Abstand zur Gegenwart (TOD_Y) verbleiben 85%
+// des ursprünglichen Gewichts (einfacher, nachvollziehbarer exponentieller
+// Abfall). Ohne diese Gewichtung würde ein einzelnes altes Ausreißerjahr
+// (z. B. eine schwere, längst überstandene Grippewelle) die "saisonale Norm"
+// dauerhaft verzerren und auch Jahre später noch unbegründete
+// seasonalRiskMonths-Warnungen auslösen, obwohl sich die Verhältnisse längst
+// normalisiert haben. Ein Jahr, das genauso weit in der Zukunft liegt wie
+// TOD_Y (sollte praktisch nicht vorkommen), wird wie das aktuelle Jahr
+// behandelt (kein negativer Abstand).
+export const SEASONAL_RECENCY_DECAY = 0.85;
 
 /**
  * Ermittelt für jeden Kalendermonat (0–11), wie sich die krankheitsbedingte
@@ -436,11 +669,19 @@ export const SEASONAL_RISK_THRESHOLD = 1.15;
  * machen. Rein deskriptiv/historisch (kein Modelltraining, keine externen
  * Daten): mehr vorhandene Jahre mit tatsächlichen Diensteinträgen verbessern
  * die Aussagekraft automatisch, da einfach mehr Personen-Werktage in die
- * jeweilige Kalendermonats-Quote einfließen.
+ * jeweilige Kalendermonats-Quote einfließen. Ältere Jahre fließen dabei mit
+ * abnehmendem Gewicht ein (siehe SEASONAL_RECENCY_DECAY), damit ein einzelner
+ * historischer Ausreißer nicht dauerhaft die aktuelle Risikoeinschätzung
+ * verzerrt. `sampleDays` bleibt bewusst UNGEWICHTET (reale Anzahl Personen-
+ * Werktage), da es die statistische Stichprobengröße für die
+ * Belastbarkeits-Schwelle (SEASONAL_MIN_SAMPLE_DAYS) beschreibt, während
+ * `rate`/`indexVsAverage` auf der rezenz-gewichteten Poolung basieren.
  * @returns {Array<{month:number, sampleDays:number, rate:number, indexVsAverage:number, hasData:boolean}>}
  */
 export function computeSeasonalAbsenceIndex() {
-  const monthly = Array.from({ length: 12 }, () => ({ sickDays: 0, activeDays: 0 }));
+  const monthly = Array.from({ length: 12 }, () => ({
+    sickDaysWeighted: 0, activeDaysWeighted: 0, sampleDays: 0,
+  }));
 
   for (const [key, md] of Object.entries(DATA)) {
     if (!md || !Array.isArray(md.employees) || !md.assignments) continue;
@@ -452,21 +693,24 @@ export function computeSeasonalAbsenceIndex() {
     const hols = getSaxonyHolidaysCached(y);
     const dim = daysInMonth(y, m);
     const bucket = monthly[m];
+    const yearsAgo = Math.max(0, TOD_Y - y);
+    const weight = SEASONAL_RECENCY_DECAY ** yearsAgo;
 
     md.employees.forEach((emp) => {
       for (let d = 1; d <= dim; d++) {
         if (!isWorkday(y, m, d, hols)) continue;
-        bucket.activeDays++;
+        bucket.sampleDays++;
+        bucket.activeDaysWeighted += weight;
         const cell = md.assignments?.[emp]?.[d];
         const codes = (cell?.assignment || '').split('/').map((x) => x.trim());
         if (codes.some((c) => SICK_CODES.includes(c))) {
-          bucket.sickDays++;
+          bucket.sickDaysWeighted += weight;
         }
       }
     });
   }
 
-  const rates = monthly.map((b) => (b.activeDays > 0 ? b.sickDays / b.activeDays : null));
+  const rates = monthly.map((b) => (b.activeDaysWeighted > 0 ? b.sickDaysWeighted / b.activeDaysWeighted : null));
   const validRates = rates.filter((r) => r !== null);
   const overallAvg = validRates.length ? validRates.reduce((a, b) => a + b, 0) / validRates.length : 0;
 
@@ -474,10 +718,10 @@ export function computeSeasonalAbsenceIndex() {
     const rate = rates[m] ?? 0;
     return {
       month: m,
-      sampleDays: b.activeDays,
+      sampleDays: b.sampleDays,
       rate,
       indexVsAverage: overallAvg > 0 ? rate / overallAvg : 1,
-      hasData: b.activeDays >= SEASONAL_MIN_SAMPLE_DAYS,
+      hasData: b.sampleDays >= SEASONAL_MIN_SAMPLE_DAYS,
     };
   });
 }
@@ -492,7 +736,24 @@ export function computeForecast(year) {
   // kollabiert, wenn der Dienstplan personell das ganze Jahr abdeckt, künftige
   // Monate aber noch keine vergebenen Dienste enthalten.
   let monthsWithData = 0;
+  // Monate, für die überhaupt ein Personal-Roster existiert (unabhängig
+  // davon, ob darin schon Dienste vergeben wurden) — Grundlage, um weiter
+  // unten zwischen "Person arbeitet hier erst seit Kurzem/Teilzeit" (echte
+  // Beschäftigungsspanne) und "für diesen Monat wurde einfach noch gar nichts
+  // geplant" (reine Datenlücke, betrifft ALLE Mitarbeitenden gleichermaßen)
+  // zu unterscheiden (siehe yearTarget-Berechnung unten). WICHTIG: hierfür
+  // ausschließlich das rohe DATA-Objekt prüfen (wie collectDutyRaw/
+  // computeDutyFairness in model.js) statt getMonthData() — Letzteres legt
+  // beim ersten Zugriff auf einen noch unbeplanten Monat automatisch einen
+  // vom Vormonat geerbten Eintrag an (Lazy-Fill-Nebenwirkung). Würden wir
+  // darüber rosterMonths ermitteln, würde dieser Auto-Fill JEDEN Folgemonat
+  // rückwirkend als "beplant" erscheinen lassen, sobald irgendeine Person
+  // irgendwann einmal geführt wurde — genau die Unterscheidung, die
+  // isPartialEmployment unten treffen soll, wäre dann unbrauchbar.
+  let rosterMonths = 0;
   for (let m = 0; m < 12; m++) {
+    const rawMd = DATA[monthKey(year, m)];
+    if (rawMd?.employees?.length) rosterMonths++;
     const md = getMonthData(year, m);
     if (!md?.employees?.length) continue;
     const dim = daysInMonth(year, m);
@@ -508,27 +769,10 @@ export function computeForecast(year) {
   }
   const factor = monthsWithData > 0 ? 12 / monthsWithData : 1;
 
-  const rows = fairness.rows.map((r) => {
-    const projBd = Math.round(r.bd * factor);
-    const projHg = Math.round(r.hg * factor);
-    const projTotal = projBd + projHg;
-    const yearTarget = Math.round((r.bdTarget / Math.max(1, r.activeMonths)) * 12);
-    return {
-      emp: r.emp, meta: r.meta, bd: r.bd, hg: r.hg, total: r.total,
-      projBd, projHg, projTotal, yearTarget,
-      projDelta: projBd - yearTarget,
-    };
-  });
-
-  // Saisonale Risikoeinschätzung für die noch unbeplanten Restmonate des
-  // Jahres: Kalendermonate mit historisch überdurchschnittlicher
-  // Krankheitsquote (siehe computeSeasonalAbsenceIndex) bedeuten, dass die
-  // lineare Hochrechnung oben die tatsächlich zu erwartende Dienstlast der
-  // dann noch verfügbaren Mitarbeitenden eher unterschätzt. Rein informativ
-  // (verändert die obige Prognosezahlen bewusst nicht, um sie nicht durch
-  // ein zusätzliches, für Laien schwer nachvollziehbares Gewichtungsmodell
-  // zu verschleiern) — wird im Auswertungs-Hub als separater Hinweis samt
-  // saisonalem Verlauf dargestellt.
+  // Saisonale Risikoeinschätzung wird VOR der Hochrechnung ermittelt, damit
+  // sie a) weiterhin separat als informativer Hinweis samt Verlauf
+  // ausgegeben wird (seasonalRiskMonths) und b) in die Konfidenzeinschätzung
+  // der Prognose einfließen kann (siehe confidence unten).
   const seasonalIndex = computeSeasonalAbsenceIndex();
   const remainingMonths = [];
   for (let m = monthsWithData; m < 12; m++) remainingMonths.push(m);
@@ -537,9 +781,75 @@ export function computeForecast(year) {
     .filter((s) => s.hasData && s.indexVsAverage >= SEASONAL_RISK_THRESHOLD)
     .sort((a, b) => b.indexVsAverage - a.indexVsAverage);
 
+  // Konfidenz der linearen Hochrechnung: je weniger Monate an Ist-Daten
+  // vorliegen, desto stärker kann ein einzelner ungewöhnlicher Monat die
+  // 12x-Extrapolation verzerren (mit monthsWithData=1 explodiert ein
+  // schwerer Einzelmonat sofort zur Jahresprognose). Ab
+  // CONFIDENCE_FULL_MONTHS Monaten Ist-Datenbasis vertrauen wir der linearen
+  // Hochrechnung vollständig; darunter wird sie unten Richtung Jahres-Soll
+  // gedämpft (blendWeight). Ein historisch auffälliger Restmonat
+  // (seasonalRiskMonths) erhöht die Unsicherheit zusätzlich und stuft die
+  // Konfidenz eine Stufe herab — WARUM wird die Saisonquote nicht direkt in
+  // die Dienst-Hochrechnung hineinmultipliziert (obwohl sie bereits berechnet
+  // vorliegt)? Sie misst die Krankheitsquote ALLER/anderer Mitarbeitender,
+  // nicht die künftige Dienstlast dieser konkreten Person — ein Monat mit
+  // überdurchschnittlich vielen Kranken könnte für die verbleibenden
+  // gesunden Personen MEHR Dienste bedeuten (Einspringen), für die
+  // betrachtete Person selbst aber genauso gut WENIGER (eigener Ausfall).
+  // Eine naive Multiplikation wäre damit fachlich nicht eindeutig richtig;
+  // stattdessen fließt das saisonale Risiko konservativ in die
+  // Konfidenzbewertung (und damit in die Dämpfung) statt in eine blinde
+  // Höher-/Niedriger-Rechnung ein.
+  const CONFIDENCE_FULL_MONTHS = 6;
+  const blendWeight = Math.max(0, Math.min(1, monthsWithData / CONFIDENCE_FULL_MONTHS));
+  let confidence = monthsWithData <= 2 ? 'low' : monthsWithData <= 5 ? 'medium' : 'high';
+  if (seasonalRiskMonths.length) {
+    if (confidence === 'high') confidence = 'medium';
+    else if (confidence === 'medium') confidence = 'low';
+  }
+
+  const rows = fairness.rows.map((r) => {
+    const naiveProjBd = Math.round(r.bd * factor);
+    const projHg = Math.round(r.hg * factor);
+
+    // yearTarget: r.bdTarget (aus der Fairness-Berechnung) ist bereits
+    // korrekt auf r.activeMonths anteilig berechnet (monatliches Soll ×
+    // activeMonths × FTE). Ist r.activeMonths < rosterMonths, heißt das: für
+    // Monate, in denen laut Roster ANDERE Mitarbeitende bereits geführt
+    // wurden, taucht DIESE Person nicht auf — typischerweise unterjähriger
+    // Ein-/Austritt bzw. Teilzeit mit begrenzter Beschäftigungsspanne (kein
+    // explizites Eintritts-/Austrittsdatum im Datenmodell vorhanden, daher
+    // diese Heuristik über die Roster-Präsenz). In diesem Fall darf NICHT
+    // erneut auf 12 Monate hochgerechnet werden — r.bdTarget ist bereits das
+    // korrekte, faire Jahresziel für die tatsächliche Beschäftigungsspanne.
+    // Ist r.activeMonths dagegen gleich rosterMonths, liegt die Verkürzung
+    // nicht an der Person, sondern schlicht daran, dass für die Zukunft noch
+    // gar nichts geplant wurde (Datenlücke, betrifft alle gleichermaßen) —
+    // dann ist die Hochrechnung auf ein volles Jahr weiterhin sinnvoll, um
+    // das Tempo mit einem realistischen Jahresziel zu vergleichen.
+    const isPartialEmployment = r.activeMonths < rosterMonths;
+    const yearTarget = isPartialEmployment
+      ? r.bdTarget
+      : Math.round((r.bdTarget / Math.max(1, r.activeMonths)) * 12);
+
+    // Gedämpfte Prognose: Blend aus naiver linearer Hochrechnung und dem
+    // (FTE-/aktivitätsgerechten) Jahres-Soll als Basiswert, gewichtet nach
+    // Konfidenz (blendWeight). Bei wenigen Monaten Datenbasis zieht die
+    // Prognose so Richtung des plausiblen Zielwerts statt einer einzelnen,
+    // ggf. untypischen Ist-Periode blind zu vertrauen.
+    const projBd = Math.round(blendWeight * naiveProjBd + (1 - blendWeight) * yearTarget);
+    const projTotal = projBd + projHg;
+    return {
+      emp: r.emp, meta: r.meta, bd: r.bd, hg: r.hg, total: r.total,
+      projBd, projHg, projTotal, yearTarget,
+      projBdRaw: naiveProjBd,
+      projDelta: projBd - yearTarget,
+    };
+  });
+
   return {
     year, monthsWithData, factor, rows, team: fairness.team,
-    seasonalIndex, seasonalRiskMonths,
+    seasonalIndex, seasonalRiskMonths, confidence,
   };
 }
 

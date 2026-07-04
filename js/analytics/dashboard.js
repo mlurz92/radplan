@@ -20,11 +20,11 @@ export default {
   usesRange: true,
   icon: ICON,
 
-  render(root, ctx) {
+  async render(root, ctx) {
     const range = ctx.range;
     const cov = computeCoverage(range);
     const fair = computeDutyFairness(range.year);
-    const abs = computeAbsence(range);
+    const abs = await computeAbsence(range);
     const comp = computeCompliance(range);
     const wish = computeWishFulfillment(range);
     const emps = employeesInRange(range);

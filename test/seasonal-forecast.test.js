@@ -4,6 +4,15 @@ import "./helpers/dom-stubs.js";
 import { DATA } from "../js/state.js";
 import { computeSeasonalAbsenceIndex, computeForecast } from "../js/analytics/engine.js";
 import { monthKey, daysInMonth, isWorkday, getSaxonyHolidaysCached } from "../js/constants.js";
+import { TOD_Y } from "../js/state.js";
+
+function countWorkdays(year, month) {
+  const hols = getSaxonyHolidaysCached(year);
+  const dim = daysInMonth(year, month);
+  let n = 0;
+  for (let d = 1; d <= dim; d++) if (isWorkday(year, month, d, hols)) n++;
+  return n;
+}
 
 function resetData() {
   for (const k of Object.keys(DATA)) delete DATA[k];
@@ -120,5 +129,54 @@ describe("computeForecast — saisonale Risikoeinschätzung", () => {
     const janIndex = fc.seasonalIndex[0];
     assert.ok(janIndex.hasData);
     assert.ok(janIndex.indexVsAverage > 1, "Januar sollte laut Historie überdurchschnittlich belastet sein");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Issue 33: Rezenz-Gewichtung — ein einzelnes altes Ausreißerjahr darf die
+// aktuelle saisonale Norm nicht mehr dauerhaft/unverändert dominieren.
+// ---------------------------------------------------------------------------
+describe("computeSeasonalAbsenceIndex — Rezenz-Gewichtung (Issue 33)", () => {
+  beforeEach(resetData);
+
+  test("ein 20 Jahre altes Ausreißerjahr (komplette Grippewelle) beeinflusst die aktuelle Quote deutlich schwächer als eine ungewichtete Poolung", () => {
+    const oldYear = TOD_Y - 20;
+    const recentYear1 = TOD_Y - 1;
+    const recentYear2 = TOD_Y;
+
+    // Altes Jahr: JEDER Werktag im Januar krank (worst case Ausreißer).
+    const oldWorkdays = countWorkdays(oldYear, 0);
+    buildMonthWithSickDays(oldYear, 0, "Dr. Martin", oldWorkdays);
+    // Zwei aktuelle Jahre: völlig gesunder Januar.
+    const recentWorkdays1 = countWorkdays(recentYear1, 0);
+    buildMonthWithSickDays(recentYear1, 0, "Dr. Martin", 0);
+    const recentWorkdays2 = countWorkdays(recentYear2, 0);
+    buildMonthWithSickDays(recentYear2, 0, "Dr. Martin", 0);
+
+    const jan = computeSeasonalAbsenceIndex()[0];
+
+    // Ungewichtete Poolung (alte Berechnung) hätte ergeben:
+    // oldWorkdays kranke von (oldWorkdays + recentWorkdays1 + recentWorkdays2)
+    // Personen-Werktagen.
+    const naiveUnweightedRate = oldWorkdays / (oldWorkdays + recentWorkdays1 + recentWorkdays2);
+
+    assert.ok(jan.rate < naiveUnweightedRate / 2,
+      `rezenz-gewichtete Quote (${jan.rate}) sollte deutlich unter der ungewichteten Poolung (${naiveUnweightedRate}) liegen`);
+    assert.ok(jan.rate < 0.1,
+      "ein 20 Jahre alter Ausreißer darf die aktuelle Quote nicht mehr dominieren, wenn die letzten beiden Jahre völlig gesund waren");
+  });
+
+  test("ein Ausreißer im VORJAHR (nicht 20 Jahre alt) wirkt weiterhin spürbar nach, da er kaum abgewertet wird", () => {
+    const recentOutbreakYear = TOD_Y - 1;
+    const thisYear = TOD_Y;
+    const outbreakWorkdays = countWorkdays(recentOutbreakYear, 0);
+    buildMonthWithSickDays(recentOutbreakYear, 0, "Dr. Martin", outbreakWorkdays);
+    buildMonthWithSickDays(thisYear, 0, "Dr. Martin", 0);
+
+    const jan = computeSeasonalAbsenceIndex()[0];
+    // Bei nur einem Jahr Abstand (Gewicht 0.85^1 = 0.85) bleibt die Quote
+    // weiterhin deutlich über 0 – Rezenz-Gewichtung soll ältere Ausreißer
+    // abschwächen, aktuelle/nahe Jahre aber nicht ignorieren.
+    assert.ok(jan.rate > 0.1, "ein Ausreißer aus dem Vorjahr sollte weiterhin substanziellen Einfluss auf die Quote haben");
   });
 });

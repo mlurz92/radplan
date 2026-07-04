@@ -2,12 +2,13 @@
 //  RadPlan · Auswertungs-Hub – Modul „Fairness & Verteilung"
 // ---------------------------------------------------------------------------
 //  FTE-gewichtete Gerechtigkeit der Dienstverteilung (Bereitschafts-,
-//  Hintergrund-, Wochenend- und Feiertagsdienste). Fairness ist von Natur aus
-//  eine Jahresgröße – es wird stets auf das Gesamtjahr (ctx.range.year)
-//  gerechnet, unabhängig vom gewählten Teilzeitraum.
+//  Hintergrund-, Wochenend- und Feiertagsdienste). Das Modul deklariert
+//  `usesRange: true` und respektiert daher den vom Hub gewählten Zeitraum
+//  (Monat/Quartal/Jahr/rollierend/frei) über computeDutyFairnessForRange()
+//  statt — wie zuvor — stets das Gesamtjahr über ctx.range.year zu rechnen.
 // ===========================================================================
 
-import { computeDutyFairness, fmt, scoreColor, TT, TTI } from './engine.js';
+import { computeDutyFairnessForRange, fmt, scoreColor, TT, TTI } from './engine.js';
 import { esc } from '../utils.js';
 
 let chartInstance = null;
@@ -49,15 +50,16 @@ export default {
   icon: ICON,
 
   render(root, ctx) {
-    const year = (ctx?.range?.year) ?? ctx?.year;
-    const { rows, team } = computeDutyFairness(year);
+    const range = ctx?.range;
+    const rangeLabel = range?.label ?? String(ctx?.year ?? '');
+    const { rows, team } = computeDutyFairnessForRange(range);
 
     // Leerzustand.
     if (!team || team.count === 0) {
       root.innerHTML = `
         <div class="ah-section-title">Fairness &amp; Verteilung</div>
-        <div class="fair-note">Bezug: Gesamtjahr ${year}</div>
-        <div class="ah-empty">Für ${year} liegen keine auswertbaren Dienstdaten vor.</div>`;
+        <div class="fair-note">Bezug: ${esc(rangeLabel)}</div>
+        <div class="ah-empty">Für ${esc(rangeLabel)} liegen keine auswertbaren Dienstdaten vor.</div>`;
       return;
     }
 
@@ -103,7 +105,7 @@ export default {
           <td class="ah-td-num">${fmt.int(r.hg)}</td>
           <td class="ah-td-num">${fmt.int(r.total)}</td>
           <td class="ah-td-num">${fmt.int(r.weekendDuties)}</td>
-          <td class="ah-td-num" data-tooltip="${esc(`FTE-gewichtetes Jahres-Soll für Bereitschaftsdienste: ${fmt.dec1(r.bdTarget)}. Ist: ${fmt.int(r.bd)}.`)}">${fmt.dec1(r.bdTarget)}</td>
+          <td class="ah-td-num" data-tooltip="${esc(`FTE-gewichtetes Soll für Bereitschaftsdienste im gewählten Zeitraum: ${fmt.dec1(r.bdTarget)}. Ist: ${fmt.int(r.bd)}.`)}">${fmt.dec1(r.bdTarget)}</td>
           <td class="ah-td-num" data-tooltip="${esc(TTI.bdDelta(r.bdDelta))}">${fmt.signedInt(r.bdDelta)}</td>
           <td class="ah-td-num" style="color:${devColor(r.status)};font-weight:700" data-tooltip="${esc(TTI.fairDelta(r.totalDev, r.status))}">${fmt.signed1(r.totalDev)}</td>
           <td data-tooltip="${esc(TTI.fairDelta(r.totalDev, r.status))}">${devBar(r.totalDev ?? 0, maxAbs)}</td>
@@ -134,7 +136,7 @@ export default {
 
     root.innerHTML = `
       <div class="ah-section-title" data-tooltip="${esc(TT.fairness)}">Fairness &amp; Verteilung</div>
-      <div class="fair-note" data-tooltip="Fairness ist eine Jahresgröße und bezieht sich stets auf das Gesamtjahr, unabhängig vom gewählten Teilzeitraum.">Bezug: Gesamtjahr ${year}</div>
+      <div class="fair-note" data-tooltip="Fairness wird für den oben gewählten Zeitraum berechnet (Monat, Quartal, Jahr, rollierend oder frei) – FTE-gewichtet auf Basis der in diesem Zeitraum tatsächlich geleisteten Dienste.">Bezug: ${esc(rangeLabel)}</div>
       ${kpis}
       <div class="ah-section-title" data-tooltip="Rangliste aller dienstfähigen Mitarbeitenden, sortiert nach Gesamtbelastung (absteigend).">Fairness-Rangliste</div>
       <div class="fair-legend">

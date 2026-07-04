@@ -150,17 +150,35 @@ function renderActive() {
   content.scrollTop = 0;
   content.className = `ah-content ah-mod-${mod.id}`;
 
-  try {
-    mod.render(content, { range, year: state.year, month: state.month, hub, openProfile: hub.openProfile });
-  } catch (err) {
+  const fadeIn = () => {
+    content.classList.remove('ah-fade');
+    void content.offsetWidth;
+    content.classList.add('ah-fade');
+  };
+  const handleRenderError = (err) => {
     console.error(`[AnalyticsHub] Modul „${mod.id}" Renderfehler:`, err);
     content.innerHTML = `<div class="ah-empty ah-error">Dieses Modul konnte nicht geladen werden.<br><small>${(err && err.message) || ''}</small></div>`;
+    fadeIn();
+  };
+
+  try {
+    // Module wie „Abwesenheiten" (issue #35) rendern inzwischen asynchron
+    // (chunked, um lange Jahres-Berechnungen nicht synchron zu blockieren).
+    // render() kann daher entweder sofort fertig sein oder ein Promise
+    // liefern — in beidem Fall muss ein Reject wie ein synchroner throw
+    // behandelt werden (Fehleranzeige + Fade-in erst nach Abschluss).
+    /** @type {any} */
+    const result = mod.render(content, { range, year: state.year, month: state.month, hub, openProfile: hub.openProfile });
+    if (result && typeof result.then === 'function') {
+      result.then(fadeIn, handleRenderError);
+      return;
+    }
+  } catch (err) {
+    handleRenderError(err);
+    return;
   }
 
-  // sanftes Einblenden
-  content.classList.remove('ah-fade');
-  void content.offsetWidth;
-  content.classList.add('ah-fade');
+  fadeIn();
 }
 
 function mountChrome() {
