@@ -32,6 +32,23 @@
 .yg-td-total, .yg-th-total { background: var(--gray-100, rgba(148,163,184,.10)); font-weight: 800; }
 .yg-total-bd { color: var(--text-1); } .yg-total-hg { font-size: 10px; color: var(--text-faint); margin-left: 4px; }
 
+/* --- Vorschlag 11: Mehrjahres-Benchmarking (yg-bm-*) --- */
+.yg-bm-chart-card { padding: 14px 16px; margin-top: 18px; }
+.yg-bm-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 10px; }
+.yg-bm-canvas-wrap { position: relative; height: 260px; }
+.yg-bm-table { margin-top: 12px; }
+.yg-bm-row-current { font-weight: 700; background: rgba(14,165,233,0.06); }
+.yg-bm-tag { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #0EA5E9; background: rgba(14,165,233,0.14); padding: 1px 6px; border-radius: 8px; margin-left: 6px; }
+.yg-bm-delta { font-variant-numeric: tabular-nums; font-weight: 700; }
+.yg-bm-delta-good { color: #15803D; }
+.yg-bm-delta-bad { color: #B91C1C; }
+.yg-bm-delta-flat { color: var(--text-faint); }
+
+@media (max-width: 560px) {
+  .yg-bm-canvas-wrap { height: 200px; }
+  .yg-bm-chart-card { padding: 12px 12px; }
+}
+
 /* --- Portrait-Mobile: Gitter scrollbar im Wrap, kompaktere Zellen, schmalere Sticky-Spalte --- */
 @media (max-width: 560px) {
   .yg-scroll { max-width: 100%; -webkit-overflow-scrolling: touch; contain: paint; }

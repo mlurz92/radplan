@@ -1164,6 +1164,35 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     }
     return true;
   }
+
+  // Vorschlag 9 (Transparente Konflikt-Eskalation): benennt für einen nur im
+  // gelockerten Modus zulässigen BD-Kandidaten exakt, welche(s) der drei
+  // ausschließlich im Strikt-Modus geprüften weichen Kriterien (Monatsziel,
+  // WE-Limit, Mindestabstand) den Kandidaten sonst blockiert hätte. Liefert
+  // eine leere Liste, wenn der Kandidat auch strikt zulässig wäre (z. B. weil
+  // er nur wegen coverageEscalation-Kriterien durchkam).
+  function explainRelaxedBD(emp, d) {
+    const reasons = [];
+    if (currentBD[emp] >= bdTarget[emp]) {
+      reasons.push(`Monatsziel bereits erreicht/überschritten (Ist ${currentBD[emp]}, Soll ${bdTarget[emp]}) – Regel ausgesetzt`);
+    }
+    const projectedWe = projectedWeekendDutyCount(y, m, emp, result, "D", d);
+    if (projectedWe > RELAXED_WEEKEND_DUTY_LIMIT) {
+      reasons.push(`Wochenend-Dienst-Obergrenze überschritten (${projectedWe} > ${RELAXED_WEEKEND_DUTY_LIMIT}) – Regel ausgesetzt`);
+    }
+    const minDistD = minDistanceForDuty(emp, d, "D", result);
+    if (minDistD < MIN_DUTY_SPACING_DAYS) {
+      reasons.push(`Mindestabstand zwischen Bereitschaftsdiensten unterschritten (${minDistD} < ${MIN_DUTY_SPACING_DAYS} Tage) – Regel ausgesetzt`);
+    }
+    if (wouldCreateConsecutiveWeekendDuty(y, m, emp, result, d)) {
+      reasons.push("Sperre für zwei aufeinanderfolgende Dienst-Wochenenden aufgehoben (Coverage-Eskalation)");
+    }
+    if (isSaturdayUltimaRatio(emp) && weekday(y, m, d) === 6) {
+      reasons.push("Samstags-Ultima-Ratio-Sperre aufgehoben (Coverage-Eskalation)");
+    }
+    if (!reasons.length) reasons.push("Kandidat war regulär zulässig, wurde aber erst im zweiten Suchdurchlauf berücksichtigt.");
+    return reasons;
+  }
   function hasVacationInFollowingWeek(emp, d) {
     const start = addDays(new Date(y, m, d), 4); // Next Monday
     for (let i = 0; i < 7; i++) {
@@ -1179,7 +1208,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
   function scoreBDCandidate(emp, d, relaxed, phaseKey) {
     relaxed = relaxed || false;
     if (!canDoBD(emp, d, relaxed, result, { coverageEscalation: relaxed })) {
-      return { score: -Infinity, histScore: 0, tags: [] };
+      return { score: -Infinity, histScore: 0, tags: [], breakdown: [{ label: "Hartes Ausschlusskriterium (Ruhezeit/Qualifikation/Sonderregel)", delta: -Infinity }], relaxReasons: /** @type {string[]|undefined} */ (undefined) };
     }
 
     let score = 100;
@@ -1189,12 +1218,20 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     const wd = weekday(y, m, d);
     const isWE = wd === 5 || wd === 6 || wd === 0;
     const tags = [];
+    // Vorschlag 1 (Erklärbarkeit): jede Punktzahl-Änderung wird zusätzlich zu
+    // den knappen Tags als vollständiger, für die UI lesbarer Beitrag
+    // erfasst, damit im "Warum diese Person?"-Dialog nachvollziehbar ist,
+    // welcher Faktor mit welchem Punktwert zur Endsumme beigetragen hat.
+    const breakdown = [{ label: "Basiswert", delta: 100 }];
+    const add = (label, delta) => { if (delta !== 0) breakdown.push({ label, delta: Math.round(delta * 100) / 100 }); };
     const projectedWe = projectedWeekendDutyCount(y, m, emp, result, "D", d);
     const minDistD = minDistanceForDuty(emp, d, "D", result);
 
     if (currentBD[emp] >= bdTarget[emp]) {
-      score -= 50000 * (currentBD[emp] - bdTarget[emp] + 1);
+      const overPenalty = -50000 * (currentBD[emp] - bdTarget[emp] + 1);
+      score += overPenalty;
       tags.push("Soll überschritten");
+      add(`Monatsziel bereits überschritten (${currentBD[emp]}/${bdTarget[emp]})`, overPenalty);
 
       // Überhang-Präferenz: Ist eine faire Verteilung erreicht (alle am Ziel)
       // und MUSS dennoch jemand einen Dienst über dem Ziel übernehmen, so
@@ -1210,18 +1247,24 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
           (e2) => e2 !== emp && wishes[e2]?.[d] === "BD_WISH"
         );
         if (!someoneElseWishesBD) {
-          score += 8000 - surplusRank * 500;
+          const bonus = 8000 - surplusRank * 500;
+          score += bonus;
           tags.push("Überhang-Präferenz (5. Dienst)");
+          add("Überhang-Präferenz (5. Dienst)", bonus);
         }
       }
     } else {
-      score += (bdTarget[emp] - currentBD[emp]) * 5000;
+      const deficitBonus = (bdTarget[emp] - currentBD[emp]) * 5000;
+      score += deficitBonus;
       tags.push("Zielerfüllung");
+      add(`Zielerfüllung (${currentBD[emp]}/${bdTarget[emp]} noch offen)`, deficitBonus);
     }
 
     if (wishes[emp]?.[d] === "BD_WISH") {
-      score += 220 * W.wish;
+      const bonus = 220 * W.wish;
+      score += bonus;
       tags.push("Wunsch");
+      add("Bereitschaftsdienst-Wunsch erfüllt", bonus);
     }
 
     if (wd === 4) {
@@ -1229,21 +1272,28 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       if (hasVacationInWeek(y, m, emp, nextKW)) {
         score += 4000;
         tags.push("Vor Urlaub");
+        add("Donnerstag vor eigenem Urlaub", 4000);
       }
     }
 
     if (isWE) {
-      score -= Math.abs(projectedWe - TARGET_WEEKEND_DUTY) * 220 * W.fairness;
+      const weFairnessDelta = -Math.abs(projectedWe - TARGET_WEEKEND_DUTY) * 220 * W.fairness;
+      score += weFairnessDelta;
+      add(`WE-Fairness (Ziel ${TARGET_WEEKEND_DUTY}, projiziert ${projectedWe})`, weFairnessDelta);
       if (projectedWe > RELAXED_WEEKEND_DUTY_LIMIT) {
-        score -= (projectedWe - RELAXED_WEEKEND_DUTY_LIMIT) * 1000 * W.fairness;
+        const overLimitDelta = -(projectedWe - RELAXED_WEEKEND_DUTY_LIMIT) * 1000 * W.fairness;
+        score += overLimitDelta;
+        add(`WE-Limit überschritten (>${RELAXED_WEEKEND_DUTY_LIMIT})`, overLimitDelta);
       }
       if (wouldCreateConsecutiveWeekendDuty(y, m, emp, result, d)) {
         score -= 1500;
         tags.push("WE-Puffer");
+        add("Zwei Dienst-Wochenenden in Folge", -1500);
       }
       if (getWeekendDutyKWs(y, m, emp, result).has(isoWeekNumber(y, m, d) - 1)) {
         score -= 100;
         tags.push("WE-Abstand");
+        add("Zu geringer Abstand zum letzten WE-Dienst", -100);
       }
       const histWeDuty = hist[emp]?.weDuty || 0;
       const avgHistWe = averageFromArray(dutyEmps.map(e => hist[e]?.weDuty || 0));
@@ -1253,14 +1303,19 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     if (wd === 6 && isFacharzt(emp)) {
       const projectedSat = currentSatBD[emp] + 1;
       if (projectedSat > 1) {
-        score -= 25000 * projectedSat;
+        const dblPenalty = -25000 * projectedSat;
+        score += dblPenalty;
         tags.push("Doppel-Samstag");
+        add("Zweiter Samstags-BD im Monat", dblPenalty);
       } else if (currentSatBD[emp] === 0) {
         score += 5000;
         tags.push("Samstags-Priorität");
+        add("Noch kein Samstags-BD im Monat", 5000);
       }
       const avgProjectedSat = (hgFAs.reduce((s, e) => s + currentSatBD[e], 0) + 1) / Math.max(1, hgFAs.length);
-      score -= Math.abs(projectedSat - avgProjectedSat) * 1500 * W.fairness;
+      const satFairnessDelta = -Math.abs(projectedSat - avgProjectedSat) * 1500 * W.fairness;
+      score += satFairnessDelta;
+      add("Samstags-BD-Fairness zum Facharzt-Durchschnitt", satFairnessDelta);
       const histSatBD = hist[emp]?.satBd || 0;
       const avgHistSat = averageFromArray(hgFAs.map(e => hist[e]?.satBd || 0));
       histScore -= (histSatBD - avgHistSat) * 5;
@@ -1269,10 +1324,13 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     if (isSaturdayUltimaRatio(emp) && wd === 6 && relaxed) {
       score -= 5000;
       tags.push("Notlösung");
+      add("Samstags-Ultima-Ratio-Person im gelockerten Modus eingesetzt", -5000);
     }
 
     if (minDistD < SOFT_DUTY_SPACING_SHORT) {
-      score -= (SOFT_DUTY_SPACING_SHORT - minDistD) * 250;
+      const spacingDelta = -(SOFT_DUTY_SPACING_SHORT - minDistD) * 250;
+      score += spacingDelta;
+      add(`Kurzer BD-Abstand (${minDistD} Tage < ${SOFT_DUTY_SPACING_SHORT})`, spacingDelta);
     }
 
     if (wouldCreateDFDF(emp, d, result)) {
@@ -1283,6 +1341,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       // echten Notfällen entsteht statt bei jedem Fairness-Feinschliff.
       score -= DFDF_PATTERN_SCORE_PENALTY;
       tags.push("D-F-D-F weich vermieden");
+      add("D-F-D-F-Fragmentierungsmuster", -DFDF_PATTERN_SCORE_PENALTY);
     }
 
     if (isHoliday(y, m, d, hols)) {
@@ -1295,9 +1354,11 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     // gleichwertige Kandidaten – hängt nur von der stabilen Position in der
     // dienstberechtigten Roster-Liste (dutyEmps) und dem Tag ab, niemals vom
     // Namensstring, damit eine reine Umbenennung die Auswahl nicht verändert.
-    score += ((dutyEmps.indexOf(emp) * 31 + d * 7) % 10) * 0.1;
+    const tieBreak = ((dutyEmps.indexOf(emp) * 31 + d * 7) % 10) * 0.1;
+    score += tieBreak;
+    add("Deterministischer Tie-Breaker", tieBreak);
     trace(phaseKey || "bd_eval", `EVAL [${emp}|D${d}] Base:100 Final:${Math.round(score)} Hist:${Math.round(histScore)} Tags:[${tags.join(',')}]`);
-    return { score, histScore, tags };
+    return { score, histScore, tags, breakdown, relaxReasons: /** @type {string[]|undefined} */ (undefined) };
   }
 
   bdNeeded.sort((a, b) => {
@@ -1327,11 +1388,13 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     
     if (candidates.length === 0) {
       candidates = dutyEmps.map((e) => ({ emp: e, ...scoreBDCandidate(e, d, true, "bd_weekend") })).filter((c) => c.score > -Infinity).sort((a, b) => b.score - a.score || b.histScore - a.histScore);
-      if (candidates.length > 0) { 
-        bdRelaxedCount++; 
-        relaxed = true; 
-        candidates[0].tags.push("Regeln gelockert"); 
-        recordRule("bd_weekend", "BD-Constraint gelockert", `Tag ${d}: Keine harte BD-Lösung.`, "warn"); 
+      if (candidates.length > 0) {
+        bdRelaxedCount++;
+        relaxed = true;
+        candidates[0].tags.push("Regeln gelockert");
+        const relaxReasons = explainRelaxedBD(candidates[0].emp, d);
+        recordRule("bd_weekend", "BD-Constraint gelockert", `Tag ${d}, ${candidates[0].emp}: ${relaxReasons.join("; ")}.`, "warn");
+        candidates[0].relaxReasons = relaxReasons;
         log.push({ phase: "bd_weekend", icon: "⚠", msg: `BD-Regeln gelockert für Tag ${d}`, dayIdx: d, newEmpId: candidates[0].emp, pct: 22 });
       }
     }
@@ -1355,11 +1418,11 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       if (chosen.tags.includes("Vor Urlaub")) reason = "Donnerstags-Dienst vor Urlaub priorisiert.";
       if (chosen.tags.includes("Samstags-Priorität")) reason += " Person hatte noch keinen Samstag im Monat.";
       if (chosen.tags.includes("D-F-D-F weich vermieden")) reason += " D-F-D-F wurde nur weich bestraft.";
-      if (relaxed) reason += " Auswahl im gelockerten Modus.";
-      
+      if (relaxed) reason += ` Auswahl im gelockerten Modus: ${chosen.relaxReasons.join("; ")}.`;
+
       reason += applyMandatorySaturdayFza(chosen.emp, d, "bd_weekend", Math.min(40, 22 + 2));
 
-      report.push({ day: d, emp: chosen.emp, duty: "D", reason: reason, tags: chosen.tags, alternatives: candidates.slice(1, 4).map((c) => ({ emp: c.emp, score: Math.round(c.score), tags: c.tags })) });
+      report.push({ day: d, emp: chosen.emp, duty: "D", reason: reason, tags: chosen.tags, breakdown: chosen.breakdown, relaxReasons: chosen.relaxReasons, alternatives: candidates.slice(1, 4).map((c) => ({ emp: c.emp, score: Math.round(c.score), tags: c.tags, breakdown: c.breakdown })) });
       log.push({ phase: "bd_weekend", icon: "→", msg: `Tag ${d}. → ${chosen.emp}`, dayIdx: d, newEmpId: chosen.emp, pct: 22 + Math.round((i / Math.max(1, weBDs.length)) * 18) });
     }
   }
@@ -1375,24 +1438,30 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     
     if (candidates.length === 0) {
       candidates = dutyEmps.map((e) => ({ emp: e, ...scoreBDCandidate(e, d, true, "bd_workday") })).filter((c) => c.score > -Infinity).sort((a, b) => b.score - a.score || b.histScore - a.histScore);
-      if (candidates.length > 0) { 
-        bdRelaxedCount++; 
-        relaxed = true; 
+      if (candidates.length > 0) {
+        bdRelaxedCount++;
+        relaxed = true;
         candidates[0].tags.push("Regeln gelockert");
+        const relaxReasons = explainRelaxedBD(candidates[0].emp, d);
+        candidates[0].relaxReasons = relaxReasons;
+        recordRule("bd_workday", "BD-Constraint gelockert", `Tag ${d}, ${candidates[0].emp}: ${relaxReasons.join("; ")}.`, "warn");
         log.push({ phase: "bd_workday", icon: "⚠", msg: `BD-Regeln gelockert für Tag ${d}`, dayIdx: d, newEmpId: candidates[0].emp, pct: 42 });
       }
     }
-    
+
     if (candidates.length > 0) {
       const chosen = candidates[0];
       if (!result[chosen.emp]) result[chosen.emp] = {};
       if (!result[chosen.emp][d]) result[chosen.emp][d] = {};
-      
+
       result[chosen.emp][d].duty = "D";
       currentBD[chosen.emp]++;
       updateAutoF(chosen.emp, d);
-      
-      report.push({ day: d, emp: chosen.emp, duty: "D", reason: `Bester Score (${Math.round(chosen.score)}).`, tags: chosen.tags, alternatives: candidates.slice(1, 4).map((c) => ({ emp: c.emp, score: Math.round(c.score), tags: c.tags })) });
+
+      let reason = `Bester Score (${Math.round(chosen.score)}).`;
+      if (relaxed) reason += ` Auswahl im gelockerten Modus: ${chosen.relaxReasons.join("; ")}.`;
+
+      report.push({ day: d, emp: chosen.emp, duty: "D", reason, tags: chosen.tags, breakdown: chosen.breakdown, relaxReasons: chosen.relaxReasons, alternatives: candidates.slice(1, 4).map((c) => ({ emp: c.emp, score: Math.round(c.score), tags: c.tags, breakdown: c.breakdown })) });
       log.push({ phase: "bd_workday", icon: "→", msg: `Tag ${d}. → ${chosen.emp}`, dayIdx: d, newEmpId: chosen.emp, pct: 42 + Math.round((i / Math.max(1, nonWeBDs.length)) * 18) });
     }
   }
@@ -1859,58 +1928,93 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     return true;
   }
 
+  // Vorschlag 9 (Transparente Konflikt-Eskalation): siehe explainRelaxedBD.
+  // Für HG wird "relaxed" ausschließlich als coverageEscalation-Flag genutzt,
+  // das die Sperre für aufeinanderfolgende Dienst-Wochenenden und den harten
+  // Anti-Häufungs-Deckel (Direkt-HG-HG bzw. WE-Äquivalent) aufhebt.
+  function explainRelaxedHG(emp, d) {
+    const reasons = [];
+    if (wouldCreateConsecutiveWeekendDuty(y, m, emp, result, d)) {
+      reasons.push("Sperre für zwei aufeinanderfolgende Dienst-Wochenenden aufgehoben (Coverage-Eskalation)");
+    }
+    const projectedWe = projectedWeekendDutyCount(y, m, emp, result, "HG", d);
+    if (violatesHGHardAntiClusteringRules(hasAdjacentHG(emp, d, result), projectedWe, false)) {
+      reasons.push("Harter Anti-Häufungs-Deckel für Hintergrunddienste aufgehoben (Coverage-Eskalation)");
+    }
+    if (!reasons.length) reasons.push("Kandidat war regulär zulässig, wurde aber erst im zweiten Suchdurchlauf berücksichtigt.");
+    return reasons;
+  }
+
   function scoreHGCandidate(emp, d, relaxed, phaseKey) {
     relaxed = relaxed || false;
-    if (!canDoHG(emp, d, relaxed, result, { coverageEscalation: relaxed })) return { score: -Infinity, histScore: 0, tags: [] };
+    if (!canDoHG(emp, d, relaxed, result, { coverageEscalation: relaxed })) {
+      return { score: -Infinity, histScore: 0, tags: [], breakdown: [{ label: "Hartes Ausschlusskriterium (Ruhezeit/Qualifikation/Sonderregel)", delta: -Infinity }], relaxReasons: /** @type {string[]|undefined} */ (undefined) };
+    }
 
     let score = 100;
     // Historie nur als Tie-Breaker (Punkt 16).
     let histScore = 0;
     const tags = [];
+    // Vorschlag 1 (Erklärbarkeit): siehe Kommentar in scoreBDCandidate.
+    const breakdown = [{ label: "Basiswert", delta: 100 }];
+    const add = (label, delta) => { if (delta !== 0) breakdown.push({ label, delta: Math.round(delta * 100) / 100 }); };
     const projectedHG = currentHG[emp] + 1;
     const avgProjectedHG = (hgFAs.reduce((s, e) => s + currentHG[e], 0) + 1) / Math.max(1, hgFAs.length);
     const avgBDforFAsNow = averageFromArray(hgFAs.map(e => currentBD[e]));
 
     const idealHG = avgProjectedHG + (avgBDforFAsNow - currentBD[emp]) * 1.0;
 
-    score -= Math.abs(projectedHG - idealHG) * 10000 * W.fairness;
+    const hgFairnessDelta = -Math.abs(projectedHG - idealHG) * 10000 * W.fairness;
+    score += hgFairnessDelta;
     tags.push("HG-Monatsausgleich");
+    add(`HG-Monatsausgleich (Ideal ${idealHG.toFixed(1)}, projiziert ${projectedHG})`, hgFairnessDelta);
 
     const histHG = hist[emp]?.hg || 0;
     const avgHistHG = averageFromArray(hgFAs.map(e => hist[e]?.hg || 0));
     histScore -= (histHG - avgHistHG) * 5;
 
     if (wishes[emp]?.[d] === "HG_WISH") {
-      score += 500 * W.wish;
+      const bonus = 500 * W.wish;
+      score += bonus;
       tags.push("Wunsch");
+      add("Hintergrunddienst-Wunsch erfüllt", bonus);
     }
 
     if (isNextDayVacation(y, m, emp, d, result)) {
       score -= 100;
+      add("Folgetag ist Urlaub", -100);
     }
 
     const wd = weekday(y, m, d);
     if (wd === 6 || wd === 0) {
       const projectedWe = projectedWeekendDutyCount(y, m, emp, result, "HG", d);
-      score -= Math.abs(projectedWe - TARGET_WEEKEND_DUTY) * 1500 * W.fairness;
+      const weFairnessDelta = -Math.abs(projectedWe - TARGET_WEEKEND_DUTY) * 1500 * W.fairness;
+      score += weFairnessDelta;
+      add(`WE-Fairness (Ziel ${TARGET_WEEKEND_DUTY}, projiziert ${projectedWe})`, weFairnessDelta);
       if (projectedWe > RELAXED_WEEKEND_DUTY_LIMIT) {
-        score -= (projectedWe - RELAXED_WEEKEND_DUTY_LIMIT) * 5000 * W.fairness;
+        const overLimitDelta = -(projectedWe - RELAXED_WEEKEND_DUTY_LIMIT) * 5000 * W.fairness;
+        score += overLimitDelta;
+        add(`WE-Limit überschritten (>${RELAXED_WEEKEND_DUTY_LIMIT})`, overLimitDelta);
       }
       if (wouldCreateConsecutiveWeekendDuty(y, m, emp, result, d)) {
         score -= 2500;
         tags.push("WE-Puffer");
+        add("Zwei Dienst-Wochenenden in Folge", -2500);
       }
     }
 
     const minDistHG = minDistanceForDuty(emp, d, "HG", result);
     if (minDistHG < MIN_DUTY_SPACING_DAYS) {
-      score -= (MIN_DUTY_SPACING_DAYS - minDistHG) * 8000;
+      const spacingDelta = -(MIN_DUTY_SPACING_DAYS - minDistHG) * 8000;
+      score += spacingDelta;
       tags.push("HG-Abstand");
+      add(`Zu kurzer HG-Abstand (${minDistHG} Tage < ${MIN_DUTY_SPACING_DAYS})`, spacingDelta);
     }
 
     if (hasAdjacentHG(emp, d, result)) {
       score -= 25000;
       tags.push("kein Direkt-HG");
+      add("Direkt aufeinanderfolgender HG-Dienst", -25000);
     }
 
     // Anti-Clustering bereits in der Erstvergabe (Punkt 12): rollierendes
@@ -1921,15 +2025,19 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       if (j !== d && result[emp]?.[j]?.duty === "HG") density7++;
     }
     if (density7 >= 1) {
-      score -= density7 * 6000;
+      const densityDelta = -density7 * 6000;
+      score += densityDelta;
       tags.push("HG-Dichte");
+      add(`HG-Häufung im ±3-Tage-Fenster (${density7}×)`, densityDelta);
     }
 
     // Punkt 16: siehe Kommentar in scoreBDCandidate – name-unabhängiger
     // Tie-Breaker über die Position in der HG-berechtigten Facharzt-Liste
     // (hgFAs), nicht über den Namensstring.
-    score += ((hgFAs.indexOf(emp) * 17 + d * 13) % 10) * 0.1;
-    return { score, histScore, tags };
+    const tieBreak = ((hgFAs.indexOf(emp) * 17 + d * 13) % 10) * 0.1;
+    score += tieBreak;
+    add("Deterministischer Tie-Breaker", tieBreak);
+    return { score, histScore, tags, breakdown, relaxReasons: /** @type {string[]|undefined} */ (undefined) };
   }
 
   // Analog zu computeBDCoveragePenalty: hängt nur von der Anzahl HG-Träger
@@ -2160,20 +2268,26 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       
       let candidates = hgFAs.map((e) => ({ emp: e, ...scoreHGCandidate(e, d, false, "hg_assign") })).filter((c) => c.score > -Infinity).sort((a, b) => b.score - a.score || b.histScore - a.histScore);
       
+      let hgRelaxed = false;
       if (candidates.length === 0) {
         candidates = hgFAs.map((e) => ({ emp: e, ...scoreHGCandidate(e, d, true, "hg_assign") })).filter((c) => c.score > -Infinity).sort((a, b) => b.score - a.score || b.histScore - a.histScore);
         if (candidates.length > 0) {
           hgRelaxedCount++;
+          hgRelaxed = true;
           candidates[0].tags.push("Regeln gelockert");
+          const relaxReasons = explainRelaxedHG(candidates[0].emp, d);
+          candidates[0].relaxReasons = relaxReasons;
+          recordRule("hg_assign", "HG-Constraint gelockert", `Tag ${d}, ${candidates[0].emp}: ${relaxReasons.join("; ")}.`, "warn");
           log.push({ phase: "hg", icon: "⚠", msg: `HG-Regeln gelockert für Tag ${d}`, dayIdx: d, newEmpId: candidates[0].emp, pct: cyclePct });
         }
       }
-      
+
       if (candidates.length > 0) {
         const chosen = candidates[0];
         setDutyAssignment(chosen.emp, d, "HG");
         rebuildCurrentCounters();
-        report.push({ day: d, emp: chosen.emp, duty: "HG", reason: "Gleichmäßige Verteilung.", tags: chosen.tags, alternatives: candidates.slice(1, 4).map((c) => ({ emp: c.emp, score: Math.round(c.score), tags: c.tags })) });
+        const reason = hgRelaxed ? `Gleichmäßige Verteilung. Auswahl im gelockerten Modus: ${chosen.relaxReasons.join("; ")}.` : "Gleichmäßige Verteilung.";
+        report.push({ day: d, emp: chosen.emp, duty: "HG", reason, tags: chosen.tags, breakdown: chosen.breakdown, relaxReasons: chosen.relaxReasons, alternatives: candidates.slice(1, 4).map((c) => ({ emp: c.emp, score: Math.round(c.score), tags: c.tags, breakdown: c.breakdown })) });
         log.push({ phase: "hg", icon: "→", msg: `HG Tag ${d}. → ${chosen.emp}`, dayIdx: d, newEmpId: chosen.emp, pct: cyclePct });
       }
     }
@@ -2352,8 +2466,19 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
           // Samstags-D (Punkt 5).
           const fzaNote = applyMandatorySaturdayFza(chosen, d, "coverage_repair", cyclePct);
           rebuildCurrentCounters();
-          report.push({ day: d, emp: chosen, duty: "D", reason: `Zwangsbelegung (Coverage Repair).${fzaNote}`, tags: ["Coverage Repair"] });
-          recordRule("coverage_repair", "BD-Lücke gefüllt", `Tag ${d}: ${chosen}`, "warn");
+          // Vorschlag 9: die Zwangsbelegung hebt sämtliche weichen
+          // Fairness-Regeln (Monatsziel, WE-Limit, Mindestabstand) sowie die
+          // Sperren für Dienst-Wochenenden in Folge und die Samstags-Ultima-
+          // Ratio-Sperre auf, da keine reguläre BD-Konstellation mehr
+          // gefunden wurde – das wird hier explizit benannt statt generisch
+          // "Zwangsbelegung" zu schreiben.
+          const escalationNote = "Alle weichen Fairness-Regeln (Monatsziel, WE-Limit, Mindestabstand) sowie die Sperren für aufeinanderfolgende Dienst-Wochenenden und die Samstags-Ultima-Ratio-Sperre wurden temporär aufgehoben, da keine reguläre Lösung mehr verfügbar war.";
+          report.push({
+            day: d, emp: chosen, duty: "D", reason: `Zwangsbelegung (Coverage Repair). ${escalationNote}${fzaNote}`, tags: ["Coverage Repair"],
+            relaxReasons: [escalationNote],
+            alternatives: bdCandidates.slice(1, 4).map((e) => ({ emp: e, score: null, tags: [`Ist ${currentBD[e]}`] }))
+          });
+          recordRule("coverage_repair", "BD-Lücke gefüllt", `Tag ${d}: ${chosen} (${escalationNote})`, "warn");
           log.push({ phase: "repair", icon: "🩹", msg: `BD-Lücke Tag ${d} gefüllt mit ${chosen}`, dayIdx: d, newEmpId: chosen, pct: cyclePct });
         }
       }
@@ -2383,8 +2508,13 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
           setDutyAssignment(chosen, d, "HG");
           hgRelaxedCount++;
           rebuildCurrentCounters();
-          report.push({ day: d, emp: chosen, duty: "HG", reason: "Zwangsbelegung (Coverage Repair).", tags: ["Coverage Repair"] });
-          recordRule("coverage_repair", "HG-Lücke gefüllt", `Tag ${d}: ${chosen}`, "warn");
+          const escalationNote = "Alle weichen Fairness-Regeln sowie die Sperren für aufeinanderfolgende Dienst-Wochenenden und den harten Anti-Häufungs-Deckel wurden temporär aufgehoben, da keine reguläre Lösung mehr verfügbar war.";
+          report.push({
+            day: d, emp: chosen, duty: "HG", reason: `Zwangsbelegung (Coverage Repair). ${escalationNote}`, tags: ["Coverage Repair"],
+            relaxReasons: [escalationNote],
+            alternatives: hgCandidates.slice(1, 4).map((e) => ({ emp: e, score: null, tags: [`Ist ${currentHG[e]}`] }))
+          });
+          recordRule("coverage_repair", "HG-Lücke gefüllt", `Tag ${d}: ${chosen} (${escalationNote})`, "warn");
           log.push({ phase: "repair", icon: "🩹", msg: `HG-Lücke Tag ${d} gefüllt mit ${chosen}`, dayIdx: d, newEmpId: chosen, pct: cyclePct });
         }
       }
@@ -2662,13 +2792,24 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
         reason += fzaNote;
       }
 
+      // Bugfix (Vorschlag 1 & 9): finalReport wird am Ende komplett aus dem
+      // tatsächlichen Endzustand neu aufgebaut (siehe Kommentar oben, "Re-map
+      // the report..."), damit auch Zellen erfasst werden, die erst durch
+      // spätere Swap-/Deep-Optimize-/Coverage-Repair-Phasen belegt wurden.
+      // Dabei wurden bisher nur reason/tags/alternatives aus dem passenden
+      // ursprünglichen Eintrag übernommen – breakdown (Punktzahl-
+      // Aufschlüsselung) und relaxReasons (Regel-Eskalationsgrund) gingen
+      // verloren, wodurch die "Warum?"-Aufschlüsselung und der Regel-
+      // Eskalationshinweis im Ergebnis-Dialog nie etwas anzuzeigen hatten.
       finalReport.push({
         day: d,
         emp: dEmp,
         duty: "D",
         reason: reason,
         tags: tags,
-        alternatives: existing ? existing.alternatives : []
+        alternatives: existing?.emp === dEmp ? existing.alternatives : [],
+        breakdown: existing?.emp === dEmp ? existing.breakdown : undefined,
+        relaxReasons: existing?.emp === dEmp ? existing.relaxReasons : undefined
       });
     }
 
@@ -2696,13 +2837,16 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
         }
       }
 
+      // Bugfix (Vorschlag 1 & 9): siehe Kommentar im BD-Zweig oben.
       finalReport.push({
         day: d,
         emp: hgEmp,
         duty: "HG",
         reason: reason,
         tags: tags,
-        alternatives: existing ? existing.alternatives : []
+        alternatives: existing?.emp === hgEmp ? existing.alternatives : [],
+        breakdown: existing?.emp === hgEmp ? existing.breakdown : undefined,
+        relaxReasons: existing?.emp === hgEmp ? existing.relaxReasons : undefined
       });
     }
   }

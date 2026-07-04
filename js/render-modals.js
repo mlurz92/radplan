@@ -24,6 +24,7 @@ import { openEditor, switchPeriod } from './app.js';
 import { renderEmployeeDetailDashboard, renderEmployeeDashboard } from './render-employee-dashboard.js';
 import { closeCellQuickPopover, updateModalLayout } from './render-grid.js';
 import { esc } from './utils.js';
+import { computeForecast, computeWishFulfillmentForEmployee, getRange } from './analytics/engine.js';
 
 // Registry der aktiven Chart.js-Instanzen des Profil-Modals (Donut, Trend …),
 // damit sie vor dem Neuaufbau sauber zerstört werden und keine Leaks/Doppel-
@@ -563,6 +564,71 @@ export function openProfileModal(empName) {
           </div>
         `;
       }
+    }
+  }
+
+  // === VORSCHLAG 15: PERSÖNLICHES MITARBEITER-DASHBOARD ===
+  // Eigene Jahres-Hochrechnung (aus dem Prognose-Modul des Auswertungs-Hubs)
+  // und eigene Wunscherfüllungsrate direkt im Profil, damit die Person nicht
+  // erst den Auswertungs-Hub öffnen oder sich den PDF-Eigenbeleg erzeugen
+  // lassen muss, um den eigenen Stand zu sehen.
+  const selfDashEl = document.getElementById("pm-self-dashboard");
+  if (selfDashEl) {
+    if (isDutyExempt(empName)) {
+      selfDashEl.innerHTML = `<div class="pm-empty-hint">${esc(meta.fullName !== empName ? meta.fullName : empName)} ist von Bereitschafts- und Hintergrunddiensten befreit — keine Prognose.</div>`;
+    } else {
+      const forecast = computeForecast(y);
+      const fRow = forecast.rows.find((r) => r.emp === empName);
+      const yearRange = getRange("year", y, 11);
+      const wish = computeWishFulfillmentForEmployee(yearRange, empName);
+
+      const confMeta = {
+        high: { lbl: "Hohe Konfidenz", color: "#15803D" },
+        medium: { lbl: "Mittlere Konfidenz", color: "#B45309" },
+        low: { lbl: "Niedrige Konfidenz", color: "#B91C1C" },
+      };
+      const cf = confMeta[forecast.confidence] || confMeta.medium;
+      const sign = (n) => {
+        const v = Math.round(n * 10) / 10;
+        return (v > 0 ? "+" : v < 0 ? "−" : "±") + (Math.round(Math.abs(v) * 10) / 10).toLocaleString("de-DE", { maximumFractionDigits: 1 });
+      };
+
+      let forecastHtml;
+      if (!fRow) {
+        forecastHtml = `<div class="pm-empty-hint">Noch keine Dienstdaten für eine Jahres-Hochrechnung in ${y}.</div>`;
+      } else {
+        const deltaColor = fRow.projDelta > 0.5 ? "#DC2626" : fRow.projDelta < -0.5 ? "#2563EB" : "#15803D";
+        forecastHtml = `
+          <div class="pm-self-tile">
+            <div class="pm-self-tile-hd">
+              <span>Jahres-Hochrechnung Bereitschaftsdienst</span>
+              <span class="pm-self-conf" style="color:${cf.color}" data-tooltip="Konfidenz der Hochrechnung: basiert auf ${forecast.monthsWithData} von 12 Monaten Ist-Daten. Je weniger Monate vorliegen, desto stärker wird die Prognose Richtung Jahres-Soll gedämpft.">${cf.lbl}</span>
+            </div>
+            <div class="pm-self-tile-body">
+              <span class="pm-self-big" style="color:${deltaColor}">${fRow.projBd}</span>
+              <span class="pm-self-sub">voraussichtlich BD im Jahr ${y} (Soll ${fRow.yearTarget}, ${sign(fRow.projDelta)})</span>
+            </div>
+            <div class="pm-self-tile-foot">Bisher ${fRow.bd} BD und ${fRow.hg} HG geleistet (${forecast.monthsWithData} Monat(e) mit Diensteinträgen).</div>
+          </div>`;
+      }
+
+      let wishHtml;
+      if (!wish.wishes) {
+        wishHtml = `<div class="pm-empty-hint">Keine eingetragenen Dienstwünsche in ${y}.</div>`;
+      } else {
+        const rateColor = wish.rate >= 80 ? "#15803D" : wish.rate >= 50 ? "#B45309" : "#B91C1C";
+        wishHtml = `
+          <div class="pm-self-tile">
+            <div class="pm-self-tile-hd"><span>Wunscherfüllung ${y}</span></div>
+            <div class="pm-self-tile-body">
+              <span class="pm-self-big" style="color:${rateColor}">${wish.rate}%</span>
+              <span class="pm-self-sub">${wish.fulfilled} von ${wish.wishes} Dienstwünschen erfüllt</span>
+            </div>
+            ${wish.violated ? `<div class="pm-self-tile-foot" style="color:#B91C1C">${wish.violated} „Kein Dienst"-Wunsch/Wünsche wurden dennoch mit einem Dienst belegt.</div>` : `<div class="pm-self-tile-foot">Keine verletzten „Kein Dienst"-Wünsche.</div>`}
+          </div>`;
+      }
+
+      selfDashEl.innerHTML = `<div class="pm-self-grid">${forecastHtml}${wishHtml}</div>`;
     }
   }
 

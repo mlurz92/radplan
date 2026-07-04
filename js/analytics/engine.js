@@ -99,6 +99,59 @@ export function computeYearGrid(year) {
 }
 
 // ---------------------------------------------------------------------------
+//  Mehrjahres-Benchmarking (Vorschlag 11)
+// ---------------------------------------------------------------------------
+// Vergleicht bis zu `maxYearsBack` zurückliegende Kalenderjahre (inkl. des
+// übergebenen Referenzjahres) anhand derselben Kennzahlen, die auch im
+// Fairness-Modul verwendet werden (computeDutyFairnessForRange), damit
+// strukturelle Drifts in Fairness/Coverage über mehrere Jahre statt nur
+// innerhalb eines einzelnen Jahres sichtbar werden. Jahre ohne jegliche
+// Personaldaten werden übersprungen, damit z. B. das allererste erfasste
+// Jahr der Klinik nicht mit leeren Nullwerten in der Kurve auftaucht.
+export function computeMultiYearBenchmark(referenceYear, maxYearsBack = 4) {
+  const years = [];
+  for (let y = referenceYear - maxYearsBack + 1; y <= referenceYear; y++) {
+    // computeYearGrid() ruft getEmployeesForYear() bereits intern auf – hier
+    // nicht ein zweites Mal separat abfragen, sondern das Ergebnis direkt am
+    // bereits berechneten Gitter prüfen.
+    const grid = computeYearGrid(y);
+    if (grid.employees.length === 0) continue;
+    const isCurrentYear = y === TOD_Y;
+    // Für das laufende Jahr werden nur die bereits abgeschlossenen/laufenden
+    // Monate (bis einschließlich des aktuellen Kalendermonats) in den
+    // Jahres-Gesamtwerten berücksichtigt, damit "noch komplett leere"
+    // Restmonate den Jahresvergleich nicht künstlich nach unten ziehen.
+    const lastMonth = isCurrentYear ? TOD_M : 11;
+    const range = getRange('year', y, lastMonth);
+    range.months = range.months.filter((mm) => mm.month <= lastMonth);
+    const fairness = computeDutyFairnessForRange(range);
+    years.push({
+      year: y,
+      isCurrentYear,
+      monthsCovered: lastMonth + 1,
+      meansBD: grid.meansBD,
+      meansHG: grid.meansHG,
+      team: fairness.team,
+      deltaEquityTotal: /** @type {number|null} */ (null),
+      deltaCvTotal: /** @type {number|null} */ (null),
+      deltaMeanTotal: /** @type {number|null} */ (null),
+    });
+  }
+
+  // Trend-Deltas ggü. dem jeweiligen Vorjahr (sofern vorhanden) für die
+  // wichtigsten Benchmark-Kennzahlen – macht Verbesserungen/Verschlechterungen
+  // auf einen Blick sichtbar, statt nur Absolutwerte nebeneinanderzustellen.
+  years.forEach((y, i) => {
+    const prev = i > 0 ? years[i - 1] : null;
+    y.deltaEquityTotal = prev ? Math.round(y.team.equityTotal - prev.team.equityTotal) : null;
+    y.deltaCvTotal = prev ? Math.round(y.team.cvTotal - prev.team.cvTotal) : null;
+    y.deltaMeanTotal = prev ? Math.round((y.team.meanTotal - prev.team.meanTotal) * 10) / 10 : null;
+  });
+
+  return { referenceYear, years };
+}
+
+// ---------------------------------------------------------------------------
 //  Zeitraum-Definitionen
 // ---------------------------------------------------------------------------
 export const RANGE_DEFS = [
@@ -435,6 +488,61 @@ export function computeCoverage(range) {
     fullDays: days.filter((d) => d.status === 'full').length,
     partialDays: days.filter((d) => d.status === 'partial').length,
     openDays: days.filter((d) => d.status === 'none').length,
+  };
+}
+
+// ---------------------------------------------------------------------------
+//  Kombinierte Coverage-/Fairness-Heatmap (Vorschlag 16)
+// ---------------------------------------------------------------------------
+// Verknüpft die tagesgenaue Besetzungsanalyse (computeCoverage) mit der
+// Fairness-Verteilung (computeDutyFairnessForRange), um genau die Tage und
+// Personen hervorzuheben, an denen sich beide Risiken überlagern: entweder
+// ist ein Tag schlicht unbesetzt ("gap"), oder er ist zwar vollständig
+// besetzt, aber nur, weil eine Person einspringt, die bereits deutlich über
+// ihrem fairen Anteil liegt ("strain") – ein Frühwarnsignal dafür, dass die
+// Besetzungssicherung strukturell auf dem Rücken einzelner, ohnehin
+// überlasteter Personen erfolgt, statt gleichmäßig verteilt zu sein.
+export function computeCombinedRiskMatrix(range) {
+  const cov = computeCoverage(range);
+  const fairness = computeDutyFairnessForRange(range);
+  const fairByEmp = new Map(fairness.rows.map((r) => [r.emp, r]));
+
+  const strainCounts = new Map();
+  const days = cov.days.map((d) => {
+    const dOwnerRow = d.dOwner ? fairByEmp.get(d.dOwner) : null;
+    const hgOwnerRow = d.hgOwner ? fairByEmp.get(d.hgOwner) : null;
+    const strainOwners = [dOwnerRow, hgOwnerRow]
+      .filter((r) => r && r.status === 'over')
+      .map((r) => r.emp);
+
+    let combinedStatus;
+    if (d.status !== 'full') combinedStatus = 'gap';
+    else if (strainOwners.length) combinedStatus = 'strain';
+    else combinedStatus = 'ok';
+
+    if (combinedStatus === 'strain') {
+      const weight = d.weekendOrHoliday ? 2 : 1;
+      strainOwners.forEach((emp) => strainCounts.set(emp, (strainCounts.get(emp) || 0) + weight));
+    }
+
+    return { ...d, combinedStatus, strainOwners };
+  });
+
+  const strainedEmployees = fairness.rows
+    .filter((r) => r.status === 'over' && strainCounts.has(r.emp))
+    .map((r) => ({
+      emp: r.emp, meta: r.meta, totalDev: r.totalDev, total: r.total, fairTotal: r.fairTotal,
+      strainScore: strainCounts.get(r.emp) || 0,
+    }))
+    .sort((a, b) => b.strainScore - a.strainScore || b.totalDev - a.totalDev);
+
+  return {
+    days,
+    totalDays: days.length,
+    gapDays: days.filter((d) => d.combinedStatus === 'gap').length,
+    strainDays: days.filter((d) => d.combinedStatus === 'strain').length,
+    okDays: days.filter((d) => d.combinedStatus === 'ok').length,
+    strainedEmployees,
   };
 }
 
@@ -853,27 +961,49 @@ export function computeForecast(year) {
   };
 }
 
+// Zählt Wunsch-Erfüllung/-Verletzung für EINEN Tag/EINE Person in ein
+// {wishes,fulfilled,violated}-Akkumulator-Objekt. Gemeinsamer Kern für
+// computeWishFulfillment (ganzes Team) und computeWishFulfillmentForEmployee
+// (Vorschlag 15, einzelne Person) — vermeidet zwei parallele Kopien derselben
+// Wunsch-Bewertungsregeln.
+function accumulateWishDay(acc, cell) {
+  if (!cell.wish) return;
+  acc.wishes++;
+  const hasDuty = cell.duty === 'D' || cell.duty === 'HG';
+  if (cell.wish === 'NO_DUTY') { if (hasDuty) acc.violated++; else acc.fulfilled++; }
+  else if (cell.wish === 'BD_WISH') { if (cell.duty === 'D') acc.fulfilled++; }
+  else if (cell.wish === 'HG_WISH') { if (cell.duty === 'HG') acc.fulfilled++; }
+}
+
 // Wunscherfüllungsrate über einen Zeitraum (erfüllte vs. eingetragene Wünsche).
 export function computeWishFulfillment(range) {
-  let wishes = 0, fulfilled = 0, violated = 0;
+  const acc = { wishes: 0, fulfilled: 0, violated: 0 };
   range.months.forEach(({ year, month }) => {
     const md = getMonthData(year, month);
     if (!md?.employees?.length) return;
     const dim = daysInMonth(year, month);
     md.employees.forEach((emp) => {
-      for (let d = 1; d <= dim; d++) {
-        const cell = getCell(year, month, emp, d);
-        if (!cell.wish) continue;
-        wishes++;
-        const hasDuty = cell.duty === 'D' || cell.duty === 'HG';
-        if (cell.wish === 'NO_DUTY') { if (hasDuty) violated++; else fulfilled++; }
-        else if (cell.wish === 'BD_WISH') { if (cell.duty === 'D') fulfilled++; }
-        else if (cell.wish === 'HG_WISH') { if (cell.duty === 'HG') fulfilled++; }
-      }
+      for (let d = 1; d <= dim; d++) accumulateWishDay(acc, getCell(year, month, emp, d));
     });
   });
-  const rate = wishes ? Math.round((fulfilled / wishes) * 100) : null;
-  return { wishes, fulfilled, violated, rate };
+  const rate = acc.wishes ? Math.round((acc.fulfilled / acc.wishes) * 100) : null;
+  return { ...acc, rate };
+}
+
+// Vorschlag 15 (Persönliches Mitarbeiter-Dashboard): dieselbe Formel wie
+// computeWishFulfillment, aber auf eine einzelne Person eingeschränkt, damit
+// sie im Profil ("Meine Prognose & Wunscherfüllung") ohne Umweg über den
+// Auswertungs-Hub angezeigt werden kann.
+export function computeWishFulfillmentForEmployee(range, emp) {
+  const acc = { wishes: 0, fulfilled: 0, violated: 0 };
+  range.months.forEach(({ year, month }) => {
+    const md = getMonthData(year, month);
+    if (!md?.employees?.includes(emp)) return;
+    const dim = daysInMonth(year, month);
+    for (let d = 1; d <= dim; d++) accumulateWishDay(acc, getCell(year, month, emp, d));
+  });
+  const rate = acc.wishes ? Math.round((acc.fulfilled / acc.wishes) * 100) : null;
+  return { emp, ...acc, rate };
 }
 
 // ---------------------------------------------------------------------------
@@ -975,6 +1105,20 @@ export const TT = {
   yeargrid: 'Monats-Heatmap: Dienste je Person und Monat über das Jahr. Farbe = Abweichung vom Monats-Kollegiums-Durchschnitt.',
   yeargridMean: 'Monatlicher Kollegiums-Durchschnitt der Dienste – Bezugswert für die Heatmap-Einfärbung.',
   curve: 'Verlaufskurve: Entwicklung der kumulierten Dienste je Person über die Monate.',
+
+  // — Kombinierte Coverage-/Fairness-Heatmap (Vorschlag 16) —
+  combinedRisk: 'Verknüpft Besetzungslücken mit der Fairness-Verteilung: markiert Tage, die entweder offen sind (kein D/HG zugeteilt) oder nur besetzt werden konnten, weil eine bereits überdurchschnittlich belastete Person eingesprungen ist ("Belastungs-Tag").',
+  combinedRiskStrainDay: 'Belastungs-Tag: An diesem Tag war die Besetzung zwar vollständig, aber mindestens eine der eingeteilten Personen liegt über ihrem fairen Anteil an Diensten im gewählten Zeitraum – die Lücke wurde also auf Kosten der Fairness geschlossen.',
+  combinedRiskGapDay: 'Offener Tag: An diesem Tag fehlt mindestens ein Dienst (D oder HG) ganz.',
+  combinedRiskStrainScore: 'Belastungs-Score: gewichtete Anzahl der Tage, an denen diese Person trotz bereits überdurchschnittlicher Dienstlast eine Besetzungslücke geschlossen hat (Wochenend-/Feiertage zählen doppelt).',
+
+  // — Mehrjahres-Benchmarking (Vorschlag 11) —
+  multiYearChart: 'Überlagerung der monatlichen Team-Durchschnitte an Bereitschaftsdiensten (D) je Jahr. Zeigt, ob sich die saisonale Belastungskurve über die Jahre strukturell verschiebt (z. B. dauerhaft höhere Basislast) statt nur zufällig zu schwanken.',
+  multiYearEquity: 'Equity-Index des Jahres (0–100, höher = gerechter verteilt), berechnet aus dem Gini-Koeffizienten der Gesamtdienste aller Personen in diesem Jahr. Ermöglicht den direkten Vergleich der Verteilungsgerechtigkeit über mehrere Jahre.',
+  multiYearCv: 'Variationskoeffizient der Gesamtdienste je Person in diesem Jahr (in %, niedriger = gleichmäßiger). Ergänzt den Equity-Index um ein zweites, skalenunabhängiges Streuungsmaß.',
+  multiYearMean: 'Durchschnittliche Anzahl an Diensten (BD+HG) je dienstfähiger Person in diesem Jahr.',
+  multiYearSpread: 'Differenz zwischen der höchsten und niedrigsten Gesamt-Dienstzahl aller Personen in diesem Jahr.',
+  multiYearDelta: 'Veränderung dieser Kennzahl gegenüber dem unmittelbaren Vorjahr. Grün = Verbesserung, Rot = Verschlechterung.',
 
   // — Mitarbeitendenbereich —
   empActive: 'Mitarbeitende mit mindestens einem erfassten Aktivitätsmonat im Jahr.',

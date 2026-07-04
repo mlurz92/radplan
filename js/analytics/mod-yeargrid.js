@@ -7,10 +7,15 @@
 //  Fachärzten. Klick auf eine Zelle springt in den jeweiligen Monat.
 // ===========================================================================
 
-import { computeYearGrid, heatColor, posColor, MONTHS, MONTHS_SHORT, TT } from './engine.js';
+import { computeYearGrid, computeMultiYearBenchmark, heatColor, posColor, EMP_COLORS, MONTHS, MONTHS_SHORT, TT } from './engine.js';
 import { esc } from '../utils.js';
 
 const ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>';
+
+// Vorschlag 11 (Mehrjahres-Benchmarking): Chart-Instanz separat verwaltet,
+// analog zu mod-curves.js, damit sie beim erneuten Rendern/Verlassen des
+// Moduls sauber zerstört wird statt Speicher zu leaken.
+let _benchmarkChart = null;
 
 export default {
   id: 'yeargrid',
@@ -93,6 +98,56 @@ export default {
         </tr>`;
     });
 
+    // Vorschlag 11: Mehrjahres-Benchmarking – bis zu 4 Kalenderjahre (inkl.
+    // des aktuellen Bezugsjahres) werden anhand derselben Fairness-Kennzahlen
+    // wie im Fairness-Modul gegenübergestellt, damit strukturelle Drifts über
+    // mehrere Jahre sichtbar werden statt nur die Momentaufnahme eines Jahres.
+    const benchmark = computeMultiYearBenchmark(year, 4);
+    let benchmarkHtml = '';
+    if (benchmark.years.length > 1) {
+      const deltaCell = (v, goodDirection) => {
+        if (v === null || v === undefined) return '<span class="yg-dash">—</span>';
+        if (v === 0) return `<span class="yg-bm-delta yg-bm-delta-flat">±0</span>`;
+        const isGood = goodDirection === 'up' ? v > 0 : v < 0;
+        const sign = v > 0 ? '+' : '';
+        return `<span class="yg-bm-delta ${isGood ? 'yg-bm-delta-good' : 'yg-bm-delta-bad'}">${sign}${v}</span>`;
+      };
+      benchmarkHtml = `
+        <div class="ah-section-title" data-tooltip="${esc(TT.multiYearChart)}">Mehrjahres-Vergleich <span class="ah-sub">— Benchmarking über ${benchmark.years.length} Kalenderjahre</span></div>
+        <div class="ah-card yg-bm-chart-card">
+          <div class="yg-bm-legend" id="yg-bm-legend"></div>
+          <div class="yg-bm-canvas-wrap"><canvas id="yg-bm-canvas" data-tooltip="${esc(TT.multiYearChart)}"></canvas></div>
+        </div>
+        <div class="ah-table-wrap">
+          <table class="ah-table yg-bm-table">
+            <thead>
+              <tr>
+                <th data-tooltip="Kalenderjahr des Vergleichs.">Jahr</th>
+                <th data-tooltip="${esc(TT.multiYearMean)}">Ø Dienste/Person</th>
+                <th data-tooltip="${esc(TT.multiYearEquity)}">Equity-Index</th>
+                <th data-tooltip="${esc(TT.multiYearDelta)}">Δ Equity</th>
+                <th data-tooltip="${esc(TT.multiYearCv)}">Streuung (CV)</th>
+                <th data-tooltip="${esc(TT.multiYearDelta)}">Δ CV</th>
+                <th data-tooltip="${esc(TT.multiYearSpread)}">Spannweite</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${benchmark.years.map((y) => `
+                <tr class="${y.isCurrentYear ? 'yg-bm-row-current' : ''}">
+                  <td>${y.year}${y.isCurrentYear ? ' <span class="yg-bm-tag">laufend</span>' : ''}</td>
+                  <td class="ah-td-num">${y.team.meanTotal.toFixed(1)}</td>
+                  <td class="ah-td-num">${y.team.equityTotal}</td>
+                  <td class="ah-td-num">${deltaCell(y.deltaEquityTotal, 'up')}</td>
+                  <td class="ah-td-num">${y.team.cvTotal}%</td>
+                  <td class="ah-td-num">${deltaCell(y.deltaCvTotal, 'down')}</td>
+                  <td class="ah-td-num">${y.team.spreadTotal}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
     root.innerHTML = `
       <div class="ah-section-title" data-tooltip="${esc(TT.yeargrid)}">Jahresgitter <span class="ah-sub">— BD-Belastung je Monat (Heatmap) · Bezug: ${year}</span></div>
       <div class="yg-legend">
@@ -111,7 +166,8 @@ export default {
           </thead>
           <tbody>${bodyRows}</tbody>
         </table>
-      </div>`;
+      </div>
+      ${benchmarkHtml}`;
 
     root.querySelectorAll('.yg-td-cell[data-month]').forEach((cell) => {
       cell.addEventListener('click', () => {
@@ -122,7 +178,51 @@ export default {
     root.querySelectorAll('.yg-emp-row[data-emp]').forEach((row) => {
       row.querySelector('.yg-emp-name')?.addEventListener('click', (e) => { e.stopPropagation(); ctx.openProfile(row.dataset.emp); });
     });
+
+    // Vorschlag 11: Chart.js Liniendiagramm der Team-Monatsdurchschnitte
+    // über alle verglichenen Jahre (optional, mit Guard wie in mod-curves.js).
+    const bmCanvas = root.querySelector('#yg-bm-canvas');
+    if (_benchmarkChart) { try { _benchmarkChart.destroy(); } catch (_) {} _benchmarkChart = null; }
+    if (bmCanvas && typeof Chart !== 'undefined' && benchmark.years.length > 1) {
+      const datasets = benchmark.years.map((y, idx) => ({
+        label: `${y.year}${y.isCurrentYear ? ' (laufend)' : ''}`,
+        data: y.meansBD.map((v, m) => (y.isCurrentYear && m > y.monthsCovered - 1 ? null : parseFloat(v.toFixed(2)))),
+        borderColor: EMP_COLORS[idx % EMP_COLORS.length],
+        backgroundColor: EMP_COLORS[idx % EMP_COLORS.length] + '18',
+        borderWidth: y.isCurrentYear ? 3 : 2,
+        borderDash: y.isCurrentYear ? [] : [5, 3],
+        pointRadius: 2.5, pointHoverRadius: 6, tension: 0.35, spanGaps: false,
+      }));
+
+      _benchmarkChart = new Chart(bmCanvas, {
+        type: 'line',
+        data: { labels: MONTHS_SHORT, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: {
+              label: (c) => { const v = c.raw; if (v == null) return null; return ` ${c.dataset.label}: Ø ${v.toFixed(2)} BD/Person`; },
+              title: (items) => MONTHS[items[0]?.dataIndex ?? 0],
+            } },
+          },
+          scales: {
+            x: { grid: { color: 'rgba(128,128,128,0.08)' }, ticks: { font: { size: 10 } } },
+            y: { beginAtZero: true, grid: { color: 'rgba(128,128,128,0.08)' }, ticks: { font: { size: 10 } }, title: { display: true, text: 'Ø BD/Person', font: { size: 9 }, color: '#94A3B8' } },
+          },
+          animation: { duration: 350 },
+        },
+      });
+
+      const bmLegend = root.querySelector('#yg-bm-legend');
+      if (bmLegend) {
+        bmLegend.innerHTML = benchmark.years.map((y, idx) => `<span class="crv-legitem"><span class="crv-legline" style="background:${EMP_COLORS[idx % EMP_COLORS.length]}"></span>${y.year}${y.isCurrentYear ? ' (laufend)' : ''}</span>`).join('');
+      }
+    }
   },
 
-  dispose() {},
+  dispose() {
+    if (_benchmarkChart) { try { _benchmarkChart.destroy(); } catch (_) {} _benchmarkChart = null; }
+  },
 };

@@ -151,14 +151,14 @@
 
   <div class="header-menu" id="header-menu" role="menu" aria-label="Weitere Aktionen" hidden>
     <div class="hmenu-section">Ansicht</div>
-    <button type="button" class="hmenu-item" id="btn-density" role="menuitem" data-icon="density">
+    <button type="button" class="hmenu-item" id="btn-density" role="menuitem" data-icon="density" data-tooltip="Wechselt zwischen kompakter und geräumiger Zeilenhöhe im Dienstplan-Raster – nützlich bei vielen Mitarbeitenden auf kleinen Bildschirmen.">
       <span class="hmenu-ico" aria-hidden="true">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" id="btn-density-icon-compact"><path d="M4 5v14M9 5v14M14 5v14M19 5v14"/></svg>
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" id="btn-density-icon-cozy" style="display:none"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 12h18"/></svg>
       </span>
       <span class="hmenu-lbl">Rasterdichte</span>
     </button>
-    <button type="button" class="hmenu-item" id="btn-colorblind" role="menuitemcheckbox" aria-checked="false" data-icon="eye">
+    <button type="button" class="hmenu-item" id="btn-colorblind" role="menuitemcheckbox" aria-checked="false" data-icon="eye" data-tooltip="Schaltet auf eine farbenblind-sichere Palette für Arbeitsplätze und Status um (unterscheidbar auch bei Rot-Grün-Schwäche).">
       <span class="hmenu-ico" aria-hidden="true"></span>
       <span class="hmenu-lbl">Farbenblind-Modus</span>
       <span class="hmenu-state" aria-hidden="true"></span>
@@ -166,23 +166,23 @@
 
     <div class="hmenu-sep" role="separator"></div>
     <div class="hmenu-section">Daten</div>
-    <button type="button" class="hmenu-item" id="btn-export" role="menuitem" data-icon="download">
+    <button type="button" class="hmenu-item" id="btn-export" role="menuitem" data-icon="download" data-tooltip="Exportiert den gesamten Datenbestand (alle Jahre inkl. Planungsentwürfe) als eine JSON-Datei zur Sicherung oder Weitergabe.">
       <span class="hmenu-ico" aria-hidden="true"></span>
       <span class="hmenu-lbl">Exportieren</span>
       <span class="hmenu-kbd">Strg S</span>
     </button>
-    <button type="button" class="hmenu-item" id="btn-import" role="menuitem" data-icon="upload">
+    <button type="button" class="hmenu-item" id="btn-import" role="menuitem" data-icon="upload" data-tooltip="Öffnet den Import-Dialog, um eine zuvor exportierte JSON-Datei wieder einzuspielen (überschreibt den aktuellen Datenbestand nach Bestätigung).">
       <span class="hmenu-ico" aria-hidden="true"></span>
       <span class="hmenu-lbl">Importieren</span>
     </button>
-    <button type="button" class="hmenu-item" id="btn-print" role="menuitem" data-icon="printer">
+    <button type="button" class="hmenu-item" id="btn-print" role="menuitem" data-icon="printer" data-tooltip="Öffnet die Druckvorschau mit Layout-Optionen und PDF-Export des aktuellen Monats.">
       <span class="hmenu-ico" aria-hidden="true"></span>
       <span class="hmenu-lbl">Drucken / PDF</span>
       <span class="hmenu-kbd">Strg P</span>
     </button>
 
     <div class="hmenu-sep" role="separator"></div>
-    <button type="button" class="hmenu-item hmenu-item-danger" id="btn-force-sync" role="menuitem" data-icon="refresh-cw">
+    <button type="button" class="hmenu-item hmenu-item-danger" id="btn-force-sync" role="menuitem" data-icon="refresh-cw" data-tooltip="Ruft den kompletten Datenbestand erneut vom Server ab und überschreibt damit den lokalen Stand – nutzen, wenn RadPlan auf diesem Gerät nicht mehr aktuell erscheint.">
       <span class="hmenu-ico" aria-hidden="true"></span>
       <span class="hmenu-lbl">Server-Sync erzwingen</span>
     </button>
@@ -194,7 +194,7 @@
         <div class="period-flyout-title">Zeitraumsteuerung</div>
         <div class="period-flyout-sub">Monat und Jahr unabhängig umschalten – jederzeit, auch mit offenem Modal oder im Planungsmodus.</div>
       </div>
-      <button type="button" class="period-flyout-close" id="period-flyout-close" aria-label="Zeitraumsteuerung schließen">✕</button>
+      <button type="button" class="period-flyout-close" id="period-flyout-close" aria-label="Zeitraumsteuerung schließen" data-tooltip="Schließt die Zeitraumsteuerung, ohne den angezeigten Monat zu ändern.">✕</button>
     </div>
     <div class="period-flyout-body">
       <div class="period-grid">
@@ -205,19 +205,19 @@
         <label class="period-field">
           <span class="period-label">Jahr</span>
           <div class="period-year-row">
-            <button type="button" class="period-step-btn" id="period-prev-year" aria-label="Vorheriges Jahr">−</button>
-            <input id="period-year-input" class="period-year-input" type="number" inputmode="numeric" min="2000" max="2100" step="1" aria-label="Jahr eingeben">
-            <button type="button" class="period-step-btn" id="period-next-year" aria-label="Nächstes Jahr">+</button>
+            <button type="button" class="period-step-btn" id="period-prev-year" aria-label="Vorheriges Jahr" data-tooltip="Ein Jahr zurück springen.">−</button>
+            <input id="period-year-input" class="period-year-input" type="number" inputmode="numeric" min="2000" max="2100" step="1" aria-label="Jahr eingeben" data-tooltip="Jahr direkt eingeben (2000–2100).">
+            <button type="button" class="period-step-btn" id="period-next-year" aria-label="Nächstes Jahr" data-tooltip="Ein Jahr vor springen.">+</button>
           </div>
         </label>
       </div>
       <div class="period-jump-row">
-        <button type="button" class="period-pill" id="period-prev-month">← Monat</button>
-        <button type="button" class="period-pill" id="period-next-month">Monat →</button>
+        <button type="button" class="period-pill" id="period-prev-month" data-tooltip="Zum Vormonat springen, ohne die Auswahl anzuwenden.">← Monat</button>
+        <button type="button" class="period-pill" id="period-next-month" data-tooltip="Zum Folgemonat springen, ohne die Auswahl anzuwenden.">Monat →</button>
       </div>
       <div class="period-actions">
-        <button type="button" class="period-primary" id="period-apply">Zeitraum anwenden</button>
-        <button type="button" class="period-secondary" id="period-today">Heute</button>
+        <button type="button" class="period-primary" id="period-apply" data-tooltip="Den oben gewählten Monat/Jahr als aktive Ansicht übernehmen und die Zeitraumsteuerung schließen.">Zeitraum anwenden</button>
+        <button type="button" class="period-secondary" id="period-today" data-tooltip="Direkt zum heutigen Monat springen und sofort anwenden.">Heute</button>
       </div>
       <div class="period-context" id="period-context" aria-live="polite"></div>
     </div>
@@ -676,6 +676,11 @@
             <span class="pm-sect-hint">— Belastung &amp; Verteilungsgerechtigkeit gegenüber dem Team</span>
           </div>
           <div id="pm-fairness" class="pm-fairness-area" aria-label="Dienst-Fairness im Jahr"></div>
+          <div class="pm-sect-hd" data-tooltip="Persönliches Auswertungs-Dashboard (Vorschlag 15): Jahres-Hochrechnung der eigenen Dienste und Wunscherfüllungsrate direkt im Profil, ohne den PDF-Eigenbeleg öffnen zu müssen.">
+            Meine Prognose &amp; Wunscherfüllung
+            <span class="pm-sect-hint">— Jahres-Hochrechnung &amp; erfüllte Dienstwünsche dieser Person</span>
+          </div>
+          <div id="pm-self-dashboard" class="pm-self-dashboard-area" aria-label="Eigene Prognose und Wunscherfüllung"></div>
           <div class="pm-sect-hd" id="pm-duty-hd" data-tooltip="Konkrete Bereitschaftsdienste (D) und Hintergrunddienste (HG) dieser Person im aktuellen Monat.">Dienste &amp; Hintergrund</div>
           <div id="pm-duty-detail" class="duty-detail-area" aria-label="Dienstdetails aktueller Monat"></div>
           <div class="pm-sect-hd" id="pm-holiday-hd" data-tooltip="Dienste und Einsätze dieser Person an gesetzlichen Feiertagen (Sachsen) im gesamten Jahr – besonders belastende Einsätze.">
