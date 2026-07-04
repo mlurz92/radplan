@@ -55,6 +55,55 @@ export const DUTY_EXEMPT = SPECIAL_RULES.dutyExempt;
 export const TARGET_WEEKEND_DUTY = 1;
 export const RELAXED_WEEKEND_DUTY_LIMIT = 1.5;
 
+// Punkt 18: Zentrale Abstands-Konstanten für die "3-Tage-Abstand"-Regel
+// (Anti-Clustering, siehe algorithm_rules.md §2.2 / Algorithmusregeln.txt,
+// Abschnitt "HINTERGRUNDDIENST (HG) ANTI-CLUSTERING"). Vorher waren die
+// Zahlen 3/4/5 als Bare-Literals über ~6 Funktionen verstreut; jetzt gibt es
+// pro Bedeutung genau eine benannte Quelle.
+// Harter/quasi-harter Mindestabstand: ein Abstand < 3 Tage zwischen zwei
+// gleichartigen Diensten (D-D bzw. HG-HG) wird blockiert bzw. massiv bestraft.
+export const MIN_DUTY_SPACING_DAYS = 3;
+// Weichere Vorwarnstufe: ein Abstand < 4 Tage erhält bereits eine sanfte
+// Zusatz-Strafe in der Kandidaten-Bewertung (scoreBDCandidate).
+export const SOFT_DUTY_SPACING_SHORT = 4;
+// Weichere Vorwarnstufe: ein Abstand < 5 Tage erhält eine sanfte Zusatz-Strafe
+// in den Objective-Funktionen (computeBDEmpScore/computeHGEmpScore).
+export const SOFT_DUTY_SPACING_LONG = 5;
+
+// Punkt 17: Straffaktor für das fragmentierte D-F-D-F-Muster (Dienst-Frei-
+// Dienst-Frei), siehe algorithm_rules.md §2.1 ("D-F-D-F Muster wird
+// algorithmisch erschwert und bestraft"). Vorher nur -500 (Scoring) bzw.
+// +1200 (Objective) – zu schwach, um unter Coverage-Druck zuverlässig zu
+// verhindern. Jetzt auf eine mit anderen "quasi-harten" Anti-Clustering-
+// Regeln vergleichbare Größenordnung angehoben (siehe HG-Direktfolge/
+// Mindestabstand-Strafen weiter unten), ohne ein echtes -Infinity-K.-o. zu
+// werden, damit in echten Notfällen weiterhin eine Lösung gefunden wird.
+export const DFDF_PATTERN_SCORE_PENALTY = 8000;
+export const DFDF_PATTERN_OBJECTIVE_PENALTY = 20000;
+
+// Punkt 12: Prüft die Ultima-Ratio-Samstagssperre (Dr. Becker: Samstags-D nur
+// als absolut letzte Instanz, siehe algorithm_rules.md §2.4) unabhängig vom
+// Aufruf-Kontext. Die Sperre gilt IMMER, auch in relaxed-Swap-/Deep-Optimize-
+// Durchläufen – NICHT nur in der initialen Erstvergabe. Einzige Ausnahme ist
+// eine echte Coverage-Eskalation (kein anderer Facharzt verfügbar), die
+// explizit über `coverageEscalation` signalisiert wird und ausschließlich in
+// der Erstvergabe (scoreBDCandidate mit relaxed=true) gesetzt wird – niemals
+// in den Swap-Pässen (runPhase4_BDOptimize/runPhase8_DeepOptimize), die
+// canDoBD ohne dieses Flag mit relaxed=true aufrufen.
+export function violatesSaturdayUltimaRatio(empName, wd, coverageEscalation) {
+  return isSaturdayUltimaRatio(empName) && wd === 6 && !coverageEscalation;
+}
+
+// Punkt 13: Prüft die beiden laut Spec "extrem bestraften" HG-Anti-Clustering-
+// Kriterien (Direkt-HG-HG-Adjazenz und Wochenend-Äquivalent-Hartdeckel,
+// siehe algorithm_rules.md §2.2/§4.2) unabhängig vom `relaxed`-Flag. Analog zu
+// violatesSaturdayUltimaRatio: relaxed-Swaps dürfen diese Kriterien NICHT
+// umgehen, nur eine echte Coverage-Eskalation darf es.
+export function violatesHGHardAntiClusteringRules(hasAdjacentHGDuty, projectedWeekendCount, coverageEscalation, weekendLimit = RELAXED_WEEKEND_DUTY_LIMIT) {
+  if (coverageEscalation) return false;
+  return !!hasAdjacentHGDuty || projectedWeekendCount > weekendLimit;
+}
+
 export const AUTO_PLAN_WEIGHT_PROFILES = {
   standard: { key: "standard", label: "Ausgewogen", hint: "Solver-Standardgewichtung aus harter Regelkonformität, Fairness und Wunscherfüllung.", wish: 1, fairness: 1 },
   fairness: { key: "fairness", label: "Fairness-optimiert", hint: "Gewichtet die gleichmäßige Verteilung von WE-/Samstags-/HG-Diensten stärker, Wünsche treten zurück.", wish: 0.5, fairness: 1.6 },
@@ -1101,13 +1150,17 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     // diese Regel als letzte Lösung lockern.
     if (!coverageEscalation && wouldCreateConsecutiveWeekendDuty(y, m, emp, assignments, d)) return false;
 
+    // Punkt 12: Ultima-Ratio-Samstagssperre gilt unconditional (auch in
+    // relaxed-Swaps/Deep-Optimize) – nur eine echte Coverage-Eskalation lockert
+    // sie noch, siehe violatesSaturdayUltimaRatio().
+    if (violatesSaturdayUltimaRatio(emp, wd, coverageEscalation)) return false;
+
     if (!relaxed) {
       if (currentBD[emp] >= bdTarget[emp]) return false;
       const projectedWe = projectedWeekendDutyCount(y, m, emp, assignments, "D", d);
       if (projectedWe > RELAXED_WEEKEND_DUTY_LIMIT) return false;
-      if (isSaturdayUltimaRatio(emp) && wd === 6) return false;
       const minDistD = minDistanceForDuty(emp, d, "D", assignments);
-      if (minDistD < 3) return false;
+      if (minDistD < MIN_DUTY_SPACING_DAYS) return false;
     }
     return true;
   }
@@ -1218,12 +1271,17 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       tags.push("Notlösung");
     }
 
-    if (minDistD < 4) {
-      score -= (4 - minDistD) * 250;
+    if (minDistD < SOFT_DUTY_SPACING_SHORT) {
+      score -= (SOFT_DUTY_SPACING_SHORT - minDistD) * 250;
     }
 
     if (wouldCreateDFDF(emp, d, result)) {
-      score -= 500;
+      // Punkt 17: vorher nur -500 (kaum wirksam gegen Coverage-Druck). Jetzt
+      // auf eine Größenordnung angehoben, die mit den anderen "quasi-harten"
+      // Anti-Fragmentierungs-Regeln vergleichbar ist (z. B. HG-Direktfolge
+      // -25000, Mindestabstand-Verstoß bis -18000), damit D-F-D-F nur noch in
+      // echten Notfällen entsteht statt bei jedem Fairness-Feinschliff.
+      score -= DFDF_PATTERN_SCORE_PENALTY;
       tags.push("D-F-D-F weich vermieden");
     }
 
@@ -1233,7 +1291,11 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       tags.push("Feiertag");
     }
 
-    score += ((emp.charCodeAt(0) * 31 + d * 7) % 10) * 0.1;
+    // Punkt 16: Deterministischer, NAME-UNABHÄNGIGER Tie-Breaker für sonst
+    // gleichwertige Kandidaten – hängt nur von der stabilen Position in der
+    // dienstberechtigten Roster-Liste (dutyEmps) und dem Tag ab, niemals vom
+    // Namensstring, damit eine reine Umbenennung die Auswahl nicht verändert.
+    score += ((dutyEmps.indexOf(emp) * 31 + d * 7) % 10) * 0.1;
     trace(phaseKey || "bd_eval", `EVAL [${emp}|D${d}] Base:100 Final:${Math.round(score)} Hist:${Math.round(histScore)} Tags:[${tags.join(',')}]`);
     return { score, histScore, tags };
   }
@@ -1429,15 +1491,15 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       }
 
       const minDistD = minDistanceForDuty(emp, day, "D", result);
-      if (minDistD < 3) {
-        score += (3 - minDistD) * 15000;
+      if (minDistD < MIN_DUTY_SPACING_DAYS) {
+        score += (MIN_DUTY_SPACING_DAYS - minDistD) * 15000;
       }
-      if (minDistD < 5) {
-        score += (5 - minDistD) * 800;
+      if (minDistD < SOFT_DUTY_SPACING_LONG) {
+        score += (SOFT_DUTY_SPACING_LONG - minDistD) * 800;
       }
 
       if (wouldCreateDFDF(emp, day, result)) {
-        score += 1200;
+        score += DFDF_PATTERN_OBJECTIVE_PENALTY;
       }
 
       const wdObj = weekday(y, m, day);
@@ -1477,11 +1539,11 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       }
 
       const minDistHG = minDistanceForDuty(emp, day, "HG", result);
-      if (minDistHG < 3 && !isBundled) {
-        score += (3 - minDistHG) * 18000;
+      if (minDistHG < MIN_DUTY_SPACING_DAYS && !isBundled) {
+        score += (MIN_DUTY_SPACING_DAYS - minDistHG) * 18000;
       }
-      if (minDistHG < 5 && !isBundled) {
-        score += (5 - minDistHG) * 2500;
+      if (minDistHG < SOFT_DUTY_SPACING_LONG && !isBundled) {
+        score += (SOFT_DUTY_SPACING_LONG - minDistHG) * 2500;
       }
 
       if (!isBundled) {
@@ -1786,12 +1848,14 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     // Optimierungs-Swaps. Nur die echte Coverage-Eskalation lockert dies.
     if (!coverageEscalation && wouldCreateConsecutiveWeekendDuty(y, m, emp, assignments, d)) return false;
 
-    if (!relaxed) {
-      const projectedWe = projectedWeekendDutyCount(y, m, emp, assignments, "HG", d);
-      if (projectedWe > RELAXED_WEEKEND_DUTY_LIMIT) return false;
-      if (hasAdjacentHG(emp, d, assignments)) return false;
-    }
-    
+    // Punkt 13: Direkt-HG-HG-Adjazenz und Wochenend-Äquivalent-Hartdeckel sind
+    // laut Spec "extrem bestrafte" quasi-harte Kriterien und dürfen daher nicht
+    // durch relaxed-Swaps (BD-/HG-/Deep-Optimize) umgangen werden – nur eine
+    // echte Coverage-Eskalation lockert sie noch, siehe
+    // violatesHGHardAntiClusteringRules().
+    const projectedWe = projectedWeekendDutyCount(y, m, emp, assignments, "HG", d);
+    if (violatesHGHardAntiClusteringRules(hasAdjacentHG(emp, d, assignments), projectedWe, coverageEscalation)) return false;
+
     return true;
   }
 
@@ -1839,8 +1903,8 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     }
 
     const minDistHG = minDistanceForDuty(emp, d, "HG", result);
-    if (minDistHG < 3) {
-      score -= (3 - minDistHG) * 8000;
+    if (minDistHG < MIN_DUTY_SPACING_DAYS) {
+      score -= (MIN_DUTY_SPACING_DAYS - minDistHG) * 8000;
       tags.push("HG-Abstand");
     }
 
@@ -1861,7 +1925,10 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       tags.push("HG-Dichte");
     }
 
-    score += ((emp.charCodeAt(1 % emp.length) * 17 + d * 13) % 10) * 0.1;
+    // Punkt 16: siehe Kommentar in scoreBDCandidate – name-unabhängiger
+    // Tie-Breaker über die Position in der HG-berechtigten Facharzt-Liste
+    // (hgFAs), nicht über den Namensstring.
+    score += ((hgFAs.indexOf(emp) * 17 + d * 13) % 10) * 0.1;
     return { score, histScore, tags };
   }
 
@@ -1924,11 +1991,13 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     return computeHGCoveragePenalty() + computeHGAggregateObjective();
   }
 
-  function computeGlobalObjective() {
-    const bdObjective = computeBDObjective();
-    const hgObjective = hgFAs.length > 0 ? computeHGObjective() : 0;
+  // Punkt 14: aus computeGlobalObjective() ausgelagert, damit runPhase8_Deep-
+  // Optimize() diesen O(dim·|emps|)-Anteil einmal pro Phasenaufruf statt bei
+  // jedem einzelnen Kandidaten-Tauschversuch neu berechnen kann (siehe dort).
+  // Hängt wie computeBDCoveragePenalty/computeHGCoveragePenalty nur von der
+  // Anzahl D-/HG-Träger pro Tag ab, nicht davon wer es ist.
+  function computeGlobalCoveragePenalty() {
     let coveragePenalty = 0;
-    
     for (let day = 1; day <= dim; day++) {
       let dCount = 0, hgCount = 0;
       emps.forEach(e => {
@@ -1939,8 +2008,13 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       if (hgCount === 0) coveragePenalty += PENALTY.GLOBAL_HG_DAY_UNCOVERED;
       if (dCount > 1 || hgCount > 1) coveragePenalty += PENALTY.GLOBAL_DAY_DOUBLE_BOOKED;
     }
-    
-    return bdObjective + hgObjective + coveragePenalty;
+    return coveragePenalty;
+  }
+
+  function computeGlobalObjective() {
+    const bdObjective = computeBDObjective();
+    const hgObjective = hgFAs.length > 0 ? computeHGObjective() : 0;
+    return bdObjective + hgObjective + computeGlobalCoveragePenalty();
   }
 
   function runPhase4_BDOptimize(cyclePct) {
@@ -2173,40 +2247,63 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       .map(({ day }) => day);
 
     rebuildCurrentCounters();
-    let bestGlobal = computeGlobalObjective();
+    // Punkt 14: computeGlobalObjective() wurde vorher bei JEDEM einzelnen
+    // Kandidaten-Tauschversuch komplett neu berechnet (inkl. der O(dim)-
+    // Coverage-Scans aus computeBDCoveragePenalty/computeHGCoveragePenalty/
+    // computeGlobalCoveragePenalty) – bei größeren Teams/Monaten macht das
+    // Zehn- bis Hundertmillionen redundante Zell-Scans über einen kompletten
+    // Deep-Optimize-Lauf. tryImproveDay tauscht aber, genau wie in
+    // runPhase4_BDOptimize/runPhase7_HGOptimize, ausschließlich den Träger
+    // EINES Tages 1:1 gegen einen anderen (canDo verlangt einen an diesem Tag
+    // noch dienstfreien Kandidaten) – die Belegungszahl pro Tag bleibt dabei
+    // über die gesamte Phase (alle Pässe, beide Dienstarten) konstant. Der
+    // komplette Coverage-Anteil wird daher EINMALIG vor der Schleife berechnet
+    // ("coverageBaseline") und bei jedem Tauschversuch nur noch der weitaus
+    // günstigere Aggregat-Anteil (O(|dutyEmps|)+O(|hgFAs|) statt O(dim)) neu
+    // ermittelt. Ergebnis/Vergleichslogik bleiben dadurch identisch zu
+    // computeGlobalObjective() – nur der Rechenweg ist inkrementell.
+    const coverageBaseline = computeBDCoveragePenalty()
+      + (hgFAs.length > 0 ? computeHGCoveragePenalty() : 0)
+      + computeGlobalCoveragePenalty();
+
+    function computeGlobalAggregateObjective() {
+      return computeBDAggregateObjective() + (hgFAs.length > 0 ? computeHGAggregateObjective() : 0);
+    }
+
+    let bestGlobal = coverageBaseline + computeGlobalAggregateObjective();
 
     function tryImproveDay(day, dutyCode) {
       const pool = dutyCode === "D" ? dutyEmps : hgFAs;
       const currentEmp = pool.find((e) => result[e]?.[day]?.duty === dutyCode);
       if (!currentEmp) return false;
-      
+
       const canDo = dutyCode === "D" ? canDoBD : canDoHG;
       const orderedPool = [...pool].sort((a, b) => {
         const aDelta = dutyCode === "D" ? currentBD[a] - bdTarget[a] : currentHG[a] - averageFromArray(hgFAs.map((e) => currentHG[e]));
         const bDelta = dutyCode === "D" ? currentBD[b] - bdTarget[b] : currentHG[b] - averageFromArray(hgFAs.map((e) => currentHG[e]));
         return aDelta - bDelta;
       });
-      
+
       for (const candidate of orderedPool) {
         if (candidate === currentEmp) continue;
-        
+
         clearDutyAssignment(currentEmp, day, dutyCode);
-        
+
         if (!canDo(candidate, day, true, result)) {
           setDutyAssignment(currentEmp, day, dutyCode);
           continue;
         }
-        
+
         setDutyAssignment(candidate, day, dutyCode);
-        
-        const newGlobal = computeGlobalObjective();
+
+        const newGlobal = coverageBaseline + computeGlobalAggregateObjective();
         if (newGlobal + 0.01 < bestGlobal) {
           bestGlobal = newGlobal;
           deepMoves++;
           log.push({ phase: "deep", icon: "🧠", msg: `Deep Move Tag ${day} (${dutyCode}): ${currentEmp} ➔ ${candidate}`, dayIdx: day, oldEmpId: currentEmp, newEmpId: candidate, pct: cyclePct });
           return true;
         }
-        
+
         clearDutyAssignment(candidate, day, dutyCode);
         setDutyAssignment(currentEmp, day, dutyCode);
       }
@@ -2464,6 +2561,23 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     summary.warnings.push(`Tag ${day}: CT-Leitung – ${a} und ${b} gleichzeitig abwesend/F. Vertretung manuell sicherstellen.`);
   });
 
+  // Punkt 17: D-F-D-F-Muster im finalen Plan wie andere weiche Verstöße
+  // (Coverage-Lücken, gelockerte Regeln) sichtbar als Warnung ausweisen, statt
+  // es nur unsichtbar in der Kostenfunktion mitzuführen. Anchor-Erkennung
+  // (D(d), F(d+1), D(d+2)) statt wouldCreateDFDF(), damit jedes Muster genau
+  // einmal gemeldet wird statt potenziell doppelt (Vorwärts-/Rückwärts-Check).
+  dutyEmps.forEach((emp) => {
+    for (let d = 1; d <= dim - 2; d++) {
+      const isD = (x) => result[emp]?.[x]?.duty === "D";
+      const isF = (x) => result[emp]?.[x]?.assignment === "F";
+      if (isD(d) && isF(d + 1) && isD(d + 2)) {
+        const msg = `${emp}: D-F-D-F-Muster (fragmentierter Dienstrhythmus) ab Tag ${d}.`;
+        summary.warnings.push(msg);
+        recordRule("validate", "D-F-D-F-Muster erkannt", msg, "warn");
+      }
+    }
+  });
+
   // Punkt 19: Personen ohne hinterlegte Rolle wurden als AA behandelt.
   if (unknownRoleEmps.length > 0) {
     summary.warnings.push(`Ohne hinterlegte Rolle (als AA behandelt, ggf. keine HG/Samstags-D möglich): ${unknownRoleEmps.join(", ")}. Bitte Stammdaten/Rollen-Override ergänzen.`);
@@ -2594,18 +2708,53 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
   }
 
   const wishFulfillmentRate = wishCount > 0 ? (finalReport.filter(r => r.tags && r.tags.includes("Wunsch")).length / wishCount) : 1;
-  
-  const rawScore = 100.0 
-    - (dutyCoverageMisses * 15.0) 
-    - (hgCoverageMisses * 10.0) 
-    - (bdSpread * 2.5) 
-    - (hgSpread * 1.5) 
-    - (weekendSpread * 2.0) 
-    + (wishFulfillmentRate * 5.0) 
-    - (deepMoves * 0.005);
-    
-  const qualityScore = Math.max(0, Math.min(100, rawScore)).toFixed(1);
-  
+
+  // Punkt 11: Neural Fitness Index (NFI) exakt gemäß algorithm_rules.md §5 als
+  // gewichtete Komposition aus sechs [0,100]-normierten Teil-Scores (Gewichte
+  // summieren zu 100%), statt der vorherigen Ad-hoc-Formel mit unzusammen-
+  // hängenden Magic-Constants (dutyCoverageMisses*15 - hgCoverageMisses*10 -
+  // bdSpread*2.5 - ...). Jeder Teil-Score ist einzeln auf [0,100] geklemmt,
+  // bevor die Gewichtung angewendet wird, damit z. B. eine einzelne sehr
+  // schlechte Kennzahl den NFI nicht unter 0 oder über 100 hinaus verzerrt.
+  const clampScore = (v) => Math.max(0, Math.min(100, v));
+
+  // 36% BD-Abdeckung / 24% HG-Abdeckung: Anteil der besetzten Kalendertage.
+  const bdCoverageScore = clampScore(100 * (1 - dutyCoverageMisses / Math.max(1, dim)));
+  const hgCoverageScore = clampScore(100 * (1 - hgCoverageMisses / Math.max(1, dim)));
+
+  // 16% BD-Gerechtigkeit / 10% HG-Gerechtigkeit: Skalierung des Spreads
+  // (Populations-Standardabweichung der Dienstzahlen) auf eine 0..100-Skala.
+  // Die Skalierungsfaktoren sind so gewählt, dass ein Spread von 4 BD- bzw.
+  // 5 HG-Diensten (deutliche, klar sichtbare Schieflage bei einem typischen
+  // Monatsziel von 3-4 BD) den jeweiligen Teil-Score auf 0 drückt.
+  const BD_FAIRNESS_SPREAD_SCALE = 25;
+  const HG_FAIRNESS_SPREAD_SCALE = 20;
+  const bdFairnessScore = clampScore(100 - bdSpread * BD_FAIRNESS_SPREAD_SCALE);
+  const hgFairnessScore = clampScore(100 - hgSpread * HG_FAIRNESS_SPREAD_SCALE);
+
+  // 8% WE-Fairness: Spread der Wochenend-Äquivalente (Ziel exakt 1.0/Person,
+  // siehe TARGET_WEEKEND_DUTY) um den Gruppendurchschnitt. WE-Äquivalente
+  // bewegen sich typischerweise im Bereich 0..1.5 (RELAXED_WEEKEND_DUTY_LIMIT)
+  // -> ein Spread von 1.0 (grobe Schieflage) drückt den Teil-Score auf 0.
+  const WEEKEND_FAIRNESS_SPREAD_SCALE = 100;
+  const weekendFairnessScore = clampScore(100 - weekendSpread * WEEKEND_FAIRNESS_SPREAD_SCALE);
+
+  // 6% Wunscherfüllung: bereits als Anteil [0,1] vorhanden.
+  const wishScore = clampScore(wishFulfillmentRate * 100);
+
+  const nfiRaw =
+    bdCoverageScore * 0.36 +
+    hgCoverageScore * 0.24 +
+    bdFairnessScore * 0.16 +
+    hgFairnessScore * 0.10 +
+    weekendFairnessScore * 0.08 +
+    wishScore * 0.06 -
+    // "Deep-Move-Korrelation": winziger Feinabzug für erzwungene Extrem-Swaps,
+    // um reine Score-Inflation durch sehr viele Deep-Moves zu vermeiden.
+    (deepMoves * 0.005);
+
+  const qualityScore = clampScore(nfiRaw).toFixed(1);
+
   summary.quality = { score: qualityScore, dutyCoverageMisses, hgCoverageMisses, bdSpread, hgSpread, weekendSpread, wishFulfillmentRate, deepMoves, swaps, hgMoves };
 
   finalReport.sort((a, b) => a.day - b.day || (a.duty === "D" ? -1 : 1));

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import "./helpers/dom-stubs.js";
 import { DATA, state, setPlanMode, setPlanData } from "../js/state.js";
 import { computeAutoPlan } from "../js/autoplan.js";
-import { daysInMonth } from "../js/constants.js";
+import { daysInMonth, EMP_ROLE_OVERRIDES } from "../js/constants.js";
 
 // End-to-End-Regressionstest für den kompletten Auto-Plan-Lauf (Greedy +
 // Bundling + Multi-Zyklus-Optimierung inkl. BD-/HG-Swap-Schleifen). Dient
@@ -69,5 +69,58 @@ describe("computeAutoPlan (End-to-End)", () => {
 
     setPlanMode(false);
     setPlanData(null);
+  });
+
+  test("Punkt 16: die Kandidaten-Rangfolge hängt von der Roster-Position ab, nicht vom Namensstring", async () => {
+    // Vorher basierte der Tie-Breaker in scoreBDCandidate/scoreHGCandidate auf
+    // emp.charCodeAt(...), sodass eine reine Umbenennung die Auswahl unter
+    // sonst gleichwertigen Kandidaten verändern konnte. Zwei Teams mit
+    // identischen Rollen/Zielen an identischen Roster-Positionen, aber
+    // bewusst sehr unterschiedlichen Namensstrings, müssen daher exakt
+    // dieselbe Dienstverteilung (nach Position, nicht nach Name) liefern.
+    resetData();
+    const year = 2026;
+    const month = 9; // Oktober 2026
+
+    const teamA = ["Dr. Martin", "Fr. Dalitz", "Hr. Torki"];
+    const teamB = ["Aaa. Renamed1", "Zzz. Renamed2", "Mmm. Renamed3"];
+
+    // Gleiche Rollen wie in teamA (FA, FA, AA) für die frei erfundenen Namen
+    // aus teamB via Rollen-Override erzwingen, damit sich die Teams nur im
+    // Namensstring, nicht aber in Rolle/Qualifikation unterscheiden.
+    EMP_ROLE_OVERRIDES["Aaa. Renamed1"] = "FA";
+    EMP_ROLE_OVERRIDES["Zzz. Renamed2"] = "FA";
+    EMP_ROLE_OVERRIDES["Mmm. Renamed3"] = "AA";
+
+    try {
+      state.year = year;
+      state.month = month;
+
+      setPlanMode(true);
+      setPlanData(buildFixturePlanData(year, month, teamA));
+      const resultA = await computeAutoPlan(undefined, "standard");
+
+      setPlanData(buildFixturePlanData(year, month, teamB));
+      const resultB = await computeAutoPlan(undefined, "standard");
+
+      const dim = daysInMonth(year, month);
+      for (let d = 1; d <= dim; d++) {
+        for (const dutyCode of ["D", "HG"]) {
+          const idxA = teamA.findIndex((e) => resultA.assignments[e]?.[d]?.duty === dutyCode);
+          const idxB = teamB.findIndex((e) => resultB.assignments[e]?.[d]?.duty === dutyCode);
+          assert.equal(
+            idxA,
+            idxB,
+            `Tag ${d} (${dutyCode}): Roster-Position des Dienstinhabers muss unabhängig vom Namen identisch sein`,
+          );
+        }
+      }
+    } finally {
+      delete EMP_ROLE_OVERRIDES["Aaa. Renamed1"];
+      delete EMP_ROLE_OVERRIDES["Zzz. Renamed2"];
+      delete EMP_ROLE_OVERRIDES["Mmm. Renamed3"];
+      setPlanMode(false);
+      setPlanData(null);
+    }
   });
 });

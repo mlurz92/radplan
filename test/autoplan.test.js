@@ -1,7 +1,7 @@
 import { test, describe, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import "./helpers/dom-stubs.js";
-import { DATA } from "../js/state.js";
+import { DATA, state, setPlanMode, setPlanData } from "../js/state.js";
 import {
   isNextDayVacationLike,
   isDutyExempt,
@@ -10,7 +10,12 @@ import {
   computeFairnessSpread,
   averageFromArray,
   hasCTLeadershipConflict,
+  computeAutoPlan,
+  MIN_DUTY_SPACING_DAYS,
+  SOFT_DUTY_SPACING_SHORT,
+  SOFT_DUTY_SPACING_LONG,
 } from "../js/autoplan.js";
+import { daysInMonth } from "../js/constants.js";
 
 function resetData() {
   for (const k of Object.keys(DATA)) delete DATA[k];
@@ -135,5 +140,98 @@ describe("Statistik-Helfer", () => {
     assert.equal(computeFairnessSpread([2, 2, 6, 6]), 2);
     assert.equal(computeFairnessSpread([4]), 0, "eine einzelne Person hat per Definition Streuung 0");
     assert.equal(computeFairnessSpread([]), 0);
+  });
+});
+
+describe("Punkt 18: zentrale Abstands-Konstanten (3-Tage-Abstand-Regel)", () => {
+  test("MIN_DUTY_SPACING_DAYS/SOFT_DUTY_SPACING_SHORT/LONG sind konsistent benannt und geordnet", () => {
+    assert.equal(MIN_DUTY_SPACING_DAYS, 3);
+    assert.equal(SOFT_DUTY_SPACING_SHORT, 4);
+    assert.equal(SOFT_DUTY_SPACING_LONG, 5);
+    assert.ok(MIN_DUTY_SPACING_DAYS < SOFT_DUTY_SPACING_SHORT);
+    assert.ok(SOFT_DUTY_SPACING_SHORT < SOFT_DUTY_SPACING_LONG);
+  });
+});
+
+describe("Punkt 11: Neural Fitness Index (NFI) als gewichtete Komposition", () => {
+  beforeEach(resetData);
+
+  function buildFixturePlanData(year, month, employees) {
+    const dim = daysInMonth(year, month);
+    const assignments = {};
+    employees.forEach((emp) => { assignments[emp] = {}; });
+    return { employees: [...employees], assignments, wishes: {}, pins: {}, dim };
+  }
+
+  test("liefert einen auf [0,100] geklemmten Score mit den dokumentierten Teilkennzahlen", async () => {
+    const year = 2026;
+    const month = 6;
+    const employees = [
+      "Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Fr. Thaler", "Dr. Becker", "Dr. Martin",
+      "Hr. El Houba", "Hr. Torki", "Hr. Sebastian",
+    ];
+
+    state.year = year;
+    state.month = month;
+    setPlanMode(true);
+    setPlanData(buildFixturePlanData(year, month, employees));
+
+    const result = await computeAutoPlan(undefined, "standard");
+    const quality = result.summary.quality;
+
+    const score = Number(quality.score);
+    assert.ok(Number.isFinite(score), "NFI muss eine endliche Zahl sein");
+    assert.ok(score >= 0 && score <= 100, `NFI muss in [0,100] liegen, war ${score}`);
+    // Die Rohdaten, aus denen sich der NFI zusammensetzt, müssen weiterhin
+    // Teil von summary.quality sein (UI liest diese Felder direkt aus).
+    assert.ok(Number.isFinite(quality.bdSpread));
+    assert.ok(Number.isFinite(quality.hgSpread));
+    assert.ok(Number.isFinite(quality.weekendSpread));
+    assert.ok(Number.isFinite(quality.wishFulfillmentRate));
+    assert.ok(Number.isFinite(quality.dutyCoverageMisses));
+    assert.ok(Number.isFinite(quality.hgCoverageMisses));
+
+    setPlanMode(false);
+    setPlanData(null);
+  });
+
+  test("ein Plan ohne jegliche Coverage-Lücken erzielt einen deutlich höheren NFI als ein Plan mit vielen Lücken", async () => {
+    // Simuliert die 36%/24%-Abdeckungsgewichte: ein Team, das kaum jemanden
+    // zur Verfügung hat (viele NO_DUTY-Wünsche), muss einen spürbar
+    // niedrigeren NFI erzeugen als ein voll besetzbares Team.
+    const year = 2026;
+    const month = 6;
+    const dim = daysInMonth(year, month);
+
+    const goodEmployees = [
+      "Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Fr. Thaler", "Dr. Becker", "Dr. Martin",
+      "Hr. El Houba", "Hr. Torki", "Hr. Sebastian",
+    ];
+    state.year = year;
+    state.month = month;
+    setPlanMode(true);
+    setPlanData(buildFixturePlanData(year, month, goodEmployees));
+    const goodResult = await computeAutoPlan(undefined, "standard");
+
+    const scarceEmployees = ["Dr. Martin", "Hr. Torki"];
+    const scarcePlanData = buildFixturePlanData(year, month, scarceEmployees);
+    // Fast der gesamte Monat ist für beide Personen gesperrt -> massive
+    // Coverage-Lücken sind unvermeidbar.
+    scarcePlanData.wishes = { "Dr. Martin": {}, "Hr. Torki": {} };
+    for (let d = 1; d <= dim - 2; d++) {
+      scarcePlanData.wishes["Dr. Martin"][d] = "NO_DUTY";
+      scarcePlanData.wishes["Hr. Torki"][d] = "NO_DUTY";
+    }
+    setPlanData(scarcePlanData);
+    const scarceResult = await computeAutoPlan(undefined, "standard");
+
+    assert.ok(
+      Number(goodResult.summary.quality.score) > Number(scarceResult.summary.quality.score),
+      `voll besetzbarer Plan (${goodResult.summary.quality.score}) sollte einen höheren NFI haben als ein Plan mit erzwungenen Lücken (${scarceResult.summary.quality.score})`,
+    );
+    assert.ok(scarceResult.summary.quality.dutyCoverageMisses > 0 || scarceResult.summary.quality.hgCoverageMisses > 0);
+
+    setPlanMode(false);
+    setPlanData(null);
   });
 });
