@@ -40,8 +40,10 @@ import {
 
 import {
   getMonthData,
+  getMonthDataRaw,
   getCell,
   createPlanSession,
+  cloneData,
 } from './model.js';
 
 export const DUTY_EXEMPT = SPECIAL_RULES.dutyExempt;
@@ -3222,11 +3224,19 @@ export async function computeAutoPlanRange(startYear, startMonth, endYear, endMo
         throw new Error(`computeAutoPlanRange: Planung für ${mk} lieferte kein Ergebnis (Planungsmodus/-daten fehlten unerwartet).`);
       }
 
-      const md = getMonthData(year, month);
+      // Nur die persistenten Monatsfelder übernehmen (nicht per Spread von
+      // getMonthData()/planData!), da im aktiven Planungsmodus getMonthData()
+      // die Plan-Session zurückgibt, die zusätzliche, rein sitzungsinterne
+      // Felder (wishes, pins, baseline, history, historyIdx) trägt. Ein
+      // Spread dieser Session in DATA[mk] würde diese Felder dauerhaft und
+      // fälschlich in den echten, serverseitig synchronisierten Monatsdatensatz
+      // übernehmen.
+      const rawMd = getMonthDataRaw(year, month);
       DATA[mk] = {
-        ...md,
         employees: [...planData.employees],
         assignments: result.assignments,
+        rbn: cloneData(planData.rbn || rawMd.rbn || {}),
+        comments: cloneData(rawMd.comments || {}),
       };
 
       months.push({

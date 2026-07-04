@@ -60,6 +60,26 @@ describe("computeAutoPlanRange", () => {
     assert.deepEqual(DATA[monthKey(2026, 1)].assignments, months[1].assignments);
   });
 
+  test("mit apply:true trägt DATA[monthKey] keine Plan-Session-internen Felder (wishes/pins/baseline/history)", async () => {
+    resetData();
+    const employees = ["Dr. Martin", "Dr. Becker", "Fr. Dalitz"];
+    seedEmptyMonth(2026, 0, employees);
+
+    await computeAutoPlanRange(2026, 0, 2026, 1, {
+      weightProfileKey: "standard",
+      apply: true,
+    });
+
+    for (const mk of [monthKey(2026, 0), monthKey(2026, 1)]) {
+      const md = DATA[mk];
+      assert.deepEqual(
+        Object.keys(md).sort(),
+        ["assignments", "comments", "employees", "rbn"],
+        `${mk}: DATA-Eintrag darf nur persistente Monatsfelder enthalten, keine Plan-Session-Artefakte`
+      );
+    }
+  });
+
   test("stellt globalen Zustand (state.year/month, planMode, planData) nach Abschluss wieder her", async () => {
     resetData();
     const employees = ["Dr. Martin", "Dr. Becker", "Fr. Dalitz"];
