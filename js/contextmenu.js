@@ -38,25 +38,34 @@ export class ContextMenu {
   show(x, y, items, target = null) {
     this.activeTarget = target;
     this.render(items);
-    
-    // Position
-    const menuWidth = 200; // estimated
-    const menuHeight = items.length * 35; // estimated
-    
+
+    // Vor `.visible` ist das Menü per CSS bereits unsichtbar und
+    // klick-transparent (opacity:0, pointer-events:none), steckt aber schon im
+    // DOM mit seinem echten Inhalt. Statt die Höhe anhand einer festen
+    // Zeilenanzahl zu schätzen (was bei Einträgen mit `sub`-Untertitel, die
+    // höher als eine normale Zeile sind, zu niedrig ausfällt und das Menü am
+    // unteren Rand abschneiden kann), messen wir hier die tatsächliche
+    // gerenderte Größe und positionieren erst danach anhand der echten Maße.
+    const rect = this.el.getBoundingClientRect();
+    const menuWidth = rect.width;
+    const menuHeight = rect.height;
+
     let left = x;
     let top = y;
-    
-    // Boundary check
+
+    // Boundary check anhand der real gemessenen Abmessungen
     if (x + menuWidth > window.innerWidth) {
       left = x - menuWidth;
     }
     if (y + menuHeight > window.innerHeight) {
       top = y - menuHeight;
     }
-    
+    left = Math.max(4, left);
+    top = Math.max(4, top);
+
     this.el.style.left = `${left}px`;
     this.el.style.top = `${top}px`;
-    
+
     // Animate in
     requestAnimationFrame(() => {
       this.el.classList.add('visible');

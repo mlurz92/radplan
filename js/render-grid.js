@@ -74,6 +74,27 @@ const dragSelectionState = {
   dismissOnClick: false,
 };
 
+// Ist gerade eine native HTML5-Drag-Geste des Dienst-Badges (`.cell-duty`,
+// siehe dragstart/dragend in bindCellListeners) im Gang? Wird von
+// isDragHandleInteraction() genutzt, damit Mehrfachauswahl- und Popover-Logik
+// nie gleichzeitig mit einem Badge-Drag auf derselben Zelle auslösen können.
+let dutyDragActive = false;
+
+/**
+ * Einzige Quelle der Wahrheit dafür, ob ein Maus-Ereignis auf einer Zelle dem
+ * Dienst-Badge (Drag-Handle zum Verschieben eines Dienstes per moveDutyBadge)
+ * zuzurechnen ist – entweder weil es direkt auf `.cell-duty` liegt, oder weil
+ * gerade eine Badge-Drag-Geste läuft (z. B. ein `focus`, das durch den
+ * Drag-Start auf der Ursprungszelle ausgelöst wurde). Wird sowohl vom
+ * globalen `mousedown`-Listener (Mehrfachauswahl/Drag-Selection) als auch vom
+ * lokalen `click`-Listener pro Zelle (Popover/Editor-Öffnen) verwendet, damit
+ * niemals beide Pfade für dieselbe Interaktion feuern.
+ */
+function isDragHandleInteraction(e) {
+  if (dutyDragActive) return true;
+  return !!(/** @type {HTMLElement} */ (e.target)?.closest?.(".cell-duty"));
+}
+
 function resetDragSelectionState() {
   dragSelectionState.active = false;
   dragSelectionState.emp = null;
@@ -1112,7 +1133,7 @@ function updateTheadDay(y, m, d, hols, md) {
 
 function bindCellListeners(tdEl, emp, d) {
   if (emp === RBN_ROW_KEY) {
-    tdEl.addEventListener("click", (e) => openEditor(RBN_ROW_KEY, d, { ctrlKey: e.ctrlKey || e.metaKey }));
+    tdEl.addEventListener("click", () => openEditor(RBN_ROW_KEY, d));
     tdEl.addEventListener("keydown", (e) => { 
       if (e.key === "Enter" || e.key === " ") { 
         e.preventDefault(); 
@@ -1127,8 +1148,17 @@ function bindCellListeners(tdEl, emp, d) {
     if (dutyBadge) {
       dutyBadge.draggable = true;
       dutyBadge.addEventListener("dragstart", (e) => {
+        // Markiert die Badge-Drag-Geste als aktiv und schließt ein Popover,
+        // das durch den Fokuswechsel beim vorangehenden mousedown eventuell
+        // schon geöffnet wurde (focus feuert vor dragstart) – siehe
+        // isDragHandleInteraction() weiter oben.
+        dutyDragActive = true;
+        closeCellQuickPopover();
         e.dataTransfer.setData("text/plain", JSON.stringify({ emp, day: d }));
         e.dataTransfer.effectAllowed = "move";
+      });
+      dutyBadge.addEventListener("dragend", () => {
+        dutyDragActive = false;
       });
     }
 
@@ -1153,7 +1183,11 @@ function bindCellListeners(tdEl, emp, d) {
     });
   }
 
+  // Modifier-Schema (siehe README §8.4 und der Kommentar über openEditor()):
+  // Shift = Bereichs-Mehrfachauswahl, Alt = Einzel-Mehrfachauswahl (Toggle),
+  // Strg/Cmd = Editor direkt im Vollmodus öffnen (keine Mehrfachauswahl).
   tdEl.addEventListener("click", (e) => {
+    if (isDragHandleInteraction(e)) return;
     if (dragSelectionState.justDragged) {
       dragSelectionState.justDragged = false;
       return;
@@ -1163,9 +1197,14 @@ function bindCellListeners(tdEl, emp, d) {
       openEditor(emp, d, { shiftKey: true });
       return;
     }
+    if (e.altKey) {
+      closeCellQuickPopover();
+      openEditor(emp, d, { altKey: true });
+      return;
+    }
     if (e.ctrlKey || e.metaKey) {
       closeCellQuickPopover();
-      openEditor(emp, d, { ctrlKey: true });
+      openEditor(emp, d);
     }
   });
   tdEl.addEventListener("dblclick", () => {
@@ -1173,7 +1212,13 @@ function bindCellListeners(tdEl, emp, d) {
     openEditor(emp, d);
   });
   tdEl.addEventListener("focus", () => {
-    if (!IS_MOBILE && quickPopover.el && !dragSelectionState.active) {
+    // dutyDragActive: der Fokuswechsel kann durch ein mousedown auf dem
+    // Dienst-Badge ausgelöst worden sein, bevor klar ist, ob daraus eine
+    // native Drag-Geste wird (dragstart feuert erst nach der Bewegung) –
+    // siehe isDragHandleInteraction(). Startet die Drag-Geste tatsächlich,
+    // schließt deren dragstart-Handler das Popover ohnehin wieder; hier
+    // verhindern wir zusätzlich, dass es überhaupt erst (neu) aufgebaut wird.
+    if (!IS_MOBILE && quickPopover.el && !dragSelectionState.active && !dutyDragActive) {
       showCellQuickPopover(emp, d, tdEl);
     }
   });
@@ -1227,7 +1272,7 @@ function createGridCellElement(y, m, emp, d, hols, gridConflicts) {
     `;
     tdEl.setAttribute("aria-label", `Rufbereitschaft Tag ${d}: ${formatRbnDisplay(rbnValue) || "Kein Dienst"}`);
     
-    tdEl.addEventListener("click", (e) => openEditor(RBN_ROW_KEY, d, { ctrlKey: e.ctrlKey || e.metaKey }));
+    tdEl.addEventListener("click", () => openEditor(RBN_ROW_KEY, d));
     tdEl.addEventListener("keydown", (e) => { 
       if (e.key === "Enter" || e.key === " ") { 
         e.preventDefault(); 
@@ -1628,8 +1673,11 @@ function updateTfootDay(y, m, d, hols) {
 
 document.addEventListener("mousedown", (e) => {
   if (e.button !== 0) return;
-  if (/** @type {HTMLElement} */ (e.target).closest?.(".cell-duty")) return;
-  // Strg/Cmd/Shift werden vom Klick-Handler (Toggle/Bereich) verarbeitet.
+  // Dienst-Badge (Drag-Handle) bzw. eine bereits laufende Badge-Drag-Geste:
+  // siehe isDragHandleInteraction() – niemals gleichzeitig mit Drag-Selection.
+  if (isDragHandleInteraction(e)) return;
+  // Strg/Cmd/Alt/Shift werden vom Klick-Handler verarbeitet (Editor direkt
+  // öffnen / Einzel-Toggle / Bereich).
   if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
   const cell = /** @type {HTMLElement} */ (/** @type {HTMLElement} */ (e.target).closest?.("#plan-tbody .td-cell"));
   if (!cell) return;
