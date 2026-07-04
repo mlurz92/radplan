@@ -17,8 +17,26 @@ if (typeof globalThis.localStorage === "undefined") {
 }
 
 if (typeof globalThis.window === "undefined") {
+  // Echter EventTarget-Unterbau (statt reiner No-Op-Stubs) -- so können Tests
+  // event-getriebenes Verhalten (z. B. history.js' Reaktion auf
+  // `radplan-sync-update`) tatsächlich end-to-end auslösen und beobachten,
+  // statt sich nur darauf zu verlassen, dass der Aufruf nicht wirft.
+  const target = new EventTarget();
   globalThis.window = {
-    dispatchEvent: () => {},
+    dispatchEvent: (e) => target.dispatchEvent(e),
+    addEventListener: (...args) => target.addEventListener(...args),
+    removeEventListener: (...args) => target.removeEventListener(...args),
+  };
+}
+
+// Minimaler `document`-Ersatz: reicht aus, damit Module wie history.js, die
+// beim Aktualisieren von UI-Buttons defensiv `document.getElementById(...)`
+// aufrufen, in Node nicht mit einer ReferenceError abbrechen. Es existieren
+// schlicht keine Elemente (getElementById liefert immer `null`), was von den
+// betroffenen Aufrufern bereits über Null-Checks abgefangen wird.
+if (typeof globalThis.document === "undefined") {
+  globalThis.document = {
+    getElementById: () => null,
     addEventListener: () => {},
     removeEventListener: () => {},
   };
