@@ -15,7 +15,7 @@
 
 import { showOverlay, hideOverlay, openProfileModal } from '../render-modals.js';
 import { state } from '../state.js';
-import { getRange, RANGE_DEFS, MONTHS_SHORT, TT } from './engine.js';
+import { getRange, RANGE_DEFS, TT } from './engine.js';
 
 // Erklärende Mouse-Over-Texte je Zeitraum-Pille (Schlüssel = RANGE_DEFS.key).
 const RANGE_TIPS = {

@@ -7,7 +7,7 @@
 // ===========================================================================
 
 import {
-  computeCoverage, computeCombinedRiskMatrix, eachDay, fmt, scoreColor, MONTHS, MONTHS_SHORT, DOW_ABBR, TT, TTI,
+  computeCoverage, computeCombinedRiskMatrix, fmt, scoreColor, MONTHS, DOW_ABBR, TT, TTI,
 } from './engine.js';
 import { esc } from '../utils.js';
 

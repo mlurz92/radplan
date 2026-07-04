@@ -216,7 +216,6 @@ export function openProfileModal(empName) {
       const todayWd = weekday(y, m, TOD_D);
       const isWe = todayWd === 0 || todayWd === 6;
 
-      let statusHtml = "";
       let statusText = "";
       let statusColor = "#64748B";
       let statusBg = "#F1F5F9";

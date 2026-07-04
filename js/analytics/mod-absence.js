@@ -9,8 +9,8 @@
 
 import {
   computeAbsence, fmt, scoreColor, SPECIAL_RULES,
-  getCell, daysInMonth, weekday, isWorkday, getSaxonyHolidaysCached,
-  MONTHS_SHORT, ABSENCE_CODES, TT, TTI,
+  getCell, daysInMonth, isWorkday, getSaxonyHolidaysCached,
+  MONTHS_SHORT, ABSENCE_CODES, TT,
 } from './engine.js';
 import { esc } from '../utils.js';
 

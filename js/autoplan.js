@@ -15,24 +15,18 @@ import {
   getCtLeadershipPartner,
   getHgConflictBd,
   getSaxonyHolidaysCached,
-  monthKey, 
-  dateKey,
-  daysInMonth, 
-  weekday, 
+  monthKey,
+  daysInMonth,
+  weekday,
   isWeekend,
-  isWorkday, 
-  isHoliday, 
-  nextCalendarDay, 
-  prevCalendarDay, 
+  isWorkday,
+  isHoliday,
+  nextCalendarDay,
+  prevCalendarDay,
   isoWeekNumber,
-  easterDate, 
+  easterDate,
   addDays,
-  DOW_ABBR,
-  DOW_LONG,
-  MONTHS,
   MONTHS_SHORT,
-  getEmpMeta,
-  posColor
 } from './constants.js';
 
 import {
@@ -46,9 +40,10 @@ import {
 
 import {
   getMonthData,
+  getMonthDataRaw,
   getCell,
-  dutyOwner,
   createPlanSession,
+  cloneData,
 } from './model.js';
 
 export const DUTY_EXEMPT = SPECIAL_RULES.dutyExempt;
@@ -1989,7 +1984,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey, options =
     return reasons;
   }
 
-  function scoreHGCandidate(emp, d, relaxed, phaseKey) {
+  function scoreHGCandidate(emp, d, relaxed, _phaseKey) {
     relaxed = relaxed || false;
     if (!canDoHG(emp, d, relaxed, result, { coverageEscalation: relaxed })) {
       return { score: -Infinity, histScore: 0, tags: [], breakdown: [{ label: "Hartes Ausschlusskriterium (Ruhezeit/Qualifikation/Sonderregel)", delta: -Infinity }], relaxReasons: /** @type {string[]|undefined} */ (undefined) };
@@ -2634,8 +2629,6 @@ export async function computeAutoPlan(customTargets, weightProfileKey, options =
 
   log.push({ phase: "optimize", icon: "⚙️", msg: `Starte Multi-Zyklus-Optimierung (${MAX_OPTIMIZATION_CYCLES} Zyklen, BD:${BD_MAX_PASSES}/HG:${HG_MAX_PASSES}/Deep:${DEEP_MAX_PASSES} Passes)...`, pct: 68 });
 
-  let bestGlobalForCycles = computeGlobalObjective();
-  
   for (let cycle = 0; cycle < MAX_OPTIMIZATION_CYCLES; cycle++) {
     const prevGlobalForCycle = computeGlobalObjective();
     const cyclePct = 68 + Math.round((cycle / MAX_OPTIMIZATION_CYCLES) * 22);
@@ -2679,8 +2672,6 @@ export async function computeAutoPlan(customTargets, weightProfileKey, options =
       log.push({ phase: "optimize", icon: "✓", msg: `Konvergenz nach Zyklus ${cycle + 1} erreicht. Optimierung abgeschlossen.`, pct: 90 });
       break;
     }
-    
-    bestGlobalForCycles = newGlobalForCycle;
   }
 
   // Punkt 13: Nach der letzten Deep-Optimierung die Wochenend-/Feiertags-
@@ -2905,7 +2896,6 @@ export async function computeAutoPlan(customTargets, weightProfileKey, options =
   const hgSpread = computeFairnessSpread(hgFAs.map((emp) => summary.hg[emp]?.count || 0));
   const weekendSpread = computeFairnessSpread(dutyEmps.map((emp) => summary.bd[emp]?.weDuty || 0));
   
-  const reportedWishDays = new Set();
   let wishCount = 0;
   for (let d = 1; d <= dim; d++) {
     dutyEmps.forEach(e => {
@@ -3234,11 +3224,19 @@ export async function computeAutoPlanRange(startYear, startMonth, endYear, endMo
         throw new Error(`computeAutoPlanRange: Planung für ${mk} lieferte kein Ergebnis (Planungsmodus/-daten fehlten unerwartet).`);
       }
 
-      const md = getMonthData(year, month);
+      // Nur die persistenten Monatsfelder übernehmen (nicht per Spread von
+      // getMonthData()/planData!), da im aktiven Planungsmodus getMonthData()
+      // die Plan-Session zurückgibt, die zusätzliche, rein sitzungsinterne
+      // Felder (wishes, pins, baseline, history, historyIdx) trägt. Ein
+      // Spread dieser Session in DATA[mk] würde diese Felder dauerhaft und
+      // fälschlich in den echten, serverseitig synchronisierten Monatsdatensatz
+      // übernehmen.
+      const rawMd = getMonthDataRaw(year, month);
       DATA[mk] = {
-        ...md,
         employees: [...planData.employees],
         assignments: result.assignments,
+        rbn: cloneData(planData.rbn || rawMd.rbn || {}),
+        comments: cloneData(rawMd.comments || {}),
       };
 
       months.push({

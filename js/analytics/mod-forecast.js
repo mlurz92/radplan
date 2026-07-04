@@ -24,7 +24,7 @@ export default {
 
   render(root, ctx) {
     _root = root;
-    if (_chart) { try { _chart.destroy(); } catch (e) { /* noop */ } _chart = null; }
+    if (_chart) { try { _chart.destroy(); } catch (_) { /* noop */ } _chart = null; }
 
     const year = ctx?.year ?? new Date().getFullYear();
     const fc = computeForecast(year);
@@ -168,7 +168,7 @@ export default {
   },
 
   dispose() {
-    if (_chart) { try { _chart.destroy(); } catch (e) { /* noop */ } _chart = null; }
+    if (_chart) { try { _chart.destroy(); } catch (_) { /* noop */ } _chart = null; }
     _root = null;
   },
 };

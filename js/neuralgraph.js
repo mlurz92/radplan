@@ -838,7 +838,7 @@ export class NeuralGraph {
     this.gridFloat.style.opacity = String(currentOpacity);
 
     // Apply micro-scale animations to cells (flat grid transitions)
-    for (const [d, cellData] of this.cells.entries()) {
+    for (const cellData of this.cells.values()) {
       const el = cellData.el;
       const isPulse = el.classList.contains('pulse');
       const isError = el.classList.contains('error');
@@ -868,7 +868,7 @@ export class NeuralGraph {
     }
 
     // Decay node glow levels
-    for (const [d, fx] of this.nodeFx.entries()) {
+    for (const fx of this.nodeFx.values()) {
       if (fx.glow > 0) {
         fx.glow *= 0.92;
         if (fx.glow < 0.01) fx.glow = 0;
@@ -879,7 +879,7 @@ export class NeuralGraph {
     ctx.save();
     for (const [d, fx] of this.nodeFx.entries()) {
       if (!fx.x) continue;
-      
+
       const cellData = this.cells.get(d);
       const hasError = cellData?.el.classList.contains('error');
       
@@ -913,7 +913,7 @@ export class NeuralGraph {
 
     // 2.5 Draw glowing radar circles/pulses at node locations
     ctx.save();
-    for (const [d, fx] of this.nodeFx.entries()) {
+    for (const fx of this.nodeFx.values()) {
       if (!fx.x || fx.glow <= 0.01) continue;
       const [fr, fg, fb] = fx.color;
       
