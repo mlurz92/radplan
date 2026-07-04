@@ -301,8 +301,6 @@ export function refreshResponsiveLayout(options = {}) {
   const { forceRender = false } = options;
   syncViewportCssVars();
   const width = getViewportWidth();
-  const coarsePointer = window.matchMedia ? window.matchMedia("(pointer: coarse)").matches : false;
-  const touchLike = coarsePointer || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   const nextMobile = width <= MOBILE_BREAKPOINT;
   
   const changed = nextMobile !== IS_MOBILE;
@@ -1803,7 +1801,7 @@ function computeTfootCellState(y, m, d, hols, rowDef) {
   return { cls, text: val > 0 ? String(val) : "" };
 }
 
-export function renderTfoot(y, m, dim, md) {
+export function renderTfoot(y, m, dim, _md) {
   const tfoot = document.getElementById("plan-tfoot");
   tfoot.innerHTML = "";
 

@@ -6,7 +6,6 @@ import {
   getEmpMeta,
   posColor,
   getSaxonyHolidaysCached,
-  daysInMonth,
   weekday,
   isHoliday,
   empInitials
@@ -44,7 +43,6 @@ export function renderEmployeeDashboard() {
   const summaryEl = document.getElementById("emp-summary-grid");
   const gridEl = document.getElementById("emp-year-grid");
   const detailEl = document.getElementById("emp-detail-panel");
-  const detailSub = document.getElementById("emp-detail-sub");
   const countEl = document.getElementById("emp-visible-count");
   const contextEl = document.getElementById("emp-context-line");
   const teamPanelEl = document.getElementById("emp-team-panel");
@@ -356,8 +354,6 @@ function renderEmployeeTeamAnalytics(teamPanelEl, teamControlsEl) {
   
   rangeMonths.forEach(({ year: y, month: m }) => {
     const md = getMonthData(y, m);
-    const dim = daysInMonth(y, m);
-    const hols = getSaxonyHolidaysCached(y);
     md.employees.forEach((emp) => {
       const s = buildProfileStats(y, m, emp);
       const row = perEmp.get(emp) || { emp, active: 0, d: 0, hg: 0, vac: 0, sick: 0, uncovered: 0, required: 0 };

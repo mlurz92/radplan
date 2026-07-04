@@ -557,7 +557,7 @@ export async function streamProgressLogs(result) {
       // Recalculate filled counts based on neural graph state
       bdCount = 0;
       hgCount = 0;
-      for (const [dayIdx, cellData] of neuralGraphInstance.cells.entries()) {
+      for (const cellData of neuralGraphInstance.cells.values()) {
         if (cellData.dSlot.classList.contains('has-val')) bdCount++;
         if (cellData.hgSlot.classList.contains('has-val')) hgCount++;
       }

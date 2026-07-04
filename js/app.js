@@ -78,7 +78,7 @@ export {
 } from './period.js';
 import {
   syncPeriodControls, switchPeriod, handleTodayClick, closePeriodFlyout,
-  openPeriodFlyout, changeMonth, changeYear, applyPeriodDraft,
+  openPeriodFlyout, changeMonth, applyPeriodDraft,
   isPeriodFlyoutOpen, populatePeriodMonthSelect,
 } from './period.js';
 
@@ -89,7 +89,7 @@ export {
   undoPlan, redoPlan,
 } from './planmode.js';
 import {
-  recordPlanHistory, enterPlanMode, exitPlanMode, closePlanMode,
+  recordPlanHistory, enterPlanMode, closePlanMode,
   abortPlanChanges, savePlanDraft, applyPlanToMain, undoPlan, redoPlan,
 } from './planmode.js';
 
