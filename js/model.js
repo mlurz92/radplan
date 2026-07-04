@@ -806,7 +806,7 @@ export function getStoredPlanDraft(key) {
   try {
     const raw = localStorage.getItem(`radplan_v3_plan_${key}`);
     return raw ? JSON.parse(raw) : null;
-  } catch (e) {
+  } catch {
     return null;
   }
 }

@@ -245,6 +245,170 @@
 }
 .hmenu-item-danger:hover .hmenu-ico { color: #FCA5A5; }
 
+/* ── Benachrichtigungszentrum (Vorschlag 27) ─────────────────────────────
+   Glocke im Header + persistentes Panel. Teilt Bausteine mit .header-menu
+   (gleiche Positionierungs-/Glas-Optik), daher bewusst kein eigenes
+   Backdrop-System. */
+#btn-notifications { position: relative; }
+
+.notif-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: #DC2626;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px var(--elev-1-bg);
+  pointer-events: none;
+}
+
+.notif-panel {
+  position: fixed;
+  top: var(--hmenu-top, 56px);
+  right: var(--hmenu-right, 12px);
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  max-height: min(70vh, 560px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-overlay);
+  backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.2);
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg)) saturate(1.2);
+  border: 1px solid var(--elev-border-3);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-shadow-3);
+  z-index: 1200;
+  transform-origin: top right;
+  animation: hmenuIn var(--dur-2) var(--ease-spring);
+}
+
+.notif-panel[hidden] { display: none; }
+
+.notif-panel-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--elev-border-2);
+  flex-shrink: 0;
+}
+
+.notif-panel-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+
+.notif-panel-actions { display: flex; gap: 4px; }
+
+.notif-panel-action {
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+
+.notif-panel-action:hover {
+  background: var(--elev-2-bg);
+  color: var(--ink-strong);
+}
+
+.notif-panel-list {
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.notif-empty {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease-out);
+}
+
+.notif-item:hover { background: var(--elev-2-bg); }
+
+.notif-item.is-unread { background: var(--accent-soft); }
+.notif-item.is-unread:hover { background: var(--accent-soft-hover); }
+
+.notif-item-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+}
+
+.notif-item-body { flex: 1; min-width: 0; }
+
+.notif-item-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+
+.notif-item-msg {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-top: 2px;
+  overflow-wrap: break-word;
+}
+
+.notif-item-time {
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 4px;
+}
+
+.notif-item-remove {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-faint);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+
+.notif-item-remove:hover {
+  background: rgba(239,68,68,.14);
+  color: #FCA5A5;
+}
+
+@media (max-width: 560px) {
+  .notif-panel {
+    width: calc(100vw - 24px);
+  }
+}
+
 .mbtn {
   display: flex;
   align-items: center;
@@ -903,6 +1067,14 @@ body.plan-mode-active #btn-plan {
 @media (max-width: 600px) {
   .plan-badge { padding: 4px 10px 4px 8px; font-size: 9px; }
   .plan-btn-auto { font-size: 10px !important; padding: 6px 10px !important; }
+}
+
+/* Vorschlag 30 (Listen-/Agenda-Ansicht): der Umschalter ist nur auf dem
+   Desktop sinnvoll — auf Mobilgeräten ist die Tagesliste (#mobile-view)
+   ohnehin bereits die einzige Ansicht, ein zusätzlicher Umschalter dorthin
+   wäre redundant. */
+body.is-mobile #btn-view-mode {
+  display: none;
 }
 
 body.is-mobile #toast {

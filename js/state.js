@@ -121,7 +121,20 @@ export function isMonthAffectedBySync(changedMonths, year, month) {
 // plain-object trees (month -> employee -> day -> cell) so only the individual
 // fields that genuinely changed on both sides since `base` are treated as
 // conflicts; everything else is merged automatically without data loss.
-export function mergeThreeWay(base, local, server, stats) {
+//
+// Vorschlag 17 (Konfliktlösungs-UX): echte Konflikte (beide Seiten haben seit
+// `base` denselben Feldpfad unterschiedlich geändert) werden nicht nur
+// gezählt, sondern mit Pfad + beiden Werten in `stats.conflictDetails`
+// gesammelt. So kann die UI dem Nutzer nach dem automatischen Merge (der im
+// Konfliktfall defensiv den lokalen Stand behält, siehe `return local`
+// unten) eine Liste der betroffenen Felder zeigen und pro Feld optional den
+// Server-Wert nachträglich übernehmen lassen (siehe `applyConflictChoice`).
+// Auf sehr viele gleichzeitige Konflikte begrenzt (MAX_CONFLICT_DETAILS),
+// damit ein pathologischer Merge (z. B. ein komplett neu importierter Plan)
+// keine unbegrenzt wachsende Detail-Liste erzeugt.
+const MAX_CONFLICT_DETAILS = 200;
+
+export function mergeThreeWay(base, local, server, stats, path = []) {
   if (deepEqual(local, server)) return local;
   if (deepEqual(local, base)) {
     stats.serverWins++;
@@ -136,13 +149,67 @@ export function mergeThreeWay(base, local, server, stats) {
     const keys = new Set([...Object.keys(base), ...Object.keys(local), ...Object.keys(server)]);
     const out = {};
     keys.forEach((k) => {
-      out[k] = mergeThreeWay(base[k], local[k], server[k], stats);
+      out[k] = mergeThreeWay(base[k], local[k], server[k], stats, path.concat(k));
     });
     return out;
   }
 
   stats.conflicts++;
+  if (!stats.conflictDetails) stats.conflictDetails = [];
+  if (stats.conflictDetails.length < MAX_CONFLICT_DETAILS) {
+    stats.conflictDetails.push({ path, local, server });
+  }
   return local;
+}
+
+// Setzt einen per `mergeThreeWay`-Pfad adressierten Wert in DATA (z. B.
+// ["2026-3", "assignments", "Dr. Lurz", "12", "duty"]). Legt fehlende
+// Zwischenobjekte NICHT an — ein Konflikt-Pfad existiert nach dem Merge per
+// Definition bereits (der lokale Zweig wurde ja übernommen).
+function setDeepPath(root, path, value) {
+  let node = root;
+  for (let i = 0; i < path.length - 1; i++) {
+    if (!isPlainObject(node[path[i]])) return false;
+    node = node[path[i]];
+  }
+  node[path[path.length - 1]] = value;
+  return true;
+}
+
+let lastConflictDetails = /** @type {{path: (string|number)[], local: any, server: any}[]} */ ([]);
+
+export function getLastConflictDetails() {
+  return lastConflictDetails;
+}
+
+// Einzige zulässige Stelle, um die zuletzt gemeldeten Merge-Konflikte zu
+// setzen (aufgerufen direkt nach `mergeThreeWay`, siehe der 409-Handler in
+// `flushSaveToServer` unten) — separat exportiert statt inline zugewiesen,
+// damit auch Tests den Zustand für `applyConflictChoice` gezielt vorbereiten
+// können, ohne einen echten Netzwerk-Konflikt zu simulieren.
+export function setLastConflictDetails(details) {
+  lastConflictDetails = Array.isArray(details) ? details : [];
+}
+
+// Vorschlag 17: erlaubt es der Konflikt-UI, für einen einzelnen zuvor per
+// `mergeThreeWay` gemeldeten Konflikt nachträglich den Server-Wert statt des
+// (defensiv gewählten) lokalen Werts zu übernehmen. Persistiert sofort und
+// stößt einen neuen Speichervorgang an, damit die Korrektur auch am Server
+// ankommt.
+export function applyConflictChoice(path, choice) {
+  const idx = lastConflictDetails.findIndex((c) => JSON.stringify(c.path) === JSON.stringify(path));
+  if (idx === -1) return false;
+  const detail = lastConflictDetails[idx];
+  if (choice === 'server') {
+    if (!setDeepPath(DATA, detail.path, detail.server)) return false;
+    const monthK = detail.path[0];
+    if (typeof monthK === 'string' && DATA[monthK]) normalizeMonthDataShape(DATA[monthK]);
+  }
+  lastConflictDetails = lastConflictDetails.filter((_, i) => i !== idx);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
+  window.dispatchEvent(new CustomEvent('radplan-conflict-detail-resolved', { detail: { remaining: lastConflictDetails.length } }));
+  saveToStorage();
+  return true;
 }
 
 function mergePlanDrafts(localPlans, serverPlans, activeKey) {
@@ -254,8 +321,9 @@ async function flushSaveToServer() {
       if (conflictData.latestData) {
         const serverMain = conflictData.latestData.main || conflictData.latestData;
         const base = lastSyncedSnapshot || {};
-        const stats = { conflicts: 0, localWins: 0, serverWins: 0 };
+        const stats = { conflicts: 0, localWins: 0, serverWins: 0, conflictDetails: [] };
         const mergedMain = mergeThreeWay(base, DATA, serverMain, stats);
+        lastConflictDetails = stats.conflictDetails;
 
         replaceAllData(mergedMain);
         Object.values(DATA).forEach((md) => normalizeMonthDataShape(md));

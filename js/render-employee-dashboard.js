@@ -97,7 +97,7 @@ export function renderEmployeeDashboard() {
   try {
     const fairnessReport = computeDutyFairness(y);
     if (fairnessReport?.team) equityTotal = Math.round(fairnessReport.team.equityTotal);
-  } catch (e) { /* keine Dienstdaten im Jahr -> Equity-Kachel entfällt unten */ }
+  } catch { /* keine Dienstdaten im Jahr -> Equity-Kachel entfällt unten */ }
 
   const kpiItems = [
     { label: "Mitarbeitende im Jahr", value: employees.length, sub: `${activeCount} mit Aktivität`, tone: "#0EA5E9", tip: "Anzahl eindeutiger Mitarbeitender mit Plandaten im Jahr. „mit Aktivität“ = Personen mit mindestens einem aktiven Monat.", valTip: `${employees.length} eindeutige Mitarbeitende mit Plandaten im Jahr ${y}, davon ${activeCount} mit mindestens einem aktiven Monat.` },
@@ -472,7 +472,7 @@ function renderTeamFairnessBlock(teamPanelEl, year) {
   let report;
   try {
     report = computeDutyFairness(year);
-  } catch (e) {
+  } catch {
     return;
   }
   if (!report || !report.rows || report.rows.length === 0) {

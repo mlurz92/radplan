@@ -7,6 +7,9 @@ import {
   replaceAllData,
   computeChangedMonthKeys,
   isMonthAffectedBySync,
+  getLastConflictDetails,
+  applyConflictChoice,
+  setLastConflictDetails,
 } from "../js/state.js";
 
 // mergeThreeWay(base, local, server, stats) implementiert den feldweisen
@@ -90,6 +93,56 @@ describe("mergeThreeWay (409-Konfliktauflösung)", () => {
     // `assignment` wurde nur serverseitig geändert -> Serverwert (AN).
     assert.equal(merged["2026-5"]["Dr. Martin"][1].assignment, "AN");
     assert.equal(stats.conflicts, 0);
+  });
+});
+
+// Vorschlag 17 (Konfliktlösungs-UX): mergeThreeWay sammelt bei echten
+// Feld-Konflikten Pfad + beide Werte, damit die UI sie anzeigen und der
+// Nutzer nachträglich pro Feld den Server-Stand übernehmen kann.
+describe("mergeThreeWay — Konflikt-Details & applyConflictChoice (Vorschlag 17)", () => {
+  test("ein echter Konflikt wird mit Pfad, lokalem und Server-Wert in stats.conflictDetails gesammelt", () => {
+    const base = { "2026-5": { "Dr. Martin": { 1: { duty: "D" } } } };
+    const local = { "2026-5": { "Dr. Martin": { 1: { duty: "HG" } } } };
+    const server = { "2026-5": { "Dr. Martin": { 1: { duty: "frei" } } } };
+    const stats = { conflicts: 0, localWins: 0, serverWins: 0, conflictDetails: [] };
+
+    mergeThreeWay(base, local, server, stats);
+
+    assert.equal(stats.conflictDetails.length, 1);
+    assert.deepEqual(stats.conflictDetails[0].path, ["2026-5", "Dr. Martin", "1", "duty"]);
+    assert.equal(stats.conflictDetails[0].local, "HG");
+    assert.equal(stats.conflictDetails[0].server, "frei");
+  });
+
+  test("applyConflictChoice('server') übernimmt den Server-Wert an der konfliktbehafteten Stelle und entfernt den Eintrag", () => {
+    Object.assign(DATA, { "2026-5": { employees: ["Dr. Martin"], assignments: { "Dr. Martin": { 1: { duty: "HG" } } }, rbn: {}, comments: {} } });
+    setLastConflictDetails([
+      { path: ["2026-5", "assignments", "Dr. Martin", "1", "duty"], local: "HG", server: "D" },
+    ]);
+
+    const applied = applyConflictChoice(["2026-5", "assignments", "Dr. Martin", "1", "duty"], "server");
+
+    assert.equal(applied, true);
+    assert.equal(DATA["2026-5"].assignments["Dr. Martin"][1].duty, "D", "Server-Wert wurde übernommen");
+    assert.deepEqual(getLastConflictDetails(), [], "gelöster Konflikt wird aus der Liste entfernt");
+  });
+
+  test("applyConflictChoice('local') entfernt den Eintrag ohne DATA zu verändern", () => {
+    Object.assign(DATA, { "2026-6": { employees: ["Dr. Martin"], assignments: { "Dr. Martin": { 1: { duty: "HG" } } }, rbn: {}, comments: {} } });
+    setLastConflictDetails([
+      { path: ["2026-6", "assignments", "Dr. Martin", "1", "duty"], local: "HG", server: "D" },
+    ]);
+
+    const applied = applyConflictChoice(["2026-6", "assignments", "Dr. Martin", "1", "duty"], "local");
+
+    assert.equal(applied, true);
+    assert.equal(DATA["2026-6"].assignments["Dr. Martin"][1].duty, "HG", "lokaler Wert bleibt unverändert");
+    assert.deepEqual(getLastConflictDetails(), []);
+  });
+
+  test("applyConflictChoice liefert false für einen unbekannten Pfad", () => {
+    setLastConflictDetails([]);
+    assert.equal(applyConflictChoice(["nicht-vorhanden"], "server"), false);
   });
 });
 

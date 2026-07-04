@@ -86,7 +86,7 @@ function capture() {
       // zu parsen. Spart einen vollständigen JSON.parse des Gesamtdatensatzes
       // bei jeder erfassten Änderung.
       recordCellDiffs(JSON.parse(baseline), DATA);
-    } catch (e) { /* defensiv: Diff darf die Historie nie blockieren */ }
+    } catch { /* defensiv: Diff darf die Historie nie blockieren */ }
     undoStack.push(baseline);
     if (undoStack.length > MAX_HISTORY) undoStack.shift();
   }
@@ -99,7 +99,7 @@ function applySnapshot(json) {
   let obj;
   try {
     obj = JSON.parse(json);
-  } catch (e) {
+  } catch {
     return false;
   }
   suppress = true;

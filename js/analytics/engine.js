@@ -27,6 +27,8 @@ import {
 
 import { state, TOD_Y, TOD_M, DATA } from '../state.js';
 import { posColor } from '../constants.js';
+import { getThresholds } from './thresholds.js';
+export { getThresholds, setThresholds, resetThresholds, DEFAULT_THRESHOLDS, THRESHOLD_LIMITS } from './thresholds.js';
 
 // Re-Exports, damit Module nur ./engine.js importieren müssen.
 export {
@@ -313,7 +315,7 @@ function _equityIndex(values) {
   return Math.round((1 - _giniCoefficient(values)) * 100);
 }
 function _fairnessStatus(dev, fairShare) {
-  const tol = Math.max(1, fairShare * 0.18);
+  const tol = Math.max(1, fairShare * getThresholds().fairnessTolerancePct);
   if (dev > tol) return 'over';
   if (dev < -tol) return 'under';
   return 'balanced';
@@ -748,6 +750,64 @@ export function computeCompliance(range) {
 }
 
 // ---------------------------------------------------------------------------
+//  Burnout-/Belastungs-Risiko-Score (Vorschlag 8)
+// ---------------------------------------------------------------------------
+// Verdichtet drei bereits vorhandene, aber bislang nur getrennt betrachtete
+// Belastungsindikatoren zu einem einzigen 0–100-Risikowert je Person:
+//   1) Gesamt-Überlast relativ zum fairen Anteil (aus computeDutyFairnessForRange)
+//   2) Wochenend-/Feiertags-Überlast relativ zum fairen WE-Anteil
+//   3) Häufung von Diensten mit <3 Tagen Abstand (aus computeCompliance,
+//      Finding-Typ 'cluster') — ein starker Belastungsindikator, der in der
+//      reinen Fairness-Kennzahl (die nur die GESAMTZAHL an Diensten
+//      betrachtet) nicht sichtbar wird: zwei eng getaktete Dienste belasten
+//      spürbar mehr als zwei weit auseinanderliegende, auch bei identischer
+//      Gesamtzahl.
+// Bewusst rein aus bereits vorhandenen Engine-Funktionen zusammengesetzt
+// (keine neue Rohdatenanalyse), um Doppelberechnung zu vermeiden.
+function _clampScore100(v) {
+  return Math.max(0, Math.min(100, v));
+}
+
+export function computeBurnoutRisk(range) {
+  const fairness = computeDutyFairnessForRange(range);
+  const compliance = computeCompliance(range);
+
+  const clusterCountByEmp = {};
+  compliance.findings.forEach((f) => {
+    if (f.type === 'cluster') clusterCountByEmp[f.emp] = (clusterCountByEmp[f.emp] || 0) + 1;
+  });
+
+  const rows = fairness.rows.map((r) => {
+    // Überlast relativ zum fairen Anteil: 50% über dem fairen Anteil sättigt
+    // bereits bei 100 Punkten (bewusst empfindlich, da 50% Überhang bei
+    // ohnehin knapp bemessenen Dienstzahlen bereits eine deutliche
+    // Mehrbelastung bedeutet).
+    const overloadPct = r.fairTotal > 0 ? Math.max(0, r.totalDev / r.fairTotal) : (r.totalDev > 0 ? 1 : 0);
+    const overloadScore = _clampScore100(overloadPct * 200);
+
+    const weOverloadPct = r.fairWeekend > 0 ? Math.max(0, r.weekendDev / r.fairWeekend) : (r.weekendDev > 0 ? 1 : 0);
+    const weOverloadScore = _clampScore100(weOverloadPct * 200);
+
+    // Jede Häufung (<3 Tage Abstand) trägt 25 Punkte, ab 4 Häufungen gesättigt.
+    const clusterCount = clusterCountByEmp[r.emp] || 0;
+    const clusterScore = _clampScore100(clusterCount * 25);
+
+    const burnoutScore = Math.round(overloadScore * 0.45 + weOverloadScore * 0.25 + clusterScore * 0.30);
+    const th = getThresholds();
+    const level = burnoutScore >= th.burnoutHighScore ? 'hoch' : burnoutScore >= th.burnoutMidScore ? 'mittel' : 'niedrig';
+
+    return {
+      emp: r.emp, meta: r.meta, burnoutScore, level,
+      overloadScore: Math.round(overloadScore), weOverloadScore: Math.round(weOverloadScore),
+      clusterScore: Math.round(clusterScore), clusterCount,
+      totalDev: r.totalDev, weekendDev: r.weekendDev,
+    };
+  }).sort((a, b) => b.burnoutScore - a.burnoutScore);
+
+  return { range, rows };
+}
+
+// ---------------------------------------------------------------------------
 //  Saisonale Ausfallquote (historische Krankheitsquote pro Kalendermonat)
 // ---------------------------------------------------------------------------
 // Krankheitsbedingte Codes im engeren Sinn (nicht Urlaub/Weiterbildung o.ä.),
@@ -756,7 +816,9 @@ const SICK_CODES = ['K', 'KK'];
 // Unterhalb dieser Personen-Werktage-Stichprobe gilt eine Kalendermonats-
 // Quote als statistisch nicht belastbar genug für eine Risikowarnung.
 const SEASONAL_MIN_SAMPLE_DAYS = 20;
-// Schwelle für "auffällig erhöht": mindestens 15% über dem Jahresdurchschnitt.
+// Schwelle für "auffällig erhöht": mindestens 15% über dem Jahresdurchschnitt
+// (Standardwert — per Auswertungs-Hub → Einstellungen konfigurierbar, siehe
+// getThresholds().seasonalRiskFactor).
 export const SEASONAL_RISK_THRESHOLD = 1.15;
 // Rezenz-Gewichtung: pro Jahr Abstand zur Gegenwart (TOD_Y) verbleiben 85%
 // des ursprünglichen Gewichts (einfacher, nachvollziehbarer exponentieller
@@ -886,7 +948,7 @@ export function computeForecast(year) {
   for (let m = monthsWithData; m < 12; m++) remainingMonths.push(m);
   const seasonalRiskMonths = remainingMonths
     .map((m) => seasonalIndex[m])
-    .filter((s) => s.hasData && s.indexVsAverage >= SEASONAL_RISK_THRESHOLD)
+    .filter((s) => s.hasData && s.indexVsAverage >= getThresholds().seasonalRiskFactor)
     .sort((a, b) => b.indexVsAverage - a.indexVsAverage);
 
   // Konfidenz der linearen Hochrechnung: je weniger Monate an Ist-Daten
@@ -1111,6 +1173,12 @@ export const TT = {
   combinedRiskStrainDay: 'Belastungs-Tag: An diesem Tag war die Besetzung zwar vollständig, aber mindestens eine der eingeteilten Personen liegt über ihrem fairen Anteil an Diensten im gewählten Zeitraum – die Lücke wurde also auf Kosten der Fairness geschlossen.',
   combinedRiskGapDay: 'Offener Tag: An diesem Tag fehlt mindestens ein Dienst (D oder HG) ganz.',
   combinedRiskStrainScore: 'Belastungs-Score: gewichtete Anzahl der Tage, an denen diese Person trotz bereits überdurchschnittlicher Dienstlast eine Besetzungslücke geschlossen hat (Wochenend-/Feiertage zählen doppelt).',
+
+  // — Burnout-/Belastungs-Risiko-Score (Vorschlag 8) —
+  burnoutScore: 'Belastungs-Risiko-Score (0–100, höher = kritischer): verdichtet Gesamt-Überlast, Wochenend-/Feiertags-Überlast und die Häufung eng getakteter Dienste (< 3 Tage Abstand) zu einer einzigen Kennzahl.',
+  burnoutOverload: 'Anteil, um den die Gesamt-Dienstzahl dieser Person über ihrem fairen Anteil im Zeitraum liegt (0% = genau fair, 50%+ = maximaler Teil-Score).',
+  burnoutWeOverload: 'Anteil, um den die Wochenend-/Feiertagsdienste dieser Person über ihrem fairen WE-Anteil liegen.',
+  burnoutCluster: 'Anzahl der Dienst-Häufungen (zwei Dienste mit weniger als 3 Tagen Abstand) dieser Person im Zeitraum – ein starker Belastungsindikator, unabhängig von der reinen Gesamtzahl an Diensten.',
 
   // — Mehrjahres-Benchmarking (Vorschlag 11) —
   multiYearChart: 'Überlagerung der monatlichen Team-Durchschnitte an Bereitschaftsdiensten (D) je Jahr. Zeigt, ob sich die saisonale Belastungskurve über die Jahre strukturell verschiebt (z. B. dauerhaft höhere Basislast) statt nur zufällig zu schwanken.',

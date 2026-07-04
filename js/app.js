@@ -55,6 +55,10 @@ import { initCellTooltips } from './celltooltip.js';
 import { initTooltips } from './tooltip.js';
 import { openPrintPreview } from './printpreview.js';
 import { injectBrandIcon } from './icons.js';
+import { initNotificationCenter, checkComplianceAndNotify } from './notifications.js';
+import { computeCompliance, getRange } from './analytics/engine.js';
+import { initConflictModal, openConflictModal } from './conflict-modal.js';
+import { initViewMode } from './agenda-view.js';
 
 export {
   getTheme, applyTheme, setTheme, toggleTheme, initTheme,
@@ -644,6 +648,9 @@ export async function init() {
   initNormalHistory();
   initCellTooltips();
   initTooltips();
+  initNotificationCenter();
+  initConflictModal();
+  initViewMode();
 
   // Navigation aus dem Auswertungs-Hub (z. B. Klick auf eine Jahresgitter-Zelle):
   // Hub schließen und in den gewählten Monat springen.
@@ -701,6 +708,7 @@ export async function init() {
     const stats = /** @type {CustomEvent} */ (e).detail || {};
     if (stats.conflicts > 0) {
       showToast(`Speicher-Konflikt: ${stats.conflicts} Feld(er) kollidierten, lokaler Stand übernommen`);
+      openConflictModal();
     } else if (stats.localWins > 0 || stats.serverWins > 0) {
       showToast(`Speicher-Konflikt automatisch zusammengeführt (${stats.localWins} lokal, ${stats.serverWins} vom Server)`);
     } else {
@@ -714,6 +722,11 @@ export async function init() {
 
   window.addEventListener("radplan-save-success", () => {
     showToast("Erfolgreich gespeichert");
+    try {
+      checkComplianceAndNotify(computeCompliance, getRange('month', state.year, state.month));
+    } catch {
+      // Benachrichtigung ist ein optionaler Zusatz — ein Fehler hier darf den erfolgreichen Speichervorgang nicht stören.
+    }
   });
 
   window.addEventListener("radplan-save-error", () => {

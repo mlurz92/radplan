@@ -22,10 +22,17 @@ let hoverTimer = null;
 let currentAnchor = null;
 
 const SHOW_DELAY = 420;
+// Vorschlag 28 (Tastaturzugriff): kürzere Verzögerung bei Fokus-Navigation
+// (Pfeiltasten im Raster) als beim Hovern — wer sich per Tastatur bewegt,
+// erwartet zügigeres Feedback, ohne bei jedem einzelnen Zellwechsel sofort
+// ein Tooltip aufblitzen zu lassen.
+const FOCUS_SHOW_DELAY = 180;
+const TIP_ID = 'cell-detail-tip';
 
 function ensureTip() {
   if (tipEl) return tipEl;
   tipEl = document.createElement('div');
+  tipEl.id = TIP_ID;
   tipEl.className = 'cell-detail-tip';
   tipEl.setAttribute('role', 'tooltip');
   tipEl.hidden = true;
@@ -137,11 +144,13 @@ function showFor(anchor) {
   const tip = ensureTip();
   tip.innerHTML = buildHtml(emp, day);
   position(anchor);
+  anchor.setAttribute('aria-describedby', TIP_ID);
   requestAnimationFrame(() => tip.classList.add('cdt-visible'));
 }
 
 export function hideCellTip() {
   if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
+  currentAnchor?.removeAttribute('aria-describedby');
   currentAnchor = null;
   if (tipEl) {
     tipEl.classList.remove('cdt-visible');
@@ -169,6 +178,26 @@ export function initCellTooltips() {
     const cell = /** @type {HTMLElement} */ (e.target).closest?.('#plan-tbody .td-cell');
     if (!cell) return;
     if (to && to.closest?.('#plan-tbody .td-cell') === cell) return;
+    hideCellTip();
+  });
+
+  // Vorschlag 28 (Tastaturzugriff): dieselben Detailinformationen, die die
+  // Maus per Hover erhält, müssen auch per Tastatur (Tab/Pfeiltasten, siehe
+  // initGridKeyboardHandlers in app.js) erreichbar sein — sonst wäre der
+  // Zell-Detail-Tooltip für Tastaturnutzer:innen komplett unsichtbar.
+  // `focusin`/`focusout` feuern (anders als `focus`/`blur`) auch bubblend am
+  // `tbody`, weshalb hier ein einziger delegierter Listener genügt.
+  tbody.addEventListener('focusin', (e) => {
+    const cell = /** @type {HTMLElement} */ (e.target).closest?.('#plan-tbody .td-cell');
+    if (!cell || cell === currentAnchor) return;
+    if (document.body.classList.contains('cell-popover-open')) return;
+    if (hoverTimer) clearTimeout(hoverTimer);
+    hoverTimer = setTimeout(() => showFor(cell), FOCUS_SHOW_DELAY);
+  });
+
+  tbody.addEventListener('focusout', (e) => {
+    const to = /** @type {HTMLElement} */ (e.relatedTarget);
+    if (to && to.closest?.('#plan-tbody .td-cell')) return;
     hideCellTip();
   });
 

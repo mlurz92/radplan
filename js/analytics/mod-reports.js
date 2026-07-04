@@ -11,6 +11,7 @@ import {
   computeDutyFairness, computeAbsence, computeCoverage,
   buildYearlyStats, getMonthData, employeesInRange,
   getEmpMeta, daysInMonth, weekday, getSaxonyHolidaysCached, isHoliday,
+  computeMultiYearBenchmark, computeBurnoutRisk,
   MONTHS, MONTHS_SHORT, DOW_ABBR, TT, VACATION_CODES,
 } from './engine.js';
 
@@ -111,6 +112,22 @@ export default {
           </div>
         </div>
 
+        <div class="ah-card rep-card">
+          <div class="rep-card-title" data-tooltip="${escAttr(TT.multiYearChart)}">Mehrjahres-Benchmark (CSV)</div>
+          <div class="rep-card-desc">Equity-Index, Streuung (CV) und Ø Dienstlast der letzten bis zu 4 Kalenderjahre bis ${year}, inkl. Vorjahres-Trend.</div>
+          <div class="rep-actions">
+            <button type="button" class="mbtn mbtn-ghost" data-rep="benchmark-csv">CSV</button>
+          </div>
+        </div>
+
+        <div class="ah-card rep-card">
+          <div class="rep-card-title" data-tooltip="${escAttr(TT.burnoutScore)}">Kombi-Risiko / Burnout (CSV)</div>
+          <div class="rep-card-desc">Belastungs-Risiko-Score je Person für den gewählten Zeitraum: Überlast, Wochenend-Überlast, Dienst-Häufungen.</div>
+          <div class="rep-actions">
+            <button type="button" class="mbtn mbtn-ghost" data-rep="burnout-csv">CSV</button>
+          </div>
+        </div>
+
         <div class="ah-card rep-card rep-card-wide">
           <div class="rep-card-title" data-tooltip="Persönliche Jahresübersicht einer Person als PDF: Monatswerte für Aktivtage, Urlaub, Krank sowie Bereitschafts- und Hintergrunddienste mit Jahressummen.">Mitarbeitenden-Eigenbeleg (PDF)</div>
           <div class="rep-card-desc">Persönliche Jahresübersicht ${year}: Monatswerte (Aktiv, Urlaub, Krank, D, HG) mit Summen.${pdfNote}</div>
@@ -132,6 +149,8 @@ export default {
       'fairness-xlsx': () => exportFairnessXLSX(year),
       'absence-csv': () => exportAbsenceCSV(range),
       'coverage-csv': () => exportCoverageCSV(range),
+      'benchmark-csv': () => exportBenchmarkCSV(year),
+      'burnout-csv': () => exportBurnoutCSV(range),
       'duty-pdf': () => exportDutyPDF(range),
       'person-pdf': () => exportPersonPDF(root.querySelector('#rep-emp-select')?.value, year),
     };
@@ -212,6 +231,42 @@ function exportCoverageCSV(range) {
   });
   downloadCSV(out, `radplan_abdeckung_${range.key}_${range.year}.csv`);
   setStatus(`Abdeckungsbericht exportiert (${cov.openDays + cov.partialDays} Lückentage).`);
+}
+
+// Vorschlag 13: Mehrjahres-Benchmark als CSV (bis zu 4 Kalenderjahre inkl. Vorjahres-Trend).
+function exportBenchmarkCSV(year) {
+  const benchmark = computeMultiYearBenchmark(year, 4);
+  if (!benchmark.years.length) return setStatus('Keine Benchmark-Daten vorhanden.', false);
+  const out = /** @type {(string|number)[][]} */ ([[
+    'Jahr', 'Monate abgedeckt', 'Ø BD/Monat', 'Ø HG/Monat',
+    'Equity-Index', 'Streuung (CV)', 'Ø Dienstlast/Person',
+    'Δ Equity ggü. Vorjahr', 'Δ CV ggü. Vorjahr', 'Δ Ø Dienstlast ggü. Vorjahr',
+  ]]);
+  benchmark.years.forEach((y) => {
+    const avgBD = y.meansBD.reduce((a, b) => a + b, 0) / y.meansBD.length;
+    const avgHG = y.meansHG.reduce((a, b) => a + b, 0) / y.meansHG.length;
+    out.push([
+      y.year + (y.isCurrentYear ? ' (laufend)' : ''), y.monthsCovered,
+      num(Math.round(avgBD * 10) / 10), num(Math.round(avgHG * 10) / 10),
+      y.team.equityTotal, y.team.cvTotal, num(Math.round(y.team.meanTotal * 10) / 10),
+      y.deltaEquityTotal ?? '—', y.deltaCvTotal ?? '—', y.deltaMeanTotal != null ? num(y.deltaMeanTotal) : '—',
+    ]);
+  });
+  downloadCSV(out, `radplan_mehrjahres-benchmark_${year}.csv`);
+  setStatus(`Mehrjahres-Benchmark exportiert (${benchmark.years.length} Kalenderjahre).`);
+}
+
+// Vorschlag 13: Kombi-Risiko/Burnout-Score je Person als CSV.
+function exportBurnoutCSV(range) {
+  const { rows } = computeBurnoutRisk(range);
+  if (!rows.length) return setStatus('Keine Risiko-Daten vorhanden.', false);
+  const out = [['Mitarbeitende', 'Kombi-Risiko-Score', 'Einstufung', 'Überlast-Score', 'WE-Überlast-Score', 'Häufungs-Score', 'Häufungen (Anzahl)', 'Δ Gesamtlast', 'Δ Wochenendlast']];
+  rows.forEach((r) => out.push([
+    r.emp, r.burnoutScore, r.level, r.overloadScore, r.weOverloadScore, r.clusterScore, r.clusterCount,
+    num(Math.round(r.totalDev * 10) / 10), num(Math.round(r.weekendDev * 10) / 10),
+  ]));
+  downloadCSV(out, `radplan_kombi-risiko_${range.key}_${range.year}.csv`);
+  setStatus(`Kombi-Risiko-Bericht exportiert (${rows.length} Mitarbeitende).`);
 }
 
 // --- PDF-Berichte ------------------------------------------------------------

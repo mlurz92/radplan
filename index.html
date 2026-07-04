@@ -39,9 +39,11 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/core.css">
   <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/agenda-view.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/chips.css">
   <link rel="stylesheet" href="css/modals-base.css">
+  <link rel="stylesheet" href="css/conflict-modal.css">
   <link rel="stylesheet" href="css/modals-autoplan.css">
   <link rel="stylesheet" href="css/modals-yearplan.css">
   <link rel="stylesheet" href="css/views.css">
@@ -55,6 +57,7 @@
   <link rel="stylesheet" href="css/analytics-compliance.css">
   <link rel="stylesheet" href="css/analytics-forecast.css">
   <link rel="stylesheet" href="css/analytics-reports.css">
+  <link rel="stylesheet" href="css/analytics-settings.css">
   <link rel="stylesheet" href="css/analytics-yeargrid.css">
   <link rel="stylesheet" href="css/analytics-curves.css">
   <link rel="stylesheet" href="css/print.css" media="print">
@@ -106,6 +109,21 @@
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true" id="btn-theme-icon-sun" style="display:none">
             <circle cx="12" cy="12" r="4"/>
             <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+          </svg>
+        </button>
+        <button type="button" class="hbtn-icon" id="btn-notifications" aria-haspopup="dialog" aria-expanded="false" aria-controls="notif-panel" title="Benachrichtigungen" aria-label="Benachrichtigungen öffnen" data-tooltip="Benachrichtigungszentrum: sammelt u. a. proaktive Hinweise auf neue kritische Regelkonformitäts-Verstöße im aktuell geöffneten Monat, statt dass sie nur bei manuellem Öffnen der Auswertungen sichtbar wären.">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="notif-badge" id="notif-badge" hidden>0</span>
+        </button>
+        <button type="button" class="hbtn-icon" id="btn-view-mode" aria-pressed="false" title="Zur Listenansicht wechseln" aria-label="Zwischen Matrix- und Listenansicht wechseln" data-tooltip="Wechselt zwischen der Matrix-Ansicht (alle Mitarbeitenden × alle Tage als Tabelle) und einer Listen-/Agenda-Ansicht (ein Eintrag pro Tag mit Dienstbesetzung) — z. B. für einen schnellen linearen Überblick oder bei sehr vielen Mitarbeitenden.">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true" id="btn-view-mode-icon-matrix">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+          </svg>
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true" id="btn-view-mode-icon-agenda" style="display:none">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
           </svg>
         </button>
       </div>
@@ -186,6 +204,21 @@
       <span class="hmenu-ico" aria-hidden="true"></span>
       <span class="hmenu-lbl">Server-Sync erzwingen</span>
     </button>
+  </div>
+
+  <!-- Vorschlag 27 (In-App-Benachrichtigungszentrum): persistente Liste statt
+       nur transienter Toasts. Vorschlag 12 (Proaktive Compliance-Benach-
+       richtigungen) speist hier automatisch neue kritische Regelkonformitäts-
+       Befunde ein, siehe js/notifications.js. -->
+  <div class="notif-panel" id="notif-panel" role="dialog" aria-label="Benachrichtigungen" hidden aria-hidden="true">
+    <div class="notif-panel-hd">
+      <span class="notif-panel-title">Benachrichtigungen</span>
+      <div class="notif-panel-actions">
+        <button type="button" class="notif-panel-action" id="notif-mark-all-read" data-tooltip="Alle Benachrichtigungen als gelesen markieren.">Alle gelesen</button>
+        <button type="button" class="notif-panel-action" id="notif-clear-all" data-tooltip="Alle Benachrichtigungen endgültig löschen.">Löschen</button>
+      </div>
+    </div>
+    <div class="notif-panel-list" id="notif-panel-list" aria-live="polite"></div>
   </div>
 
   <div class="period-flyout" id="period-flyout" hidden aria-hidden="true">
@@ -312,6 +345,10 @@
         <tbody id="plan-tbody"></tbody>
         <tfoot id="plan-tfoot"></tfoot>
       </table>
+    </div>
+    <div id="agenda-view" class="agenda-view" hidden>
+      <div id="agenda-summary" class="agenda-summary" role="status" aria-label="Monatsstatistik" aria-live="polite"></div>
+      <div id="agenda-day-list" class="agenda-day-list" role="list" aria-label="Tagesübersicht (Listenansicht)"></div>
     </div>
     <div id="print-footer" aria-hidden="true"></div>
     <div id="grid-kbd-hint" aria-hidden="true">
@@ -825,6 +862,24 @@
       <div class="modal-bd" id="ap-report-body"></div>
       <div class="modal-ft" style="background:#0F172A; border-top: 1px solid rgba(255,255,255,0.1);">
         <button type="button" class="mbtn mbtn-ghost" data-close="modal-ap-report" style="color:#E2E8F0; border-color:rgba(255,255,255,0.2);">Zurück</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-conflict" role="dialog" aria-modal="true" aria-labelledby="conflict-modal-title" hidden style="display:none">
+    <div class="modal modal-conflict">
+      <div class="modal-hd">
+        <div>
+          <div class="modal-hd-title" id="conflict-modal-title">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:-3px;margin-right:6px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Speicher-Konflikte <span class="ah-sub" data-tooltip="Felder, die seit dem letzten bekannten Server-Stand sowohl lokal als auch auf dem Server geändert wurden. RadPlan hat defensiv Ihren lokalen Stand behalten; hier können Sie pro Feld stattdessen den Server-Stand übernehmen.">— <span id="conflict-modal-count">0</span> offen</span>
+          </div>
+        </div>
+        <button type="button" class="modal-x" data-close="modal-conflict" aria-label="Schließen">✕</button>
+      </div>
+      <div class="modal-bd" id="conflict-modal-list"></div>
+      <div class="modal-ft">
+        <button type="button" class="mbtn mbtn-primary" data-close="modal-conflict">Fertig</button>
       </div>
     </div>
   </div>

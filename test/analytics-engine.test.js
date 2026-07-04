@@ -5,6 +5,7 @@ import { DATA } from "../js/state.js";
 import {
   computeForecast, computeCoverage, computeCompliance, computeAbsence,
   computeDutyFairnessForRange, getRange, computeMultiYearBenchmark, computeCombinedRiskMatrix,
+  computeBurnoutRisk, getThresholds, setThresholds, resetThresholds, DEFAULT_THRESHOLDS,
 } from "../js/analytics/engine.js";
 import { monthKey, daysInMonth, isWorkday, getSaxonyHolidaysCached } from "../js/constants.js";
 
@@ -325,6 +326,121 @@ describe("computeCombinedRiskMatrix (Vorschlag 16)", () => {
     const range = getRange("month", year, month);
     const combined = computeCombinedRiskMatrix(range);
     assert.equal(combined.strainedEmployees.length, 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Vorschlag 8: Burnout-/Belastungs-Risiko-Score.
+// ---------------------------------------------------------------------------
+describe("computeBurnoutRisk (Vorschlag 8)", () => {
+  beforeEach(resetData);
+
+  test("weist einer überlasteten, eng getakteten Person einen deutlich höheren Score zu als einer entlasteten", () => {
+    const year = 2026, month = 0;
+    // Dr. A: viele, eng getaktete Dienste (Häufung <3 Tage Abstand mehrfach).
+    // Dr. B: ein einzelner, isolierter Dienst.
+    buildMonthWithDuties(year, month, ["Dr. A", "Dr. B"], []);
+    const assignments = {
+      "Dr. A": {},
+      "Dr. B": { 20: { duty: "D" } },
+    };
+    [1, 2, 4, 6, 8].forEach((d) => { assignments["Dr. A"][d] = { duty: "D" }; });
+    DATA[monthKey(year, month)] = { employees: ["Dr. A", "Dr. B"], assignments, rbn: {}, comments: {} };
+
+    const range = getRange("month", year, month);
+    const burnout = computeBurnoutRisk(range);
+
+    const a = burnout.rows.find((r) => r.emp === "Dr. A");
+    const b = burnout.rows.find((r) => r.emp === "Dr. B");
+    assert.ok(a && b);
+    assert.ok(a.burnoutScore > b.burnoutScore, `Dr. A (${a.burnoutScore}) sollte höher eingestuft werden als Dr. B (${b.burnoutScore})`);
+    assert.ok(a.clusterCount > 0, "Dr. A muss mehrfache Dienst-Häufungen aufweisen");
+    assert.equal(b.clusterCount, 0, "Dr. B hat nur einen isolierten Dienst, keine Häufung");
+    // Score muss stets im gültigen [0,100]-Bereich bleiben.
+    burnout.rows.forEach((r) => {
+      assert.ok(r.burnoutScore >= 0 && r.burnoutScore <= 100, `Score außerhalb [0,100]: ${r.burnoutScore}`);
+    });
+  });
+
+  test("liefert für ein perfekt ausgeglichenes Team durchgängig niedrige Scores", () => {
+    const year = 2026, month = 1;
+    buildMonthWithDuties(year, month, ["Dr. A", "Dr. B"], [3, 17]);
+
+    const range = getRange("month", year, month);
+    const burnout = computeBurnoutRisk(range);
+    burnout.rows.forEach((r) => {
+      assert.equal(r.level, "niedrig", `${r.emp} sollte bei Gleichverteilung als 'niedrig' eingestuft werden (Score ${r.burnoutScore})`);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Vorschlag 14: Konfigurierbare Schwellenwerte (Fairness-Toleranzband,
+// Burnout-Einstufung, saisonaler Risiko-Faktor) wirken sich unmittelbar auf
+// die betroffenen Berechnungen aus und lassen sich zurücksetzen.
+// ---------------------------------------------------------------------------
+describe("Konfigurierbare Schwellenwerte (Vorschlag 14)", () => {
+  beforeEach(() => {
+    resetData();
+    resetThresholds();
+  });
+
+  test("resetThresholds() stellt die Standardwerte wieder her", () => {
+    setThresholds({ burnoutMidScore: 55 });
+    assert.equal(getThresholds().burnoutMidScore, 55);
+    resetThresholds();
+    assert.deepEqual(getThresholds(), DEFAULT_THRESHOLDS);
+  });
+
+  test("setThresholds() kappt Werte außerhalb der zulässigen Grenzen statt sie zu übernehmen", () => {
+    setThresholds({ fairnessTolerancePct: 999 });
+    assert.ok(getThresholds().fairnessTolerancePct <= 0.5);
+    setThresholds({ fairnessTolerancePct: -5 });
+    assert.ok(getThresholds().fairnessTolerancePct >= 0.05);
+  });
+
+  test("setThresholds() verhindert, dass die Burnout-Schwelle 'Hoch' auf/unter 'Mittel' fällt", () => {
+    setThresholds({ burnoutMidScore: 80, burnoutHighScore: 80 });
+    assert.ok(getThresholds().burnoutHighScore > getThresholds().burnoutMidScore);
+  });
+
+  test("ein engeres Fairness-Toleranzband stuft dieselbe Abweichung strenger ein", () => {
+    const year = 2026;
+    // Über das gesamte Jahr hinweg deutlich ungleich verteilte Dienste
+    // (Dr. A jeden 3. Tag, Dr. B jeden 4. Tag), damit die absolute
+    // Abweichung den festen Mindest-Toleranzwert von 1 klar übersteigt.
+    for (let m = 0; m < 12; m++) {
+      const dim = daysInMonth(year, m);
+      const assignments = { "Dr. A": {}, "Dr. B": {} };
+      for (let d = 1; d <= dim; d += 3) assignments["Dr. A"][d] = { duty: "D" };
+      for (let d = 2; d <= dim; d += 4) assignments["Dr. B"][d] = { duty: "D" };
+      DATA[monthKey(year, m)] = { employees: ["Dr. A", "Dr. B"], assignments, rbn: {}, comments: {} };
+    }
+    const range = getRange("year", year, 11);
+
+    setThresholds({ fairnessTolerancePct: 0.5 });
+    const wide = computeDutyFairnessForRange(range);
+    resetThresholds();
+    setThresholds({ fairnessTolerancePct: 0.05 });
+    const narrow = computeDutyFairnessForRange(range);
+
+    const wideStatuses = wide.rows.map((r) => r.status);
+    const narrowStatuses = narrow.rows.map((r) => r.status);
+    assert.ok(wideStatuses.every((s) => s === "balanced"), "breites Toleranzband sollte die Abweichung noch als 'balanced' werten");
+    assert.ok(narrowStatuses.some((s) => s !== "balanced"), "enges Toleranzband sollte dieselbe Abweichung als 'over'/'under' werten");
+  });
+
+  test("eine niedrigere Burnout-Mittel-Schwelle stuft dieselbe Person höher ein", () => {
+    const year = 2026, month = 3;
+    buildMonthWithDuties(year, month, ["Dr. A", "Dr. B"], []);
+    const assignments = { "Dr. A": {}, "Dr. B": { 20: { duty: "D" } } };
+    [1, 2, 4, 6, 8].forEach((d) => { assignments["Dr. A"][d] = { duty: "D" }; });
+    DATA[monthKey(year, month)] = { employees: ["Dr. A", "Dr. B"], assignments, rbn: {}, comments: {} };
+    const range = getRange("month", year, month);
+
+    setThresholds({ burnoutMidScore: 1, burnoutHighScore: 2 });
+    const strict = computeBurnoutRisk(range).rows.find((r) => r.emp === "Dr. A");
+    assert.equal(strict.level, "hoch");
   });
 });
 
