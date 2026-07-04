@@ -2830,6 +2830,39 @@ body.is-mobile .mcd {
 }
 
 /* ===========================================================================
+   Vorschlag 15: Persönliches Mitarbeiter-Dashboard (Tab "Dienste & Feiertage")
+   =========================================================================== */
+.pm-self-dashboard-area { margin-top: 4px; }
+.pm-self-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.pm-self-tile {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pm-self-tile-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.pm-self-conf { font-size: 10px; font-weight: 700; }
+.pm-self-tile-body { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.pm-self-big { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.pm-self-sub { font-size: 11px; color: var(--text-faint); }
+.pm-self-tile-foot { font-size: 10px; color: var(--text-faint); margin-top: 2px; }
+
+@media (max-width: 560px) {
+  .pm-self-grid { grid-template-columns: 1fr; }
+}
+
+/* ===========================================================================
    Team-/Abteilungs-Fairness (Team-Screen + Abteilungs-Jahresübersicht)
    =========================================================================== */
 .empdash-section-title {

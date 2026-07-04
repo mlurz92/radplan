@@ -4,7 +4,7 @@ import "./helpers/dom-stubs.js";
 import { DATA } from "../js/state.js";
 import {
   computeForecast, computeCoverage, computeCompliance, computeAbsence,
-  computeDutyFairnessForRange, getRange,
+  computeDutyFairnessForRange, getRange, computeMultiYearBenchmark, computeCombinedRiskMatrix,
 } from "../js/analytics/engine.js";
 import { monthKey, daysInMonth, isWorkday, getSaxonyHolidaysCached } from "../js/constants.js";
 
@@ -240,6 +240,94 @@ describe("computeCompliance — Ruhezeit-Check am Jahreswechsel (Issue 34)", () 
 // Issue 35: computeAbsence ist jetzt asynchron (Chunking), Aufrufer müssen
 // awaiten. Grundfunktion muss bei await weiterhin dieselben Ergebnisse liefern.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Vorschlag 11: Mehrjahres-Benchmarking im Jahresgitter.
+// ---------------------------------------------------------------------------
+describe("computeMultiYearBenchmark (Vorschlag 11)", () => {
+  beforeEach(resetData);
+
+  test("vergleicht mehrere Jahre und berechnet Delta-Kennzahlen ggü. dem Vorjahr", () => {
+    // 2019: perfekt gleichverteilt zwischen Dr. A und Dr. B -> Equity ~100.
+    buildMonthWithDuties(2019, 0, ["Dr. A", "Dr. B"], [3, 10]);
+    // 2020: nur Dr. A leistet Dienste, Dr. B bleibt im Roster aber ohne
+    // jeden Dienst -> deutlich schlechterer Equity-Index als 2019.
+    DATA[monthKey(2020, 0)] = {
+      employees: ["Dr. A", "Dr. B"],
+      assignments: { "Dr. A": { 3: { duty: "D" }, 10: { duty: "D" }, 17: { duty: "D" }, 24: { duty: "D" } } },
+      rbn: {}, comments: {},
+    };
+
+    const bench = computeMultiYearBenchmark(2020, 2);
+    assert.equal(bench.years.length, 2, "beide Jahre mit Personaldaten müssen enthalten sein");
+
+    const y2019 = bench.years.find((y) => y.year === 2019);
+    const y2020 = bench.years.find((y) => y.year === 2020);
+    assert.ok(y2019 && y2020);
+
+    assert.equal(y2019.team.equityTotal, 100, "perfekt gleichverteiltes Jahr hat Equity-Index 100");
+    assert.ok(y2020.team.equityTotal < y2019.team.equityTotal,
+      "ungleich verteiltes Jahr muss einen niedrigeren Equity-Index als das Vorjahr haben");
+
+    assert.equal(y2019.deltaEquityTotal, null, "das älteste verglichene Jahr hat kein Vorjahr-Delta");
+    assert.ok(y2020.deltaEquityTotal < 0, "Delta ggü. Vorjahr muss die Verschlechterung negativ abbilden");
+  });
+
+  test("Jahre ganz ohne Personaldaten werden übersprungen statt als Nullwerte zu erscheinen", () => {
+    buildMonthWithDuties(2020, 0, ["Dr. A"], [3]);
+    const bench = computeMultiYearBenchmark(2020, 4); // würde 2017-2020 abdecken
+    assert.equal(bench.years.length, 1, "nur 2020 hat tatsächlich Personaldaten");
+    assert.equal(bench.years[0].year, 2020);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Vorschlag 16: Kombinierte Coverage-/Fairness-Heatmap.
+// ---------------------------------------------------------------------------
+describe("computeCombinedRiskMatrix (Vorschlag 16)", () => {
+  beforeEach(resetData);
+
+  test("markiert einen vollständig besetzten Tag als 'Belastungs-Tag', wenn der Dienst nur durch eine bereits überlastete Person zustande kam", () => {
+    const year = 2026, month = 0;
+    // Dr. A trägt 10 BD (deutlich über fairem Anteil), Dr. B nur 1 BD + 1 HG.
+    const assignments = {
+      "Dr. A": {},
+      "Dr. B": { 11: { duty: "D" } },
+    };
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach((d) => { assignments["Dr. A"][d] = { duty: "D" }; });
+    // Tag 3: Dr. A (D, bereits überlastet) + Dr. B (HG) -> voll besetzt, aber
+    // nur dank einer bereits überdurchschnittlich belasteten Person (Dr. A).
+    assignments["Dr. B"][3] = { duty: "HG" };
+    DATA[monthKey(year, month)] = { employees: ["Dr. A", "Dr. B"], assignments, rbn: {}, comments: {} };
+    // Tag 20: komplett offen (weder D noch HG).
+
+    const range = getRange("month", year, month);
+    const combined = computeCombinedRiskMatrix(range);
+
+    const day3 = combined.days.find((d) => d.day === 3);
+    const day20 = combined.days.find((d) => d.day === 20);
+    assert.equal(day3.combinedStatus, "strain", "Tag 3 ist voll besetzt, aber nur durch eine überlastete Person");
+    assert.deepEqual(day3.strainOwners, ["Dr. A"]);
+    assert.equal(day20.combinedStatus, "gap", "Tag 20 ist komplett offen");
+
+    assert.ok(combined.strainDays >= 1);
+    assert.ok(combined.gapDays >= 1);
+
+    const strainedA = combined.strainedEmployees.find((s) => s.emp === "Dr. A");
+    assert.ok(strainedA, "Dr. A muss in der Rangliste der belasteten Personen auftauchen");
+    const expectedWeight = day3.weekendOrHoliday ? 2 : 1;
+    assert.equal(strainedA.strainScore, expectedWeight);
+    assert.ok(strainedA.totalDev > 0, "Dr. A muss über ihrem fairen Anteil liegen");
+  });
+
+  test("ein Zeitraum ohne jegliche Fairness-Unwucht liefert eine leere Belastungs-Rangliste", () => {
+    const year = 2026, month = 1;
+    buildMonthWithDuties(year, month, ["Dr. A", "Dr. B"], [3, 10]);
+    const range = getRange("month", year, month);
+    const combined = computeCombinedRiskMatrix(range);
+    assert.equal(combined.strainedEmployees.length, 0);
+  });
+});
+
 describe("computeAbsence — asynchrones Chunking (Issue 35)", () => {
   beforeEach(resetData);
 

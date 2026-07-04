@@ -7,7 +7,7 @@
 // ===========================================================================
 
 import {
-  computeCoverage, eachDay, fmt, scoreColor, MONTHS, MONTHS_SHORT, DOW_ABBR, TT, TTI,
+  computeCoverage, computeCombinedRiskMatrix, eachDay, fmt, scoreColor, MONTHS, MONTHS_SHORT, DOW_ABBR, TT, TTI,
 } from './engine.js';
 import { esc } from '../utils.js';
 
@@ -65,6 +65,20 @@ export default {
     if (!cov || !cov.totalDays) {
       root.innerHTML = `<div class="ah-empty">Für ${esc(range.label)} liegen keine Plandaten vor.</div>`;
       return;
+    }
+
+    // Vorschlag 16: kombinierte Coverage-/Fairness-Sicht – Tage, an denen ein
+    // Besetzungsengpass mit Fairness-Unwucht zusammenfällt, werden separat
+    // markiert und ausgewertet, statt nur die reine Lückenzahl zu zeigen.
+    let combined = null;
+    try {
+      combined = computeCombinedRiskMatrix(range);
+    } catch (_) {
+      combined = null;
+    }
+    const combinedByKey = new Map();
+    if (combined) {
+      combined.days.forEach((d) => combinedByKey.set(`${d.year}-${d.month}-${d.day}`, d));
     }
 
     // -- KPI-Reihe --------------------------------------------------------
@@ -126,12 +140,18 @@ export default {
         if (!day) { cells += '<div class="cov-cell cov-cell-empty"></div>'; continue; }
         const cls = [`cov-cell`, `cov-${day.status}`];
         if (day.weekendOrHoliday) cls.push('cov-wehol');
+        const combinedDay = combinedByKey.get(`${day.year}-${day.month}-${day.day}`);
+        const isStrain = combinedDay?.combinedStatus === 'strain';
+        if (isStrain) cls.push('cov-strain');
+        let title = dayTitle(day);
+        if (isStrain) title += ` · Belastungs-Tag: ${combinedDay.strainOwners.join(', ')} über fairem Anteil eingesetzt`;
         cells += `
-          <div class="${cls.join(' ')}" title="${esc(dayTitle(day))}">
+          <div class="${cls.join(' ')}" title="${esc(title)}">
             <span class="cov-daynum">${day.day}</span>
             <span class="cov-ind">
               <i class="cov-dot ${day.hasD ? 'cov-on' : 'cov-off'}" data-l="D"></i>
               <i class="cov-dot ${day.hasHG ? 'cov-on' : 'cov-off'}" data-l="H"></i>
+              ${isStrain ? '<i class="cov-strain-flag" data-tooltip="Belastungs-Tag: Lücke nur durch eine bereits überlastete Person geschlossen.">⚡</i>' : ''}
             </span>
           </div>`;
       }
@@ -152,6 +172,7 @@ export default {
         <span class="cov-leg" data-tooltip="${esc(TT.partialDays)}"><i class="cov-swatch cov-partial"></i> Teilbesetzt (D od. HG)</span>
         <span class="cov-leg" data-tooltip="${esc(TT.openDays)}"><i class="cov-swatch cov-none"></i> Offen</span>
         <span class="cov-leg" data-tooltip="Wochenende oder gesetzlicher Feiertag (Sachsen) – Lücken zählen hier doppelt im Risiko-Index."><i class="cov-swatch cov-wehol-swatch"></i> WE/Feiertag</span>
+        <span class="cov-leg" data-tooltip="${esc(TT.combinedRiskStrainDay)}"><i class="cov-strain-flag cov-strain-flag-legend">⚡</i> Belastungs-Tag</span>
       </div>`;
 
     const calHtml = `
@@ -196,7 +217,36 @@ export default {
         </div>`;
     }
 
-    root.innerHTML = `<div class="cov-module">${kpiHtml}${calHtml}${gapHtml}</div>`;
+    // -- Kombi-Risiko: Abdeckung × Fairness (Vorschlag 16) ------------------
+    let combinedHtml = '';
+    if (combined && (combined.strainDays > 0 || combined.strainedEmployees.length > 0)) {
+      const rows = combined.strainedEmployees.map((s) => `
+        <tr>
+          <td>${esc(s.emp)}</td>
+          <td class="ah-td-num" data-tooltip="${esc(TT.combinedRiskStrainScore)}">${s.strainScore}</td>
+          <td class="ah-td-num" style="color:#C2410C;font-weight:700">+${(s.totalDev).toFixed(1)}</td>
+          <td class="ah-td-num">${s.total} / ${s.fairTotal.toFixed(1)}</td>
+        </tr>`).join('');
+      combinedHtml = `
+        <div class="ah-section-title" data-tooltip="${esc(TT.combinedRisk)}">Kombi-Risiko: Abdeckung × Fairness <span class="ah-sub">— ${fmt.int(combined.strainDays)} Belastungs-Tag(e) im Zeitraum</span></div>
+        <p class="cov-combined-hint">${esc(TT.combinedRisk)}</p>
+        ${combined.strainedEmployees.length ? `
+          <div class="ah-table-wrap">
+            <table class="ah-table">
+              <thead>
+                <tr>
+                  <th style="text-align:left">Person</th>
+                  <th data-tooltip="${esc(TT.combinedRiskStrainScore)}">Belastungs-Score</th>
+                  <th data-tooltip="Abweichung der Gesamtdienste dieser Person vom fairen Anteil im Zeitraum (positiv = über dem fairen Anteil).">Überhang</th>
+                  <th data-tooltip="Tatsächliche Gesamtdienste im Zeitraum / rechnerisch fairer Anteil.">Ist / Fair</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>` : '<div class="ah-ok-banner">Keine Person hat im Zeitraum Lücken auf Kosten der Fairness geschlossen.</div>'}`;
+    }
+
+    root.innerHTML = `<div class="cov-module">${kpiHtml}${calHtml}${combinedHtml}${gapHtml}</div>`;
   },
 
   dispose() {

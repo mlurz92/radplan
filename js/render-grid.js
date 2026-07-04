@@ -40,7 +40,8 @@ import {
   getRbnValue,
   dayCodeCount,
   dayPresentCount,
-  getComment
+  getComment,
+  canMoveDutyBadge
 } from './model.js';
 
 import {
@@ -79,6 +80,15 @@ const dragSelectionState = {
 // isDragHandleInteraction() genutzt, damit Mehrfachauswahl- und Popover-Logik
 // nie gleichzeitig mit einem Badge-Drag auf derselben Zelle auslösen können.
 let dutyDragActive = false;
+
+// Vorschlag 26 (Natives Drag-and-Drop): Quelle der aktuell laufenden
+// Badge-Drag-Geste, damit dragover() die Ziel-Zelle bereits WÄHREND des
+// Ziehens auf Gültigkeit prüfen kann (dataTransfer.getData() liefert im
+// dragover-Event aus Sicherheitsgründen in den meisten Browsern keine Nutzdaten,
+// nur die Typen) und entsprechend rot (ungültig) statt blau (gültig) markieren
+// kann – nicht erst beim tatsächlichen Drop feststellen, dass der Zielplatz
+// bereits belegt ist.
+let dutyDragSource = null; // { emp, day, dutyCode } | null
 
 /**
  * Einzige Quelle der Wahrheit dafür, ob ein Maus-Ereignis auf einer Zelle dem
@@ -345,7 +355,11 @@ export function scrollToToday() {
   }
 
   const todayCol = /** @type {HTMLElement} */ (document.querySelector("#plan-thead th.today"));
-  const todayCell = document.querySelector("#plan-tbody td.today-col");
+  // Bugfix: die Zellklasse für "heute" heißt im Tabellenkörper "today" (siehe
+  // createGridCellElement) – "today-col" existiert nur im Statistik-Fuß
+  // (computeTfootCellState). Mit dem falschen Selektor fand dieser Aufruf nie
+  // eine Zelle, wodurch der vertikale Scroll-zu-heute-Effekt nie auslöste.
+  const todayCell = document.querySelector("#plan-tbody td.today");
   const gridWrapper = document.getElementById("grid-wrapper");
 
   if (todayCell) {
@@ -415,6 +429,7 @@ function focusAdjacentCell(currentCell, rowDelta, colDelta) {
         : targetRow.previousElementSibling;
     }
     if (!targetRow) return;
+    ensureRowHydrated(targetRow);
     const allCells = targetRow.querySelectorAll('.td-cell');
     for (const c of allCells) {
       if (parseInt(c.dataset.day, 10) === day) {
@@ -1147,31 +1162,46 @@ function bindCellListeners(tdEl, emp, d) {
     const dutyBadge = tdEl.querySelector(".cell-duty");
     if (dutyBadge) {
       dutyBadge.draggable = true;
+      dutyBadge.setAttribute(
+        "data-tooltip",
+        `${dutyBadge.textContent === "HG" ? "Hintergrunddienst" : "Bereitschaftsdienst"} per Ziehen (Drag & Drop) auf einen anderen Tag oder eine andere Person verschieben.`
+      );
       dutyBadge.addEventListener("dragstart", (e) => {
         // Markiert die Badge-Drag-Geste als aktiv und schließt ein Popover,
         // das durch den Fokuswechsel beim vorangehenden mousedown eventuell
         // schon geöffnet wurde (focus feuert vor dragstart) – siehe
         // isDragHandleInteraction() weiter oben.
         dutyDragActive = true;
+        dutyDragSource = { emp, day: d, dutyCode: dutyBadge.textContent };
         closeCellQuickPopover();
         e.dataTransfer.setData("text/plain", JSON.stringify({ emp, day: d }));
         e.dataTransfer.effectAllowed = "move";
       });
       dutyBadge.addEventListener("dragend", () => {
         dutyDragActive = false;
+        dutyDragSource = null;
       });
     }
 
     tdEl.addEventListener("dragover", (e) => {
       e.preventDefault();
-      tdEl.classList.add("drag-over");
+      // Vorschlag 26 (Detailtiefe): Ziel-Zelle bereits während des Ziehens auf
+      // Gültigkeit prüfen – über dieselbe canMoveDutyBadge()-Prüfung wie
+      // moveDutyBadge() selbst (model.js), damit Vorschau und tatsächlicher
+      // Drop niemals auseinanderdriften können. Statt erst beim Loslassen per
+      // Toast zu melden: rot statt blau, wenn der Drop hier fehlschlagen würde.
+      const { year: dragY, month: dragM } = state;
+      const valid = !dutyDragSource || canMoveDutyBadge(dragY, dragM, dutyDragSource.emp, dutyDragSource.day, emp, d, dutyDragSource.dutyCode).ok;
+      tdEl.classList.toggle("drag-over", valid);
+      tdEl.classList.toggle("drag-over-invalid", !valid);
+      e.dataTransfer.dropEffect = valid ? "move" : "none";
     });
     tdEl.addEventListener("dragleave", () => {
-      tdEl.classList.remove("drag-over");
+      tdEl.classList.remove("drag-over", "drag-over-invalid");
     });
     tdEl.addEventListener("drop", (e) => {
       e.preventDefault();
-      tdEl.classList.remove("drag-over");
+      tdEl.classList.remove("drag-over", "drag-over-invalid");
       let payload;
       try {
         payload = JSON.parse(e.dataTransfer.getData("text/plain"));
@@ -1357,6 +1387,84 @@ function createGridCellElement(y, m, emp, d, hols, gridConflicts) {
   return tdEl;
 }
 
+// ===========================================================================
+//  Vorschlag 25: Grid-Virtualisierung für große Teams
+// ---------------------------------------------------------------------------
+//  Bei realistischen Teamgrößen (typischerweise < 40 Personen) erzeugt das
+//  volle Rendern jeder Zelle keine spürbaren Performance-Probleme. Wächst das
+//  Team jedoch deutlich (Abteilungszusammenlegung, große Klinik), würde jede
+//  Neuberechnung des Rasters sämtliche Zellen inkl. Event-Listenern, Icons
+//  und Konfliktprüfung sofort aufbauen — unabhängig davon, ob sie überhaupt
+//  sichtbar sind. Ab VIRTUALIZE_ROW_THRESHOLD Personen werden daher nur die
+//  ersten EAGER_ROW_COUNT Zeilen (deckt jeden realistischen Viewport plus
+//  Puffer ab) sofort vollständig gerendert; alle weiteren Zeilen erhalten
+//  zunächst nur eine leichte Platzhalter-Zelle und werden erst „hydratisiert"
+//  (vollständig aufgebaut), sobald sie sich dem sichtbaren Bereich nähern
+//  (IntersectionObserver mit Vorlade-Rand) oder per Tastatur erreicht werden.
+//  Die Zeile (<tr>) und ihre Namens-Zelle existieren dabei von Anfang an
+//  unverändert – Tastaturnavigation, Tab-Reihenfolge, Drag-Auswahl und Druck
+//  bleiben dadurch vollständig funktionsfähig; nur der teure Tages-Zellen-
+//  Aufbau wird verzögert. Bei Teams unterhalb der Schwelle ändert sich das
+//  Verhalten nicht (kein Risiko einer Regression im Normalfall).
+const VIRTUALIZE_ROW_THRESHOLD = 24;
+const EAGER_ROW_COUNT = 18;
+let _rowHydrationObserver = null;
+
+/** Baut die Platzhalter-Zelle einer noch nicht hydratisierten Zeile. */
+function buildPendingRowCell(dim) {
+  const td = document.createElement("td");
+  td.className = "td-cell-pending";
+  td.colSpan = dim;
+  td.setAttribute("aria-hidden", "true");
+  return td;
+}
+
+/**
+ * Baut die vollständigen Tages-Zellen einer virtualisierten Zeile auf und
+ * ersetzt die Platzhalter-Zelle. Idempotent: bereits hydratisierte Zeilen
+ * werden übersprungen, damit mehrfache Trigger (Observer + Tastatur) sich
+ * nicht gegenseitig stören.
+ */
+function hydrateRow(tr, y, m, emp, dim, hols, gridConflicts) {
+  if (tr.dataset.virtualPending !== "1") return;
+  const pendingCell = tr.querySelector(".td-cell-pending");
+  const frag = document.createDocumentFragment();
+  for (let d = 1; d <= dim; d++) {
+    frag.appendChild(createGridCellElement(y, m, emp, d, hols, gridConflicts));
+  }
+  if (pendingCell) pendingCell.replaceWith(frag);
+  else tr.appendChild(frag);
+  delete tr.dataset.virtualPending;
+}
+
+/**
+ * Stellt sicher, dass eine Zeile vollständig aufgebaut ist, bevor auf ihre
+ * Tages-Zellen zugegriffen wird (z. B. bei Tastatur-Navigation über den
+ * eager gerenderten Bereich hinaus). Muss VOR jedem `.td-cell`-Zugriff auf
+ * eine potenziell virtuelle Zeile aufgerufen werden.
+ */
+export function ensureRowHydrated(tr) {
+  if (!tr || tr.dataset.virtualPending !== "1") return;
+  const { year: y, month: m } = state;
+  const hols = getSaxonyHolidaysCached(y);
+  const gridConflicts = computeGridConflicts(y, m);
+  const dim = daysInMonth(y, m);
+  hydrateRow(tr, y, m, tr.dataset.emp, dim, hols, gridConflicts);
+}
+
+/**
+ * Hydratisiert ALLE noch virtuellen Zeilen sofort. Muss von jeder Funktion
+ * aufgerufen werden, die das gesamte Raster als DOM ausliest (Druck-/PDF-
+ * Export, CSV-Export, "Alles auswählen") statt nur einzelne Zellen gezielt zu
+ * adressieren – sonst blieben virtualisierte Zeilen dort fälschlich leer.
+ */
+export function hydrateAllPendingRows() {
+  const pending = document.querySelectorAll('#plan-tbody tr[data-virtual-pending="1"]');
+  if (!pending.length) return;
+  if (_rowHydrationObserver) { _rowHydrationObserver.disconnect(); _rowHydrationObserver = null; }
+  pending.forEach((tr) => ensureRowHydrated(/** @type {HTMLElement} */ (tr)));
+}
+
 export function renderTbody(y, m, dim, hols, md) {
   const tbody = document.getElementById("plan-tbody");
   tbody.innerHTML = "";
@@ -1382,14 +1490,17 @@ export function renderTbody(y, m, dim, hols, md) {
     return "other";
   };
   let prevBand = null;
+  const shouldVirtualize = employeesToRender.length > VIRTUALIZE_ROW_THRESHOLD;
+  const pendingRows = [];
 
-  employeesToRender.forEach((emp) => {
+  employeesToRender.forEach((emp, empIdx) => {
     const meta = getEmpMeta(emp);
     const pc = posColor(meta.position);
     const band = roleBand(meta.position);
 
     const tr = document.createElement("tr");
     tr.dataset.band = band;
+    tr.dataset.emp = emp;
     if (band !== prevBand) {
       tr.classList.add("tr-band-start");
       prevBand = band;
@@ -1451,18 +1562,46 @@ export function renderTbody(y, m, dim, hols, md) {
     });
     
     tr.appendChild(tdN);
-    
-    for (let d = 1; d <= dim; d++) {
-      const tdEl = createGridCellElement(y, m, emp, d, hols, gridConflicts);
-      tr.appendChild(tdEl);
+
+    if (shouldVirtualize && empIdx >= EAGER_ROW_COUNT) {
+      tr.dataset.virtualPending = "1";
+      tr.appendChild(buildPendingRowCell(dim));
+      pendingRows.push(tr);
+    } else {
+      for (let d = 1; d <= dim; d++) {
+        const tdEl = createGridCellElement(y, m, emp, d, hols, gridConflicts);
+        tr.appendChild(tdEl);
+      }
     }
-    
+
     tr.addEventListener('mouseenter', () => tr.classList.add('tr-hover'));
     tr.addEventListener('mouseleave', () => tr.classList.remove('tr-hover'));
-    
+
     tbody.appendChild(tr);
   });
-  
+
+  if (_rowHydrationObserver) { _rowHydrationObserver.disconnect(); _rowHydrationObserver = null; }
+  if (pendingRows.length && typeof IntersectionObserver !== 'undefined') {
+    // Vorlade-Rand von 600px sorgt dafür, dass Zeilen bereits hydratisiert
+    // sind, bevor sie tatsächlich sichtbar werden (kein sichtbares Nachladen
+    // beim Scrollen). Der Grid-Container selbst ist der scrollende Vorfahr.
+    const scrollRoot = document.getElementById('grid-wrapper') || null;
+    _rowHydrationObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const row = /** @type {HTMLElement} */ (entry.target);
+        hydrateRow(row, y, m, row.dataset.emp, dim, hols, gridConflicts);
+        _rowHydrationObserver.unobserve(row);
+      });
+    }, { root: scrollRoot, rootMargin: "600px 0px", threshold: 0 });
+    pendingRows.forEach((row) => _rowHydrationObserver.observe(row));
+  } else if (pendingRows.length) {
+    // Kein IntersectionObserver verfügbar (z. B. sehr alter Browser) – sofort
+    // vollständig rendern, damit die Funktionalität nicht stillschweigend
+    // ausfällt. Verliert nur den Performance-Vorteil, nicht die Korrektheit.
+    pendingRows.forEach((row) => hydrateRow(row, y, m, row.dataset.emp, dim, hols, gridConflicts));
+  }
+
   if (isRbnMonthVisible(y, m)) {
     const tr = document.createElement("tr");
     tr.className = "tr-rbn";
@@ -1490,8 +1629,19 @@ export function updateGridCell(emp, d) {
   const { year: y, month: m } = state;
   const hols = getSaxonyHolidaysCached(y);
   const gridConflicts = computeGridConflicts(y, m);
-  
-  const oldCell = document.querySelector(`#plan-tbody td.td-cell[data-emp="${emp}"][data-day="${d}"]`);
+
+  let oldCell = document.querySelector(`#plan-tbody td.td-cell[data-emp="${emp}"][data-day="${d}"]`);
+  if (!oldCell) {
+    // Nicht gefunden: die Zeile dieser Person könnte noch nicht hydratisiert
+    // sein (Vorschlag 25 Grid-Virtualisierung) – dann einmalig vollständig
+    // aufbauen und erneut suchen. Der zusätzliche Zeilen-Lookup entsteht damit
+    // nur im (seltenen) virtuellen Fall, nicht bei jedem Zell-Update.
+    const ownerRow = document.querySelector(`#plan-tbody tr[data-emp="${CSS.escape(emp)}"]`);
+    if (ownerRow) {
+      ensureRowHydrated(ownerRow);
+      oldCell = document.querySelector(`#plan-tbody td.td-cell[data-emp="${emp}"][data-day="${d}"]`);
+    }
+  }
   if (oldCell) {
     const wasFocused = document.activeElement === oldCell;
     const newCell = createGridCellElement(y, m, emp, d, hols, gridConflicts);

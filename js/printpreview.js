@@ -13,6 +13,7 @@
 import { state, planMode } from './state.js';
 import { MONTHS, CODE_MAP } from './constants.js';
 import { showToast } from './render-modals.js';
+import { hydrateAllPendingRows } from './render-grid.js';
 
 let modalEl = null;
 let options = { orientation: 'landscape', includeRbn: true };
@@ -71,6 +72,12 @@ function dayHeaderText(th) {
 function extractGrid(includeRbn) {
   const table = document.getElementById('plan-table');
   if (!table) return null;
+
+  // Vorschlag 25 (Grid-Virtualisierung): bei großen Teams sind ggf. noch
+  // nicht alle Zeilen im DOM vollständig aufgebaut. Vor dem Auslesen für
+  // Druck/PDF müssen ausnahmslos ALLE Zeilen vollständig vorliegen, sonst
+  // erschienen virtualisierte Personen fälschlich als leere Zeilen im PDF.
+  hydrateAllPendingRows();
 
   const headCells = [...table.querySelectorAll('#plan-thead th')];
   const head = headCells.map((th, i) => (i === 0 ? 'Mitarbeiter/in' : dayHeaderText(th)));
@@ -548,11 +555,11 @@ function buildModal() {
       </div>
       <div class="modal-ft">
         <button type="button" class="mbtn mbtn-ghost" data-pp-close>Abbrechen</button>
-        <button type="button" class="mbtn mbtn-ghost" id="pp-pdf">
+        <button type="button" class="mbtn mbtn-ghost" id="pp-pdf" data-tooltip="Erzeugt direkt im Browser ein mehrseitiges PDF-Dokument (ohne Systemdruckdialog) und lädt es herunter.">
           <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:5px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           Als PDF speichern
         </button>
-        <button type="button" class="mbtn mbtn-primary" id="pp-print">
+        <button type="button" class="mbtn mbtn-primary" id="pp-print" data-tooltip="Öffnet den Systemdruckdialog des Browsers für den aktuellen Monat.">
           <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" style="margin-right:5px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
           Drucken
         </button>
@@ -595,6 +602,12 @@ function closePreview() {
 }
 
 export function openPrintPreview() {
+  // Vorschlag 25 (Grid-Virtualisierung): die Druckvorschau klont/liest
+  // #plan-table direkt aus dem DOM – etwaige noch nicht hydratisierte
+  // (virtualisierte) Zeilen müssen vorher vollständig aufgebaut werden,
+  // sonst erschienen große Teams im Druck/PDF mit leeren Zeilen.
+  hydrateAllPendingRows();
+
   if (!modalEl) modalEl = buildModal();
 
   // Standard: Querformat, RBN inklusive.

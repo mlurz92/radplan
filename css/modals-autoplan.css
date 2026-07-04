@@ -1324,6 +1324,112 @@
   white-space: nowrap;
 }
 
+/* Vorschlag 1: vollständige Punktzahl-Aufschlüsselung im "Warum?"-Panel */
+.ap-report-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(var(--ink-rgb),0.08);
+}
+
+.ap-report-breakdown-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 10.5px;
+}
+
+.ap-report-breakdown-label {
+  color: #CBD5E1;
+  overflow-wrap: anywhere;
+}
+
+.ap-report-breakdown-delta {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.ap-report-breakdown-delta.is-pos { color: #4ADE80; }
+.ap-report-breakdown-delta.is-neg { color: #F87171; }
+
+/* Vorschlag 9: transparente Konflikt-Eskalation je Zuweisung */
+.ap-report-relax-note {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: rgba(249,115,22,0.1);
+  border: 1px solid rgba(249,115,22,0.3);
+  border-radius: var(--radius-xs);
+  font-size: 10.5px;
+  color: #FDBA74;
+  line-height: 1.5;
+}
+
+.ap-report-relax-note strong {
+  color: #FB923C;
+}
+
+/* Vorschlag 9: Regel-Eskalationen-Übersicht im Ergebnis-Dialog */
+.ap-escalation-hint {
+  font-size: 10.5px;
+  color: #94A3B8;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.ap-escalation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ap-escalation-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0,1fr);
+  align-items: baseline;
+  gap: 6px 10px;
+  padding: 6px 8px;
+  background: #1E293B;
+  border: 1px solid rgba(var(--ink-rgb),0.07);
+  border-radius: var(--radius-xs);
+  font-size: 11px;
+}
+
+.ap-escalation-sev {
+  grid-row: 1 / 3;
+  align-self: center;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #fff;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.ap-escalation-phase {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #64748B;
+}
+
+.ap-escalation-label {
+  font-weight: 700;
+  color: #CBD5E1;
+}
+
+.ap-escalation-detail {
+  grid-column: 2 / 4;
+  color: #94A3B8;
+  overflow-wrap: anywhere;
+}
+
 .score-dashboard {
   display: flex;
   flex-direction: column;

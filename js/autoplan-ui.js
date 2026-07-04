@@ -236,10 +236,10 @@ export async function renderAutoPlanModal(renderToken = null) {
               <span class="ap-card-name">${esc(e)}</span>
               <span class="ap-card-pos" style="color:${pc.border}">${esc(meta.posLabel)}</span>
             </div>
-            <div class="ap-input-stepper">
-              <button type="button" class="ap-step-btn minus" data-emp="${esc(e)}">−</button>
+            <div class="ap-input-stepper" data-tooltip="Individuelles Monatsziel an Bereitschaftsdiensten für ${esc(e)}. Der Neural Scheduler versucht, exakt diese Anzahl zuzuteilen.">
+              <button type="button" class="ap-step-btn minus" data-emp="${esc(e)}" data-tooltip="BD-Ziel um 1 verringern.">−</button>
               <input type="number" class="ap-card-input" data-emp="${esc(e)}" value="${target}" min="0" max="10" step="1" readonly>
-              <button type="button" class="ap-step-btn plus" data-emp="${esc(e)}">+</button>
+              <button type="button" class="ap-step-btn plus" data-emp="${esc(e)}" data-tooltip="BD-Ziel um 1 erhöhen.">+</button>
             </div>
           </div>
           
@@ -262,9 +262,9 @@ export async function renderAutoPlanModal(renderToken = null) {
 
         <div class="ap-config-footer">
           <div style="flex:1; display:flex; gap:8px;">
-            <button type="button" class="mbtn mbtn-ghost" id="ap-reset-defaults" style="font-size:11px; padding:6px 12px;">Standardwerte</button>
+            <button type="button" class="mbtn mbtn-ghost" id="ap-reset-defaults" style="font-size:11px; padding:6px 12px;" data-tooltip="Setzt alle individuellen BD-Ziele oben auf das automatisch berechnete Standard-Monatsziel je Person zurück.">Standardwerte</button>
           </div>
-          <button type="button" class="ap-compute-btn" id="ap-compute">
+          <button type="button" class="ap-compute-btn" id="ap-compute" data-tooltip="Startet den Neural Scheduler mit der aktuellen Konfiguration (Ziele, Gewichtung) und berechnet einen vollständigen Dienstplanvorschlag für den Monat.">
             <svg class="ap-compute-icon" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
               <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 0l2.83-2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48 0l2.83 2.83"/>
             </svg>
@@ -611,11 +611,18 @@ export function renderResultView() {
   
   const { summary } = localAutoPlanResult;
   const qualityRaw = summary.quality || {};
+  // Bugfix: bdSpread/hgSpread/weekendSpread sind Standardabweichungen
+  // (computeFairnessSpread() in autoplan.js) und damit i. d. R. irrationale
+  // Kommazahlen (z. B. 0.5994789404108991) – ungerundet wurden bisher bis zu
+  // 12 Nachkommastellen direkt im UI angezeigt. Für die Anzeige auf eine
+  // Nachkommastelle runden, exakt wie an anderer Stelle im Auswertungs-Hub
+  // (fmt.dec1) üblich.
+  const round1 = (n) => Math.round((Number(n) || 0) * 10) / 10;
   const quality = {
     score: String(qualityRaw.score || "0.0"),
-    bdSpread: Number(qualityRaw.bdSpread) || 0,
-    hgSpread: Number(qualityRaw.hgSpread) || 0,
-    weekendSpread: Number(qualityRaw.weekendSpread) || 0,
+    bdSpread: round1(qualityRaw.bdSpread),
+    hgSpread: round1(qualityRaw.hgSpread),
+    weekendSpread: round1(qualityRaw.weekendSpread),
     wishFulfillmentRate: Number(qualityRaw.wishFulfillmentRate) || 0,
     dutyCoverageMisses: Number(qualityRaw.dutyCoverageMisses) || 0,
     hgCoverageMisses: Number(qualityRaw.hgCoverageMisses) || 0,
@@ -623,9 +630,14 @@ export function renderResultView() {
   };
   const qualityTooltips = {
     score: "Neural Fitness Index (NFI). Der komprimierte Wert für Abdeckung, Fairness und Regelkonformität.",
-    bdSpread: "Differenz zwischen der höchsten und niedrigsten Anzahl an Bereitschaftsdiensten je Person.",
-    hgSpread: "Differenz zwischen der höchsten und niedrigsten Anzahl an Hintergrunddiensten je Person.",
-    weekendSpread: "Differenz der Dienstverteilung an Wochenenden/Feiertagen zwischen den Mitarbeitenden.",
+    // Bugfix: computeFairnessSpread() berechnet die Standardabweichung
+    // (Wurzel der mittleren quadrierten Abweichung vom Durchschnitt), nicht
+    // die Differenz zwischen höchstem und niedrigstem Wert – der bisherige
+    // Tooltip-Text beschrieb also eine andere Kennzahl als tatsächlich
+    // angezeigt wurde.
+    bdSpread: "Standardabweichung der Bereitschaftsdienst-Anzahl zwischen den Mitarbeitenden (0 = perfekt gleich verteilt).",
+    hgSpread: "Standardabweichung der Hintergrunddienst-Anzahl zwischen den Mitarbeitenden (0 = perfekt gleich verteilt).",
+    weekendSpread: "Standardabweichung der Wochenend-/Feiertagsdienste zwischen den Mitarbeitenden (0 = perfekt gleich verteilt).",
     wishes: "Prozentanteil erfüllter Dienstwünsche im gewählten Monat.",
     gaps: "Summe der Tage ohne BD- oder HG-Besetzung.",
     deepMoves: "Anzahl zusätzlicher Optimierungsschritte in der finalen Suchphase."
@@ -698,8 +710,8 @@ export function renderResultView() {
                 <div class="ap-alt-card-stats">
                   <span title="${qualityTooltips.score}">NFI <strong>${aq.score || "0.0"}</strong></span>
                   <span title="${qualityTooltips.wishes}">Wünsche <strong>${Math.round((aq.wishFulfillmentRate || 0) * 100)}%</strong></span>
-                  <span title="${qualityTooltips.bdSpread}">BD-Streuung <strong>${aq.bdSpread ?? 0}</strong></span>
-                  <span title="${qualityTooltips.hgSpread}">HG-Streuung <strong>${aq.hgSpread ?? 0}</strong></span>
+                  <span title="${qualityTooltips.bdSpread}">BD-Streuung <strong>${round1(aq.bdSpread)}</strong></span>
+                  <span title="${qualityTooltips.hgSpread}">HG-Streuung <strong>${round1(aq.hgSpread)}</strong></span>
                 </div>
                 ${isActive ? "" : `<button type="button" class="mbtn mbtn-ghost ap-alt-use-btn" data-profile="${key}" style="width:100%; margin-top:8px; font-size:11px; padding:6px 10px; justify-content:center;">Diesen Plan verwenden</button>`}
               </div>
@@ -862,6 +874,55 @@ export function renderResultView() {
     `;
   }
 
+  // Vorschlag 9 (Transparente Konflikt-Eskalation): dedizierte Übersicht aller
+  // Regel-Lockerungen/-Eskalationen aus ruleTelemetry.events, statt nur eines
+  // Zählers während der Ladeanimation. Jeder Eintrag benennt Phase, konkrete
+  // Regel und (soweit vorhanden) den exakten Tag/die betroffene Person.
+  const escalationEvents = (localAutoPlanResult.ruleTelemetry?.events || []).filter(ev => ev.severity === "warn" || ev.severity === "critical");
+  if (escalationEvents.length) {
+    const severityMeta = {
+      critical: { bg: "#DC2626", label: "Kritisch" },
+      warn: { bg: "#F97316", label: "Eskalation" }
+    };
+    const phaseLabels = {
+      bd_weekend: "BD Wochenende/Feiertag",
+      bd_workday: "BD Werktag",
+      hg_assign: "HG-Erstverteilung",
+      coverage_repair: "Coverage-Zwangsbelegung",
+      validate: "Abschlussprüfung"
+    };
+    html += `
+      <div class="ap-collapse-wrap">
+        <div class="ap-collapse-head" onclick="this.parentElement.classList.toggle('is-collapsed')">
+          <div class="ap-collapse-title">
+            <span class="ap-sect-badge" style="background:#F97316;color:#fff">⚠</span>
+            Regel-Eskalationen (${escalationEvents.length})
+          </div>
+          <svg class="ap-collapse-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="ap-collapse-content">
+          <div class="ap-collapse-content-inner">
+            <div class="ap-collapse-content-pad">
+              <div class="ap-escalation-hint">Jede Zeile benennt exakt, welche Regel wann und wo gelockert oder zwangsweise aufgehoben wurde, statt nur die Gesamtzahl zu nennen.</div>
+              <div class="ap-escalation-list">
+                ${escalationEvents.map(ev => `
+                  <div class="ap-escalation-row">
+                    <span class="ap-escalation-sev" style="background:${(severityMeta[ev.severity] || severityMeta.warn).bg}">${(severityMeta[ev.severity] || severityMeta.warn).label}</span>
+                    <span class="ap-escalation-phase">${esc(phaseLabels[ev.phase] || ev.phase || "—")}</span>
+                    <span class="ap-escalation-label">${esc(ev.label)}</span>
+                    <span class="ap-escalation-detail">${esc(ev.detail || "")}</span>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   html += `
     <div class="ap-config-actions" style="margin-top:20px">
       <button class="mbtn mbtn-ghost" id="ap-back-config">Konfiguration ändern &amp; neu berechnen</button>
@@ -908,8 +969,15 @@ export function renderReportModal() {
     const wd = weekday(y, m, item.day);
     const dName = DOW_LONG[wd];
     const holNm = hols[dateKey(y, m, item.day)] || "";
-    
+
     const hasAlternatives = Array.isArray(item.alternatives) && item.alternatives.length > 0;
+    // Vorschlag 1 (Erklärbarkeit): vollständige Punktzahl-Aufschlüsselung, die
+    // zusätzlich zu den knappen Tags jeden einzelnen Score-Beitrag benennt.
+    const hasBreakdown = Array.isArray(item.breakdown) && item.breakdown.length > 0;
+    const hasWhy = hasAlternatives || hasBreakdown;
+    // Vorschlag 9 (Transparente Konflikt-Eskalation): benennt exakt, welche
+    // Regel(n) für diese Zuweisung gelockert/aufgehoben wurden.
+    const hasRelaxNote = Array.isArray(item.relaxReasons) && item.relaxReasons.length > 0;
 
     const itemEl = document.createElement("div");
     itemEl.className = "ap-report-item";
@@ -918,22 +986,40 @@ export function renderReportModal() {
         <span class="ap-report-date">${esc(dName)}, ${item.day}. ${esc(MONTHS_SHORT[m])} ${holNm ? "(" + esc(holNm) + ")" : ""}</span>
         <span class="ap-report-duty ${esc(item.duty)}">${esc(item.duty)}</span>
         <span class="ap-report-emp">${esc(item.emp)}</span>
-        ${hasAlternatives ? `<button type="button" class="ap-report-why-btn">Warum ${esc(item.emp)}?</button>` : ""}
+        ${hasWhy ? `<button type="button" class="ap-report-why-btn" title="Vollständige Punktzahl-Aufschlüsselung und verworfene Alternativen anzeigen">Warum ${esc(item.emp)}?</button>` : ""}
       </div>
       <div class="ap-report-body">${esc(item.reason)}</div>
+      ${hasRelaxNote ? `
+        <div class="ap-report-relax-note" title="Diese Regel(n) wurden bei dieser Zuweisung ausnahmsweise gelockert bzw. aufgehoben, weil keine reguläre Lösung mehr gefunden wurde.">
+          <strong>Regel-Eskalation:</strong> ${item.relaxReasons.map(r => esc(r)).join(" ")}
+        </div>
+      ` : ""}
       <div class="ap-report-tags">
         ${item.tags.map(t => `<span class="ap-report-tag">${esc(t)}</span>`).join("")}
       </div>
-      ${hasAlternatives ? `
+      ${hasWhy ? `
         <div class="ap-report-alts" hidden>
-          <div class="ap-report-alts-lbl">Nächstbeste Alternativen (verworfen):</div>
-          ${item.alternatives.map((a) => `
-            <div class="ap-report-alt-row">
-              <span class="ap-report-alt-emp">${esc(a.emp)}</span>
-              <span class="ap-report-alt-score">Score ${a.score}</span>
-              <span class="ap-report-alt-tags">${esc(a.tags.join(" · ") || "—")}</span>
+          ${hasBreakdown ? `
+            <div class="ap-report-alts-lbl">Vollständige Punktzahl-Aufschlüsselung (Summe = ${esc(String(Math.round(item.breakdown.reduce((s, b) => s + (Number.isFinite(b.delta) ? b.delta : 0), 0))))}):</div>
+            <div class="ap-report-breakdown">
+              ${item.breakdown.map((b) => `
+                <div class="ap-report-breakdown-row">
+                  <span class="ap-report-breakdown-label">${esc(b.label)}</span>
+                  <span class="ap-report-breakdown-delta ${b.delta >= 0 ? "is-pos" : "is-neg"}">${b.delta === -Infinity ? "Ausschluss" : (b.delta > 0 ? "+" : "") + b.delta}</span>
+                </div>
+              `).join("")}
             </div>
-          `).join("")}
+          ` : ""}
+          ${hasAlternatives ? `
+            <div class="ap-report-alts-lbl">Nächstbeste Alternativen (verworfen):</div>
+            ${item.alternatives.map((a) => `
+              <div class="ap-report-alt-row">
+                <span class="ap-report-alt-emp">${esc(a.emp)}</span>
+                <span class="ap-report-alt-score">${a.score === null || a.score === undefined ? "" : "Score " + a.score}</span>
+                <span class="ap-report-alt-tags">${esc(a.tags.join(" · ") || "—")}</span>
+              </div>
+            `).join("")}
+          ` : ""}
         </div>
       ` : ""}
     `;

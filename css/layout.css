@@ -653,6 +653,15 @@ tr:hover .emp-profile-icon {
   z-index: 5;
 }
 
+/* Vorschlag 25 (Grid-Virtualisierung): Platzhalter noch nicht hydratisierter
+   Zeilen bei großen Teams. Dezentes Streifenmuster statt leerer Fläche, damit
+   sofort erkennbar ist, dass hier Inhalt nachlädt statt zu fehlen. */
+.td-cell-pending {
+  height: var(--row-h);
+  background: repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(var(--ink-rgb),.035) 8px, rgba(var(--ink-rgb),.035) 16px);
+  border-bottom: 1px solid rgba(var(--ink-rgb),.08);
+}
+
 .td-cell:active {
   transform: scale(0.97);
   z-index: 6;
@@ -823,6 +832,16 @@ body.is-drag-selecting #plan-tbody .td-cell {
 .td-cell.drag-over {
   box-shadow: inset 0 0 0 2px var(--accent);
   background-color: var(--accent-dim);
+}
+
+/* Vorschlag 26 (Detailtiefe): visuelles Feedback WÄHREND des Ziehens, wenn
+   die Ziel-Zelle den Drop ablehnen würde (bereits belegt/Konflikt) – rot
+   statt blau, damit das erst beim Loslassen per Toast gemeldete Scheitern
+   schon vorher erkennbar ist. */
+.td-cell.drag-over-invalid {
+  box-shadow: inset 0 0 0 2px #EF4444;
+  background-color: rgba(239, 68, 68, 0.12);
+  cursor: no-drop;
 }
 
 .cell-wish {

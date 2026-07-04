@@ -248,6 +248,27 @@ export function dutyOwner(y, m, day, dt) {
   return md.employees.find((e) => md.assignments[e]?.[day]?.duty === dt) || null;
 }
 
+// Vorschlag 26 (Natives Drag-and-Drop): einzige Quelle der Wahrheit dafür, ob
+// ein Dienst-Badge von (srcEmp, srcDay) nach (dstEmp, dstDay) verschoben
+// werden darf. Rein lesend (keine Mutation) – wird sowohl von
+// moveDutyBadge() (quick-actions.js, führt die Verschiebung tatsächlich aus
+// und übersetzt `reason` in eine konkrete Toast-Meldung) als auch von der
+// Live-Vorschau während des Ziehens (render-grid.js dragover-Handler, nutzt
+// nur `ok`) verwendet, damit beide garantiert dieselbe Regel prüfen und nicht
+// auseinanderdriften können.
+// @returns {{ok: boolean, reason: null|"occupied-different"|"occupied-same"|"owner-conflict", owner: string|null}}
+export function canMoveDutyBadge(y, m, srcEmp, srcDay, dstEmp, dstDay, dutyCode) {
+  if (srcEmp === dstEmp && srcDay === dstDay) return { ok: true, reason: null, owner: null }; // No-op-Drop: harmlos.
+  const dstCell = getCell(y, m, dstEmp, dstDay);
+  if (dstCell.duty && dstCell.duty !== dutyCode) return { ok: false, reason: "occupied-different", owner: null };
+  if (dstCell.duty === dutyCode) return { ok: false, reason: "occupied-same", owner: null };
+  if (dstDay !== srcDay) {
+    const owner = dutyOwner(y, m, dstDay, dutyCode);
+    if (owner && owner !== dstEmp && owner !== srcEmp) return { ok: false, reason: "owner-conflict", owner };
+  }
+  return { ok: true, reason: null, owner: null };
+}
+
 export function dayCodeCount(y, m, day, code) {
   const md = getMonthData(y, m);
   

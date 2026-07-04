@@ -4,7 +4,7 @@
 
 import { WORKPLACES, STATUSES, nextCalendarDay } from './constants.js';
 import { state, planMode, IS_MOBILE } from './state.js';
-import { getCell, setCell, clearCell, dutyOwner } from './model.js';
+import { getCell, setCell, clearCell, dutyOwner, canMoveDutyBadge } from './model.js';
 import {
   render, focusCellAfterRender, updateGridCell, updateAllConflicts,
   updateGridStatsAndHeader, closeCellQuickPopover, syncSelectionClasses,
@@ -154,21 +154,15 @@ export function moveDutyBadge(srcEmp, srcDay, dstEmp, dstDay) {
   if (!dutyCode) return;
 
   const dstCell = getCell(y, m, dstEmp, dstDay);
-  if (dstCell.duty && dstCell.duty !== dutyCode) {
-    showToast(`Zielzelle hat bereits ${dstCell.duty}-Dienst`);
+  const check = canMoveDutyBadge(y, m, srcEmp, srcDay, dstEmp, dstDay, dutyCode);
+  if (!check.ok) {
+    const toastByReason = {
+      "occupied-different": `Zielzelle hat bereits ${dstCell.duty}-Dienst`,
+      "occupied-same": `Zielzelle hat bereits ${dutyCode}-Dienst`,
+      "owner-conflict": `${dutyCode} bereits vergeben an: ${check.owner}`,
+    };
+    showToast(toastByReason[check.reason] || "Verschieben nicht möglich");
     return;
-  }
-  if (dstCell.duty === dutyCode) {
-    showToast(`Zielzelle hat bereits ${dutyCode}-Dienst`);
-    return;
-  }
-
-  if (dstDay !== srcDay) {
-    const owner = dutyOwner(y, m, dstDay, dutyCode);
-    if (owner && owner !== dstEmp && owner !== srcEmp) {
-      showToast(`${dutyCode} bereits vergeben an: ${owner}`);
-      return;
-    }
   }
 
   if (planMode) recordPlanHistory();
