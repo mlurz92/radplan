@@ -15,7 +15,7 @@
  * einzelnen Mutationsstellen nötig.
  */
 
-import { DATA, saveToStorage, planMode, replaceAllData } from './state.js';
+import { DATA, saveToStorage, planMode, replaceAllData, state, isMonthAffectedBySync } from './state.js';
 import { monthKey } from './constants.js';
 import { render } from './render-grid.js';
 import { showToast } from './render-modals.js';
@@ -176,10 +176,28 @@ export function resetNormalHistory() {
   updateNormalHistoryUI();
 }
 
+// Reagiert auf `radplan-sync-update` (Server-Sync hat DATA ersetzt/ergänzt).
+// Ein periodischer Hintergrund-Poll (siehe state.js syncWithServer, alle
+// ~30s) betrifft häufig NUR andere Monate als den gerade aktiv bearbeiteten
+// (z. B. eine Kollegin pflegt einen anderen Monat ein). In dem Fall darf die
+// lokale Undo/Redo-Historie des aktuellen Monats NICHT verworfen werden --
+// nur wenn der aktuell aktive Monat selbst Teil der geänderten Daten war
+// (echte Invalidierung des lokalen Bearbeitungskontexts), wird resettet.
+function handleSyncUpdate(e) {
+  const changedMonths = /** @type {CustomEvent} */ (e)?.detail?.changedMonths;
+  if (isMonthAffectedBySync(changedMonths, state.year, state.month)) {
+    resetNormalHistory();
+  }
+  // Andernfalls: nur unbeteiligte Monate betroffen -- DATA wurde bereits vom
+  // Aufrufer aktualisiert, die Undo/Redo-Historie des aktiven Monats bleibt
+  // unangetastet.
+}
+
 export function initNormalHistory() {
   baseline = cloneDATAString();
   window.addEventListener('radplan-save-queued', scheduleCapture);
-  // Externe Datenersetzungen invalidieren die lokale Historie.
-  window.addEventListener('radplan-sync-update', resetNormalHistory);
+  // Externe Datenersetzungen invalidieren die lokale Historie -- aber nur,
+  // wenn sie den aktuell aktiven Monat tatsächlich betreffen (s. o.).
+  window.addEventListener('radplan-sync-update', handleSyncUpdate);
   updateNormalHistoryUI();
 }

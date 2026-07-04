@@ -283,3 +283,25 @@ body.is-mobile .overlay .modal .yp-grid-scroll {
     background: #F8FAFC;
   }
 }
+
+/* Mobile day-card title markers ("today" / "holiday"): theme-aware colors so
+   the marker text keeps WCAG AA contrast (>=4.5:1) against the #mday-title
+   header background in both dark and light mode. #modal-mobile-day .modal-hd
+   is painted with rgba(var(--navy-800-rgb),.85) — a near-black navy in dark
+   mode and a light cream in light mode — so a single fixed hex value can't
+   satisfy both; the light-mode variants below are deliberately darker/more
+   saturated than their dark-mode counterparts. Applied via classes from
+   mobile.js instead of inline styles so this file stays the single source of
+   truth for the color values. */
+:root {
+  --mday-title-today: #67D4FF;
+  --mday-title-holiday: #FCD34D;
+}
+[data-theme="light"] {
+  /* Contrast checked against the blended light modal-hd background
+     (~rgb(237,233,222)): #0369A1 ≈ 4.9:1, #92400E ≈ 5.8:1 — both clear AA. */
+  --mday-title-today: #0369A1;
+  --mday-title-holiday: #92400E;
+}
+#mday-title.mday-title-today { color: var(--mday-title-today); }
+#mday-title.mday-title-holiday { color: var(--mday-title-holiday); }

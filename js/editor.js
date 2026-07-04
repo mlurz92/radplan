@@ -26,9 +26,21 @@ export function isEditorOpen() {
   const el = document.getElementById("modal-editor");
   return el && !el.hasAttribute("hidden");
 }
+// Modifier-Schema für Klicks auf Tageszellen (siehe README §8.4):
+//   Shift+Klick   -> Bereichs-Auswahl (Anker..Ziel) für Mehrfachauswahl.
+//   Alt+Klick      -> Einzel-Auswahl: Zelle gezielt zur/aus der Mehrfachauswahl
+//                      hinzufügen/entfernen, ohne einen zusammenhängenden Bereich.
+//   Strg/Cmd+Klick -> öffnet direkt den (vierstufigen) Editor im Vollmodus für
+//                      diese eine Zelle, statt eine Mehrfachauswahl zu beginnen
+//                      bzw. nur das Schnell-Popover zu zeigen. Für die
+//                      Rufbereitschafts-Zeile öffnet jeder Klick ohnehin immer
+//                      den (RBN-)Editor, Modifier spielen dort keine Rolle.
+// Strg/Cmd war früher für die Einzel-Auswahl reserviert; da Alt für Klicks auf
+// Zellen bis dahin ungenutzt war, wurde die Einzel-Auswahl dorthin verschoben,
+// um Strg/Cmd für das dokumentierte direkte Öffnen des Editors freizumachen.
 export function openEditor(emp, day, options = {}) {
   const { year: y, month: m } = state;
-  const { ctrlKey = false, shiftKey = false } = options;
+  const { altKey = false, shiftKey = false } = options;
   const isRbnRow = emp === RBN_ROW_KEY;
 
   if (shiftKey && !isRbnRow) {
@@ -51,7 +63,7 @@ export function openEditor(emp, day, options = {}) {
     return;
   }
 
-  if (ctrlKey && !isRbnRow) {
+  if (altKey && !isRbnRow) {
     if (state.multiEdit.emp !== emp) {
       state.multiEdit.emp = emp;
       state.multiEdit.days = [];

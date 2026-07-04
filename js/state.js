@@ -89,6 +89,33 @@ function deepEqual(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+// Ermittelt, welche Monats-Keys ("YYYY-M") sich zwischen zwei flachen
+// `main`-Objekten inhaltlich unterscheiden (hinzugekommen, entfernt oder
+// verändert). Wird für Server-Sync-Events genutzt, damit Konsumenten (siehe
+// history.js) einen eingehenden Sync gezielt auf den gerade aktiv bearbeiteten
+// Monat prüfen können, statt bei JEDER Hintergrund-Aktualisierung (auch für
+// völlig unbeteiligte Monate) reflexartig zu reagieren.
+export function computeChangedMonthKeys(oldMain, newMain) {
+  const changed = [];
+  const keys = new Set([...Object.keys(oldMain || {}), ...Object.keys(newMain || {})]);
+  keys.forEach((k) => {
+    if (!deepEqual(oldMain?.[k], newMain?.[k])) {
+      changed.push(k);
+    }
+  });
+  return changed;
+}
+
+// Prüft, ob eine Liste geänderter Monats-Keys (siehe computeChangedMonthKeys)
+// den angegebenen Jahr/Monat betrifft. Fällt `changedMonths` nicht als Array
+// vor (z. B. ein älterer/unbekannter Aufrufer, der das Event ohne Detail
+// feuert), wird konservativ `true` zurückgegeben -- im Zweifel lieber einmal
+// zu oft invalidieren als einen echten Datenbruch zu riskieren.
+export function isMonthAffectedBySync(changedMonths, year, month) {
+  if (!Array.isArray(changedMonths)) return true;
+  return changedMonths.includes(monthKey(year, month));
+}
+
 // Field-level 3-way merge (base = last known server state, local = our unsaved
 // edits, server = the state we just lost the 409 race against). Recurses into
 // plain-object trees (month -> employee -> day -> cell) so only the individual
@@ -155,9 +182,15 @@ function replaceLocalPlans(plans) {
   }
 }
 
+// Gibt zusätzlich die Liste der inhaltlich veränderten Monats-Keys zurück
+// (Vergleich gegen den DATA-Stand VOR dem Ersetzen), damit Aufrufer (siehe
+// syncWithServer/forceSyncWithServer) das `radplan-sync-update`-Event mit
+// dieser Information anreichern können.
 function applyServerSnapshot(serverData) {
   serverLastModified = parseInt(serverData.lastModified, 10) || 0;
   const newMain = serverData.main ? serverData.main : serverData;
+
+  const changedMonths = computeChangedMonthKeys(DATA, newMain);
 
   replaceAllData(newMain);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
@@ -177,6 +210,8 @@ function applyServerSnapshot(serverData) {
   // unabhängige Kopie von DATA), aber ohne den Umweg über einen String —
   // spart bei der Größe von DATA eine vollständige Serialisierung pro Sync.
   lastSyncedSnapshot = structuredClone(DATA);
+
+  return changedMonths;
 }
 
 async function flushSaveToServer() {
@@ -359,8 +394,8 @@ export async function syncWithServer() {
     const incomingMod = parseInt(serverData.lastModified, 10) || 0;
     
     if (incomingMod > 0 && incomingMod > serverLastModified) {
-      applyServerSnapshot(serverData.main ? serverData : { main: serverData, plans: {}, lastModified: incomingMod });
-      window.dispatchEvent(new CustomEvent("radplan-sync-update"));
+      const changedMonths = applyServerSnapshot(serverData.main ? serverData : { main: serverData, plans: {}, lastModified: incomingMod });
+      window.dispatchEvent(new CustomEvent("radplan-sync-update", { detail: { changedMonths } }));
       return true;
     }
     
@@ -391,9 +426,9 @@ export async function forceSyncWithServer() {
     
     const serverData = JSON.parse(text);
     serverFetchSuccessful = true;
-    applyServerSnapshot(serverData.main ? serverData : { main: serverData, plans: {}, lastModified: serverData.lastModified });
-    
-    window.dispatchEvent(new CustomEvent("radplan-sync-update"));
+    const changedMonths = applyServerSnapshot(serverData.main ? serverData : { main: serverData, plans: {}, lastModified: serverData.lastModified });
+
+    window.dispatchEvent(new CustomEvent("radplan-sync-update", { detail: { changedMonths } }));
     return true;
   } catch (e) {
     console.error("forceSyncWithServer Network/Parse Error:", e);

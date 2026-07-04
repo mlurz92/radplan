@@ -1,7 +1,13 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "./helpers/dom-stubs.js";
-import { mergeThreeWay, DATA, replaceAllData } from "../js/state.js";
+import {
+  mergeThreeWay,
+  DATA,
+  replaceAllData,
+  computeChangedMonthKeys,
+  isMonthAffectedBySync,
+} from "../js/state.js";
 
 // mergeThreeWay(base, local, server, stats) implementiert den feldweisen
 // 3-Wege-Merge nach einem 409-Sync-Konflikt (siehe README §5.2). `base` ist
@@ -106,5 +112,50 @@ describe("replaceAllData", () => {
     Object.assign(DATA, { "2026-0": { employees: [] } });
     replaceAllData(undefined);
     assert.deepEqual(DATA, {});
+  });
+});
+
+// Regressionstest für Issue 4: ein periodischer Hintergrund-Sync
+// (`radplan-sync-update`, siehe syncWithServer/forceSyncWithServer) darf die
+// lokale Undo/Redo-Historie NUR dann invalidieren, wenn er tatsächlich den
+// gerade aktiv bearbeiteten Monat verändert hat. computeChangedMonthKeys()
+// und isMonthAffectedBySync() sind die dafür zuständige, von history.js
+// konsumierte Entscheidungslogik.
+describe("computeChangedMonthKeys / isMonthAffectedBySync (Issue 4: gezielte History-Invalidierung)", () => {
+  test("computeChangedMonthKeys erkennt geänderte, neu hinzugekommene und entfernte Monate", () => {
+    const oldMain = {
+      "2026-5": { employees: ["A"] },
+      "2026-6": { employees: ["B"] },
+      "2026-7": { employees: ["C"] },
+    };
+    const newMain = {
+      "2026-5": { employees: ["A"] },        // unverändert
+      "2026-6": { employees: ["B", "X"] },   // verändert
+      "2026-8": { employees: ["D"] },        // neu (2026-7 entfernt)
+    };
+    const changed = computeChangedMonthKeys(oldMain, newMain);
+    assert.deepEqual(new Set(changed), new Set(["2026-6", "2026-7", "2026-8"]));
+  });
+
+  test("computeChangedMonthKeys liefert eine leere Liste, wenn sich inhaltlich nichts unterscheidet", () => {
+    const main = { "2026-5": { employees: ["A"] } };
+    assert.deepEqual(computeChangedMonthKeys(main, { "2026-5": { employees: ["A"] } }), []);
+  });
+
+  test("isMonthAffectedBySync: Sync auf einen ANDEREN Monat betrifft den aktiven Monat NICHT -> Historie bleibt erhalten", () => {
+    // Nutzer bearbeitet gerade 2026-5 (Juni); der Hintergrund-Sync hat aber
+    // ausschließlich 2026-6 verändert.
+    const changedMonths = ["2026-6"];
+    assert.equal(isMonthAffectedBySync(changedMonths, 2026, 5), false);
+  });
+
+  test("isMonthAffectedBySync: Sync betrifft den aktiven Monat -> Historie muss zurückgesetzt werden", () => {
+    const changedMonths = ["2026-5", "2026-6"];
+    assert.equal(isMonthAffectedBySync(changedMonths, 2026, 5), true);
+  });
+
+  test("isMonthAffectedBySync: fehlendes/kein Array (unbekannter Aufrufer) -> konservativ true", () => {
+    assert.equal(isMonthAffectedBySync(undefined, 2026, 5), true);
+    assert.equal(isMonthAffectedBySync(null, 2026, 5), true);
   });
 });

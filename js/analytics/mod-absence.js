@@ -39,9 +39,9 @@ export default {
   usesRange: true,
   icon: ICON,
 
-  render(root, ctx) {
+  async render(root, ctx) {
     const range = ctx.range;
-    const data = computeAbsence(range);
+    const data = await computeAbsence(range);
     const { rows, daySeries, totalAbsenceDays, peak } = data;
 
     // --- Leerzustand -------------------------------------------------------

@@ -2,7 +2,7 @@ import { test, describe, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import "./helpers/dom-stubs.js";
 import { DATA } from "../js/state.js";
-import { computeDutyFairness, getEmployeeFairness } from "../js/model.js";
+import { computeDutyFairness, getEmployeeFairness, getMonthDataRaw } from "../js/model.js";
 
 // DATA ist ein an das Modul gebundenes veränderliches Objekt (siehe js/state.js);
 // zwischen den Tests zurücksetzen, damit sie einander nicht beeinflussen.
@@ -139,5 +139,48 @@ describe("computeDutyFairness", () => {
     DATA["2026-0"] = buildMonth({ "Dr. Martin": { 3: { duty: "D" } } });
     const { row } = getEmployeeFairness("Nicht Existent", 2026, { uptoMonth: 0 });
     assert.equal(row, null);
+  });
+});
+
+// Regressionstest für Issue 5: ensurePostBDFreiDays() (Pflicht-Ruhetag nach
+// einem BD-Dienst) wurde bislang nur von import-export.js/app.js/autoplan.js
+// explizit aufgerufen, NICHT jedoch beim reinen Erzeugen eines neuen Monats
+// über getMonthDataRaw(). Navigiert man z.B. einfach zum nächsten, noch nicht
+// existierenden Monat, nachdem am letzten Tag des Vormonats ein BD-Dienst
+// ("D") steht, fehlte der obligatorische "F"-Ruhetag am 1. des neuen Monats,
+// bis irgendein unabhängiger Import/Sync/Autoplan-Lauf ensurePostBDFreiDays()
+// zufällig erneut ausgelöst hat.
+describe("getMonthDataRaw — Pflicht-Ruhetag nach BD-Dienst bei Monatswechsel (Issue 5)", () => {
+  beforeEach(resetData);
+
+  test("BD-Dienst am letzten Tag des Monats erzwingt sofort einen Ruhetag (F) an Tag 1 des NEU erzeugten Folgemonats", () => {
+    // Januar 2026 (m=0) hat 31 Tage; Dr. Martin hat dort am letzten Tag BD.
+    DATA["2026-0"] = buildMonth({
+      "Dr. Martin": { 31: { duty: "D" } },
+    });
+    assert.equal(DATA["2026-1"], undefined, "Februar existiert vor der Navigation noch nicht");
+
+    // Reine Navigation zum nächsten Monat (Februar) -- OHNE dass zuvor ein
+    // Import/Sync/Autoplan-Lauf ensurePostBDFreiDays() ausgelöst hätte.
+    const feb = getMonthDataRaw(2026, 1);
+
+    assert.equal(
+      feb.assignments["Dr. Martin"]?.[1]?.assignment,
+      "F",
+      "Der Pflicht-Ruhetag muss sofort beim Erzeugen des neuen Monats gesetzt werden"
+    );
+  });
+
+  test("bereits existierende Monate lösen KEINEN erneuten vollständigen Reparaturlauf über ganz DATA aus", () => {
+    DATA["2026-0"] = buildMonth({ "Dr. Martin": { 31: { duty: "D" } } });
+    // Februar existiert bereits regulär und der Ruhetag wurde manuell entfernt
+    // simuliert -- ein erneuter Zugriff auf einen BEREITS EXISTIERENDEN Monat
+    // darf ihn nicht nachträglich wieder einfügen (kein impliziter, teurer
+    // Full-Repair-Lauf bei jedem Zugriff auf existierende Monate).
+    DATA["2026-1"] = buildMonth({ "Dr. Martin": {} });
+
+    const feb = getMonthDataRaw(2026, 1);
+
+    assert.equal(feb.assignments["Dr. Martin"]?.[1]?.assignment, undefined);
   });
 });

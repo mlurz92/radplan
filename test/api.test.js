@@ -189,4 +189,30 @@ describe("functions/api.js — POST", () => {
     // gemeldet werden, damit "A,B" nicht durch "A" überschrieben wird.
     assert.equal(res.status, 409);
   });
+
+  test("neues Jahr: zwei gleichzeitige Erstanlagen desselben Jahres -> zweite bekommt 409 statt stillem Überschreiben", async () => {
+    const kv = makeKV();
+
+    // Beide Clients starten von einer leeren Baseline (kein Jahr existiert
+    // bisher, lastModified = 0) und wollen als Erste Daten für 2027 anlegen.
+    const bodyA = { main: { "2027-0": { employees: ["A"] } }, plans: {}, lastModified: 0 };
+    const bodyB = { main: { "2027-0": { employees: ["B"] } }, plans: {}, lastModified: 0 };
+
+    // Client A schreibt zuerst durch (simuliert den "Gewinner" des Race).
+    const resA = await onRequest(makeContext(kv, { method: "POST", body: bodyA }));
+    assert.equal(resA.status, 200);
+
+    // Client B hatte seinen Payload bereits vor A's Schreibzugriff auf Basis
+    // derselben leeren Baseline zusammengestellt (lastModified: 0) und sendet
+    // ihn erst jetzt ab -- ohne von A's Schreibzugriff zu wissen.
+    const resB = await onRequest(makeContext(kv, { method: "POST", body: bodyB }));
+
+    assert.equal(resB.status, 409);
+    const jsonB = await resB.json();
+    assert.equal(jsonB.error, "Conflict");
+
+    // Der Stand von A darf nicht stillschweigend überschrieben worden sein.
+    const final = await (await onRequest(makeContext(kv))).json();
+    assert.deepEqual(final.main["2027-0"], { employees: ["A"] });
+  });
 });

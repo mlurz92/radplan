@@ -90,13 +90,8 @@ export function openMobileDay(day) {
   const titleEl = document.getElementById("mday-title");
   if (titleEl) {
     titleEl.textContent = `${DOW_LONG[wd]}, ${day}. ${MONTHS[m]} ${y}${holName ? " · " + holName : ""}`;
-    if (isToday) {
-      titleEl.style.color = "#67D4FF";
-    } else if (hol) {
-      titleEl.style.color = "#FCD34D";
-    } else {
-      titleEl.style.color = "";
-    }
+    titleEl.classList.toggle("mday-title-today", !!isToday);
+    titleEl.classList.toggle("mday-title-holiday", !isToday && !!hol);
   }
   
   const dutyBadgesEl = document.getElementById("mday-duty-badges");
@@ -200,15 +195,36 @@ export function openMobileDay(day) {
       startY = e.clientY;
       pointerId = e.pointerId;
       menuOpened = false;
-      row.setPointerCapture?.(e.pointerId);
+      // Note: pointer capture is intentionally NOT taken here. Capturing
+      // immediately on pointerdown would let this handler keep receiving
+      // move events even once the gesture turns out to be a vertical list
+      // scroll, so we defer capture until we've confirmed this is actually
+      // a menu gesture (see pointermove below).
     });
 
     row.addEventListener("pointermove", (e) => {
       if (pointerId === null || e.pointerId !== pointerId) return;
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
-      if (!menuOpened && Math.hypot(dx, dy) > 10) {
+      if (!menuOpened) {
+        if (Math.hypot(dx, dy) <= 10) {
+          // Held (roughly) still so far — keep waiting; a tap/long-press
+          // with negligible movement still opens the menu on pointerup.
+          return;
+        }
+        // Movement exceeded the tolerance: only treat this as a
+        // drag-to-open-menu gesture when it is horizontally dominant,
+        // mirroring the sheet-level swipe discrimination above. A
+        // vertical-dominant drag is a list-scroll attempt, so bail out
+        // and let the browser handle native scrolling uninterrupted.
+        const horizontalDominant = Math.abs(dx) > Math.abs(dy) * 1.5;
+        if (!horizontalDominant) {
+          row.releasePointerCapture?.(e.pointerId);
+          pointerId = null;
+          return;
+        }
         menuOpened = true;
+        row.setPointerCapture?.(e.pointerId);
         openRadialQuickMenu(row.dataset.emp, day, startX, startY);
       }
       if (menuOpened) {

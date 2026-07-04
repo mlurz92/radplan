@@ -338,9 +338,9 @@ Für Touch-Geräte optimiert: Ein **längeres Gedrückthalten** (Longpress) auf 
 Um mehrere Tage in einem Zug zu planen:
 
 * **Bereichs-Auswahl (Shift):** Zelle anklicken, Shift halten und Zielzelle anklicken wählt alle dazwischenliegenden Tage aus.
-* **Einzel-Auswahl (Strg/Cmd):** Mehrere nicht zusammenhängende Zellen können gezielt selektiert werden.
+* **Einzel-Auswahl (Alt/Option):** Alt+Klick auf eine Zelle nimmt sie gezielt in eine (auch nicht zusammenhängende) Mehrfachauswahl auf bzw. aus ihr heraus.
 * **Drag-Selection:** Klicken und Ziehen der Maus über mehrere Zellen spannt ein Auswahlfeld auf (`body.is-drag-selecting` unterdrückt währenddessen Textmarkierung).
-* **Ctrl/Cmd+Klick auf eine Zelle** öffnet stattdessen direkt den RBN-Editor bzw. den Editor in einem speziellen Modus, statt eine Mehrfachauswahl zu beginnen.
+* **Ctrl/Cmd+Klick auf eine Zelle** öffnet stattdessen direkt den vierstufigen Editor im Vollmodus für genau diese Zelle (bei der Rufbereitschafts-Zeile den RBN-Editor), statt eine Mehrfachauswahl zu beginnen oder nur das Schnell-Popover zu zeigen.
 * *Aktion:* Jede Zuweisung über den Editor oder die Tastenkürzel wird auf **alle** markierten Zellen gleichzeitig angewendet.
 
 ### 8.5 Tastatur-Navigation im Raster

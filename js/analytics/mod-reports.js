@@ -185,8 +185,8 @@ async function exportFairnessXLSX(year) {
   }
 }
 
-function exportAbsenceCSV(range) {
-  const { rows } = computeAbsence(range);
+async function exportAbsenceCSV(range) {
+  const { rows } = await computeAbsence(range);
   if (!rows.length) return setStatus('Keine Abwesenheiten im Zeitraum.', false);
   const out = [['Mitarbeitende', 'Urlaub', 'Krank', 'FZA', 'Weiterbildung', 'Gesamt']];
   rows.forEach((r) => out.push([r.emp, r.vac, r.sick, r.fza, r.wb, r.total]));

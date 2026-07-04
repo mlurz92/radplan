@@ -152,14 +152,22 @@ async function saveIncoming(kv, incomingMain, incomingPlans, clientTimestamp) {
   const storedByYear = new Map();
   await Promise.all(
     [...byYear.keys()].map(async (year) => {
-      storedByYear.set(year, knownYears.has(year) ? await readJson(kv, yearKey(year)) : null);
+      // Wichtig: der tatsächliche Jahres-Key wird IMMER frisch aus dem KV
+      // gelesen (nicht auf Basis des zu Beginn der Anfrage eingelesenen,
+      // potenziell bereits veralteten `meta.years`). Andernfalls würde für
+      // ein Jahr, das laut `meta` noch "neu" ist, jeglicher Konflikt-Check
+      // übersprungen -- selbst wenn zwischenzeitlich (Race zweier
+      // gleichzeitiger Erstanlagen desselben neuen Jahres) bereits ein
+      // anderer Schreibzugriff den Jahres-Key angelegt hat. Ein frischer
+      // Read unmittelbar vor der Konfliktprüfung schließt dieses Zeitfenster.
+      storedByYear.set(year, await readJson(kv, yearKey(year)));
     })
   );
 
   const conflictedYears = [];
   for (const [year, incomingMonths] of byYear.entries()) {
     const stored = storedByYear.get(year);
-    if (!stored) continue; // neues Jahr, kein Konflikt möglich
+    if (!stored) continue; // tatsächlich neues Jahr, kein Konflikt möglich
     const unchanged = JSON.stringify(stored.months || {}) === JSON.stringify(incomingMonths);
     if (unchanged) continue;
     const storedTimestamp = parseInt(stored.lastModified, 10) || 0;
