@@ -66,7 +66,6 @@ export let planHistory = [];
 export let planHistoryIdx = -1;
 export let planSessions = {};
 export let IS_MOBILE = false;
-export let responsiveLayoutRaf = 0;
 export let serverLastModified = 0;
 export let serverFetchSuccessful = false;
 
@@ -532,12 +531,8 @@ export function setPlanSessions(val) {
   planSessions = val; 
 }
 
-export function setIsMobile(val) { 
-  IS_MOBILE = val; 
-}
-
-export function setResponsiveLayoutRaf(val) { 
-  responsiveLayoutRaf = val; 
+export function setIsMobile(val) {
+  IS_MOBILE = val;
 }
 
 
