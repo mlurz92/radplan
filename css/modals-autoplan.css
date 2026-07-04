@@ -1044,6 +1044,13 @@
   margin-bottom: 8px;
 }
 
+.ap-alt-compare-hd .ap-sect-hint {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+  color: var(--gray-400, #94A3B8);
+}
+
 .ap-alt-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1111,6 +1118,62 @@
 .ap-alt-card-stats strong {
   font-family: var(--font-mono);
   color: var(--gray-800);
+}
+
+/* Vorschlag 7: Pareto-Vergleichsansicht der Gewichtungsprofile */
+.ap-pareto-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #F8FAFC;
+  border: 1px solid rgba(226,232,240,.9);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.ap-pareto-chart {
+  flex-shrink: 0;
+}
+
+.ap-pareto-svg {
+  display: block;
+}
+
+.ap-pareto-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--gray-600);
+}
+
+.ap-pareto-leg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ap-pareto-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.ap-alt-card-pareto-badge {
+  margin-bottom: 6px;
+}
+
+.ap-alt-card-tag-pareto {
+  background: #22C55E;
+  color: #052e13;
+}
+
+.ap-alt-card-tag-dominated {
+  background: var(--gray-300, #CBD5E1);
+  color: var(--gray-700, #334155);
 }
 
 .ap-collapse-wrap {
@@ -1426,6 +1489,63 @@
 
 .ap-escalation-detail {
   grid-column: 2 / 4;
+  color: #94A3B8;
+  overflow-wrap: anywhere;
+}
+
+/* Vorschlag 6: Konflikt-Drilldown "Was blockiert diesen Tag?" */
+.ap-gap-hint {
+  font-size: 10.5px;
+  color: #94A3B8;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.ap-gap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ap-gap-item {
+  background: #1E293B;
+  border: 1px solid rgba(220,38,38,0.25);
+  border-radius: var(--radius-xs);
+  padding: 8px 10px;
+}
+
+.ap-gap-item-hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 10.5px;
+}
+
+.ap-gap-item-title {
+  color: #FCA5A5;
+  font-weight: 700;
+}
+
+.ap-gap-blockers {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ap-gap-blocker-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px;
+  font-size: 10.5px;
+}
+
+.ap-gap-blocker-emp {
+  font-weight: 600;
+  color: #CBD5E1;
+}
+
+.ap-gap-blocker-reason {
   color: #94A3B8;
   overflow-wrap: anywhere;
 }

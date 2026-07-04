@@ -8,7 +8,7 @@
 //  statt — wie zuvor — stets das Gesamtjahr über ctx.range.year zu rechnen.
 // ===========================================================================
 
-import { computeDutyFairnessForRange, fmt, scoreColor, TT, TTI } from './engine.js';
+import { computeDutyFairnessForRange, computeBurnoutRisk, fmt, scoreColor, TT, TTI } from './engine.js';
 import { esc } from '../utils.js';
 
 let chartInstance = null;
@@ -43,6 +43,53 @@ function devBar(totalDev, maxAbs) {
   return `<div class="fair-dev-bar"><div class="fair-dev-zero"></div>${fill}</div>`;
 }
 
+// Vorschlag 8 (Burnout-/Belastungs-Risiko-Score): eigener Abschnitt mit
+// Rangliste + Score-Balken, direkt unter der Fairness-Rangliste, da beide
+// dieselbe Personenliste sortieren, nur nach unterschiedlichen Kriterien.
+const BURNOUT_LEVEL_META = {
+  hoch: { label: 'Hoch', color: '#DC2626', pill: 'ah-pill-bad' },
+  mittel: { label: 'Mittel', color: '#F59E0B', pill: 'ah-pill-warn' },
+  niedrig: { label: 'Niedrig', color: '#22C55E', pill: 'ah-pill-good' },
+};
+
+function burnoutSectionHtml(burnout) {
+  if (!burnout || !burnout.rows.length) return '';
+  const rows = burnout.rows;
+  const rowsHtml = rows.map((r) => {
+    const lm = BURNOUT_LEVEL_META[r.level] || BURNOUT_LEVEL_META.niedrig;
+    const breakdownTip = esc(
+      `Überlast: ${r.overloadScore}/100 (Gesamtdienste ${fmt.signed1(r.totalDev)} ggü. fairem Anteil) · `
+      + `WE-Überlast: ${r.weOverloadScore}/100 (${fmt.signed1(r.weekendDev)}) · `
+      + `Häufung: ${r.clusterScore}/100 (${r.clusterCount}× Dienste mit <3 Tagen Abstand).`
+    );
+    return `
+      <tr class="clickable" data-emp="${esc(r.emp)}">
+        <td>${esc(r.emp)}</td>
+        <td class="ah-td-num" style="color:${lm.color};font-weight:800" data-tooltip="${esc(TT.burnoutScore)}">${r.burnoutScore}</td>
+        <td data-tooltip="${breakdownTip}">
+          <div class="burnout-bar-bg"><div class="burnout-bar-fill" style="width:${r.burnoutScore}%;background:${lm.color}"></div></div>
+        </td>
+        <td><span class="ah-pill ${lm.pill}">${lm.label}</span></td>
+      </tr>`;
+  }).join('');
+
+  return `
+    <div class="ah-section-title" data-tooltip="${esc(TT.burnoutScore)}">Belastungs-Risiko <span class="ah-sub">— verdichtet Überlast, WE-/Feiertagslast und Dienst-Häufung zu einem Score</span></div>
+    <div class="ah-table-wrap">
+      <table class="ah-table fair-table">
+        <thead>
+          <tr>
+            <th data-tooltip="Mitarbeitende – Klick öffnet das Personenprofil.">Mitarbeitende</th>
+            <th data-tooltip="${esc(TT.burnoutScore)}">Score</th>
+            <th data-tooltip="${esc(TT.burnoutScore)}">Verteilung</th>
+            <th data-tooltip="Hoch ≥ 70, Mittel ≥ 40, sonst Niedrig.">Einstufung</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
+}
+
 export default {
   id: 'fairness',
   label: 'Fairness & Verteilung',
@@ -53,6 +100,7 @@ export default {
     const range = ctx?.range;
     const rangeLabel = range?.label ?? String(ctx?.year ?? '');
     const { rows, team } = computeDutyFairnessForRange(range);
+    const burnout = computeBurnoutRisk(range);
 
     // Leerzustand.
     if (!team || team.count === 0) {
@@ -144,6 +192,7 @@ export default {
         <span data-tooltip="Person leistet mehr Dienste als ihr FTE-gewichteter fairer Anteil."><span class="fair-legend-swatch fair-legend-over"></span>Über dem fairen Anteil</span>
       </div>
       ${table}
+      ${burnoutSectionHtml(burnout)}
       <div class="ah-section-title" data-tooltip="Balken = tatsächliche Gesamtdienste je Person; Linie = FTE-gewichteter fairer Anteil.">Dienste je Mitarbeitende vs. fairer Anteil</div>
       <div class="ah-card fair-chart-card"><canvas id="fair-chart" height="220"></canvas></div>`;
 

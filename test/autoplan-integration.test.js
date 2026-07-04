@@ -124,3 +124,86 @@ describe("computeAutoPlan (End-to-End)", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Vorschlag 1 (Simulated Annealing): optionale Strategie für die
+// Deep-Optimize-Phase. Muss (a) weiterhin niemals Mehrfachbesetzungen
+// produzieren, (b) für denselben Monat/Seed reproduzierbar sein und (c) am
+// Ende garantiert nie ein schlechteres NFI liefern als der reine Greedy-Lauf
+// für dieselbe Ausgangslage.
+describe("computeAutoPlan — Simulated-Annealing-Strategie (Vorschlag 1)", () => {
+  test("Standardverhalten (kein strategy-Option) entspricht weiterhin 'greedy'", async () => {
+    resetData();
+    const year = 2026;
+    const month = 5;
+    const employees = ["Dr. Martin", "Dr. Becker", "Fr. Dalitz"];
+
+    state.year = year;
+    state.month = month;
+    setPlanMode(true);
+    setPlanData(buildFixturePlanData(year, month, employees));
+
+    const result = await computeAutoPlan(undefined, "standard");
+    assert.equal(result.summary.strategy, "greedy");
+
+    setPlanMode(false);
+    setPlanData(null);
+  });
+
+  test("liefert keine Mehrfachbesetzungen und ist für denselben Monat reproduzierbar", async () => {
+    resetData();
+    const year = 2026;
+    const month = 6;
+    const employees = ["Dr. Martin", "Dr. Becker", "Fr. Dalitz", "Hr. Torki"];
+
+    state.year = year;
+    state.month = month;
+
+    setPlanMode(true);
+    setPlanData(buildFixturePlanData(year, month, employees));
+    const first = await computeAutoPlan(undefined, "standard", { strategy: "annealing" });
+    assert.equal(first.summary.strategy, "annealing");
+
+    const dim = daysInMonth(year, month);
+    for (let d = 1; d <= dim; d++) {
+      const dHolders = employees.filter((e) => first.assignments[e]?.[d]?.duty === "D");
+      const hgHolders = employees.filter((e) => first.assignments[e]?.[d]?.duty === "HG");
+      assert.ok(dHolders.length <= 1, `Tag ${d}: höchstens ein D-Träger erwartet, war ${dHolders.length}`);
+      assert.ok(hgHolders.length <= 1, `Tag ${d}: höchstens ein HG-Träger erwartet, war ${hgHolders.length}`);
+    }
+
+    setPlanData(buildFixturePlanData(year, month, employees));
+    const second = await computeAutoPlan(undefined, "standard", { strategy: "annealing" });
+    assert.deepEqual(first.assignments, second.assignments, "derselbe Monat mit derselbe Strategie muss reproduzierbar (seed-basiert) sein");
+
+    setPlanMode(false);
+    setPlanData(null);
+  });
+
+  test("liefert nie ein schlechteres NFI als der reine Greedy-Lauf für dieselbe Ausgangslage", async () => {
+    resetData();
+    const year = 2026;
+    const month = 7;
+    const employees = ["Dr. Martin", "Dr. Becker", "Fr. Dalitz", "Hr. Torki", "Fr. Licenji"];
+
+    state.year = year;
+    state.month = month;
+
+    setPlanMode(true);
+    setPlanData(buildFixturePlanData(year, month, employees));
+    const greedyResult = await computeAutoPlan(undefined, "standard", { strategy: "greedy" });
+
+    setPlanData(buildFixturePlanData(year, month, employees));
+    const annealingResult = await computeAutoPlan(undefined, "standard", { strategy: "annealing" });
+
+    const greedyScore = parseFloat(greedyResult.summary.quality.score);
+    const annealingScore = parseFloat(annealingResult.summary.quality.score);
+    assert.ok(
+      annealingScore >= greedyScore - 0.01,
+      `Simulated Annealing (NFI ${annealingScore}) darf nicht schlechter als Greedy (NFI ${greedyScore}) ausfallen`,
+    );
+
+    setPlanMode(false);
+    setPlanData(null);
+  });
+});

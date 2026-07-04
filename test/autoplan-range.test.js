@@ -2,7 +2,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import "./helpers/dom-stubs.js";
 import { DATA, state, planMode, planData } from "../js/state.js";
-import { computeAutoPlanRange } from "../js/autoplan.js";
+import { computeAutoPlanRange, computeCrossMonthBDTargets, baseMonthlyBDTarget } from "../js/autoplan.js";
 import { monthKey } from "../js/constants.js";
 
 // computeAutoPlanRange() ist die "Jahresplanung als segmentierte
@@ -108,5 +108,62 @@ describe("computeAutoPlanRange", () => {
     resetData();
     seedEmptyMonth(2020, 0, ["Dr. Martin"]);
     await assert.rejects(() => computeAutoPlanRange(2020, 0, 2022, 0, {}));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Vorschlag 2 (Echte Mehrmonats-Zielfunktion): computeCrossMonthBDTargets()
+// passt das BD-Monatsziel je Person sanft (max. ±1) an die kumulierte
+// Ist/Soll-Differenz der bereits geplanten Monate DIESES Laufs an, statt
+// jeden Monat mit demselben Standardziel unabhängig zu planen.
+describe("computeCrossMonthBDTargets (Vorschlag 2)", () => {
+  test("liefert unverändert das Standardziel, wenn keine Monate bereits geplant wurden", () => {
+    const emp = "Dr. Martin";
+    const targets = computeCrossMonthBDTargets([emp], []);
+    assert.equal(targets[emp], baseMonthlyBDTarget(emp));
+  });
+
+  test("senkt das Ziel um 1, wenn die Person im bereits geplanten Monat über ihrem fairen Anteil lag", () => {
+    resetData();
+    const emp = "Dr. Martin";
+    const base = baseMonthlyBDTarget(emp);
+    // Künstlich deutlich über dem Monatsziel beplanter Vormonat (base+3 BD).
+    const assignments = { [emp]: {} };
+    for (let d = 1; d <= base + 3; d++) assignments[emp][d] = { duty: "D" };
+    DATA[monthKey(2026, 0)] = { employees: [emp], assignments, rbn: {}, comments: {} };
+
+    const targets = computeCrossMonthBDTargets([emp], [{ year: 2026, month: 0 }]);
+    assert.equal(targets[emp], Math.max(0, base - 1), "Überversorgung im Vormonat muss das Folgeziel um genau 1 senken");
+  });
+
+  test("erhöht das Ziel um 1, wenn die Person im bereits geplanten Monat unter ihrem fairen Anteil lag", () => {
+    resetData();
+    const emp = "Dr. Martin";
+    const base = baseMonthlyBDTarget(emp);
+    // Künstlich deutlich unter dem Monatsziel beplanter Vormonat (0 BD, sofern base > 0).
+    DATA[monthKey(2026, 0)] = { employees: [emp], assignments: { [emp]: {} }, rbn: {}, comments: {} };
+
+    const targets = computeCrossMonthBDTargets([emp], [{ year: 2026, month: 0 }]);
+    assert.equal(targets[emp], base + 1, "Unterversorgung im Vormonat muss das Folgeziel um genau 1 erhöhen");
+  });
+
+  test("berücksichtigt nur Monate, in denen die Person tatsächlich im Roster geführt wurde", () => {
+    resetData();
+    const emp = "Dr. Neu";
+    const base = baseMonthlyBDTarget(emp);
+    // Vormonat existiert, aber die Person war noch gar nicht im Roster --
+    // darf die Zielberechnung nicht verzerren.
+    DATA[monthKey(2026, 0)] = { employees: ["Dr. Andere"], assignments: { "Dr. Andere": { 1: { duty: "D" } } }, rbn: {}, comments: {} };
+
+    const targets = computeCrossMonthBDTargets([emp], [{ year: 2026, month: 0 }]);
+    assert.equal(targets[emp], base);
+  });
+
+  test("liefert für dienstbefreite Personen immer 0, unabhängig von der Historie", () => {
+    resetData();
+    const emp = "Prof. Schäfer"; // per SPECIAL_RULES.dutyExempt typischerweise befreit
+    if (baseMonthlyBDTarget(emp) !== 0) return; // Umgebungsabhängig -- Test nur relevant, wenn tatsächlich befreit.
+    const targets = computeCrossMonthBDTargets([emp], []);
+    assert.equal(targets[emp], 0);
   });
 });

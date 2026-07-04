@@ -1,0 +1,38 @@
+/* Auswertungs-Hub · Modul „Einstellungen" (set-*) — nutzt geteilte ah-*-Klassen. */
+.set-card { display: flex; flex-direction: column; gap: 18px; padding: 4px 2px; }
+
+.set-row { display: flex; flex-direction: column; gap: 6px; }
+
+.set-row-hd {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.set-row-label { font-size: 13px; font-weight: 700; color: var(--text-1); }
+.set-row-value {
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-lt);
+}
+
+.set-slider {
+  width: 100%;
+  accent-color: var(--accent-strong, #0EA5E9);
+  cursor: pointer;
+}
+
+.set-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.set-status { margin-top: 4px; font-size: 12px; font-weight: 600; min-height: 18px; color: #15803D; }
+
+@media (max-width: 560px) {
+  .set-actions { justify-content: stretch; }
+  .set-actions > button { width: 100%; }
+}

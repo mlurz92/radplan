@@ -196,7 +196,7 @@ function buildDeptFairnessHtml(year) {
   let report;
   try {
     report = computeDutyFairness(year);
-  } catch (e) {
+  } catch {
     return "";
   }
   if (!report || !report.rows || report.rows.length === 0) {

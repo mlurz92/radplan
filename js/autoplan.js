@@ -713,9 +713,53 @@ export function cleanupAssignmentCell(assignments, emp, day) {
   }
 }
 
-export async function computeAutoPlan(customTargets, weightProfileKey) {
+// Vorschlag 1 (Simulated Annealing): deterministischer, seed-basierter
+// Pseudozufallsgenerator (Mulberry32) statt Math.random(). Der Seed wird aus
+// Jahr/Monat abgeleitet, damit ein wiederholter Lauf für DENSELBEN Monat mit
+// DERSELBEN Strategie reproduzierbar dieselbe Annahme-/Ablehnungsfolge liefert
+// (wichtig für Nachvollziehbarkeit und Tests) — echte Zufälligkeit wäre hier
+// eher hinderlich als hilfreich.
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Anfangstemperatur der Simulated-Annealing-Variante der Deep-Optimize-Phase:
+// grob an der Größenordnung typischer Fairness-/Zielabweichungs-Beiträge der
+// Aggregat-Zielfunktion orientiert (siehe PENALTY weiter unten, meist
+// 5.000–25.000 pro hartem Kriterium, aber die AGGREGAT-Objective bewegt sich
+// durch die quadratische Dämpfung typischerweise im Bereich einiger hundert
+// bis weniger tausend Punkte) — hoch genug, um zu Beginn spürbar auch
+// verschlechternde Tauschversuche zuzulassen, aber niedrig genug, um harte
+// Constraint-Verletzungen (deren Scores um Größenordnungen höher liegen)
+// praktisch nie zu akzeptieren.
+const SA_INITIAL_TEMPERATURE = 1500;
+// Abkühlung über die Zyklen der äußeren Multi-Zyklus-Schleife (siehe
+// MAX_OPTIMIZATION_CYCLES weiter unten) und zusätzlich innerhalb jeder
+// Deep-Optimize-Phase über deren eigene Pässe – ein klassisches
+// zweistufiges Kühlschema, das sowohl über den Gesamtlauf als auch
+// innerhalb einer einzelnen Phase abkühlt.
+const SA_COOLING_RATE_CYCLE = 0.45;
+const SA_COOLING_RATE_PASS = 0.9;
+
+export async function computeAutoPlan(customTargets, weightProfileKey, options = {}) {
   const { year: y, month: m } = state;
   if (!planMode || !planData) return null;
+
+  // Vorschlag 1: 'greedy' (Standard, unverändertes Verhalten – nur strikt
+  // verbessernde Tauschversuche werden je akzeptiert) oder 'annealing'
+  // (Simulated Annealing: verschlechternde Tauschversuche werden anfangs mit
+  // abnehmender Wahrscheinlichkeit ebenfalls akzeptiert, um lokale Optima
+  // verlassen zu können; am Ende wird garantiert der beste je gesehene Stand
+  // wiederhergestellt, das Ergebnis kann also nie schlechter als der reine
+  // Greedy-Lauf ausfallen).
+  const strategy = options.strategy === "annealing" ? "annealing" : "greedy";
+  const saRng = mulberry32((y * 100 + m) >>> 0);
 
   const W = resolveWeightProfile(weightProfileKey);
 
@@ -2351,16 +2395,29 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     }
   }
 
-  function runPhase8_DeepOptimize(cyclePct) {
+  function runPhase8_DeepOptimize(cyclePct, cycleTemperature = 0) {
     const deepMutableBDDays = listDutyAssignments(dutyEmps, dim, result, "D")
       .filter(({ emp, day }) => !fixedDutyKeys.has(`D:${dutyKey(emp, day)}`))
       .map(({ day }) => day);
-      
+
     const deepMutableHGDays = listDutyAssignments(hgFAs, dim, result, "HG")
       .filter(({ emp, day }) => !fixedDutyKeys.has(`HG:${dutyKey(emp, day)}`) && !bundledHGKeys.has(dutyKey(emp, day)))
       .map(({ day }) => day);
 
     rebuildCurrentCounters();
+    // Vorschlag 1: nur im Annealing-Modus aktiv (cycleTemperature > 0). Im
+    // Standard-Greedy-Modus bleibt cycleTemperature immer 0 und der gesamte
+    // SA-Zweig unten ist tot code — das Verhalten ist dann exakt identisch
+    // zum bisherigen, rein strikt verbessernden Deep-Optimize.
+    const useAnnealing = strategy === "annealing" && cycleTemperature > 0;
+    const snapshotResult = () => {
+      const snap = {};
+      for (const e of emps) snap[e] = JSON.parse(JSON.stringify(result[e] || {}));
+      return snap;
+    };
+    const restoreSnapshot = (snap) => {
+      for (const e of emps) result[e] = JSON.parse(JSON.stringify(snap[e] || {}));
+    };
     // Punkt 14: computeGlobalObjective() wurde vorher bei JEDEM einzelnen
     // Kandidaten-Tauschversuch komplett neu berechnet (inkl. der O(dim)-
     // Coverage-Scans aus computeBDCoveragePenalty/computeHGCoveragePenalty/
@@ -2384,9 +2441,19 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
       return computeBDAggregateObjective() + (hgFAs.length > 0 ? computeHGAggregateObjective() : 0);
     }
 
-    let bestGlobal = coverageBaseline + computeGlobalAggregateObjective();
+    // Vorschlag 1: `bestGlobal` behält im Greedy-Modus exakt seine bisherige
+    // Bedeutung (bester je erreichter Wert = einzige Instanz, auf die
+    // verglichen wird). Im Annealing-Modus trennen wir das in zwei Größen:
+    // `currentGlobal` (Wert des AKTUELL gehaltenen, ggf. bewusst
+    // verschlechterten Zwischenstands, gegen den jeder neue Versuch verglichen
+    // wird) und `bestEverGlobal`/`bestEverSnapshot` (bester je gesehener Stand,
+    // wird am Ende dieser Phase zwingend wiederhergestellt – das Endergebnis
+    // kann dadurch nie schlechter sein als im reinen Greedy-Modus).
+    let currentGlobal = coverageBaseline + computeGlobalAggregateObjective();
+    let bestEverGlobal = currentGlobal;
+    let bestEverSnapshot = useAnnealing ? snapshotResult() : null;
 
-    function tryImproveDay(day, dutyCode) {
+    function tryImproveDay(day, dutyCode, temperature) {
       const pool = dutyCode === "D" ? dutyEmps : hgFAs;
       const currentEmp = pool.find((e) => result[e]?.[day]?.duty === dutyCode);
       if (!currentEmp) return false;
@@ -2411,10 +2478,27 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
         setDutyAssignment(candidate, day, dutyCode);
 
         const newGlobal = coverageBaseline + computeGlobalAggregateObjective();
-        if (newGlobal + 0.01 < bestGlobal) {
-          bestGlobal = newGlobal;
+        const delta = newGlobal - currentGlobal;
+        // Metropolis-Akzeptanzkriterium: strikt verbessernde Züge (delta<0)
+        // werden immer akzeptiert; im Annealing-Modus werden verschlechternde
+        // Züge (delta>0) zusätzlich mit Wahrscheinlichkeit exp(-delta/T)
+        // akzeptiert – hohe Temperatur T lässt größere Verschlechterungen zu,
+        // mit sinkendem T (siehe Aufrufer) nähert sich das Verhalten wieder
+        // dem reinen Greedy-Ansatz an.
+        const strictlyBetter = delta < -0.01;
+        const acceptedByAnnealing = !strictlyBetter && useAnnealing && temperature > 0 && saRng() < Math.exp(-delta / temperature);
+
+        if (strictlyBetter || acceptedByAnnealing) {
+          currentGlobal = newGlobal;
           deepMoves++;
-          log.push({ phase: "deep", icon: "🧠", msg: `Deep Move Tag ${day} (${dutyCode}): ${currentEmp} ➔ ${candidate}`, dayIdx: day, oldEmpId: currentEmp, newEmpId: candidate, pct: cyclePct });
+          const icon = strictlyBetter ? "🧠" : "🌡️";
+          const label = strictlyBetter ? "Deep Move" : "Annealing-Move (temporär akzeptiert, ggf. nicht final)";
+          log.push({ phase: "deep", icon, msg: `${label} Tag ${day} (${dutyCode}): ${currentEmp} ➔ ${candidate}`, dayIdx: day, oldEmpId: currentEmp, newEmpId: candidate, pct: cyclePct });
+
+          if (useAnnealing && currentGlobal < bestEverGlobal - 0.01) {
+            bestEverGlobal = currentGlobal;
+            bestEverSnapshot = snapshotResult();
+          }
           return true;
         }
 
@@ -2425,14 +2509,30 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     }
 
     for (let pass = 0; pass < DEEP_MAX_PASSES; pass++) {
+      // Zweistufiges Kühlschema (siehe SA_COOLING_RATE_PASS weiter oben):
+      // die vom Aufrufer übergebene Zyklus-Temperatur kühlt zusätzlich
+      // innerhalb dieser Phase über ihre eigenen Pässe ab.
+      const passTemperature = cycleTemperature * Math.pow(SA_COOLING_RATE_PASS, pass);
       let improved = false;
       for (const day of deepMutableBDDays) {
-        improved = tryImproveDay(day, "D") || improved;
+        improved = tryImproveDay(day, "D", passTemperature) || improved;
       }
       for (const day of deepMutableHGDays) {
-        improved = tryImproveDay(day, "HG") || improved;
+        improved = tryImproveDay(day, "HG", passTemperature) || improved;
       }
-      if (!improved) break;
+      // Im Greedy-Modus (Temperatur 0) unverändert: keine Verbesserung mehr ->
+      // Abbruch. Im Annealing-Modus mit noch spürbarer Temperatur lohnt sich
+      // ein weiterer Pass auch ohne Verbesserung im letzten Durchgang, da
+      // Annealing-Moves den Suchraum erst noch weiter durchmischen können.
+      if (!improved && (!useAnnealing || passTemperature < 0.5)) break;
+    }
+
+    // Garantie: das Ergebnis dieser Phase ist nie schlechter als der beste
+    // je während des Laufs gesehene Stand — insbesondere nie schlechter als
+    // ein reiner Greedy-Lauf ihn gefunden hätte.
+    if (useAnnealing && bestEverSnapshot) {
+      restoreSnapshot(bestEverSnapshot);
+      rebuildCurrentCounters();
     }
   }
 
@@ -2556,8 +2656,14 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     runPhase7_HGOptimize(cyclePct + 2);
     rebuildCurrentCounters();
     
-    log.push({ phase: "optimize", icon: "🧬", msg: `Zyklus ${cycle + 1}: Globale Metaheuristik läuft...`, pct: cyclePct + 3 });
-    runPhase8_DeepOptimize(cyclePct + 3);
+    // Vorschlag 1: Zyklus-Temperatur kühlt über die äußeren Optimierungs-
+    // Zyklen hinweg ab (Zyklus 0 = heißester Start, spätere Zyklen kühler),
+    // sodass Simulated Annealing anfangs großzügiger explorieren und gegen
+    // Ende hin fein nachjustieren kann. Im Greedy-Modus bleibt sie 0 und
+    // ändert das Verhalten nicht.
+    const cycleTemperature = strategy === "annealing" ? SA_INITIAL_TEMPERATURE * Math.pow(SA_COOLING_RATE_CYCLE, cycle) : 0;
+    log.push({ phase: "optimize", icon: "🧬", msg: `Zyklus ${cycle + 1}: Globale Metaheuristik läuft${strategy === "annealing" ? ` (Simulated Annealing, T=${cycleTemperature.toFixed(0)})` : ""}...`, pct: cyclePct + 3 });
+    runPhase8_DeepOptimize(cyclePct + 3, cycleTemperature);
     rebuildCurrentCounters();
     
     log.push({ phase: "optimize", icon: "🛠️", msg: `Zyklus ${cycle + 1}: Coverage Repair...`, pct: cyclePct + 3 });
@@ -2623,7 +2729,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
 
   log.push({ phase: "done", icon: "✅", msg: "Planung abgeschlossen!", pct: 100 });
 
-  const summary = { bd: {}, hg: {}, warnings: [], infos: [], bdTarget };
+  const summary = { bd: {}, hg: {}, warnings: [], infos: [], bdTarget, coverageGaps: [] };
   
   emps.forEach((e) => {
     let bd = 0;
@@ -2713,12 +2819,64 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
     summary.warnings.push(`Ohne hinterlegte Rolle (als AA behandelt, ggf. keine HG/Samstags-D möglich): ${unknownRoleEmps.join(", ")}. Bitte Stammdaten/Rollen-Override ergänzen.`);
   }
 
+  // Vorschlag 6 (Konflikt-Drilldown "Was blockiert diesen Tag?"): für jeden
+  // am Ende tatsächlich unbesetzten Tag wird für JEDE dienstberechtigte Person
+  // der konkrete Ausschlussgrund ermittelt (dieselben Kriterien, die auch
+  // runCoverageRepair() als allerletzte, großzügigste Zulässigkeitsprüfung
+  // verwendet hat) – statt nur "Tag X: kein BD besetzt." zu vermelden, kann
+  // die UI so für jede einzelne Person auflisten, WARUM sie an diesem Tag
+  // nicht einspringen konnte.
+  function explainBDGapBlockers(d) {
+    const wd = weekday(y, m, d);
+    return dutyEmps.map((e) => {
+      let reason;
+      if (isDutyExempt(e) || bdTarget[e] === 0) reason = "Von Bereitschaftsdiensten befreit (kein Monatsziel).";
+      else if (isAbsentOnDay(y, m, e, d, result)) reason = "Abwesend (Urlaub/Krank/Status) an diesem Tag.";
+      else if (result[e]?.[d]?.duty) reason = `Hat an diesem Tag bereits ${result[e][d].duty}-Dienst.`;
+      else if (isPinnedEmpty(e, d)) reason = 'Zelle ist vom Nutzer als „kein Dienst“ fixiert.';
+      else if (wishes[e]?.[d] === "NO_DUTY") reason = 'Wunsch „kein Dienst“ für diesen Tag eingetragen.';
+      else if (wd === 6 && !isFacharzt(e)) reason = "Samstags-Bereitschaftsdienst ist Fachärzten vorbehalten.";
+      else if (isNoBdWeekday(e, wd)) reason = "Persönliche Sonderregel schließt BD an diesem Wochentag aus.";
+      else {
+        const pv = prevCalendarDay(y, m, d);
+        const nx = nextCalendarDay(y, m, d);
+        if (getScheduledDuty(pv.y, pv.m, e, pv.d, result) === "D") reason = "Ruhezeit: hatte am Vortag Bereitschaftsdienst.";
+        else if (getScheduledDuty(nx.y, nx.m, e, nx.d, result) === "D") reason = "Ruhezeit: hat am Folgetag bereits Bereitschaftsdienst.";
+        else reason = "Kein harter Ausschlussgrund gefunden – vermutlich Kapazitätsengpass (alle geeigneten Personen bereits andernorts eingeplant).";
+      }
+      return { emp: e, reason };
+    });
+  }
+
+  function explainHGGapBlockers(d) {
+    const wd = weekday(y, m, d);
+    const bdHolder = dutyEmps.find((e) => result[e]?.[d]?.duty === "D");
+    const isBdAA = bdHolder ? isAssistenzarzt(bdHolder) : false;
+    return hgFAs.map((e) => {
+      let reason;
+      if (isDutyExempt(e)) reason = "Von Hintergrunddiensten befreit.";
+      else if (isAbsentOnDay(y, m, e, d, result)) reason = "Abwesend (Urlaub/Krank/Status) an diesem Tag.";
+      else if (result[e]?.[d]?.duty) reason = `Hat an diesem Tag bereits ${result[e][d].duty}-Dienst.`;
+      else if (isPinnedEmpty(e, d)) reason = 'Zelle ist vom Nutzer als „kein Dienst“ fixiert.';
+      else if (wishes[e]?.[d] === "NO_DUTY") reason = 'Wunsch „kein Dienst“ für diesen Tag eingetragen.';
+      else if (isNoHgFromAaWeekday(e, wd) && isBdAA) reason = "Sonderregel: kein Hintergrunddienst, wenn ein Assistenzarzt den Bereitschaftsdienst hat (an diesem Wochentag).";
+      else {
+        const conflictBd = getHgConflictBd(e, wd);
+        if (conflictBd && bdHolder && conflictBd.includes(bdHolder)) reason = `Personenbezogene Konfliktregel: nicht gemeinsam mit ${bdHolder} im Dienst.`;
+        else reason = "Kein harter Ausschlussgrund gefunden – vermutlich Kapazitätsengpass (alle geeigneten Personen bereits andernorts eingeplant).";
+      }
+      return { emp: e, reason };
+    });
+  }
+
   for (let d = 1; d <= dim; d++) {
     if (!emps.some((e) => result[e]?.[d]?.duty === "D")) {
       summary.warnings.push(`Tag ${d}: kein BD besetzt.`);
+      summary.coverageGaps.push({ day: d, duty: "D", blockers: explainBDGapBlockers(d) });
     }
     if (!emps.some((e) => result[e]?.[d]?.duty === "HG")) {
       summary.warnings.push(`Tag ${d}: kein HG besetzt.`);
+      summary.coverageGaps.push({ day: d, duty: "HG", blockers: explainHGGapBlockers(d) });
     }
   }
 
@@ -2899,7 +3057,23 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
 
   const qualityScore = clampScore(nfiRaw).toFixed(1);
 
-  summary.quality = { score: qualityScore, dutyCoverageMisses, hgCoverageMisses, bdSpread, hgSpread, weekendSpread, wishFulfillmentRate, deepMoves, swaps, hgMoves };
+  summary.quality = {
+    score: qualityScore, dutyCoverageMisses, hgCoverageMisses, bdSpread, hgSpread, weekendSpread, wishFulfillmentRate, deepMoves, swaps, hgMoves,
+    // Vorschlag 7 (Pareto-Vergleichsansicht): die einzelnen [0,100]-Teil-Scores
+    // der NFI-Komposition werden zusätzlich zum verdichteten Gesamtwert
+    // exponiert, damit die UI unterschiedliche Gewichtungsprofile entlang
+    // ECHTER Zieldimensionen (Abdeckung/Fairness/Wunsch) statt nur anhand
+    // eines einzigen Blend-Werts vergleichen kann.
+    bdCoverageScore: Math.round(bdCoverageScore * 10) / 10,
+    hgCoverageScore: Math.round(hgCoverageScore * 10) / 10,
+    bdFairnessScore: Math.round(bdFairnessScore * 10) / 10,
+    hgFairnessScore: Math.round(hgFairnessScore * 10) / 10,
+    weekendFairnessScore: Math.round(weekendFairnessScore * 10) / 10,
+    wishScore: Math.round(wishScore * 10) / 10,
+  };
+  // Vorschlag 1 (Simulated Annealing): welche Optimierungsstrategie diesen
+  // Lauf erzeugt hat, für die Anzeige im Ergebnis-Dialog (autoplan-ui.js).
+  summary.strategy = strategy;
 
   finalReport.sort((a, b) => a.day - b.day || (a.duty === "D" ? -1 : 1));
   
@@ -2908,6 +3082,56 @@ export async function computeAutoPlan(customTargets, weightProfileKey) {
 }
 
 const AUTO_PLAN_RANGE_MAX_MONTHS = 24;
+
+// Vorschlag 2 (Echte Mehrmonats-Zielfunktion): computeAutoPlan() bleibt
+// bewusst auf einen einzelnen Monat begrenzt (siehe Dokumentation von
+// computeAutoPlanRange weiter unten, Performance-Gründe), aber die reine
+// Verkettung unabhängiger Monatspläne ließ Fairness-Schieflagen über
+// Monatsgrenzen hinweg bisher nur über den schwachen, rein historienbasierten
+// Tie-Breaker (collectHistoricalDutyStats) ausgleichen. Für einen mehrere
+// Monate umfassenden Planungslauf berechnet computeAutoPlanRange() daher vor
+// jedem Folgemonat ein an die bereits GEPLANTEN Monate DIESES Laufs
+// angepasstes BD-Monatsziel je Person: liegt jemand nach den bisher geplanten
+// Monaten über ihrem fairen kumulierten Anteil, wird das nächste Monatsziel
+// sanft (max. ±1) nach unten korrigiert, und umgekehrt bei Unterversorgung
+// nach oben. Als eigenständige, exportierte Funktionen (statt Closures
+// innerhalb von computeAutoPlanRange) direkt unit-testbar.
+export function baseMonthlyBDTarget(emp) {
+  return isDutyExempt(emp) ? 0 : (getReducedBdTarget(emp) ?? 4);
+}
+
+/**
+ * @param {string[]} rosterEmps Mitarbeitende des als Nächstes zu planenden Monats
+ * @param {{year: number, month: number}[]} plannedMonths bereits geplante Monate DIESES Laufs, in chronologischer Reihenfolge
+ * @returns {Object<string, number>} pro Person sanft an die kumulierte Ist/Soll-Differenz angepasstes BD-Monatsziel
+ */
+export function computeCrossMonthBDTargets(rosterEmps, plannedMonths) {
+  /** @type {Object<string, number>} */
+  const targets = {};
+  rosterEmps.forEach((emp) => {
+    const base = baseMonthlyBDTarget(emp);
+    if (base === 0) { targets[emp] = 0; return; }
+    let idealCum = 0;
+    let actualCum = 0;
+    plannedMonths.forEach(({ year: py, month: pm }) => {
+      const pmd = DATA[monthKey(py, pm)];
+      if (!pmd?.employees?.includes(emp)) return;
+      idealCum += baseMonthlyBDTarget(emp);
+      const pDim = daysInMonth(py, pm);
+      for (let d = 1; d <= pDim; d++) {
+        if (pmd.assignments?.[emp]?.[d]?.duty === "D") actualCum++;
+      }
+    });
+    const deviation = actualCum - idealCum;
+    // Sanfte Korrektur: höchstens ±1 pro Monat, niemals unter 0 – bewusst
+    // gedämpft statt die gesamte Abweichung sofort auszugleichen, damit ein
+    // einzelner dienstreicher Monat (z. B. wegen vieler Abwesenheiten
+    // anderer) nicht zu einem abrupten Zielsprung im Folgemonat führt.
+    const nudge = deviation > 0.5 ? -1 : deviation < -0.5 ? 1 : 0;
+    targets[emp] = Math.max(0, base + nudge);
+  });
+  return targets;
+}
 
 function* monthSequence(startYear, startMonth, endYear, endMonth) {
   let cy = startYear;
@@ -2957,11 +3181,12 @@ function* monthSequence(startYear, startMonth, endYear, endMonth) {
  *   weightProfileKey?: string,
  *   customTargets?: Object<string, number>,
  *   apply?: boolean,
+ *   strategy?: "greedy"|"annealing",
  *   onMonthStart?: (info: {year: number, month: number, index: number, total: number}) => void,
  * }} [options]
  */
 export async function computeAutoPlanRange(startYear, startMonth, endYear, endMonth, options = {}) {
-  const { weightProfileKey = "standard", customTargets, apply = false, onMonthStart } = options;
+  const { weightProfileKey = "standard", customTargets, apply = false, strategy: rangeStrategy, onMonthStart } = options;
 
   const sequence = [...monthSequence(startYear, startMonth, endYear, endMonth)];
   if (sequence.length === 0) {
@@ -3001,7 +3226,10 @@ export async function computeAutoPlanRange(startYear, startMonth, endYear, endMo
       setPlanMode(true);
       setPlanData(createPlanSession(year, month));
 
-      const result = await computeAutoPlan(customTargets, weightProfileKey);
+      const monthCustomTargets = customTargets
+        || (i === 0 ? undefined : computeCrossMonthBDTargets(planData.employees, sequence.slice(0, i)));
+
+      const result = await computeAutoPlan(monthCustomTargets, weightProfileKey, { strategy: rangeStrategy });
       if (!result) {
         throw new Error(`computeAutoPlanRange: Planung für ${mk} lieferte kein Ergebnis (Planungsmodus/-daten fehlten unerwartet).`);
       }

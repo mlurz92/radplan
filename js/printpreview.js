@@ -41,7 +41,7 @@ function loadLogo() {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, size, size);
         logoDataUrl = canvas.toDataURL('image/png');
-      } catch (e) {
+      } catch {
         logoDataUrl = '';
       }
       resolve(logoDataUrl);
@@ -367,7 +367,7 @@ function drawPageChrome(doc, geom, generatedAt) {
   if (logoDataUrl) {
     try {
       doc.addImage(logoDataUrl, 'PNG', 8, 6.5, 9, 9);
-    } catch (e) {
+    } catch {
       doc.setFillColor(11, 25, 41);
       doc.roundedRect(8, 8, 8, 8, 1.5, 1.5, 'F');
       doc.setFillColor(245, 158, 11);

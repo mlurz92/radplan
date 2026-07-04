@@ -25,6 +25,8 @@ let localApAnimationId = null;
 let neuralGraphInstance = null;
 /** @type {string | ReturnType<typeof weightProfileFromMix>} */
 let localWeightProfile = "standard";
+// Vorschlag 1 (Simulated Annealing): 'greedy' (Standard) oder 'annealing'.
+let localOptimizationStrategy = "greedy";
 let localAutoPlanAlternatives = {};
 
 // Zugriffspunkte für andere Module (planmode.js/app.js), die den internen
@@ -220,6 +222,14 @@ export async function renderAutoPlanModal(renderToken = null) {
           <span class="ap-weight-slider-value" id="ap-weight-slider-value">${typeof localWeightProfile === "object" ? localWeightProfile.mixPct : "–"}</span>
         </div>
 
+        <div class="ap-weight-row" id="ap-strategy-row">
+          <span class="ap-weight-row-lbl" data-tooltip="Bestimmt, wie die Metaheuristik-Phase (Deep-Optimize) am Ende jedes Optimierungszyklus nach Verbesserungen sucht.">Strategie</span>
+          <div class="ap-weight-chips">
+            <button type="button" class="ap-weight-chip${localOptimizationStrategy === "greedy" ? " is-active" : ""}" data-strategy="greedy" data-tooltip="Akzeptiert in der Deep-Optimize-Phase ausschließlich strikt verbessernde Tauschversuche. Schnell und deterministisch, kann aber in einem lokalen Optimum steckenbleiben.">Greedy</button>
+            <button type="button" class="ap-weight-chip${localOptimizationStrategy === "annealing" ? " is-active" : ""}" data-strategy="annealing" data-tooltip="Simulated Annealing: lässt zu Beginn auch leicht verschlechternde Tauschversuche mit abnehmender Wahrscheinlichkeit zu, um lokale Optima zu verlassen. Das Endergebnis ist garantiert nie schlechter als der reine Greedy-Ansatz, kann aber ein höheres NFI erreichen und braucht etwas länger.">Simulated Annealing</button>
+          </div>
+        </div>
+
         <div class="ap-config-list">
     `;
 
@@ -300,10 +310,14 @@ export async function renderAutoPlanModal(renderToken = null) {
     const weightSliderValue = document.getElementById("ap-weight-slider-value");
     const presetMixPct = { fairness: 0, standard: 50, wish: 100 };
 
-    body.querySelectorAll(".ap-weight-chip").forEach((/** @type {HTMLElement} */ chip) => {
+    // Nur Chips innerhalb der Gewichtungs-Zeile ansprechen (nicht die
+    // Strategie-Chips weiter unten, die dieselbe Klasse für einheitliches
+    // Aussehen teilen, aber `data-strategy` statt `data-profile` tragen).
+    const weightRow = document.getElementById("ap-weight-row");
+    weightRow?.querySelectorAll(".ap-weight-chip").forEach((/** @type {HTMLElement} */ chip) => {
       chip.addEventListener("click", () => {
         localWeightProfile = chip.dataset.profile;
-        body.querySelectorAll(".ap-weight-chip").forEach((/** @type {HTMLElement} */ c) => {
+        weightRow.querySelectorAll(".ap-weight-chip").forEach((/** @type {HTMLElement} */ c) => {
           c.classList.toggle("is-active", c.dataset.profile === localWeightProfile);
         });
         // Regler auf die dem Preset entsprechende Position zurücksetzen, damit
@@ -320,8 +334,20 @@ export async function renderAutoPlanModal(renderToken = null) {
       // Kein Preset ist mehr exakt aktiv, sobald der Regler manuell bewegt
       // wurde (auch wenn er zufällig auf 0/50/100 steht) -- Chips optisch
       // deaktivieren, um keinen falschen Eindruck zu erwecken.
-      body.querySelectorAll(".ap-weight-chip").forEach((/** @type {HTMLElement} */ c) => {
+      weightRow?.querySelectorAll(".ap-weight-chip").forEach((/** @type {HTMLElement} */ c) => {
         c.classList.remove("is-active");
+      });
+    });
+
+    // Vorschlag 1 (Simulated Annealing): eigener Strategie-Umschalter, ebenso
+    // auf seine eigene Zeile beschränkt.
+    const strategyRow = document.getElementById("ap-strategy-row");
+    strategyRow?.querySelectorAll(".ap-weight-chip").forEach((/** @type {HTMLElement} */ chip) => {
+      chip.addEventListener("click", () => {
+        localOptimizationStrategy = chip.dataset.strategy;
+        strategyRow.querySelectorAll(".ap-weight-chip").forEach((/** @type {HTMLElement} */ c) => {
+          c.classList.toggle("is-active", c.dataset.strategy === localOptimizationStrategy);
+        });
       });
     });
 
@@ -343,7 +369,7 @@ export async function renderAutoPlanModal(renderToken = null) {
         
         requestAnimationFrame(() => {
           setTimeout(async () => {
-            const result = await computeAutoPlan(localAutoPlanTargets, localWeightProfile);
+            const result = await computeAutoPlan(localAutoPlanTargets, localWeightProfile, { strategy: localOptimizationStrategy });
             if (!result) {
               showToast("Fehler bei der Berechnung");
               localApViewMode = "config";
@@ -355,7 +381,7 @@ export async function renderAutoPlanModal(renderToken = null) {
             localAutoPlanAlternatives = { [activeWeightKey]: result };
             Object.keys(AUTO_PLAN_WEIGHT_PROFILES).forEach((key) => {
               if (key === activeWeightKey) return;
-              const altResult = computeAutoPlan(localAutoPlanTargets, key);
+              const altResult = computeAutoPlan(localAutoPlanTargets, key, { strategy: localOptimizationStrategy });
               if (altResult && typeof altResult.then === "function") {
                 altResult.then((r) => { if (r) localAutoPlanAlternatives[key] = r; });
               }
@@ -686,9 +712,64 @@ export function renderResultView() {
 
   const altKeys = Object.keys(AUTO_PLAN_WEIGHT_PROFILES);
   if (altKeys.length > 1 && altKeys.some((k) => localAutoPlanAlternatives[k])) {
+    // Vorschlag 7 (Pareto-Vergleichsansicht): statt die drei Gewichtungsprofile
+    // nur als lose Kartenreihe mit je eigenem NFI-Wert nebeneinanderzustellen,
+    // werden sie zusätzlich auf zwei ECHTEN, gegenläufigen Zieldimensionen
+    // verortet — Fairness (Ø der BD-/HG-/WE-Fairness-Teilscores) auf der
+    // Y-Achse, Wunscherfüllung auf der X-Achse — und als Streudiagramm
+    // dargestellt. Ein Profil gilt als Pareto-optimal, wenn kein anderes
+    // Profil in BEIDEN Dimensionen mindestens gleich gut und in mindestens
+    // einer strikt besser ist ("nicht dominiert") — macht den tatsächlichen
+    // Trade-off sichtbar, statt ihn hinter einem einzigen Blend-Wert (NFI) zu
+    // verstecken.
+    const paretoPoints = altKeys
+      .filter((key) => localAutoPlanAlternatives[key])
+      .map((key) => {
+        const aq = localAutoPlanAlternatives[key].summary?.quality || {};
+        const fairnessScore = ((aq.bdFairnessScore ?? 0) + (aq.hgFairnessScore ?? 0) + (aq.weekendFairnessScore ?? 0)) / 3;
+        return { key, fairnessScore, wishScore: aq.wishScore ?? 0, dominatedBy: /** @type {{key: string}|undefined} */ (undefined) };
+      });
+    paretoPoints.forEach((p) => {
+      p.dominatedBy = paretoPoints.find((o) => o.key !== p.key
+        && o.fairnessScore >= p.fairnessScore && o.wishScore >= p.wishScore
+        && (o.fairnessScore > p.fairnessScore || o.wishScore > p.wishScore));
+    });
+
+    const SVG_SIZE = 220;
+    const PAD = 26;
+    const toX = (v) => PAD + (v / 100) * (SVG_SIZE - 2 * PAD);
+    const toY = (v) => (SVG_SIZE - PAD) - (v / 100) * (SVG_SIZE - 2 * PAD);
+    const paretoSvg = `
+      <svg class="ap-pareto-svg" viewBox="0 0 ${SVG_SIZE} ${SVG_SIZE}" width="${SVG_SIZE}" height="${SVG_SIZE}" role="img" aria-label="Streudiagramm: Fairness gegen Wunscherfüllung je Gewichtungsprofil">
+        <line x1="${PAD}" y1="${SVG_SIZE - PAD}" x2="${SVG_SIZE - PAD}" y2="${SVG_SIZE - PAD}" stroke="#475569" stroke-width="1"/>
+        <line x1="${PAD}" y1="${PAD}" x2="${PAD}" y2="${SVG_SIZE - PAD}" stroke="#475569" stroke-width="1"/>
+        <text x="${SVG_SIZE / 2}" y="${SVG_SIZE - 6}" text-anchor="middle" font-size="8" fill="#94A3B8">Wunscherfüllung →</text>
+        <text x="8" y="${SVG_SIZE / 2}" text-anchor="middle" font-size="8" fill="#94A3B8" transform="rotate(-90 8 ${SVG_SIZE / 2})">Fairness →</text>
+        ${paretoPoints.map((p) => {
+          const profile = AUTO_PLAN_WEIGHT_PROFILES[p.key];
+          const isActive = typeof localWeightProfile === "string" && p.key === localWeightProfile;
+          const cx = toX(p.wishScore), cy = toY(p.fairnessScore);
+          const isOptimal = !p.dominatedBy;
+          const fill = isActive ? "#0EA5E9" : isOptimal ? "#22C55E" : "#64748B";
+          return `
+            <circle cx="${cx}" cy="${cy}" r="${isActive ? 6 : 5}" fill="${fill}" fill-opacity="${isOptimal ? 0.9 : 0.55}" stroke="#0B1929" stroke-width="1.5"/>
+            <text x="${cx}" y="${cy - 9}" text-anchor="middle" font-size="7.5" fill="#CBD5E1">${esc(profile.label)}</text>
+          `;
+        }).join("")}
+      </svg>
+    `;
+
     html += `
       <div class="ap-alt-compare">
-        <div class="ap-alt-compare-hd">Alternative Gewichtungen</div>
+        <div class="ap-alt-compare-hd">Alternative Gewichtungen <span class="ap-sect-hint">— Pareto-Vergleich: Fairness vs. Wunscherfüllung</span></div>
+        <div class="ap-pareto-wrap">
+          <div class="ap-pareto-chart" data-tooltip="Jeder Punkt ist ein vollständig berechnetes Gewichtungsprofil. Grün = Pareto-optimal (kein anderes Profil ist in Fairness UND Wunscherfüllung mindestens gleich gut und in einem davon besser). Grau = von einem anderen Profil dominiert. Blau = aktuell aktives Profil.">${paretoSvg}</div>
+          <div class="ap-pareto-legend">
+            <span class="ap-pareto-leg-item"><i class="ap-pareto-dot" style="background:#22C55E"></i>Pareto-optimal</span>
+            <span class="ap-pareto-leg-item"><i class="ap-pareto-dot" style="background:#64748B"></i>Dominiert</span>
+            <span class="ap-pareto-leg-item"><i class="ap-pareto-dot" style="background:#0EA5E9"></i>Aktiv</span>
+          </div>
+        </div>
         <div class="ap-alt-cards">
           ${altKeys.map((key) => {
             const profile = AUTO_PLAN_WEIGHT_PROFILES[key];
@@ -703,10 +784,15 @@ export function renderResultView() {
               `;
             }
             const aq = altResult.summary?.quality || {};
+            const point = paretoPoints.find((p) => p.key === key);
+            const paretoBadge = point?.dominatedBy
+              ? `<span class="ap-alt-card-tag ap-alt-card-tag-dominated" data-tooltip="In Fairness UND Wunscherfüllung mindestens gleich gut, in mindestens einer Dimension besser abgedeckt durch: ${esc(AUTO_PLAN_WEIGHT_PROFILES[point.dominatedBy.key].label)}.">Dominiert von ${esc(AUTO_PLAN_WEIGHT_PROFILES[point.dominatedBy.key].label)}</span>`
+              : `<span class="ap-alt-card-tag ap-alt-card-tag-pareto" data-tooltip="Kein anderes berechnetes Profil ist in Fairness UND Wunscherfüllung mindestens gleich gut und in mindestens einer Dimension besser.">Pareto-optimal</span>`;
             return `
               <div class="ap-alt-card${isActive ? " is-active" : ""}" data-profile="${key}">
                 <div class="ap-alt-card-name">${profile.label}${isActive ? ' <span class="ap-alt-card-tag">Aktiv</span>' : ""}</div>
                 <div class="ap-alt-card-hint">${profile.hint}</div>
+                <div class="ap-alt-card-pareto-badge">${paretoBadge}</div>
                 <div class="ap-alt-card-stats">
                   <span title="${qualityTooltips.score}">NFI <strong>${aq.score || "0.0"}</strong></span>
                   <span title="${qualityTooltips.wishes}">Wünsche <strong>${Math.round((aq.wishFulfillmentRate || 0) * 100)}%</strong></span>
@@ -866,6 +952,54 @@ export function renderResultView() {
             <div class="ap-collapse-content-pad">
               <div class="ap-warnings">
                 ${summary.warnings.map(w => `<div class="ap-warn-item${w.startsWith('KRITISCH') ? ' ap-warn-item-critical' : ''}">${esc(w)}</div>`).join("")}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Vorschlag 6 (Konflikt-Drilldown "Was blockiert diesen Tag?"): für jeden
+  // am Ende tatsächlich unbesetzten Tag wird aufgelistet, welche konkrete
+  // Regel JEDE einzelne dienstberechtigte Person an diesem Tag blockiert hat
+  // — statt nur "Tag X: kein BD besetzt." zu vermelden.
+  const coverageGaps = summary.coverageGaps || [];
+  if (coverageGaps.length) {
+    const dutyLabel = { D: "Bereitschaftsdienst", HG: "Hintergrunddienst" };
+    html += `
+      <div class="ap-collapse-wrap">
+        <div class="ap-collapse-head" onclick="this.parentElement.classList.toggle('is-collapsed')">
+          <div class="ap-collapse-title">
+            <span class="ap-sect-badge" style="background:#DC2626;color:#fff">?</span>
+            Besetzungslücken: Was blockiert diesen Tag? (${coverageGaps.length})
+          </div>
+          <svg class="ap-collapse-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+        <div class="ap-collapse-content">
+          <div class="ap-collapse-content-inner">
+            <div class="ap-collapse-content-pad">
+              <div class="ap-gap-hint">Für jeden unbesetzten Tag: der konkrete Ausschlussgrund je dienstberechtigter Person, ermittelt nach denselben Kriterien wie die Zwangsbelegung (Coverage Repair).</div>
+              <div class="ap-gap-list">
+                ${coverageGaps.map((gap) => `
+                  <div class="ap-gap-item">
+                    <div class="ap-gap-item-hd">
+                      <span class="ap-report-date">${esc(DOW_ABBR[weekday(y, m, gap.day)])}, ${gap.day}. ${esc(MONTHS_SHORT[m])}</span>
+                      <span class="ap-report-duty ${esc(gap.duty)}">${esc(gap.duty)}</span>
+                      <span class="ap-gap-item-title">${dutyLabel[gap.duty] || gap.duty} nicht besetzbar</span>
+                    </div>
+                    <div class="ap-gap-blockers">
+                      ${gap.blockers.map((b) => `
+                        <div class="ap-gap-blocker-row">
+                          <span class="ap-gap-blocker-emp">${esc(b.emp)}</span>
+                          <span class="ap-gap-blocker-reason">${esc(b.reason)}</span>
+                        </div>
+                      `).join("")}
+                    </div>
+                  </div>
+                `).join("")}
               </div>
             </div>
           </div>

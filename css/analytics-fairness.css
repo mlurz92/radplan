@@ -62,6 +62,24 @@
 .fair-chart-card { position: relative; }
 .fair-chart-card canvas { max-height: 260px; }
 
+/* Vorschlag 8: Belastungs-Risiko-Score-Balken */
+.burnout-bar-bg {
+  position: relative;
+  height: 8px;
+  width: 110px;
+  background: var(--gray-200);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.burnout-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 999px;
+  transition: width .4s ease;
+}
+
 /* --- Portrait-Mobile --- */
 @media (max-width: 560px) {
   /* Breite Tabelle bleibt in ihrem Wrap scrollbar; Balkenspalte schmaler. */

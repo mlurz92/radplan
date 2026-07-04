@@ -5,9 +5,17 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/**/*.test.js",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint js functions test",
+    "lint:fix": "eslint js functions test --fix",
+    "format": "prettier --write \"js/**/*.js\" \"functions/**/*.js\" \"test/**/*.js\" \"css/**/*.css\" \"*.html\"",
+    "format:check": "prettier --check \"js/**/*.js\" \"functions/**/*.js\" \"test/**/*.js\" \"css/**/*.css\" \"*.html\"",
+    "verify": "npm run lint && npm run typecheck && npm test"
   },
   "devDependencies": {
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^9.1.2",
+    "prettier": "^3.9.4",
     "typescript": "^6.0.3"
   }
 }

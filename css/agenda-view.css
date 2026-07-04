@@ -1,0 +1,153 @@
+/* ===========================================================================
+   RadPlan · Listen-/Agenda-Ansicht (Vorschlag 30) — Alternative zur Matrix.
+   Eigenständiger Klassen-Präfix (agd-*), theme-aware über bestehende
+   CSS-Variablen (--elev-*, --text-*), unabhängig von den mobilen .mdc-*-
+   Stilen (die absichtlich fest hell sind und nicht wiederverwendet werden).
+   =========================================================================== */
+
+/* Default: ausgeblendet über das `hidden`-Attribut (siehe agenda-view.js
+   applyViewMode). Erst body.agenda-active schaltet sichtbar — dieselbe
+   Konvention wie bei .mobile-view/body.is-mobile in layout.css, damit sich
+   kein unbedingtes `display` hier mit dem `hidden`-Attribut beißt. */
+.agenda-view {
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 4px 2px 24px;
+  overflow-y: auto;
+}
+
+body.agenda-active #agenda-view {
+  display: flex;
+}
+body.agenda-active #grid-wrapper {
+  display: none;
+}
+
+.agenda-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 10px 14px;
+  background: var(--elev-1-bg);
+  border: 1px solid var(--elev-border-1);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-3);
+}
+.agd-summary-num { font-weight: 800; color: var(--text-1); font-variant-numeric: tabular-nums; }
+
+.agenda-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agd-week-sep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 2px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.agd-week-sep::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--elev-border-2);
+}
+
+.agd-day-card {
+  display: grid;
+  grid-template-columns: 52px 1px 1fr 20px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--elev-1-bg);
+  border: 1px solid var(--elev-border-1);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
+}
+.agd-day-card:hover,
+.agd-day-card:focus-visible {
+  background: var(--elev-2-bg);
+  border-color: var(--elev-border-3);
+  outline: none;
+}
+.agd-day-card:active { transform: scale(.995); }
+
+.agd-day-card.agd-we { background: var(--gray-50, var(--elev-1-bg)); }
+.agd-day-card.agd-hol { border-color: rgba(245,158,11,.4); }
+.agd-day-card.agd-today {
+  border-color: rgba(14,165,233,.5);
+  box-shadow: 0 0 0 1.5px rgba(14,165,233,.18);
+}
+
+.agd-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.agd-day-num { font-size: 22px; font-weight: 800; color: var(--text-1); line-height: 1; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+.agd-day-dow { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); }
+.agd-day-kw { font-size: 8px; font-family: var(--font-mono); color: var(--text-faint); }
+.agd-day-card.agd-today .agd-day-num { color: #0EA5E9; }
+.agd-day-card.agd-hol .agd-day-num { color: #B45309; }
+
+.agd-divider { width: 1px; align-self: stretch; background: var(--elev-border-2); }
+
+.agd-content { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.agd-duties { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+
+.agd-duty-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 2px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  max-width: 220px;
+}
+.agd-duty-badge.agd-d { background: rgba(220,38,38,.10); color: #DC2626; border: 1px solid rgba(220,38,38,.22); }
+.agd-duty-badge.agd-hg { background: rgba(14,165,233,.10); color: #0EA5E9; border: 1px solid rgba(14,165,233,.22); }
+
+.agd-duty-letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+}
+.agd-d .agd-duty-letter { background: #DC2626; }
+.agd-hg .agd-duty-letter { background: #0EA5E9; }
+
+.agd-duty-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agd-empty-duty { font-size: 11px; color: var(--text-faint); font-style: italic; }
+
+.agd-assigns { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.agd-assign-chip { font-size: 9.5px; font-weight: 700; font-family: var(--font-mono); padding: 1px 6px; border-radius: 3px; }
+.agd-assign-more { font-size: 9.5px; color: var(--text-faint); font-weight: 600; }
+.agd-hol-label { font-size: 9px; font-weight: 700; color: #B45309; background: rgba(245,158,11,.14); padding: 1px 6px; border-radius: 3px; width: fit-content; }
+
+.agd-arrow { display: flex; align-items: center; justify-content: center; color: var(--text-faint); }
+
+@media (max-width: 560px) {
+  .agd-day-card { grid-template-columns: 42px 1px 1fr 16px; padding: 8px 10px; gap: 8px; }
+  .agd-day-num { font-size: 18px; }
+}

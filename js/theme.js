@@ -37,7 +37,7 @@ export function applyTheme(theme) {
 export function setTheme(theme, persist = true) {
   applyTheme(theme);
   if (persist) {
-    try { localStorage.setItem(THEME_STORAGE_KEY, theme); } catch (e) {}
+    try { localStorage.setItem(THEME_STORAGE_KEY, theme); } catch {}
   }
 }
 
@@ -50,12 +50,12 @@ export function toggleTheme(originEvent) {
 export function initTheme() {
   applyTheme(getTheme());
   let explicitPreference = false;
-  try { explicitPreference = localStorage.getItem(THEME_STORAGE_KEY) !== null; } catch (e) {}
+  try { explicitPreference = localStorage.getItem(THEME_STORAGE_KEY) !== null; } catch {}
   if (!explicitPreference && window.matchMedia) {
     const mq = window.matchMedia("(prefers-color-scheme: light)");
     mq.addEventListener?.("change", (e) => {
       let stillExplicit = false;
-      try { stillExplicit = localStorage.getItem(THEME_STORAGE_KEY) !== null; } catch (err) {}
+      try { stillExplicit = localStorage.getItem(THEME_STORAGE_KEY) !== null; } catch {}
       if (!stillExplicit) setTheme(e.matches ? "light" : "dark", false);
     });
   }
@@ -80,7 +80,7 @@ export function applyDensity(density) {
 export function setDensity(density, persist = true) {
   applyDensity(density);
   if (persist) {
-    try { localStorage.setItem(DENSITY_STORAGE_KEY, density); } catch (e) {}
+    try { localStorage.setItem(DENSITY_STORAGE_KEY, density); } catch {}
   }
   refreshResponsiveLayout({ forceRender: true });
 }
@@ -91,7 +91,7 @@ export function toggleDensity() {
 
 export function initDensity() {
   let saved = null;
-  try { saved = localStorage.getItem(DENSITY_STORAGE_KEY); } catch (e) {}
+  try { saved = localStorage.getItem(DENSITY_STORAGE_KEY); } catch {}
   applyDensity(saved === "compact" ? "compact" : "cozy");
 }
 
@@ -196,12 +196,12 @@ export function applyColorblind(on) {
 export function setColorblind(on, persist = true) {
   applyColorblind(on);
   if (persist) {
-    try { localStorage.setItem(COLORBLIND_STORAGE_KEY, on ? "1" : "0"); } catch (e) {}
+    try { localStorage.setItem(COLORBLIND_STORAGE_KEY, on ? "1" : "0"); } catch {}
   }
 }
 
 export function initColorblindToggle() {
-  const stored = (() => { try { return localStorage.getItem(COLORBLIND_STORAGE_KEY) === "1"; } catch (e) { return false; } })();
+  const stored = (() => { try { return localStorage.getItem(COLORBLIND_STORAGE_KEY) === "1"; } catch { return false; } })();
   applyColorblind(stored);
   const desktopItem = document.getElementById("btn-colorblind");
   if (desktopItem) {

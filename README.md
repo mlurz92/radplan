@@ -924,7 +924,19 @@ radplan/
 │   ├── analytics-compliance.css    # Stil des Moduls „Regelkonformität"
 │   ├── analytics-forecast.css      # Stil des Moduls „Prognose"
 │   └── analytics-reports.css       # Stil des Moduls „Berichte"
-└── (kein test/-Verzeichnis vorhanden — siehe Kapitel 24)
+└── test/                            # Automatisierte Tests (siehe Kapitel 24.2) — node:test, kein externes Framework
+    ├── analytics-engine.test.js     # Auswertungs-Engine: Prognose, Coverage, Fairness, Compliance, Benchmark, Kombi-Risiko
+    ├── api.test.js                  # Cloudflare Pages Function: Merge/Konflikt-/Migrationslogik
+    ├── autoplan.test.js             # Neural Scheduler: Kernregeln und Zielfunktion
+    ├── autoplan-integration.test.js # Neural Scheduler: End-to-End-Läufe über echte Monatsszenarien
+    ├── autoplan-range.test.js       # Neural Scheduler: Mehrmonats-/Jahresplanung (computeAutoPlanRange)
+    ├── autoplan-rules.test.js       # Neural Scheduler: harte Constraints (Ruhezeit, Qualifikation, Sonderregeln)
+    ├── constants.test.js            # Stammdaten-/Kalenderhilfsfunktionen
+    ├── model.test.js                # Datenmodell: Zellzugriff, Persistenz, Jahres-/Profilstatistiken
+    ├── seasonal-forecast.test.js    # Saisonale Abwesenheits-Prognose
+    ├── state.test.js                # Globaler Zustand, 3-Way-Merge, Undo/Redo-Integration
+    ├── weight-profile.test.js       # Autoplan-Gewichtungsprofile (Fairness/Wunsch-Regler)
+    └── helpers/                     # Gemeinsame Test-Stubs (u. a. DOM-Stubs für node:test ohne Browser)
 ```
 
 ---
@@ -947,7 +959,7 @@ python3 -m http.server 8000
 
 ### 24.2 Automatisierte Tests
 
-`package.json` definiert ein `npm test`-Skript (`node --test test/**/*.test.js`), das den nativen Testrunner von Node.js ohne externe Test-Frameworks nutzt. **Aktuell existiert im Repository jedoch kein `test/`-Verzeichnis und keine einzige Testdatei** — `npm test` läuft fehlerfrei durch, meldet aber `0` gefundene, ausgeführte Tests. Das Skript ist als Grundgerüst für eine zukünftige Testsuite vorbereitet, deckt den aktuellen Code-Stand aber nicht ab. Qualitätssicherung erfolgt derzeit durch manuelle Prüfung und durch die harten, im Scheduler und in der Regelkonformitätsprüfung eingebauten Constraint-Checks selbst.
+`package.json` definiert ein `npm test`-Skript (`node --test test/**/*.test.js`), das den nativen Testrunner von Node.js ohne externe Test-Frameworks nutzt. Das `test/`-Verzeichnis enthält elf Testdateien (siehe Projektstruktur oben) mit insgesamt mehreren hundert Einzel-Tests, die den Neural Scheduler (Kernregeln, harte Constraints, Mehrmonats-Planung, End-to-End-Läufe), die Auswertungs-Engine (Prognose, Coverage, Fairness, Compliance, Mehrjahres-Benchmark, Kombi-Risiko), das Datenmodell, den globalen Zustand samt 3-Way-Merge sowie die Cloudflare-Pages-Function (Konflikt-/Migrationslogik) abdecken. DOM-abhängiger Code (Rendering-Module) wird über einfache Stubs in `test/helpers/dom-stubs.js` isoliert, damit die Kernlogik ohne Browser lauffähig bleibt. Ergänzend prüft `npm run typecheck` (`tsc --noEmit`) die JSDoc-basierten Typannotationen. Reine Rendering-/DOM-Module (`render-*.js`, Modals, mobile Ansichten) sind bewusst nicht Teil dieser Unit-Test-Suite und werden stattdessen durch manuelle Prüfung sowie die harten, im Scheduler und in der Regelkonformitätsprüfung eingebauten Constraint-Checks abgesichert.
 
 ### 24.3 Deployment
 

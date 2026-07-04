@@ -198,7 +198,7 @@ export function savePlanDraft() {
     updatePlanBarUI();
     saveToStorage();
     showToast("Entwurf gespeichert");
-  } catch (e) {
+  } catch {
     showToast("Fehler beim Speichern");
   }
 }

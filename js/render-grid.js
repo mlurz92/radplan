@@ -63,6 +63,7 @@ import { hideOverlay, showToast, openProfileModal } from './render-modals.js';
 import { renderDeptContent } from './render-dept.js';
 import { renderEmployeeDashboard } from './render-employee-dashboard.js';
 import { esc } from './utils.js';
+import { getViewMode, renderAgendaView } from './agenda-view.js';
 
 const dragSelectionState = {
   active: false,
@@ -159,6 +160,9 @@ export function syncSelectionClasses() {
   tbody.querySelectorAll(".td-cell").forEach((/** @type {HTMLElement} */ cell) => {
     const sel = show && cell.dataset.emp === emp && days.includes(parseInt(cell.dataset.day, 10));
     cell.classList.toggle("multi-selected", sel);
+    // Vorschlag 29 (ARIA-Grid-Semantik): Mehrfachauswahl auch für
+    // Screenreader-Nutzer:innen wahrnehmbar machen, nicht nur visuell.
+    cell.setAttribute("aria-selected", sel ? "true" : "false");
   });
 }
 
@@ -973,6 +977,10 @@ export function render() {
   renderThead(y, m, dim, hols, md);
   renderTbody(y, m, dim, hols, md);
   renderTfoot(y, m, dim, md);
+  // Vorschlag 30 (Listen-/Agenda-Ansicht): Matrix bleibt im Hintergrund immer
+  // aktuell (für einen nahtlosen Rückwechsel), die Listenansicht wird nur bei
+  // Bedarf zusätzlich neu aufgebaut.
+  if (getViewMode() === 'agenda') renderAgendaView();
   updateOpenModalLayouts();
 }
 
@@ -1111,10 +1119,23 @@ export function renderThead(y, m, dim, hols, md) {
   const thead = document.getElementById("plan-thead");
   thead.innerHTML = "";
 
+  // Vorschlag 29 (ARIA-Grid-Semantik): das Raster trägt bereits role="grid"
+  // (siehe index.html); da diese explizite Rolle die implizite HTML-Tabellen-
+  // Semantik überschreibt, müssen Zeilen/Kopfzellen ihre Rollen (row,
+  // columnheader) und Positionsangaben (aria-colindex/-count,
+  // aria-rowindex/-count) selbst tragen, damit Screenreader das Raster
+  // weiterhin korrekt als Tabelle mit Zeilen/Spalten ansagen.
+  const table = document.getElementById("plan-table");
+  if (table) table.setAttribute("aria-colcount", String(dim + 1));
+
   const tr = document.createElement("tr");
+  tr.setAttribute("role", "row");
+  tr.setAttribute("aria-rowindex", "1");
   const thC = document.createElement("th");
   thC.className = "th-corner";
   thC.setAttribute("scope", "col");
+  thC.setAttribute("role", "columnheader");
+  thC.setAttribute("aria-colindex", "1");
   thC.innerHTML = '<div class="th-corner-inner">Mitarbeitende</div>';
   tr.appendChild(thC);
 
@@ -1122,6 +1143,8 @@ export function renderThead(y, m, dim, hols, md) {
     const { cls, title, ariaLabel, html } = computeTheadCellState(y, m, d, hols, md);
     const th = document.createElement("th");
     th.setAttribute("scope", "col");
+    th.setAttribute("role", "columnheader");
+    th.setAttribute("aria-colindex", String(d + 1));
     th.className = cls;
     th.dataset.day = String(d);
     if (title) th.title = title;
@@ -1282,6 +1305,8 @@ function createGridCellElement(y, m, emp, d, hols, gridConflicts) {
   const tdEl = document.createElement("td");
   tdEl.tabIndex = 0;
   tdEl.setAttribute("role", "gridcell");
+  tdEl.setAttribute("aria-colindex", String(d + 1));
+  tdEl.setAttribute("aria-selected", "false");
   tdEl.dataset.emp = emp;
   tdEl.dataset.day = String(d);
 
@@ -1468,20 +1493,31 @@ export function hydrateAllPendingRows() {
 export function renderTbody(y, m, dim, hols, md) {
   const tbody = document.getElementById("plan-tbody");
   tbody.innerHTML = "";
-  
+
   if (!md.employees.length) {
     const tr = document.createElement("tr");
+    tr.setAttribute("role", "row");
     const td = document.createElement("td");
+    td.setAttribute("role", "gridcell");
     td.colSpan = dim + 1;
     td.className = "td-empty";
     td.innerHTML = `<div class="empty-inner"><p class="empty-title">Keine Mitarbeitenden</p></div>`;
     tr.appendChild(td);
     tbody.appendChild(tr);
+    const emptyTable = document.getElementById("plan-table");
+    if (emptyTable) emptyTable.setAttribute("aria-rowcount", "2");
     return;
   }
 
   const employeesToRender = md.employees.filter(e => e !== RBN_ROW_LABEL && e !== RBN_ROW_KEY);
   const gridConflicts = computeGridConflicts(y, m);
+  // Vorschlag 29 (ARIA-Grid-Semantik): Gesamt-Zeilenzahl inkl. Kopfzeile (und
+  // ggf. der zusätzlichen Rufbereitschafts-Zeile) für aria-rowcount/-index —
+  // wichtig, weil das Raster virtualisiert ist (siehe VIRTUALIZE_ROW_THRESHOLD
+  // weiter unten) und nicht alle Zeilen von Anfang an im DOM stehen.
+  const totalRowCount = 1 + employeesToRender.length + (isRbnMonthVisible(y, m) ? 1 : 0);
+  const table = document.getElementById("plan-table");
+  if (table) table.setAttribute("aria-rowcount", String(totalRowCount));
 
   const roleBand = (pos) => {
     if (["CA", "LOA", "OA", "OÄ"].includes(pos)) return "lead";
@@ -1499,6 +1535,8 @@ export function renderTbody(y, m, dim, hols, md) {
     const band = roleBand(meta.position);
 
     const tr = document.createElement("tr");
+    tr.setAttribute("role", "row");
+    tr.setAttribute("aria-rowindex", String(empIdx + 2));
     tr.dataset.band = band;
     tr.dataset.emp = emp;
     if (band !== prevBand) {
@@ -1511,6 +1549,7 @@ export function renderTbody(y, m, dim, hols, md) {
     tdN.style.paddingLeft = "11px";
     tdN.setAttribute("role", "rowheader");
     tdN.setAttribute("aria-label", emp);
+    tdN.setAttribute("aria-colindex", "1");
     tdN.setAttribute("tabindex", "0");
     
     let tdNHtml = `<span class="emp-label">${esc(emp)}</span>`;
@@ -1605,11 +1644,15 @@ export function renderTbody(y, m, dim, hols, md) {
   if (isRbnMonthVisible(y, m)) {
     const tr = document.createElement("tr");
     tr.className = "tr-rbn";
-    
+    tr.setAttribute("role", "row");
+    tr.setAttribute("aria-rowindex", String(employeesToRender.length + 2));
+
     const tdN = document.createElement("td");
     tdN.className = "td-name td-name-rbn";
     tdN.style.borderLeft = "3px solid #0EA5E9";
     tdN.style.paddingLeft = "11px";
+    tdN.setAttribute("role", "rowheader");
+    tdN.setAttribute("aria-colindex", "1");
     tdN.innerHTML = `<span class="emp-label">${RBN_ROW_LABEL}</span>`;
     tr.appendChild(tdN);
     
