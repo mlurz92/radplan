@@ -39,8 +39,9 @@ import {
 
 export function getMonthDataRaw(y, m) {
   const k = monthKey(y, m);
-  
-  if (!DATA[k]) {
+  const isNewMonth = !DATA[k];
+
+  if (isNewMonth) {
     const prev = DATA[prevMK(y, m)];
     DATA[k] = {
       employees: prev && prev.employees ? prev.employees.filter((emp) => isEmployeeActiveInMonth(emp, y, m)) : [],
@@ -48,11 +49,28 @@ export function getMonthDataRaw(y, m) {
       rbn: {}
     };
   }
-  
+
   normalizeMonthDataShape(DATA[k]);
   if (reconcileEmployeesForMonth(DATA[k], y, m)) {
     saveToStorage();
   }
+
+  if (isNewMonth) {
+    // Der frisch angelegte Monat existiert jetzt erstmals in DATA. Falls der
+    // Vormonat am Monatsende einen BD-Pflichtdienst ("D") trägt, konnte der
+    // obligatorische Ruhetag ("F") für Tag 1 dieses Monats bislang NICHT
+    // eingetragen werden, weil ensurePostBDFreiDays() nur bereits existierende
+    // Folgemonate beschreibt (siehe dort, DATA[nk]-Check) -- dieser Monat
+    // existierte bis eben nicht. Andere Aufrufer (Import, App-Init/-Sync,
+    // Autoplan) rufen ensurePostBDFreiDays() zwar bereits explizit auf, aber
+    // reine Navigation zu einem neuen Monat lief bisher an keinem dieser
+    // Pfade vorbei. Beschränkt auf den Neuanlage-Fall, damit häufige
+    // Aufrufe von getMonthDataRaw für bereits existierende Monate (z. B.
+    // beim Rendern) nicht bei jedem Zugriff den gesamten DATA-Bestand erneut
+    // durchlaufen (ensurePostBDFreiDays() ist idempotent, aber nicht billig).
+    ensurePostBDFreiDays();
+  }
+
   return DATA[k];
 }
 
