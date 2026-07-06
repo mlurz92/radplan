@@ -825,6 +825,15 @@ body.is-drag-selecting #plan-tbody .td-cell {
   cursor: grab;
 }
 
+/* Der Drag-Hinweis wird über [data-tooltip] (siehe components.css) realisiert,
+   dessen globale Regel dafür position:relative setzt. Ohne diese Regel würde
+   das gleich stark spezifische [data-tooltip] je nach Ladereihenfolge das
+   position:absolute oben überschreiben und das Badge aus der Zellecke in den
+   normalen Textfluss zurückfallen lassen. */
+.cell-duty[data-tooltip] {
+  position: absolute;
+}
+
 .cell-duty[draggable="true"]:active {
   cursor: grabbing;
 }
