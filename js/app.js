@@ -54,8 +54,9 @@ import { initCellTooltips } from './celltooltip.js';
 import { initTooltips } from './tooltip.js';
 import { openPrintPreview } from './printpreview.js';
 import { injectBrandIcon } from './icons.js';
-import { initNotificationCenter, checkComplianceAndNotify } from './notifications.js';
+import { initNotificationCenter, checkComplianceAndNotify, checkGridConflictsAndNotify } from './notifications.js';
 import { computeCompliance, getRange } from './analytics/engine.js';
+import { computeGridConflicts } from './autoplan.js';
 import { initConflictModal, openConflictModal } from './conflict-modal.js';
 import { initViewMode } from './agenda-view.js';
 
@@ -723,6 +724,7 @@ export async function init() {
     showToast("Erfolgreich gespeichert");
     try {
       checkComplianceAndNotify(computeCompliance, getRange('month', state.year, state.month));
+      checkGridConflictsAndNotify(computeGridConflicts(state.year, state.month), state.year, state.month);
     } catch {
       // Benachrichtigung ist ein optionaler Zusatz — ein Fehler hier darf den erfolgreichen Speichervorgang nicht stören.
     }

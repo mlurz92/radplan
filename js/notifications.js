@@ -141,6 +141,32 @@ export function checkComplianceAndNotify(computeCompliance, range) {
   return added;
 }
 
+/**
+ * Meldet Regelkonflikte (rote Zellrahmen im Plan-Grid, siehe
+ * computeGridConflicts in autoplan.js) zusätzlich im Benachrichtigungs-
+ * zentrum, damit sie nicht nur lokal in der Zelle sichtbar sind, sondern
+ * auch oben in der Glocke auftauchen.
+ * @param {Map<string, string[]>} gridConflicts Ergebnis von computeGridConflicts, Schlüssel `${emp}@@${day}`
+ * @param {number} year
+ * @param {number} month
+ */
+export function checkGridConflictsAndNotify(gridConflicts, year, month) {
+  let added = 0;
+  gridConflicts.forEach((reasons, key) => {
+    const [emp, day] = key.split('@@');
+    const dedupeKey = `gridconflict:${emp}:${year}-${month}-${day}`;
+    const created = addNotification({
+      dedupeKey,
+      type: 'gridconflict',
+      severity: 'critical',
+      title: `Regelkonflikt: ${emp}`,
+      message: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}: ${reasons.join(' · ')}`,
+    });
+    if (created) added++;
+  });
+  return added;
+}
+
 // ---------------------------------------------------------------------------
 //  UI-Verdrahtung (Glocke + Panel)
 // ---------------------------------------------------------------------------
