@@ -2,7 +2,7 @@ import { test, describe, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import "./helpers/dom-stubs.js";
 import { DATA } from "../js/state.js";
-import { computeDutyFairness, getEmployeeFairness, getMonthDataRaw } from "../js/model.js";
+import { computeDutyFairness, getEmployeeFairness, getMonthDataRaw, clearCascadedFreeDay } from "../js/model.js";
 
 // DATA ist ein an das Modul gebundenes veränderliches Objekt (siehe js/state.js);
 // zwischen den Tests zurücksetzen, damit sie einander nicht beeinflussen.
@@ -182,5 +182,59 @@ describe("getMonthDataRaw — Pflicht-Ruhetag nach BD-Dienst bei Monatswechsel (
     const feb = getMonthDataRaw(2026, 1);
 
     assert.equal(feb.assignments["Dr. Martin"]?.[1]?.assignment, undefined);
+  });
+});
+
+describe("clearCascadedFreeDay", () => {
+  beforeEach(resetData);
+
+  test("entfernt den automatisch erzeugten Ruhetag ('F') am Folgetag, wenn dort exakt 'F' steht", () => {
+    DATA["2026-0"] = buildMonth({
+      "Dr. Martin": { 3: { duty: "D" }, 4: { assignment: "F" } },
+    });
+
+    const cleared = clearCascadedFreeDay(2026, 0, "Dr. Martin", 3);
+
+    assert.deepEqual(cleared, { y: 2026, m: 0, d: 4 });
+    assert.equal(DATA["2026-0"].assignments["Dr. Martin"]?.[4], undefined);
+  });
+
+  test("lässt einen vom Nutzer abweichend belegten Folgetag unangetastet", () => {
+    DATA["2026-0"] = buildMonth({
+      "Dr. Martin": { 3: { duty: "D" }, 4: { assignment: "F/CT" } },
+    });
+
+    const cleared = clearCascadedFreeDay(2026, 0, "Dr. Martin", 3);
+
+    assert.equal(cleared, null);
+    assert.equal(DATA["2026-0"].assignments["Dr. Martin"][4].assignment, "F/CT");
+  });
+
+  test("behält einen am Folgetag bereits gesetzten Dienst (duty) bei, während nur 'assignment' gelöscht wird", () => {
+    DATA["2026-0"] = buildMonth({
+      "Dr. Martin": { 3: { duty: "D" }, 4: { assignment: "F", duty: "HG" } },
+    });
+
+    clearCascadedFreeDay(2026, 0, "Dr. Martin", 3);
+
+    assert.deepEqual(DATA["2026-0"].assignments["Dr. Martin"][4], { duty: "HG" });
+  });
+
+  test("greift über Monatsgrenzen (letzter Tag des Monats -> 1. des Folgemonats)", () => {
+    DATA["2026-0"] = buildMonth({ "Dr. Martin": { 31: { duty: "D" } } });
+    DATA["2026-1"] = buildMonth({ "Dr. Martin": { 1: { assignment: "F" } } });
+
+    const cleared = clearCascadedFreeDay(2026, 0, "Dr. Martin", 31);
+
+    assert.deepEqual(cleared, { y: 2026, m: 1, d: 1 });
+    assert.equal(DATA["2026-1"].assignments["Dr. Martin"]?.[1], undefined);
+  });
+
+  test("tut nichts, wenn der Folgetag keinen (oder einen anderen) Eintrag hat", () => {
+    DATA["2026-0"] = buildMonth({
+      "Dr. Martin": { 3: { duty: "D" }, 4: {} },
+    });
+
+    assert.equal(clearCascadedFreeDay(2026, 0, "Dr. Martin", 3), null);
   });
 });

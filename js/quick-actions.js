@@ -4,10 +4,11 @@
 
 import { WORKPLACES, STATUSES, nextCalendarDay } from './constants.js';
 import { state, planMode, IS_MOBILE } from './state.js';
-import { getCell, setCell, clearCell, dutyOwner, canMoveDutyBadge } from './model.js';
+import { getCell, setCell, clearCell, dutyOwner, canMoveDutyBadge, clearCascadedFreeDay } from './model.js';
 import {
   render, focusCellAfterRender, updateGridCell, updateAllConflicts,
   updateGridStatsAndHeader, closeCellQuickPopover, syncSelectionClasses,
+  syncQuickPopoverAfterAction,
 } from './render-grid.js';
 import { showToast } from './render-modals.js';
 import { recordPlanHistory } from './planmode.js';
@@ -40,6 +41,7 @@ function refreshAfterQuickAction(emp, day, affectedCells) {
     affectedCells.forEach(c => updateGridCell(c.emp, c.day));
     updateAllConflicts();
     updateGridStatsAndHeader(affectedCells.map(c => c.day));
+    syncQuickPopoverAfterAction(emp, day);
   }
 }
 
@@ -104,6 +106,7 @@ export function quickToggleDuty(emp, day, dutyCode) {
   let changed = 0;
   let skipped = 0;
   let autoFreeDay = false;
+  let autoFreeDayRemoved = false;
   const affectedCells = [];
   days.forEach(d => {
     const cell = getCell(y, m, emp, d);
@@ -111,6 +114,7 @@ export function quickToggleDuty(emp, day, dutyCode) {
       const owner = dutyOwner(y, m, d, dutyCode);
       if (owner && owner !== emp) { skipped++; return; }
     }
+    const hadD = cell.duty === "D";
     const newDuty = remove ? null : dutyCode;
     setCell(y, m, emp, d, { assignment: cell.assignment || null, duty: newDuty });
     changed++;
@@ -126,6 +130,14 @@ export function quickToggleDuty(emp, day, dutyCode) {
           affectedCells.push({ emp, day: next.d });
         }
       }
+    } else if (dutyCode === "D" && hadD) {
+      const cleared = clearCascadedFreeDay(y, m, emp, d);
+      if (cleared) {
+        autoFreeDayRemoved = true;
+        if (cleared.y === y && cleared.m === m) {
+          affectedCells.push({ emp, day: cleared.d });
+        }
+      }
     }
   });
   if (planMode) recordPlanHistory();
@@ -135,7 +147,7 @@ export function quickToggleDuty(emp, day, dutyCode) {
   if (multi) {
     msg = `${dutyCode} ${remove ? "entfernt" : "gesetzt"} · ${changed} ${changed === 1 ? "Tag" : "Tage"}${suffixForSkips(skipped)}`;
   } else if (remove) {
-    msg = `${dutyCode === "HG" ? "HG" : "BD"} entfernt`;
+    msg = autoFreeDayRemoved ? `${dutyCode === "HG" ? "HG" : "BD"} entfernt · F am Folgetag automatisch entfernt` : `${dutyCode === "HG" ? "HG" : "BD"} entfernt`;
   } else {
     msg = autoFreeDay ? `${name} gesetzt · F automatisch für Folgetag` : `${name} gesetzt`;
   }
@@ -186,14 +198,25 @@ export function quickClearCell(emp, day) {
   const multi = days.length > 1;
 
   if (planMode) recordPlanHistory();
-  days.forEach(d => clearCell(y, m, emp, d));
+  const affectedCells = [];
+  days.forEach(d => {
+    const hadD = getCell(y, m, emp, d).duty === "D";
+    clearCell(y, m, emp, d);
+    affectedCells.push({ emp, day: d });
+    if (hadD) {
+      const cleared = clearCascadedFreeDay(y, m, emp, d);
+      if (cleared && cleared.y === y && cleared.m === m) {
+        affectedCells.push({ emp, day: cleared.d });
+      }
+    }
+  });
   if (planMode) recordPlanHistory();
 
   const msg = multi ? `${days.length} Tage geleert` : "Eintrag gelöscht";
   showToast(msg);
   announceToScreenReader(msg);
 
-  refreshAfterQuickAction(emp, day, days.map(d => ({ emp, day: d })));
+  refreshAfterQuickAction(emp, day, affectedCells);
 }
 
 export function quickSetStatus(emp, day, statusCode) {
