@@ -1396,9 +1396,6 @@ function createGridCellElement(y, m, emp, d, hols, gridConflicts) {
     const escapedComment = esc(cellComment);
     innerHtml += `<span class="cell-comment-dot" title="${escapedComment}" aria-label="Notiz: ${escapedComment}"></span>`;
   }
-  if (cellConflicts?.length) {
-    innerHtml += `<span class="cell-conflict-flag" aria-hidden="true">⚠</span>`;
-  }
   innerHtml += `</div>`;
   tdEl.innerHTML = innerHtml;
   if (cellConflicts?.length) {
@@ -1710,19 +1707,11 @@ export function updateAllConflicts() {
     
     if (hasConflictClass !== needsConflictClass) {
       cell.classList.toggle("cell-conflict", needsConflictClass);
-      
-      const flag = cell.querySelector(".cell-conflict-flag");
+
       if (needsConflictClass) {
-        if (!flag) {
-          const inner = cell.querySelector(".cell-inner");
-          if (inner) {
-            inner.insertAdjacentHTML("beforeend", `<span class="cell-conflict-flag" aria-hidden="true">⚠</span>`);
-          }
-        }
         cell.title = `Regelkonflikt: ${cellConflicts.join(" · ")}`;
         cell.setAttribute("data-conflict", cellConflicts.join(" · "));
       } else {
-        if (flag) flag.remove();
         cell.title = "";
         cell.removeAttribute("data-conflict");
       }

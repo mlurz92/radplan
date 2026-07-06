@@ -875,7 +875,7 @@ body.is-drag-selecting #plan-tbody .td-cell {
 
 .cell-comment-dot {
   position: absolute;
-  top: 2px;
+  bottom: 2px;
   right: 2px;
   width: 5px;
   height: 5px;
@@ -915,18 +915,6 @@ body.is-drag-selecting #plan-tbody .td-cell {
 
 .td-cell.cell-conflict:hover {
   box-shadow: inset 0 0 0 1.5px var(--red), inset 0 0 12px rgba(239,68,68,.2);
-}
-
-.cell-conflict-flag {
-  position: absolute;
-  top: 1px;
-  right: 1px;
-  font-size: 8px;
-  line-height: 1;
-  color: var(--red);
-  pointer-events: none;
-  z-index: 3;
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,.3));
 }
 
 .tr-stat.tr-stat-first .td-stat-lbl,

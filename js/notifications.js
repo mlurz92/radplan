@@ -4,11 +4,14 @@
 // Anders als der bereits vorhandene, rein transiente Toast-Mechanismus
 // (showToast in render-modals.js) ist dies eine PERSISTENTE Liste: jede
 // Benachrichtigung bleibt sichtbar, bis sie gelesen/gelöscht wird, auch über
-// einen Reload hinweg (localStorage). Erste konkrete Quelle: nach jedem
-// erfolgreichen Speichern (Event "radplan-save-success", siehe app.js) wird
-// die Regelkonformität des aktuell geöffneten Monats geprüft; neue kritische
-// (severity "high") Befunde erzeugen automatisch eine Benachrichtigung,
-// statt nur beim manuellen Öffnen des Auswertungs-Hubs sichtbar zu werden.
+// einen Reload hinweg (localStorage). Konkrete Quellen: nach jedem
+// erfolgreichen Speichern (Event "radplan-save-success", siehe app.js) werden
+// (1) die Regelkonformität des aktuell geöffneten Monats geprüft — neue
+// kritische (severity "high") Befunde erzeugen automatisch eine
+// Benachrichtigung, statt nur beim manuellen Öffnen des Auswertungs-Hubs
+// sichtbar zu werden — und (2) die Zellen-Regelkonflikte (roter Zellrahmen
+// im Grid, siehe computeGridConflicts in autoplan.js), damit sie auch
+// auftauchen, ohne dass man jede Zelle einzeln im Grid entdecken muss.
 //
 // Bewusst KEIN Import aus js/state.js hier oben auf Modulebene für die
 // Compliance-Prüfung selbst (die kommt über einen vom Aufrufer übergebenen
@@ -135,6 +138,32 @@ export function checkComplianceAndNotify(computeCompliance, range) {
       severity: 'critical',
       title: `Regelkonformität: ${f.emp}`,
       message: f.text,
+    });
+    if (created) added++;
+  });
+  return added;
+}
+
+/**
+ * Meldet Regelkonflikte (rote Zellrahmen im Plan-Grid, siehe
+ * computeGridConflicts in autoplan.js) zusätzlich im Benachrichtigungs-
+ * zentrum, damit sie nicht nur lokal in der Zelle sichtbar sind, sondern
+ * auch oben in der Glocke auftauchen.
+ * @param {Map<string, string[]>} gridConflicts Ergebnis von computeGridConflicts, Schlüssel `${emp}@@${day}`
+ * @param {number} year
+ * @param {number} month
+ */
+export function checkGridConflictsAndNotify(gridConflicts, year, month) {
+  let added = 0;
+  gridConflicts.forEach((reasons, key) => {
+    const [emp, day] = key.split('@@');
+    const dedupeKey = `gridconflict:${emp}:${year}-${month}-${day}`;
+    const created = addNotification({
+      dedupeKey,
+      type: 'gridconflict',
+      severity: 'critical',
+      title: `Regelkonflikt: ${emp}`,
+      message: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}: ${reasons.join(' · ')}`,
     });
     if (created) added++;
   });

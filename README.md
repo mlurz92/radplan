@@ -294,7 +294,7 @@ Die Spaltenköpfe zeigen gestapelte Informationen:
 
 ### 7.3 Live-Konflikterkennung im Raster
 
-Wird eine Zelle bearbeitet, prüft die Funktion `computeGridConflicts` im Hintergrund sofort die Einhaltung aller K.-o.-Kriterien (Ruhezeiten, Dienst-Exklusivität, Qualifikationssperren, personenbezogene Sonderregeln aus `SPECIAL_RULES`). Bei Konflikten wird die Zelle im Raster mit einer roten Warnecke (**⚠**) markiert. Beim Überfahren mit der Maus zeigt der Detail-Tooltip ([9.2](#92-zell-detail-tooltip-celltooltipjs)) den Regelverstoß im Klartext an (z. B. *„Ruhezeit verletzt: Bereitschaftsdienst am Vortag erfordert dienstfreien Folgetag"*).
+Wird eine Zelle bearbeitet, prüft die Funktion `computeGridConflicts` im Hintergrund sofort die Einhaltung aller K.-o.-Kriterien (Ruhezeiten, Dienst-Exklusivität, Qualifikationssperren, personenbezogene Sonderregeln aus `SPECIAL_RULES`). Bei Konflikten wird die Zelle im Raster mit einem roten Rahmen (`cell-conflict`) markiert — das reicht als visueller Hinweis, ein zusätzliches Warnbadge in der Zellecke gibt es bewusst nicht, da diese Ecke dem D/HG-Dienstbadge vorbehalten ist. Beim Überfahren mit der Maus zeigt der Detail-Tooltip ([9.2](#92-zell-detail-tooltip-celltooltipjs)) den Regelverstoß im Klartext an (z. B. *„Ruhezeit verletzt: Bereitschaftsdienst am Vortag erfordert dienstfreien Folgetag"*). Nach jedem erfolgreichen Speichern werden neue Regelkonflikte des aktuell geöffneten Monats zusätzlich als persistente Benachrichtigung im Benachrichtigungszentrum (Glocke in der Kopfzeile, `js/notifications.js`) gemeldet, analog zu den proaktiven Compliance-Hinweisen.
 
 ### 7.4 Container-Query Schriftgrößen-Skalierung
 
