@@ -189,6 +189,22 @@ export function getCell(y, m, emp, day) {
   return md.assignments?.[emp]?.[day] || {};
 }
 
+// Kehrt die automatische "F"-Vergabe aus dem "D setzen"-Pfad um (siehe
+// quick-actions.js/quickToggleDuty und editor.js/saveEditor): wird ein
+// Bereitschaftsdienst ("D") von einem Tag entfernt, muss der dadurch
+// erzwungene Ruhetag ("F") am Folgetag ebenfalls verschwinden. Nur exakte,
+// unangetastete "F"-Einträge werden entfernt – ein Folgetag, den der Nutzer
+// inzwischen anders belegt hat (z. B. "F/CT" oder ein Status), bleibt
+// unberührt. Gibt die Folgetag-Koordinaten zurück, falls entfernt wurde,
+// sonst null.
+export function clearCascadedFreeDay(y, m, emp, day) {
+  const next = nextCalendarDay(y, m, day);
+  const ex = getCell(next.y, next.m, emp, next.d);
+  if (ex.assignment !== "F") return null;
+  setCell(next.y, next.m, emp, next.d, { assignment: null, duty: ex.duty || null });
+  return next;
+}
+
 export function getRbnValue(y, m, day) {
   const md = getMonthData(y, m);
   return md.rbn?.[day] || "";

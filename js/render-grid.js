@@ -521,8 +521,16 @@ function dismissQuickMenu({ refocus = false } = {}) {
   }
 }
 
-// Kuratiertes Status-Schnellset für das Popover (häufigste Codes zuerst).
-const QUICK_STATUS_CODES = ["F", "U", "K", "FZA", "ZU", "WB"];
+// Gleiches Farbschema wie im vollständigen Editor (editor.js: chip-wp/chip-st
+// -- inaktiv = Pastellfläche + gesättigte Schriftfarbe, aktiv = invertiert:
+// gesättigte Fläche + weiße Schrift). Dadurch sieht eine Zuweisung im
+// Schnellmenü genauso aus wie im Editor -- ein einziges Farbvokabular statt
+// zweier unterschiedlicher Stile für dieselbe Sache.
+function cqpChip({ code, label, bg, fg, active, dataAttr }) {
+  const chipBg = active ? fg : bg;
+  const chipFg = active ? "#fff" : fg;
+  return `<button type="button" class="cqp-chip${active ? " active" : ""}" data-${dataAttr}="${code}" style="background:${chipBg};color:${chipFg};" title="${label}" aria-pressed="${active}">${code}</button>`;
+}
 
 function buildQuickPopoverHtml(emp, day) {
   const { year: y, month: m } = state;
@@ -546,45 +554,56 @@ function buildQuickPopoverHtml(emp, day) {
     </div>
   `;
 
-  const wpHtml = WORKPLACES.map(wp => {
-    const active = parts.includes(wp.code);
-    return `<button type="button" class="cqp-wp${active ? " active" : ""}" data-wp="${wp.code}" style="${active ? `background:${wp.bg};color:${wp.fg};border-color:${wp.bg};` : ""}" title="${wp.label}">${wp.code}</button>`;
-  }).join("");
+  const wpHtml = WORKPLACES.map(wp => cqpChip({
+    code: wp.code, label: wp.label, bg: wp.bg, fg: wp.fg,
+    active: parts.includes(wp.code), dataAttr: "wp",
+  })).join("");
 
-  const stHtml = QUICK_STATUS_CODES.map(code => {
-    const st = STATUSES.find(s => s.code === code);
-    if (!st) return "";
-    const active = parts.includes(code);
-    return `<button type="button" class="cqp-status${active ? " active" : ""}" data-status="${code}" style="${active ? `background:${st.bg};color:${st.fg};border-color:${st.bg};` : `--st-bg:${st.bg};--st-fg:${st.fg};`}" title="${st.label}">${code}</button>`;
-  }).join("");
+  const stHtml = STATUSES.map(st => cqpChip({
+    code: st.code, label: st.label, bg: st.bg, fg: st.fg,
+    active: parts.includes(st.code), dataAttr: "status",
+  })).join("");
+
+  const dutyD = cqpChip({ code: "D", label: "Bereitschaftsdienst", bg: "#FEE2E2", fg: "#EF4444", active: cell.duty === "D", dataAttr: "duty" });
+  const dutyHG = cqpChip({ code: "HG", label: "Hintergrunddienst", bg: "#E0F2FE", fg: "#0EA5E9", active: cell.duty === "HG", dataAttr: "duty" });
 
   return `
     <div class="cell-quick-popover-inner${multi ? " cqp-multi" : ""}">
       ${headerHtml}
-      <div class="cqp-section-label">Arbeitsplatz</div>
-      <div class="cqp-row cqp-wps">${wpHtml}</div>
-      <div class="cqp-section-label">Status</div>
-      <div class="cqp-row cqp-statuses">${stHtml}</div>
-      <div class="cqp-row cqp-duties">
-        <button type="button" class="cqp-duty badge-D${cell.duty === "D" ? " active" : ""}" data-duty="D" title="Bereitschaftsdienst">D</button>
-        <button type="button" class="cqp-duty badge-HG${cell.duty === "HG" ? " active" : ""}" data-duty="HG" title="Hintergrunddienst">HG</button>
-        <button type="button" class="cqp-clear" data-action="clear" title="${multi ? "Auswahl leeren" : "Zelle löschen"}">
-          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-        </button>
+      <div class="cqp-section">
+        <div class="cqp-section-label"><span class="cqp-section-dot cqp-dot-wp"></span>Arbeitsplatz</div>
+        <div class="cqp-row cqp-wps">${wpHtml}</div>
       </div>
-      <button type="button" class="cqp-more" data-action="more">${multi ? "Auswahl bearbeiten…" : "Vollständig bearbeiten…"}</button>
+      <div class="cqp-section">
+        <div class="cqp-section-label"><span class="cqp-section-dot cqp-dot-status"></span>Status</div>
+        <div class="cqp-row cqp-statuses">${stHtml}</div>
+      </div>
+      <div class="cqp-section">
+        <div class="cqp-section-label"><span class="cqp-section-dot cqp-dot-duty"></span>Dienst</div>
+        <div class="cqp-row cqp-duties">
+          ${dutyD}
+          ${dutyHG}
+          <button type="button" class="cqp-clear" data-action="clear" title="${multi ? "Auswahl leeren" : "Zelle löschen"}">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </div>
+      </div>
+      <button type="button" class="cqp-more" data-action="more">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        ${multi ? "Auswahl bearbeiten…" : "Vollständig bearbeiten…"}
+      </button>
     </div>
   `;
 }
 
 function wirePopoverButtons(el, emp, day) {
-  el.querySelectorAll('.cqp-wp').forEach(btn => {
+  el.querySelectorAll('[data-wp]').forEach(btn => {
     btn.addEventListener('click', (e) => { e.stopPropagation(); quickToggleWorkplace(emp, day, btn.dataset.wp); });
   });
-  el.querySelectorAll('.cqp-status').forEach(btn => {
+  el.querySelectorAll('[data-status]').forEach(btn => {
     btn.addEventListener('click', (e) => { e.stopPropagation(); quickSetStatus(emp, day, btn.dataset.status); });
   });
-  el.querySelectorAll('.cqp-duty').forEach(btn => {
+  el.querySelectorAll('[data-duty]').forEach(btn => {
     btn.addEventListener('click', (e) => { e.stopPropagation(); quickToggleDuty(emp, day, btn.dataset.duty); });
   });
   el.querySelector('.cqp-clear')?.addEventListener('click', (e) => { e.stopPropagation(); quickClearCell(emp, day); });
@@ -720,6 +739,22 @@ export function showCellQuickPopover(emp, day, anchorEl) {
   window.addEventListener('resize', quickPopover.reposHandler);
 
   document.body.classList.add('cell-popover-open');
+}
+
+/**
+ * Hält das offene Schnellmenü nach einer Aktion (Chip-Klick etc.) mit dem
+ * frischen Zellenstand synchron. Nötig, weil updateGridCell() die Zelle per
+ * replaceWith() ersetzt -- der alte anchorEl-Knoten aus quickPopover ist
+ * danach nicht mehr im DOM, und ohne diesen Re-Sync bliebe der aktive/
+ * ausgewählte Zustand der Chips im offenen Menü visuell hinter dem
+ * tatsächlichen Zellinhalt zurück (z. B. nach dem Setzen eines Status).
+ */
+export function syncQuickPopoverAfterAction(emp, day) {
+  if (IS_MOBILE) return;
+  if (!quickPopover.el || quickPopover.emp !== emp || quickPopover.day !== day) return;
+  const tbody = document.getElementById("plan-tbody");
+  const cell = /** @type {HTMLElement} */ (tbody?.querySelector(`.td-cell[data-emp="${CSS.escape(emp)}"][data-day="${day}"]`));
+  if (cell) showCellQuickPopover(emp, day, cell);
 }
 
 /** Öffnet das Schnellmenü für (emp, day) nach dem nächsten Render-Frame. */

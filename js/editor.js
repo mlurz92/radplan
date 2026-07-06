@@ -11,7 +11,7 @@ import {
 import { state, DATA, planMode, planSessions, IS_MOBILE } from './state.js';
 import {
   getCell, setCell, getRbnValue, setRbnValue, getComment, setComment,
-  removeEmployee, dutyOwner,
+  removeEmployee, dutyOwner, clearCascadedFreeDay,
 } from './model.js';
 import {
   render, updateGridCell, updateAllConflicts, updateGridStatsAndHeader,
@@ -494,6 +494,7 @@ export function saveEditor() {
   let autoFCount = 0;
   const touchedDays = new Set();
   days.forEach((targetDay) => {
+    const hadD = getCell(y, m, emp, targetDay).duty === "D";
     setCell(y, m, emp, targetDay, {
       assignment: assignment || null,
       duty: duty || null,
@@ -512,6 +513,11 @@ export function saveEditor() {
         if (next.y === y && next.m === m) {
           touchedDays.add(next.d);
         }
+      }
+    } else if (hadD) {
+      const cleared = clearCascadedFreeDay(y, m, emp, targetDay);
+      if (cleared && cleared.y === y && cleared.m === m) {
+        touchedDays.add(cleared.d);
       }
     }
   });
