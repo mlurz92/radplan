@@ -875,7 +875,7 @@ body.is-drag-selecting #plan-tbody .td-cell {
 
 .cell-comment-dot {
   position: absolute;
-  top: 2px;
+  bottom: 2px;
   right: 2px;
   width: 5px;
   height: 5px;
