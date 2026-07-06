@@ -646,15 +646,17 @@ export function computeCompliance(range) {
         const isDuty = cell.duty === 'D' || cell.duty === 'HG';
 
         // Ruhezeit: nach einem Bereitschaftsdienst (D) muss der Folgetag
-        // dienstfrei sein (kein Arbeitsplatz/Dienst). Folgetag auch über die
-        // Monatsgrenze hinweg prüfen.
+        // dienstfrei sein (kein Arbeitsplatz/anderer Dienst). Ausnahme: ein
+        // Hintergrunddienst (HG) am Folgetag verletzt die Ruhezeit NICHT, da
+        // dieser rufbereit von zu Hause aus erfolgt und der/die Mitarbeitende
+        // dabei ruhen kann. Folgetag auch über die Monatsgrenze hinweg prüfen.
         if (cell.duty === 'D') {
           let nextWorks = false;
           let unverifiable = false;
           if (d < dim) {
             const next = getCell(year, month, emp, d + 1);
             const nextBase = (next.assignment || '').split('/')[0].trim();
-            nextWorks = !!((nextBase && WORKPLACES.some((w) => w.code === nextBase)) || next.duty);
+            nextWorks = !!((nextBase && WORKPLACES.some((w) => w.code === nextBase)) || (next.duty && next.duty !== 'HG'));
           } else if (month === 11) {
             // Silvester-Grenzfall: Folgetag liegt im nächsten Jahr. Ohne
             // Absicherung würde `getCell(year+1, 0, emp, 1)` für ein noch gar
@@ -688,7 +690,7 @@ export function computeCompliance(range) {
             } else if (empInNextYear) {
               const next = getCell(year + 1, 0, emp, 1);
               const nextBase = (next.assignment || '').split('/')[0].trim();
-              nextWorks = !!((nextBase && WORKPLACES.some((w) => w.code === nextBase)) || next.duty);
+              nextWorks = !!((nextBase && WORKPLACES.some((w) => w.code === nextBase)) || (next.duty && next.duty !== 'HG'));
             }
             // else: Person nicht mehr im Folgejahr-Roster -> nextWorks bleibt
             // false, kein Befund (siehe Kommentar oben).
@@ -723,15 +725,18 @@ export function computeCompliance(range) {
           }
         }
 
-        // Qualifikation: HG nur durch Fachärzte; Wochenend-D nur durch Fachärzte.
+        // Qualifikation: HG nur durch Fachärzte; Samstags-D nur durch
+        // Fachärzte. Sonntags- und Freitagsdienste (D) dürfen dagegen auch
+        // von Nicht-Fachärzten übernommen werden -- die Facharzt-Pflicht
+        // gilt an D-Tagen ausschließlich für den Samstag.
         if (cell.duty === 'HG' && !isFacharzt(emp)) {
           findings.push({ type: 'qual', severity: 'high', emp, year, month, day: d,
             text: `Qualifikation: ${emp} (kein Facharzt) im Hintergrunddienst am ${d}.${month + 1}.` });
         }
         const wd = weekday(year, month, d);
-        if (cell.duty === 'D' && (wd === 6 || wd === 0) && !isFacharzt(emp)) {
+        if (cell.duty === 'D' && wd === 6 && !isFacharzt(emp)) {
           findings.push({ type: 'qual', severity: 'high', emp, year, month, day: d,
-            text: `Qualifikation: ${emp} (kein Facharzt) im Wochenend-Bereitschaftsdienst am ${d}.${month + 1}.` });
+            text: `Qualifikation: ${emp} (kein Facharzt) im Samstags-Bereitschaftsdienst am ${d}.${month + 1}.` });
         }
       }
     });

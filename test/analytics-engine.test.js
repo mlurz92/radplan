@@ -238,6 +238,114 @@ describe("computeCompliance — Ruhezeit-Check am Jahreswechsel (Issue 34)", () 
 });
 
 // ---------------------------------------------------------------------------
+// Ruhezeit-Ausnahme: D gefolgt von HG ist kein Verstoß, da der Hintergrund-
+// dienst rufbereit von zu Hause aus erfolgt und dabei geruht werden kann.
+// ---------------------------------------------------------------------------
+describe("computeCompliance — Ruhezeit-Ausnahme für D gefolgt von HG", () => {
+  beforeEach(resetData);
+
+  test("D am Tag X, HG am Folgetag -> KEIN Ruhezeit-Verstoß", () => {
+    const year = 2026;
+    DATA[monthKey(year, 0)] = {
+      employees: ["Dr. Martin"],
+      assignments: { "Dr. Martin": { 5: { duty: "D" }, 6: { duty: "HG" } } },
+      rbn: {}, comments: {},
+    };
+
+    const range = getRange("month", year, 0);
+    const comp = computeCompliance(range);
+    const restViolations = comp.findings.filter((f) => f.type === "rest" && f.emp === "Dr. Martin");
+    assert.equal(restViolations.length, 0, "D->HG darf keine Ruhezeitverletzung auslösen");
+  });
+
+  test("D am Tag X, erneutes D am Folgetag -> weiterhin ein Ruhezeit-Verstoß", () => {
+    const year = 2026;
+    DATA[monthKey(year, 0)] = {
+      employees: ["Dr. Martin"],
+      assignments: { "Dr. Martin": { 5: { duty: "D" }, 6: { duty: "D" } } },
+      rbn: {}, comments: {},
+    };
+
+    const range = getRange("month", year, 0);
+    const comp = computeCompliance(range);
+    const restViolations = comp.findings.filter((f) => f.type === "rest" && f.emp === "Dr. Martin");
+    assert.equal(restViolations.length, 1, "D->D am Folgetag bleibt weiterhin ein echter Ruhezeit-Verstoß");
+  });
+
+  test("D am 31.12., HG am 1.1. des Folgejahres -> KEIN Ruhezeit-Verstoß über den Jahreswechsel", () => {
+    const year = 2026;
+    DATA[monthKey(year, 11)] = {
+      employees: ["Dr. Martin"],
+      assignments: { "Dr. Martin": { 31: { duty: "D" } } },
+      rbn: {}, comments: {},
+    };
+    DATA[monthKey(year + 1, 0)] = {
+      employees: ["Dr. Martin"],
+      assignments: { "Dr. Martin": { 1: { duty: "HG" } } },
+      rbn: {}, comments: {},
+    };
+
+    const range = getRange("month", year, 11);
+    const comp = computeCompliance(range);
+    const restViolations = comp.findings.filter((f) => f.type === "rest" && f.emp === "Dr. Martin");
+    assert.equal(restViolations.length, 0, "D->HG darf auch über den Jahreswechsel keine Ruhezeitverletzung auslösen");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Facharzt-Pflicht am D-Tag gilt nur für den Samstag; Sonntags- und
+// Freitagsdienste dürfen auch von Nicht-Fachärzten übernommen werden.
+// ---------------------------------------------------------------------------
+describe("computeCompliance — Facharzt-Pflicht für Bereitschaftsdienst (D) nur am Samstag", () => {
+  beforeEach(resetData);
+
+  test("Nicht-Facharzt mit D am Samstag -> Qualifikations-Verstoß", () => {
+    const year = 2026;
+    // 3. Januar 2026 ist ein Samstag.
+    DATA[monthKey(year, 0)] = {
+      employees: ["Dr. UnbekanntesRolle"],
+      assignments: { "Dr. UnbekanntesRolle": { 3: { duty: "D" } } },
+      rbn: {}, comments: {},
+    };
+
+    const range = getRange("month", year, 0);
+    const comp = computeCompliance(range);
+    const qualFindings = comp.findings.filter((f) => f.type === "qual" && f.emp === "Dr. UnbekanntesRolle");
+    assert.equal(qualFindings.length, 1, "Samstags-D bleibt Fachärzten vorbehalten");
+  });
+
+  test("Nicht-Facharzt mit D am Sonntag -> KEIN Qualifikations-Verstoß", () => {
+    const year = 2026;
+    // 4. Januar 2026 ist ein Sonntag.
+    DATA[monthKey(year, 0)] = {
+      employees: ["Dr. UnbekanntesRolle"],
+      assignments: { "Dr. UnbekanntesRolle": { 4: { duty: "D" } } },
+      rbn: {}, comments: {},
+    };
+
+    const range = getRange("month", year, 0);
+    const comp = computeCompliance(range);
+    const qualFindings = comp.findings.filter((f) => f.type === "qual" && f.emp === "Dr. UnbekanntesRolle");
+    assert.equal(qualFindings.length, 0, "Sonntags-D darf auch von Nicht-Fachärzten übernommen werden");
+  });
+
+  test("Nicht-Facharzt mit D am Freitag -> KEIN Qualifikations-Verstoß", () => {
+    const year = 2026;
+    // 2. Januar 2026 ist ein Freitag.
+    DATA[monthKey(year, 0)] = {
+      employees: ["Dr. UnbekanntesRolle"],
+      assignments: { "Dr. UnbekanntesRolle": { 2: { duty: "D" } } },
+      rbn: {}, comments: {},
+    };
+
+    const range = getRange("month", year, 0);
+    const comp = computeCompliance(range);
+    const qualFindings = comp.findings.filter((f) => f.type === "qual" && f.emp === "Dr. UnbekanntesRolle");
+    assert.equal(qualFindings.length, 0, "Freitags-D darf auch von Nicht-Fachärzten übernommen werden");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Issue 35: computeAbsence ist jetzt asynchron (Chunking), Aufrufer müssen
 // awaiten. Grundfunktion muss bei await weiterhin dieselben Ergebnisse liefern.
 // ---------------------------------------------------------------------------

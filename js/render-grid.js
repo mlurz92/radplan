@@ -521,13 +521,15 @@ function dismissQuickMenu({ refocus = false } = {}) {
   }
 }
 
-const CQP_CHECK_SVG = '<svg class="cqp-chip-check" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><path d="M5 13l4 4L19 7"/></svg>';
-
+// Gleiches Farbschema wie im vollständigen Editor (editor.js: chip-wp/chip-st
+// -- inaktiv = Pastellfläche + gesättigte Schriftfarbe, aktiv = invertiert:
+// gesättigte Fläche + weiße Schrift). Dadurch sieht eine Zuweisung im
+// Schnellmenü genauso aus wie im Editor -- ein einziges Farbvokabular statt
+// zweier unterschiedlicher Stile für dieselbe Sache.
 function cqpChip({ code, label, bg, fg, active, dataAttr }) {
-  return `<button type="button" class="cqp-chip${active ? " active" : ""}" data-${dataAttr}="${code}" style="--chip-bg:${bg};--chip-fg:${fg};" title="${label}">
-    <span class="cqp-chip-code">${code}</span>
-    ${active ? CQP_CHECK_SVG : ""}
-  </button>`;
+  const chipBg = active ? fg : bg;
+  const chipFg = active ? "#fff" : fg;
+  return `<button type="button" class="cqp-chip${active ? " active" : ""}" data-${dataAttr}="${code}" style="background:${chipBg};color:${chipFg};" title="${label}" aria-pressed="${active}">${code}</button>`;
 }
 
 function buildQuickPopoverHtml(emp, day) {
@@ -562,8 +564,8 @@ function buildQuickPopoverHtml(emp, day) {
     active: parts.includes(st.code), dataAttr: "status",
   })).join("");
 
-  const dutyD = cqpChip({ code: "D", label: "Bereitschaftsdienst", bg: "#EF4444", fg: "#fff", active: cell.duty === "D", dataAttr: "duty" });
-  const dutyHG = cqpChip({ code: "HG", label: "Hintergrunddienst", bg: "#0EA5E9", fg: "#fff", active: cell.duty === "HG", dataAttr: "duty" });
+  const dutyD = cqpChip({ code: "D", label: "Bereitschaftsdienst", bg: "#FEE2E2", fg: "#EF4444", active: cell.duty === "D", dataAttr: "duty" });
+  const dutyHG = cqpChip({ code: "HG", label: "Hintergrunddienst", bg: "#E0F2FE", fg: "#0EA5E9", active: cell.duty === "HG", dataAttr: "duty" });
 
   return `
     <div class="cell-quick-popover-inner${multi ? " cqp-multi" : ""}">
