@@ -4,11 +4,14 @@
 // Anders als der bereits vorhandene, rein transiente Toast-Mechanismus
 // (showToast in render-modals.js) ist dies eine PERSISTENTE Liste: jede
 // Benachrichtigung bleibt sichtbar, bis sie gelesen/gelöscht wird, auch über
-// einen Reload hinweg (localStorage). Erste konkrete Quelle: nach jedem
-// erfolgreichen Speichern (Event "radplan-save-success", siehe app.js) wird
-// die Regelkonformität des aktuell geöffneten Monats geprüft; neue kritische
-// (severity "high") Befunde erzeugen automatisch eine Benachrichtigung,
-// statt nur beim manuellen Öffnen des Auswertungs-Hubs sichtbar zu werden.
+// einen Reload hinweg (localStorage). Konkrete Quellen: nach jedem
+// erfolgreichen Speichern (Event "radplan-save-success", siehe app.js) werden
+// (1) die Regelkonformität des aktuell geöffneten Monats geprüft — neue
+// kritische (severity "high") Befunde erzeugen automatisch eine
+// Benachrichtigung, statt nur beim manuellen Öffnen des Auswertungs-Hubs
+// sichtbar zu werden — und (2) die Zellen-Regelkonflikte (roter Zellrahmen
+// im Grid, siehe computeGridConflicts in autoplan.js), damit sie auch
+// auftauchen, ohne dass man jede Zelle einzeln im Grid entdecken muss.
 //
 // Bewusst KEIN Import aus js/state.js hier oben auf Modulebene für die
 // Compliance-Prüfung selbst (die kommt über einen vom Aufrufer übergebenen
