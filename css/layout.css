@@ -425,9 +425,14 @@ main {
   z-index: 50;
   width: var(--name-w);
   min-width: var(--name-w);
-  /* Sticky corner sits over the scrolling grid; backdrop-filter here forces a
-     re-blur every scroll frame. Use a near-opaque solid bg (looks ~identical). */
-  background: rgba(var(--navy-700-rgb),.97);
+  /* Echter Milchglas-Look (statt eines nahezu deckenden Solid-BG): beim
+     horizontalen Scrollen des Rasters blieb die Ecke sonst kaum lesbar, weil
+     kräftige Zellfarben durch die 97%-Deckkraft durchschimmerten. Blur auf
+     16px gedeckelt (wie #app-header) statt unlimitiert, um die Neu-Blur-Kosten
+     pro Scroll-Frame zu begrenzen. */
+  background: rgba(var(--navy-700-rgb),.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-right: 1px solid rgba(var(--ink-rgb),.06);
   border-bottom: 1px solid rgba(14,165,233,.2);
 }
@@ -535,9 +540,14 @@ main {
   width: var(--name-w);
   min-width: var(--name-w);
   height: var(--row-h);
-  /* Sticky name column over scrolling grid: solid bg instead of backdrop-filter
-     (was blur(8px)) to avoid per-scroll-frame re-blur. */
-  background: rgba(var(--navy-700-rgb), 0.98);
+  /* Echter Milchglas-Look: die fixierte Namensspalte war beim horizontalen
+     Scrollen über den bunten Zellen kaum lesbar, weil bei nahezu deckendem
+     Solid-BG (0.98) trotzdem Farbe/Text durchschimmerte. Blur auf 16px
+     gedeckelt (wie #app-header) statt unlimitiert, um die Neu-Blur-Kosten
+     pro Scroll-Frame zu begrenzen. */
+  background: rgba(var(--navy-700-rgb), 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-right: 1px solid rgba(var(--ink-rgb), 0.08);
   border-bottom: 1px solid rgba(var(--ink-rgb), 0.08);
   padding: 0 10px 0 12px;
@@ -935,9 +945,11 @@ body.is-drag-selecting #plan-tbody .td-cell {
   position: sticky;
   left: 0;
   z-index: 20;
-  /* Sticky stat label over scrolling grid: solid bg instead of backdrop-filter
-     (was blur(6px)) to avoid per-scroll-frame re-blur. */
-  background: rgba(var(--navy-700-rgb),.97);
+  /* Echter Milchglas-Look, konsistent mit .th-corner/.td-name (siehe dort) –
+     Blur auf 16px gedeckelt statt unlimitiert wie ursprünglich (war blur(6px)). */
+  background: rgba(var(--navy-700-rgb),.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   color: var(--text-2);
   height: var(--foot-h);
   padding: 0 10px;
