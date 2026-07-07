@@ -105,6 +105,7 @@
 .yp-tab.active {
   color: var(--accent-lt);
   border-bottom-color: var(--accent);
+  text-shadow: 0 0 12px rgba(var(--accent-rgb),.3);
 }
 .yp-tab svg {
   opacity: 0.7;
@@ -844,16 +845,20 @@
   color: var(--gray-800);
   background: var(--gray-50);
   resize: vertical;
-  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  transition: border-color var(--dur-2) var(--ease-out), background var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
   line-height: 1.5;
   display: block;
+}
+
+.ed-comment-ta:hover:not(:focus) {
+  border-color: var(--gray-300);
 }
 
 .ed-comment-ta:focus {
   outline: none;
   border-color: var(--accent);
   background: var(--white);
-  box-shadow: 0 0 0 3px rgba(14,165,233,0.12);
+  box-shadow: var(--ring-focus-glow);
 }
 
 .ed-comment-ta::placeholder {
