@@ -29,10 +29,12 @@
 }
 .cov-cal-block {
   border: 1px solid var(--gray-200);
-  border-radius: var(--radius);
+  border-radius: var(--card-radius, var(--radius));
   padding: 10px 10px 12px;
   background: var(--gray-50, transparent);
+  transition: border-color var(--dur-2, .16s) var(--ease-out, ease), box-shadow var(--dur-2, .16s) var(--ease-out, ease);
 }
+.cov-cal-block:hover { border-color: var(--gray-300); box-shadow: 0 3px 12px rgba(0,0,0,.05); }
 .cov-cal-head {
   font-size: 12px; font-weight: 800; color: var(--text-1);
   margin-bottom: 8px; letter-spacing: .01em;
@@ -58,9 +60,9 @@
   gap: 3px;
   font-variant-numeric: tabular-nums;
   cursor: default;
-  transition: transform .08s ease;
+  transition: transform .1s var(--ease-out, ease), box-shadow .1s var(--ease-out, ease);
 }
-.cov-cell:not(.cov-cell-empty):hover { transform: scale(1.06); z-index: 2; }
+.cov-cell:not(.cov-cell-empty):hover { transform: scale(1.08); z-index: 2; box-shadow: 0 3px 10px rgba(0,0,0,.14); }
 .cov-cell-empty { background: transparent; border-color: transparent; }
 
 .cov-daynum { font-size: 12px; font-weight: 700; color: var(--text-1); line-height: 1; }
@@ -90,7 +92,7 @@
 .cov-dot.cov-off::after { color: rgba(239, 68, 68, .9); }
 
 /* Vorschlag 16: Kombi-Risiko Abdeckung × Fairness ("Belastungs-Tag") */
-.cov-cell.cov-strain { box-shadow: inset 0 0 0 2px rgba(249, 115, 22, .55); }
+.cov-cell.cov-strain { box-shadow: inset 0 0 0 2px rgba(249, 115, 22, .55), 0 0 8px rgba(249, 115, 22, .22); }
 .cov-strain-flag {
   font-style: normal; font-size: 9px; line-height: 1; margin-left: 1px;
   filter: drop-shadow(0 0 1px rgba(249, 115, 22, .6));

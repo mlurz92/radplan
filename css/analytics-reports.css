@@ -14,7 +14,10 @@
   flex: 1; min-width: 160px; font: inherit; font-size: 12px;
   padding: 6px 8px; border: 1px solid var(--gray-200); border-radius: 8px;
   background: var(--gray-50); color: var(--text-1);
+  transition: border-color var(--dur-2, .14s) var(--ease-out, ease), box-shadow var(--dur-2, .14s) var(--ease-out, ease);
 }
+.rep-select:hover { border-color: var(--gray-300); }
+.rep-select:focus-visible { border-color: rgba(var(--accent-rgb),.55); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.14); }
 .rep-status { margin-top: 14px; font-size: 12px; font-weight: 600; min-height: 18px; }
 
 @media (max-width: 560px) {

@@ -22,7 +22,9 @@
   width: 100%;
   accent-color: var(--accent-strong, #0EA5E9);
   cursor: pointer;
+  transition: filter var(--dur-1, .12s) var(--ease-out, ease);
 }
+.set-slider:hover { filter: brightness(1.05); }
 
 .set-actions {
   display: flex;

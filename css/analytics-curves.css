@@ -1,11 +1,11 @@
 /* Auswertungs-Hub · Modul „Fairness-Verlauf" (crv-*) */
 .crv-controls { margin-bottom: 12px; }
 .crv-toggle { display: inline-flex; gap: 4px; background: var(--gray-100, rgba(148,163,184,.12)); padding: 3px; border-radius: 999px; }
-.crv-mode { border: none; background: transparent; cursor: pointer; font: 600 11px/1 var(--font-sans); color: var(--text-3); padding: 6px 12px; border-radius: 999px; transition: background .15s, color .15s; }
+.crv-mode { border: none; background: transparent; cursor: pointer; font: 600 11px/1 var(--font-sans); color: var(--text-3); padding: 6px 12px; border-radius: 999px; transition: background var(--dur-2, .15s) var(--ease-out, ease), color var(--dur-2, .15s) var(--ease-out, ease), box-shadow var(--dur-2, .15s) var(--ease-out, ease); }
 .crv-mode:hover { color: var(--text-1); }
-.crv-mode.active { background: var(--surface-raised, #fff); color: var(--text-1); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,.12)); }
+.crv-mode.active { background: var(--surface-raised, #fff); color: var(--text-1); box-shadow: 0 1px 2px rgba(0,0,0,.10), inset 0 0 0 1px rgba(var(--accent-rgb),.16); }
 .crv-hint { font-size: 11.5px; color: var(--text-3); line-height: 1.5; margin: 8px 0 0; }
-.crv-chart-card { padding: 14px 16px; }
+.crv-chart-card { padding: 14px 16px; border-radius: var(--card-radius, var(--radius)); }
 .crv-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 10px; }
 .crv-legitem { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-2); }
 .crv-legline { width: 14px; height: 3px; border-radius: 2px; }

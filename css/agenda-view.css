@@ -38,6 +38,14 @@ body.agenda-active #grid-wrapper {
   border-radius: var(--radius-sm);
   font-size: 12px;
   color: var(--text-3);
+  position: relative;
+  overflow: hidden;
+}
+.agenda-summary::before {
+  content: "";
+  position: absolute; inset: 0 0 auto 0; height: 2px;
+  background: var(--grad-hairline, transparent);
+  opacity: .7;
 }
 .agd-summary-num { font-weight: 800; color: var(--text-1); font-variant-numeric: tabular-nums; }
 
@@ -75,12 +83,13 @@ body.agenda-active #grid-wrapper {
   border: 1px solid var(--elev-border-1);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
+  transition: background var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out);
 }
 .agd-day-card:hover,
 .agd-day-card:focus-visible {
   background: var(--elev-2-bg);
   border-color: var(--elev-border-3);
+  box-shadow: var(--shadow-sm, 0 2px 8px rgba(0,0,0,.08));
   outline: none;
 }
 .agd-day-card:active { transform: scale(.995); }
@@ -88,8 +97,8 @@ body.agenda-active #grid-wrapper {
 .agd-day-card.agd-we { background: var(--gray-50, var(--elev-1-bg)); }
 .agd-day-card.agd-hol { border-color: rgba(245,158,11,.4); }
 .agd-day-card.agd-today {
-  border-color: rgba(14,165,233,.5);
-  box-shadow: 0 0 0 1.5px rgba(14,165,233,.18);
+  border-color: rgba(var(--accent-rgb),.5);
+  box-shadow: var(--ring-focus-glow, 0 0 0 1.5px rgba(14,165,233,.18));
 }
 
 .agd-date {
