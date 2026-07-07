@@ -172,6 +172,21 @@
   --ease-in-out: cubic-bezier(.4,0,.2,1);
   --ease-spring: cubic-bezier(.34,1.32,.64,1);   /* leichtes Überschwingen */
   --ease-spring-soft: cubic-bezier(.34,1.12,.64,1);
+
+  /* ============================================================
+     PREMIUM-AKZENTE (Redesign-Pass) — additive Tokens auf Basis
+     der bestehenden Farb-/Elevation-Skala. Bestehende Komponenten
+     bleiben unverändert; neue/aufgewertete Regeln referenzieren
+     ausschließlich diese Tokens, damit ein späterer Feinschliff
+     wieder an einer einzigen Stelle ansetzen kann.
+     ============================================================ */
+  --grad-accent-soft: linear-gradient(135deg, rgba(var(--accent-rgb),.16) 0%, rgba(var(--accent-2-rgb),.10) 100%);
+  --grad-hairline: linear-gradient(90deg, transparent 0%, rgba(var(--accent-rgb),.55) 24%, rgba(var(--accent-2-rgb),.5) 76%, transparent 100%);
+  --grad-sheen: linear-gradient(120deg, rgba(var(--ink-rgb),0) 30%, rgba(var(--ink-rgb),.06) 48%, rgba(var(--ink-rgb),0) 66%);
+  --ring-focus-glow: 0 0 0 4px rgba(var(--accent-rgb),.16);
+  --shadow-float: 0 14px 34px rgba(0,0,0,.22), 0 3px 10px rgba(0,0,0,.14), var(--elev-hi);
+  --shadow-lift-hover: 0 20px 46px rgba(0,0,0,.28), 0 6px 16px rgba(0,0,0,.16), var(--elev-hi);
+  --card-radius: var(--radius-lg);
 }
 
 /* Installed iOS PWAs (Add to Home Screen, display-mode: standalone) have no
@@ -255,6 +270,9 @@
   --elev-shadow-3: 0 18px 48px rgba(15,23,42,.18), 0 4px 12px rgba(15,23,42,.10), var(--elev-hi-strong);
   --accent-soft: rgba(var(--accent-rgb),.11);
   --accent-soft-hover: rgba(var(--accent-rgb),.18);
+  --shadow-float: 0 14px 34px rgba(15,23,42,.14), 0 3px 10px rgba(15,23,42,.08), var(--elev-hi);
+  --shadow-lift-hover: 0 20px 46px rgba(15,23,42,.18), 0 6px 16px rgba(15,23,42,.10), var(--elev-hi);
+  --ring-focus-glow: 0 0 0 4px rgba(var(--accent-rgb),.14);
 }
 
 *, *::before, *::after {
@@ -343,6 +361,31 @@ button:active {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+  box-shadow: var(--ring-focus-glow);
+  border-radius: var(--radius-sm);
+  transition: box-shadow var(--dur-2) var(--ease-out);
+}
+
+/* Slim, theme-aware scrollbars for the dense scrollable surfaces (grid,
+   modals, analytics hub) — WebKit + Firefox. Purely cosmetic, no layout
+   impact, so safe to apply globally. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--ink-rgb),.22) transparent;
+}
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(var(--ink-rgb),.18);
+  border-radius: var(--radius-sm);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: rgba(var(--ink-rgb),.3); background-clip: padding-box; }
+
+/* Reusable 1px gradient hairline (module tab underline, card top accent, …) */
+.grad-hairline {
+  background: var(--grad-hairline);
 }
 
 
