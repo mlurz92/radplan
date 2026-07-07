@@ -34,13 +34,13 @@
 }
 .abs-bar-fill {
   width: 100%;
-  background: #7C3AED;
+  background: linear-gradient(180deg, #9061F9 0%, #7C3AED 100%);
   border-radius: 3px 3px 0 0;
-  transition: height .2s ease;
+  transition: height var(--dur-2, .2s) var(--ease-out, ease), filter var(--dur-1, .12s) var(--ease-out, ease);
   min-height: 2px;
 }
-.abs-bar--hot .abs-bar-fill { background: #EF4444; }
-.abs-bar:hover .abs-bar-fill { filter: brightness(1.1); }
+.abs-bar--hot .abs-bar-fill { background: linear-gradient(180deg, #F87171 0%, #EF4444 100%); }
+.abs-bar:hover .abs-bar-fill { filter: brightness(1.12); }
 
 /* ---- Tabelle ---- */
 .abs-table-wrap { max-height: 420px; overflow-y: auto; }

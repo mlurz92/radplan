@@ -38,6 +38,14 @@ body.agenda-active #grid-wrapper {
   border-radius: var(--radius-sm);
   font-size: 12px;
   color: var(--text-3);
+  position: relative;
+  overflow: hidden;
+}
+.agenda-summary::before {
+  content: "";
+  position: absolute; inset: 0 0 auto 0; height: 2px;
+  background: var(--grad-hairline, transparent);
+  opacity: .7;
 }
 .agd-summary-num { font-weight: 800; color: var(--text-1); font-variant-numeric: tabular-nums; }
 
@@ -75,12 +83,13 @@ body.agenda-active #grid-wrapper {
   border: 1px solid var(--elev-border-1);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
+  transition: background var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out);
 }
 .agd-day-card:hover,
 .agd-day-card:focus-visible {
   background: var(--elev-2-bg);
   border-color: var(--elev-border-3);
+  box-shadow: var(--shadow-sm, 0 2px 8px rgba(0,0,0,.08));
   outline: none;
 }
 .agd-day-card:active { transform: scale(.995); }
@@ -88,8 +97,8 @@ body.agenda-active #grid-wrapper {
 .agd-day-card.agd-we { background: var(--gray-50, var(--elev-1-bg)); }
 .agd-day-card.agd-hol { border-color: rgba(245,158,11,.4); }
 .agd-day-card.agd-today {
-  border-color: rgba(14,165,233,.5);
-  box-shadow: 0 0 0 1.5px rgba(14,165,233,.18);
+  border-color: rgba(var(--accent-rgb),.5);
+  box-shadow: 0 0 0 1.5px rgba(var(--accent-rgb),.18);
 }
 
 .agd-date {
@@ -101,7 +110,7 @@ body.agenda-active #grid-wrapper {
 .agd-day-num { font-size: 22px; font-weight: 800; color: var(--text-1); line-height: 1; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
 .agd-day-dow { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); }
 .agd-day-kw { font-size: 8px; font-family: var(--font-mono); color: var(--text-faint); }
-.agd-day-card.agd-today .agd-day-num { color: #0EA5E9; }
+.agd-day-card.agd-today .agd-day-num { color: var(--accent, #0EA5E9); }
 .agd-day-card.agd-hol .agd-day-num { color: #B45309; }
 
 .agd-divider { width: 1px; align-self: stretch; background: var(--elev-border-2); }
@@ -145,7 +154,8 @@ body.agenda-active #grid-wrapper {
 .agd-assign-more { font-size: 9.5px; color: var(--text-faint); font-weight: 600; }
 .agd-hol-label { font-size: 9px; font-weight: 700; color: #B45309; background: rgba(245,158,11,.14); padding: 1px 6px; border-radius: 3px; width: fit-content; }
 
-.agd-arrow { display: flex; align-items: center; justify-content: center; color: var(--text-faint); }
+.agd-arrow { display: flex; align-items: center; justify-content: center; color: var(--text-faint); transition: transform var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out); }
+.agd-day-card:hover .agd-arrow { transform: translateX(2px); color: var(--text-2); }
 
 @media (max-width: 560px) {
   .agd-day-card { grid-template-columns: 42px 1px 1fr 16px; padding: 8px 10px; gap: 8px; }

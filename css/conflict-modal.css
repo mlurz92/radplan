@@ -20,33 +20,65 @@
   background: var(--elev-1-bg);
   border: 1px solid var(--elev-border-1);
   border-radius: var(--radius-sm);
+  transition: border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
 }
 
-.cflct-item-path { font-size: 12.5px; font-weight: 700; color: var(--text-1); }
+.cflct-item:hover {
+  border-color: var(--elev-border-2);
+  box-shadow: var(--shadow-sm);
+}
+
+.cflct-item-path { font-size: 12.5px; font-weight: 700; color: var(--text-1); letter-spacing: -.005em; }
 
 .cflct-item-values {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
+  position: relative;
+}
+
+/* Feine vertikale Trennlinie zwischen "lokal"/"Server", damit die beiden
+   Spalten auch bei ähnlicher Werte-Länge klar als Gegenüberstellung lesbar
+   bleiben (nur auf breiten Layouts — im Stack-Modus unten ausgeblendet). */
+.cflct-item-values::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-5px);
+  background: linear-gradient(180deg, transparent 0%, var(--elev-border-2) 50%, transparent 100%);
 }
 
 .cflct-value {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px 8px;
+  gap: 3px;
+  padding: 7px 9px;
   border-radius: var(--radius-xs);
   font-size: 11.5px;
+  position: relative;
+  z-index: 1;
 }
 
-.cflct-value-local { background: rgba(37,99,235,.10); border: 1px solid rgba(37,99,235,.25); }
-.cflct-value-server { background: rgba(220,38,38,.08); border: 1px solid rgba(220,38,38,.22); }
+.cflct-value-local {
+  background: linear-gradient(135deg, rgba(37,99,235,.12) 0%, rgba(37,99,235,.06) 100%);
+  border: 1px solid rgba(37,99,235,.28);
+  border-left-width: 3px;
+}
+.cflct-value-server {
+  background: linear-gradient(135deg, rgba(220,38,38,.10) 0%, rgba(220,38,38,.05) 100%);
+  border: 1px solid rgba(220,38,38,.25);
+  border-left-width: 3px;
+}
 
-.cflct-value-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-faint); }
-.cflct-value-txt { font-family: var(--font-mono); word-break: break-word; color: var(--text-1); }
+.cflct-value-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); }
+.cflct-value-txt { font-family: var(--font-mono); word-break: break-word; color: var(--text-1); line-height: 1.4; }
 
 .cflct-item-actions { display: flex; justify-content: flex-end; }
 
 @media (max-width: 560px) {
   .cflct-item-values { grid-template-columns: 1fr; }
+  .cflct-item-values::after { display: none; }
 }
