@@ -145,4 +145,11 @@ html[data-cb="1"][data-theme="light"] .td-cell[data-code="WB"] .cell-assign {
   color: var(--cell-fg, var(--text-1));
   border: 1px solid rgba(var(--ink-rgb), .08);
   white-space: nowrap;
+  transition: transform var(--dur-1) var(--ease-spring), box-shadow var(--dur-1) var(--ease-out);
+}
+
+a.chip-code:hover,
+button.chip-code:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
 }
