@@ -60,9 +60,12 @@
   }
 
   .mday-handle {
-    width: 44px;
+    width: 40px;
     height: 5px;
-    margin-top: 12px;
+    margin-top: 10px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, rgba(var(--ink-rgb),.32), rgba(var(--ink-rgb),.2));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
   }
 }
 
@@ -73,15 +76,16 @@
     margin-top: auto !important;
     border-bottom-left-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
-    border-top-left-radius: 24px !important;
-    border-top-right-radius: 24px !important;
+    border-top-left-radius: calc(var(--card-radius, 14px) + 10px) !important;
+    border-top-right-radius: calc(var(--card-radius, 14px) + 10px) !important;
     max-height: 90dvh !important;
     padding-bottom: env(safe-area-inset-bottom) !important;
+    box-shadow: var(--shadow-float) !important;
     transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1) !important;
     will-change: transform;
     animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards !important;
   }
-  
+
   .overlay {
     align-items: flex-end !important;
   }
@@ -98,6 +102,23 @@
   @keyframes slideDown {
     from { transform: translateY(0); }
     to { transform: translateY(100%); }
+  }
+}
+
+/* Respect reduced-motion: the native slide-up/slide-down sheet physics above
+   are the one animation this file introduces on its own (independent of
+   core.css's view-transition rule), so honour the OS preference here by
+   swapping the transform choreography for a plain, near-instant fade. */
+@media screen and (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .modal-editor, .modal-import, .modal-profile {
+    transition: opacity .12s linear !important;
+    animation: none !important;
+    transform: none !important;
+  }
+  .modal.modal-closing {
+    animation: none !important;
+    opacity: 0;
+    transition: opacity .12s linear !important;
   }
 }
 
@@ -250,6 +271,34 @@ body.is-mobile .overlay .modal .yp-grid-scroll {
   #modal-yearplan .yp-modal-hd { padding-top: 12px; }
   #modal-yearplan .modal-ft {
     padding-bottom: max(12px, var(--safe-bottom, 0px)) !important;
+  }
+}
+
+/* ── Untere Navigationsleiste: Politur ──────────────────────────────────────
+   Additive Verfeinerung von layout.css's `.mobile-nav`/`.mnav-btn` (dort nur
+   Struktur/Positionierung). Ein hauchdünner Verlaufsakzent ersetzt den reinen
+   Volltonrand am oberen Leistenrand, die Erhebungs-Schatten nutzen die neuen
+   Float-Tokens, und der aktive "Planen"-Tab bekommt eine ruhige Glühkante statt
+   eines harten Volltonhintergrunds. */
+@media (max-width: 768px) {
+  .mobile-nav {
+    box-shadow: var(--shadow-float);
+  }
+  .mobile-nav::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 8%;
+    right: 8%;
+    height: 1px;
+    background: var(--grad-hairline);
+    opacity: .8;
+    pointer-events: none;
+  }
+  .mnav-btn { border-radius: var(--radius-sm); transition: color var(--dur-2) var(--ease-out, ease), transform var(--dur-1) var(--ease-out, ease); }
+  .mnav-btn:focus-visible { box-shadow: var(--ring-focus-glow); outline: none; }
+  body.plan-mode-active .mnav-plan-icon {
+    box-shadow: 0 2px 12px rgba(245,158,11,.45), inset 0 1px 0 rgba(255,255,255,.25);
   }
 }
 

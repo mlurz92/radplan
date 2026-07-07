@@ -107,7 +107,12 @@
 
   #plan-table th,
   #plan-table td {
-    border: 0.5px solid #94A3B8 !important;
+    /* 0.75px instead of 0.5px: sub-half-pixel hairlines get rounded away by
+       some grayscale laser drivers at lower print DPI, leaving cells without
+       visible separators. #64748B (slate-500) also converts to a firmer,
+       more reliably legible gray than the previous #94A3B8 once colour is
+       stripped for black-and-white output. */
+    border: 0.75px solid #64748B !important;
     color: #0F172A !important;
     padding: 1px 1px !important;
     overflow: hidden !important;
@@ -134,7 +139,10 @@
   #plan-table .td-cell.is-weekend,
   #plan-table .th-day.is-holiday,
   #plan-table .td-cell.is-holiday {
-    background: #F1F5F9 !important;
+    /* Slightly deeper than the previous #F1F5F9 so the tint still reads as a
+       distinct band once converted to grayscale, rather than disappearing
+       against the white page. */
+    background: #E7EDF3 !important;
   }
 
   /* Inner text spans carry their own theme-light colours (e.g. .emp-label is
@@ -195,7 +203,7 @@
   /* Preserve the role-band structure on paper with a firm divider. */
   #plan-table .tr-band-start .td-name,
   #plan-table .tr-band-start .td-cell {
-    border-top: 1.5px solid #0F172A !important;
+    border-top: 1.75px solid #0F172A !important;
   }
 
   #print-footer {
