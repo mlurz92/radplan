@@ -754,7 +754,7 @@ Alle modalen Dialoge nutzen `role="dialog"`, `aria-modal="true"` und leiten den 
 
 ### 21.4 Kontext-Hilfe & Mouse-Over-Tooltips
 
-Sämtliche Fachbegriffe, Kennzahlen, Spaltenköpfe, KPI-Kacheln, Legenden und Bedienelemente im Auswertungs-Hub und im Mitarbeitendenbereich sind mit erklärenden Mouse-Over-Tooltips hinterlegt (`js/tooltip.js`, jedes Element mit `data-tooltip`). Einblendung nach ≈340 ms Verzögerung, auf Touch-Geräten bewusst unterdrückt, `prefers-reduced-motion` wird respektiert. Ein zentrales Glossar (`TT`) und eine Wert-Interpretationsbibliothek (`TTI`) in `analytics/engine.js` garantieren konsistente Formulierungen an genau einer Pflegestelle.
+Sämtliche Fachbegriffe, Kennzahlen, Spaltenköpfe, KPI-Kacheln, Legenden und Bedienelemente im Auswertungs-Hub und im Mitarbeitendenbereich sind mit erklärenden Mouse-Over-Tooltips hinterlegt (`js/tooltip.js`, jedes Element mit `data-tooltip`). Jedes Tooltip wird an `<body>` gehängt und intelligent positioniert (oberhalb oder unterhalb des Ankers je nach verfügbarem Platz, horizontal innerhalb des Viewports gehalten, Pfeilspitze exakt auf die Ankermitte ausgerichtet) und dadurch selbst in scrollbaren Modal-Containern **niemals abgeschnitten**. Einblendung nach ≈340 ms Verzögerung, sauberes Ausblenden bei Verlassen/Scrollen/Resize/`Escape`, auf Touch-Geräten bewusst unterdrückt, `prefers-reduced-motion` wird respektiert. Ein zentrales Glossar (`TT`) und eine Wert-Interpretationsbibliothek (`TTI`) in `analytics/engine.js` garantieren konsistente Formulierungen an genau einer Pflegestelle.
 
 ### 21.5 Das animierte Markenlogo
 
