@@ -224,7 +224,7 @@ export function applyPlanToMain() {
 }
 
 export function undoPlan() {
-  if (!planMode || planHistoryIdx <= 0) {
+  if (!planMode || planHistoryIdx <= 0 || state.isAutoplanRunning) {
     return;
   }
   
@@ -240,7 +240,7 @@ export function undoPlan() {
 }
 
 export function redoPlan() {
-  if (!planMode || planHistoryIdx >= planHistory.length - 1) {
+  if (!planMode || planHistoryIdx >= planHistory.length - 1 || state.isAutoplanRunning) {
     return;
   }
   

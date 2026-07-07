@@ -177,19 +177,65 @@ export function moveDutyBadge(srcEmp, srcDay, dstEmp, dstDay) {
     return;
   }
 
-  if (planMode) recordPlanHistory();
-  setCell(y, m, srcEmp, srcDay, { assignment: srcCell.assignment || null, duty: dstCell.duty || null });
-  setCell(y, m, dstEmp, dstDay, { assignment: dstCell.assignment || null, duty: dutyCode });
+  // Vorschlag 4: Pflicht-Ruhetag (F) Folgetags-Überschreibschutz für Bereitschaftsdienst
+  let autoFreeDay = false;
+  let autoFreeDayRemoved = false;
+  let next = null;
+  let cleared = null;
+
+  if (dutyCode === "D") {
+    next = nextCalendarDay(y, m, dstDay);
+    const ex = getCell(next.y, next.m, dstEmp, next.d);
+    
+    // Falls die Folgezelle belegt ist und nicht bereits "F" ist, fragen wir nach Bestätigung
+    if (ex.assignment && ex.assignment !== "F") {
+      const confirmMsg = `Das Verschieben des Bereitschaftsdienstes benötigt einen Pflicht-Ruhetag (F) am Folgetag (${next.d}.). Dies würde die dortige Zuweisung "${ex.assignment}" überschreiben.\n\nMöchten Sie den Dienst überschreiben?`;
+      if (!confirm(confirmMsg)) {
+        return; // Abbrechen
+      }
+    }
+  }
+
   if (planMode) recordPlanHistory();
 
-  const msg = `${dutyCode}-Dienst verschoben: ${srcEmp} (${srcDay}.) → ${dstEmp} (${dstDay}.)`;
+  // 1. Dienst verschieben
+  setCell(y, m, srcEmp, srcDay, { assignment: srcCell.assignment || null, duty: dstCell.duty || null });
+  setCell(y, m, dstEmp, dstDay, { assignment: dstCell.assignment || null, duty: dutyCode });
+
+  const affectedCells = [
+    { emp: srcEmp, day: srcDay },
+    { emp: dstEmp, day: dstDay }
+  ];
+
+  // 2. F-Pflichttage anpassen (nur für Bereitschaftsdienst)
+  if (dutyCode === "D") {
+    // Alten Ruhetag (F) von srcEmp entfernen, falls er automatisch gesetzt wurde
+    cleared = clearCascadedFreeDay(y, m, srcEmp, srcDay);
+    if (cleared) {
+      autoFreeDayRemoved = true;
+      if (cleared.y === y && cleared.m === m) {
+        affectedCells.push({ emp: srcEmp, day: cleared.d });
+      }
+    }
+
+    // Neuen Ruhetag (F) für dstEmp am Folgetag setzen
+    if (next) {
+      const ex = getCell(next.y, next.m, dstEmp, next.d);
+      setCell(next.y, next.m, dstEmp, next.d, { assignment: "F", duty: ex.duty || null });
+      autoFreeDay = true;
+      if (next.y === y && next.m === m) {
+        affectedCells.push({ emp: dstEmp, day: next.d });
+      }
+    }
+  }
+
+  if (planMode) recordPlanHistory();
+
+  const msg = `${dutyCode}-Dienst verschoben: ${srcEmp} (${srcDay}.) → ${dstEmp} (${dstDay}.)${autoFreeDay ? " · F am Folgetag gesetzt" : ""}${autoFreeDayRemoved ? " · F beim alten Folgetag entfernt" : ""}`;
   showToast(msg);
   announceToScreenReader(msg);
 
-  refreshAfterQuickAction(dstEmp, dstDay, [
-    { emp: srcEmp, day: srcDay },
-    { emp: dstEmp, day: dstDay },
-  ]);
+  refreshAfterQuickAction(dstEmp, dstDay, affectedCells);
 }
 
 export function quickClearCell(emp, day) {

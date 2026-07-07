@@ -360,6 +360,7 @@ export async function renderAutoPlanModal(renderToken = null) {
     const computeBtn = document.getElementById("ap-compute");
     if (computeBtn) {
       computeBtn.addEventListener("click", () => {
+        state.isAutoplanRunning = true; // Vorschlag 9: Mutex-Sperre setzen
         localApViewMode = "progress";
         renderProgressShell();
         
@@ -368,6 +369,7 @@ export async function renderAutoPlanModal(renderToken = null) {
             const result = await computeAutoPlan(localAutoPlanTargets, localWeightProfile, { strategy: localOptimizationStrategy });
             if (!result) {
               showToast("Fehler bei der Berechnung");
+              state.isAutoplanRunning = false; // Mutex-Sperre freigeben bei Fehler
               localApViewMode = "config";
               renderAutoPlanModal();
               return;
@@ -383,6 +385,7 @@ export async function renderAutoPlanModal(renderToken = null) {
               }
             });
             await streamProgressLogs(result);
+            state.isAutoplanRunning = false; // Mutex-Sperre freigeben bei Erfolg
           }, 60);
         });
       });

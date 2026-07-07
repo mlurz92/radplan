@@ -91,6 +91,11 @@ let dutyDragActive = false;
 // bereits belegt ist.
 let dutyDragSource = null; // { emp, day, dutyCode } | null
 
+// Vorschlag 10: Touch-Gesten-Kollisionsschutz (Long-Press für Selektion)
+/** @type {any} */
+let touchDragTimeout = null;
+let lastTouchTime = 0;
+
 /**
  * Einzige Quelle der Wahrheit dafür, ob ein Maus-Ereignis auf einer Zelle dem
  * Dienst-Badge (Drag-Handle zum Verschieben eines Dienstes per moveDutyBadge)
@@ -443,7 +448,7 @@ function focusAdjacentCell(currentCell, rowDelta, colDelta) {
 }
 
 function handleGridKeydown(e) {
-  if (IS_MOBILE) return;
+  if (IS_MOBILE || state.isAutoplanRunning) return;
   const cell = e.target.closest?.('#plan-tbody .td-cell');
   if (!cell) return;
   const emp = cell.dataset.emp;
@@ -487,7 +492,15 @@ function handleGridKeydown(e) {
 let quickPopover = { el: null, emp: null, day: null, anchorEl: null, outsideHandler: null, keyHandler: null, reposHandler: null };
 
 export function closeCellQuickPopover() {
-  if (!quickPopover.el) return;
+  if (!quickPopover.el) {
+    // Vorschlag 5: Falls noch ein altes, ausblendendes Element im DOM rumliegt, räumen wir es trotzdem synchron auf:
+    document.querySelectorAll('.cell-quick-popover').forEach(oldEl => {
+      const popoverEl = /** @type {HTMLElement & {_removeTimerId?: any}} */ (oldEl);
+      if (popoverEl._removeTimerId) clearTimeout(popoverEl._removeTimerId);
+      popoverEl.remove();
+    });
+    return;
+  }
   const el = quickPopover.el;
   quickPopover.anchorEl?.classList.remove('cqp-anchor-cell');
   if (quickPopover.outsideHandler) document.removeEventListener('pointerdown', quickPopover.outsideHandler, true);
@@ -498,11 +511,24 @@ export function closeCellQuickPopover() {
   }
   quickPopover = { el: null, emp: null, day: null, anchorEl: null, outsideHandler: null, keyHandler: null, reposHandler: null };
   document.body.classList.remove('cell-popover-open');
+
+  // Vorschlag 5: Synchrones Entfernen aller anderen alten Popovers im DOM, um Race-Conditions zu vermeiden
+  document.querySelectorAll('.cell-quick-popover').forEach(oldEl => {
+    if (oldEl !== el) {
+      const popoverEl = /** @type {HTMLElement & {_removeTimerId?: any}} */ (oldEl);
+      if (popoverEl._removeTimerId) clearTimeout(popoverEl._removeTimerId);
+      popoverEl.remove();
+    }
+  });
+
   // Sanftes Ausblenden: Klasse entfernen lässt die Basistransition zurücklaufen,
   // der Knoten wird erst nach Ablauf der Animation entfernt.
   el.classList.remove('cqp-visible');
   el.classList.add('cqp-leaving');
-  setTimeout(() => el.remove(), 170);
+  const timerId = setTimeout(() => {
+    el.remove();
+  }, 170);
+  /** @type {HTMLElement & {_removeTimerId?: any}} */ (el)._removeTimerId = timerId;
 }
 
 /**
@@ -684,6 +710,13 @@ export function showCellQuickPopover(emp, day, anchorEl) {
     positionQuickPopover();
     return;
   }
+
+  // Vorschlag 5: Synchrones und sofortiges Aufräumen aller existierenden Popovers im DOM
+  document.querySelectorAll('.cell-quick-popover').forEach(oldEl => {
+    const popoverEl = /** @type {HTMLElement & {_removeTimerId?: any}} */ (oldEl);
+    if (popoverEl._removeTimerId) clearTimeout(popoverEl._removeTimerId);
+    popoverEl.remove();
+  });
 
   closeCellQuickPopover();
 
@@ -1886,20 +1919,12 @@ function updateTfootDay(y, m, d, hols) {
   return allFound;
 }
 
-document.addEventListener("mousedown", (e) => {
-  if (e.button !== 0) return;
-  // Dienst-Badge (Drag-Handle) bzw. eine bereits laufende Badge-Drag-Geste:
-  // siehe isDragHandleInteraction() – niemals gleichzeitig mit Drag-Selection.
-  if (isDragHandleInteraction(e)) return;
-  // Strg/Cmd/Alt/Shift werden vom Klick-Handler verarbeitet (Editor direkt
-  // öffnen / Einzel-Toggle / Bereich).
-  if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-  const cell = /** @type {HTMLElement} */ (/** @type {HTMLElement} */ (e.target).closest?.("#plan-tbody .td-cell"));
-  if (!cell) return;
-  const emp = cell.dataset.emp;
-  const day = parseInt(cell.dataset.day || "", 10);
-  if (!emp || !Number.isFinite(day) || emp === RBN_ROW_KEY) return;
+// touchstart Listener registrieren, um Berührungszeitpunkt zu tracken
+document.addEventListener("touchstart", () => {
+  lastTouchTime = Date.now();
+}, { passive: true });
 
+export function startDragSelection(emp, day, _cell) {
   const me = state.multiEdit;
   const isSelected = me.emp === emp && Array.isArray(me.days) && me.days.includes(day);
   const multi = isSelected && me.days.length > 1;
@@ -1952,6 +1977,67 @@ document.addEventListener("mousedown", (e) => {
     setDaySelected(emp, day, true);
     syncSelectionClasses();
   }
+}
+
+document.addEventListener("mousedown", (e) => {
+  if (e.button !== 0) return;
+  // Dienst-Badge (Drag-Handle) bzw. eine bereits laufende Badge-Drag-Geste:
+  // siehe isDragHandleInteraction() – niemals gleichzeitig mit Drag-Selection.
+  if (isDragHandleInteraction(e)) return;
+  // Strg/Cmd/Alt/Shift werden vom Klick-Handler verarbeitet (Editor direkt
+  // öffnen / Einzel-Toggle / Bereich).
+  if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+  const cell = /** @type {HTMLElement} */ (/** @type {HTMLElement} */ (e.target).closest?.("#plan-tbody .td-cell"));
+  if (!cell) return;
+  const emp = cell.dataset.emp;
+  const day = parseInt(cell.dataset.day || "", 10);
+  if (!emp || !Number.isFinite(day) || emp === RBN_ROW_KEY) return;
+
+  const isTouch = (Date.now() - lastTouchTime) < 500;
+  if (isTouch) {
+    // Vorschlag 10: Touch-Gesten-Kollisionsschutz (Long-Press nötig, um Drag-Selection zu starten)
+    if (touchDragTimeout) clearTimeout(touchDragTimeout);
+    
+    let cancelled = false;
+    const cancelTouchDrag = () => {
+      cancelled = true;
+      if (touchDragTimeout) {
+        clearTimeout(touchDragTimeout);
+        touchDragTimeout = null;
+      }
+      cleanup();
+    };
+    
+    const handleTouchEnd = () => {
+      if (!cancelled) {
+        if (touchDragTimeout) {
+          clearTimeout(touchDragTimeout);
+          touchDragTimeout = null;
+        }
+        // Kurzer Tap -> Sofort selektieren & Popover vorbereiten
+        startDragSelection(emp, day, cell);
+      }
+      cleanup();
+    };
+    
+    const cleanup = () => {
+      document.removeEventListener("touchmove", cancelTouchDrag);
+      document.removeEventListener("touchend", handleTouchEnd);
+      document.removeEventListener("touchcancel", cancelTouchDrag);
+    };
+    
+    document.addEventListener("touchmove", cancelTouchDrag, { passive: true });
+    document.addEventListener("touchend", handleTouchEnd, { passive: true });
+    document.addEventListener("touchcancel", cancelTouchDrag, { passive: true });
+    
+    touchDragTimeout = setTimeout(() => {
+      if (cancelled) return;
+      startDragSelection(emp, day, cell);
+    }, 350);
+    return;
+  }
+
+  startDragSelection(emp, day, cell);
 });
 
 document.addEventListener("mouseover", (e) => {

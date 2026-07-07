@@ -57,6 +57,7 @@
   .nav-btn, .month-label-btn, .hbtn, .td-cell, .td-name {
     min-height: 44px;
     min-width: 44px;
+    touch-action: manipulation; /* Vorschlag 2: Unterdrückt den Double-Tap-Zoom bei Schnelltasten und Gitterzellen */
   }
 
   .mday-handle {

@@ -1148,6 +1148,10 @@ export function showOverlay(id) {
 }
 
 export function hideOverlay(id) {
+  if (state.isAutoplanRunning && id === "modal-autoplan") {
+    // Vorschlag 9: Das Fortschrittsfenster darf während der Berechnung nicht geschlossen werden
+    return;
+  }
   const el = document.getElementById(id);
   if (!el) return;
   

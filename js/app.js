@@ -459,6 +459,12 @@ export function wireEvents() {
   });
   
   document.addEventListener("keydown", (e) => {
+    if (state.isAutoplanRunning) {
+      // Vorschlag 9: Sperrt alle Tastenkombinationen während der Auto-Planung läuft
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (e.key === "Escape") {
       let handled = false;
       [

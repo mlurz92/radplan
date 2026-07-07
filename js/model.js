@@ -251,6 +251,9 @@ export function removeEmployee(y, m, name) {
   
   md.employees = md.employees.filter((e) => e !== name);
   delete md.assignments[name];
+  if (md.comments && md.comments[name]) {
+    delete md.comments[name];
+  }
   
   if (planMode) {
     persistPlanSessionRefs();

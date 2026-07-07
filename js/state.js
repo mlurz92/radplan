@@ -56,6 +56,7 @@ export let state = {
     days: [],
     anchor: null,
   },
+  isAutoplanRunning: false, // Vorschlag 9: Mutex-Sperre für Autoplan-Berechnungsphasen
 };
 
 export let deptTab = "month";

@@ -38,7 +38,7 @@ function downloadBlob(content, filename, mime) {
 }
 // CSV mit deutschem Trennzeichen ";" + UTF-8 BOM (Excel-kompatibel).
 function downloadCSV(rows, filename) {
-  const text = '﻿' + rows.map((r) => r.map(csvEscape).join(';')).join('\r\n');
+  const text = '\uFEFF' + rows.map((r) => r.map(csvEscape).join(';')).join('\r\n');
   downloadBlob(text, filename, 'text/csv;charset=utf-8');
 }
 // Komma-Dezimal für CSV-Zahlen.

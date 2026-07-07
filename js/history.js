@@ -112,7 +112,7 @@ function applySnapshot(json) {
 }
 
 export function normalUndo() {
-  if (planMode) return false;
+  if (planMode || state.isAutoplanRunning) return false;
   if (captureTimer) { clearTimeout(captureTimer); capture(); }
   if (!undoStack.length) {
     showToast('Nichts zum Rückgängigmachen');
@@ -127,7 +127,7 @@ export function normalUndo() {
 }
 
 export function normalRedo() {
-  if (planMode) return false;
+  if (planMode || state.isAutoplanRunning) return false;
   if (!redoStack.length) {
     showToast('Nichts zum Wiederherstellen');
     return false;
@@ -172,6 +172,7 @@ export function resetNormalHistory() {
   if (captureTimer) { clearTimeout(captureTimer); captureTimer = null; }
   undoStack = [];
   redoStack = [];
+  changeLog.clear(); // Vorschlag 1: Speicherbereinigung des Änderungsprotokolls
   baseline = cloneDATAString();
   updateNormalHistoryUI();
 }

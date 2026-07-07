@@ -12,6 +12,8 @@
         var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         var theme = saved === 'light' || saved === 'dark' ? saved : (systemDark ? 'dark' : 'light');
         document.documentElement.setAttribute('data-theme', theme);
+        // Vorschlag 8: Synchrones Setzen der Hintergrundfarbe zur Vermeidung von FOUC (Flash of Unstyled Content)
+        document.documentElement.style.backgroundColor = theme === 'dark' ? '#0B131F' : '#F4F1EA';
         if (localStorage.getItem('radplan_v3_colorblind') === '1') {
           document.documentElement.setAttribute('data-cb', '1');
         }
@@ -23,6 +25,7 @@
         });
       } catch (e) {
         document.documentElement.setAttribute('data-theme', 'dark');
+        document.documentElement.style.backgroundColor = '#0B131F';
       }
     })();
   </script>

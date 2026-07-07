@@ -1,7 +1,7 @@
 // RadPlan — Drucken, JSON-Export/-Import (inkl. Drag & Drop) für den
 // gesamten Datenbestand. Extrahiert aus dem früher monolithischen app.js.
 
-import { DATA, saveToStorage, collectLocalPlans } from './state.js';
+import { DATA, replaceAllData, saveToStorage, collectLocalPlans } from './state.js';
 import { ensurePostBDFreiDays } from './model.js';
 import { normalizeMonthDataShape } from './constants.js';
 import { render } from './render-grid.js';
@@ -53,6 +53,37 @@ export function openImportModal() {
   showOverlay("modal-import");
 }
 
+export function validateImportSchema(mainData) {
+  if (typeof mainData !== "object" || mainData === null || Array.isArray(mainData)) {
+    throw new Error("Fehler: Die Daten müssen ein JSON-Objekt sein.");
+  }
+  
+  const monthKeyRegex = /^\d{4}-\d{1,2}$/;
+  for (const [key, mData] of Object.entries(mainData)) {
+    if (!monthKeyRegex.test(key)) {
+      throw new Error(`Fehler: Ungültiger Monatsschlüssel "${key}". Erwartet wird das Format YYYY-M.`);
+    }
+    if (typeof mData !== "object" || mData === null || Array.isArray(mData)) {
+      throw new Error(`Fehler: Die Monatsdaten für "${key}" müssen ein Objekt sein.`);
+    }
+    if (mData.employees !== undefined && !Array.isArray(mData.employees)) {
+      throw new Error(`Fehler: Das Feld "employees" im Monat "${key}" muss ein Array sein.`);
+    }
+    if (mData.employees && mData.employees.some(emp => typeof emp !== "string")) {
+      throw new Error(`Fehler: Der Mitarbeitername im Monat "${key}" muss ein Text sein.`);
+    }
+    if (mData.assignments !== undefined && (typeof mData.assignments !== "object" || mData.assignments === null || Array.isArray(mData.assignments))) {
+      throw new Error(`Fehler: Das Feld "assignments" im Monat "${key}" muss ein Objekt sein.`);
+    }
+    if (mData.rbn !== undefined && (typeof mData.rbn !== "object" || mData.rbn === null || Array.isArray(mData.rbn))) {
+      throw new Error(`Fehler: Das Feld "rbn" im Monat "${key}" muss ein Objekt sein.`);
+    }
+    if (mData.comments !== undefined && (typeof mData.comments !== "object" || mData.comments === null || Array.isArray(mData.comments))) {
+      throw new Error(`Fehler: Das Feld "comments" im Monat "${key}" muss ein Objekt sein.`);
+    }
+  }
+}
+
 export function doImport() {
   const ta = /** @type {HTMLTextAreaElement} */ (document.getElementById("import-ta"));
   if (!ta) return;
@@ -70,6 +101,10 @@ export function doImport() {
 
     const hasEnvelope = parsed.main && typeof parsed.main === "object" && !Array.isArray(parsed.main);
     const mainData = hasEnvelope ? parsed.main : parsed;
+    
+    // Vorschlag 4: Poka-Yoke Schema- & Datenintegritätsprüfung
+    validateImportSchema(mainData);
+
     for (const monthData of Object.values(mainData)) {
       normalizeMonthDataShape(monthData);
     }
@@ -83,7 +118,7 @@ export function doImport() {
       }
     }
 
-    Object.assign(DATA, mainData);
+    replaceAllData(mainData);
 
     saveToStorage();
     const repaired = ensurePostBDFreiDays();
