@@ -665,7 +665,11 @@ export function renderResultView() {
     wishFulfillmentRate: Number(qualityRaw.wishFulfillmentRate) || 0,
     dutyCoverageMisses: Number(qualityRaw.dutyCoverageMisses) || 0,
     hgCoverageMisses: Number(qualityRaw.hgCoverageMisses) || 0,
-    deepMoves: Number(qualityRaw.deepMoves) || 0
+    deepMoves: Number(qualityRaw.deepMoves) || 0,
+    compoundMoves: Number(qualityRaw.compoundMoves) || 0,
+    complianceGate: summary.compliance?.gate || "unknown",
+    hardConstraintViolations: Number(summary.compliance?.hardConstraintViolations) || 0,
+    mediumConstraintViolations: Number(summary.compliance?.mediumConstraintViolations) || 0
   };
   const qualityTooltips = {
     score: "Neural Fitness Index (NFI). Der komprimierte Wert für Abdeckung, Fairness und Regelkonformität.",
@@ -679,6 +683,7 @@ export function renderResultView() {
     weekendSpread: "Standardabweichung der Wochenend-/Feiertagsdienste zwischen den Mitarbeitenden (0 = perfekt gleich verteilt).",
     wishes: "Prozentanteil erfüllter Dienstwünsche im gewählten Monat.",
     gaps: "Summe der Tage ohne BD- oder HG-Besetzung.",
+    compliance: "Compliance-Gate des finalen Plans: PASS ohne harte Auffälligkeit, WARN mit weichen Eskalationen, FAIL bei harten Verletzungen.",
     deepMoves: "Anzahl zusätzlicher Optimierungsschritte in der finalen Suchphase."
   };
   const body = document.getElementById("ap-body");
@@ -718,7 +723,8 @@ export function renderResultView() {
         <div class="ap-result-metric" data-tooltip="${qualityTooltips.weekendSpread}"><span>WE-Dienste</span><strong>${quality.weekendSpread}</strong></div>
         <div class="ap-result-metric" data-tooltip="${qualityTooltips.wishes}"><span>Wünsche</span><strong>${Math.round(quality.wishFulfillmentRate * 100)}%</strong></div>
         <div class="ap-result-metric" data-tooltip="${qualityTooltips.gaps}"><span>Lücken</span><strong>${quality.dutyCoverageMisses + quality.hgCoverageMisses}</strong></div>
-        <div class="ap-result-metric" data-tooltip="${qualityTooltips.deepMoves}"><span>Deep-Moves</span><strong>${quality.deepMoves}</strong></div>
+        <div class="ap-result-metric" data-tooltip="${qualityTooltips.compliance}"><span>Compliance</span><strong>${quality.complianceGate.toUpperCase()}</strong></div>
+        <div class="ap-result-metric" data-tooltip="${qualityTooltips.deepMoves}"><span>Deep/Compound</span><strong>${quality.deepMoves}/${quality.compoundMoves}</strong></div>
       </div>
     </div>
   `;

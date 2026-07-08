@@ -549,8 +549,13 @@ Ein winziger Feinabzug (Deep-Move-Korrelation) verhindert zusätzlich eine küns
 2. **Greedy-Konstruktion:** Zuweisung aller Bereitschaftsdienste. Wochenenden und Feiertage werden zuerst besetzt. Manuell gesetzte Fix-Dienste haben absolute Priorität.
 3. **Hintergrund-Bundling (deterministische Kopplungen):** Freitags-Support, Wochenend-Kette (HG-D-HG-Kette), Feiertags-Vortag-Unterstützung.
 4. **Hintergrund-Rhythmisierung:** Verteilung der verbleibenden Hintergrunddienste unter strengen Abstandsanforderungen (Anti-Clustering): Abstands-Malus, Direkt-Folge-Malus, Dichte-Prüfung im rollierenden 7-Tage-Fenster.
-5. **Multi-Zyklus-Optimierung (max. 12 Zyklen):** BD-Swaps, HG-Wochenend-Kopplung, HG-Lückenfüllung, HG-Swaps und eine rollenübergreifende Deep-Optimize-Metaheuristik, jeweils gegen die Gesamt-Fitness (`computeGlobalObjective`) geprüft. Verbessert sich die globale Fitness um weniger als 0,01, gilt der Lauf als konvergiert und bricht vorzeitig ab.
-6. **Validierung:** Abschlussprüfung auf Dienst-Exklusivität und Einhaltung aller K.-o.-Kriterien.
+5. **Multi-Zyklus-Optimierung (max. 12 Zyklen):** BD-Swaps, HG-Wochenend-Kopplung, HG-Lückenfüllung, HG-Swaps, eine rollenübergreifende Deep-Optimize-Metaheuristik sowie Compound-Nachbarschaften (2-Swap und begrenzter 3-Cycle) werden jeweils gegen die globale Gesamt-Fitness (`computeGlobalObjective`) geprüft. Verbessert sich die globale Fitness um weniger als 0,01, gilt der Lauf als konvergiert und bricht vorzeitig ab.
+6. **Staged Coverage Repair:** Noch offene D-/HG-Lücken werden nicht mehr pauschal „zwangsbelegt“, sondern über eine zentrale Eligibility-Matrix stufenweise repariert: strikt, Monatsziel, Wochenende, Abstand/HG-Häufung und erst zuletzt Notfall. Jede Kandidatur wird per Zielfunktions-Delta simuliert, die beste zulässige Reparatur gewinnt und die gelockerte Regel wird im Report transparent benannt.
+7. **Compliance-Gate:** Abschlussprüfung auf Dienst-Exklusivität, harte K.-o.-Kriterien, weiche Eskalationen und Coverage. Das Ergebnis wird als `PASS`, `WARN` oder `FAIL` zusammen mit konkreten Verstoß-Zählern an UI und Score-Modal übergeben.
+
+### 13.4.1 Top-5-Algorithmusausbau
+
+Die aktuelle Auto-Plan-Generation enthält fünf bewusst getrennte Qualitätsachsen: (1) eine zentrale Constraint-/Eligibility-Auswertung für BD und HG, (2) delta-basiertes Coverage Repair mit expliziten Eskalationsstufen, (3) ein Compliance-Gate für harte und weiche Endzustandsprüfung, (4) Compound-Nachbarschaften als 2-Swap- und 3-Cycle-Suche gegen lokale Optima und (5) eine Benchmark-/Oracle-Testbasis, die NFI-Komponenten, Compliance-Ausgabe und mathematische Idealverteilungen absichert. Dadurch ist jede Zuweisung nicht nur „irgendwie möglich“, sondern technisch nachvollziehbar, bewertbar und auditierbar.
 
 ### 13.5 Mathematische Kostenfaktoren (Objective Penalties)
 
