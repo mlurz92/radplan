@@ -12,7 +12,7 @@ import { render } from './render-grid.js';
 import { showOverlay, hideOverlay, showToast, openScoreInfoModal } from './render-modals.js';
 import {
   computeAutoPlan, computeAutoPlanRange, collectHistoricalDutyStatsAsync, sleep,
-  isDutyExempt, AUTO_PLAN_WEIGHT_PROFILES, weightProfileFromMix,
+  isDutyExempt, AUTO_PLAN_WEIGHT_PROFILES, weightProfileFromMix, MIN_MONTHLY_BD_TARGET,
 } from './autoplan.js';
 import { NeuralGraph } from './neuralgraph.js';
 import { esc } from './utils.js';
@@ -95,7 +95,7 @@ export function defaultBDTarget(empName) {
   // in constants.js deklarierten Getter aus SPECIAL_RULES.reducedBdTarget
   // gelesen werden — sonst prefillt der Konfigurationsdialog nach einer
   // Änderung an SPECIAL_RULES weiterhin die alten Werte.
-  return getReducedBdTarget(empName) ?? 4;
+  return Math.max(MIN_MONTHLY_BD_TARGET, getReducedBdTarget(empName) ?? 4);
 }
 
 export function openAutoPlanModal() {
@@ -247,7 +247,7 @@ export async function renderAutoPlanModal(renderToken = null) {
             </div>
             <div class="ap-input-stepper" data-tooltip="Individuelles Monatsziel an Bereitschaftsdiensten für ${esc(e)}. Der Neural Scheduler versucht, exakt diese Anzahl zuzuteilen.">
               <button type="button" class="ap-step-btn minus" data-emp="${esc(e)}" data-tooltip="BD-Ziel um 1 verringern.">−</button>
-              <input type="number" class="ap-card-input" data-emp="${esc(e)}" value="${target}" min="0" max="10" step="1" readonly>
+              <input type="number" class="ap-card-input" data-emp="${esc(e)}" value="${target}" min="${MIN_MONTHLY_BD_TARGET}" max="10" step="1" readonly>
               <button type="button" class="ap-step-btn plus" data-emp="${esc(e)}" data-tooltip="BD-Ziel um 1 erhöhen.">+</button>
             </div>
           </div>
@@ -296,7 +296,7 @@ export async function renderAutoPlanModal(renderToken = null) {
         const emp = btn.dataset.emp;
         const isPlus = btn.classList.contains("plus");
         const current = localAutoPlanTargets[emp] ?? defaultBDTarget(emp);
-        const next = isPlus ? Math.min(10, current + 1) : Math.max(0, current - 1);
+        const next = isPlus ? Math.min(10, current + 1) : Math.max(MIN_MONTHLY_BD_TARGET, current - 1);
 
         localAutoPlanTargets[emp] = next;
         const input = /** @type {HTMLInputElement} */ (body.querySelector(`.ap-card-input[data-emp="${emp}"]`));
