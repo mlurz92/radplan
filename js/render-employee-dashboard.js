@@ -1082,7 +1082,9 @@ export function exportEmployeeDashboardCSV() {
   });
 
   const esc = (v) => {
-    const s = String(v ?? "");
+    let s = String(v ?? "");
+    // Schützt gegen CSV-/Formel-Injection (z. B. Mitarbeitername "=HYPERLINK(...)").
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
     return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const header = ["Kürzel", "Name", "Position", "Bereich", "Aktive Monate", "Dienste D", "Dienste HG", "Dienste gesamt", "Urlaubstage", "Kranktage", "FZA-Tage"];

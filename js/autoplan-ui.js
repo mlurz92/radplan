@@ -5,6 +5,7 @@
 
 import { MONTHS, MONTHS_SHORT, DOW_ABBR, DOW_LONG, daysInMonth, weekday,
   isHoliday, isFacharzt, getEmpMeta, posColor, getSaxonyHolidaysCached, dateKey,
+  getReducedBdTarget,
 } from './constants.js';
 import { state, DATA, planMode, planData, saveToStorage } from './state.js';
 import { render } from './render-grid.js';
@@ -89,10 +90,12 @@ export async function runYearAutoPlan() {
 
 export function defaultBDTarget(empName) {
   if (isDutyExempt(empName)) return 0;
-  if (empName === "Dr. Polednia") return 3;
-  if (empName === "Dr. Becker") return 3;
-  if (empName === "Hr. Sebastian") return 3;
-  return 4;
+  // AGENT.md/algorithm_rules.md §2.4: reduzierte BD-Monatsziele dürfen NIE
+  // im aufrufenden Code hartkodiert werden, sondern ausschließlich über den
+  // in constants.js deklarierten Getter aus SPECIAL_RULES.reducedBdTarget
+  // gelesen werden — sonst prefillt der Konfigurationsdialog nach einer
+  // Änderung an SPECIAL_RULES weiterhin die alten Werte.
+  return getReducedBdTarget(empName) ?? 4;
 }
 
 export function openAutoPlanModal() {
@@ -366,26 +369,37 @@ export async function renderAutoPlanModal(renderToken = null) {
         
         requestAnimationFrame(() => {
           setTimeout(async () => {
-            const result = await computeAutoPlan(localAutoPlanTargets, localWeightProfile, { strategy: localOptimizationStrategy });
-            if (!result) {
+            try {
+              const result = await computeAutoPlan(localAutoPlanTargets, localWeightProfile, { strategy: localOptimizationStrategy });
+              if (!result) {
+                showToast("Fehler bei der Berechnung");
+                localApViewMode = "config";
+                renderAutoPlanModal();
+                return;
+              }
+              localAutoPlanResult = result;
+              const activeWeightKey = typeof localWeightProfile === "string" ? localWeightProfile : "custom";
+              localAutoPlanAlternatives = { [activeWeightKey]: result };
+              Object.keys(AUTO_PLAN_WEIGHT_PROFILES).forEach((key) => {
+                if (key === activeWeightKey) return;
+                const altResult = computeAutoPlan(localAutoPlanTargets, key, { strategy: localOptimizationStrategy });
+                if (altResult && typeof altResult.then === "function") {
+                  altResult.then((r) => { if (r) localAutoPlanAlternatives[key] = r; });
+                }
+              });
+              await streamProgressLogs(result);
+            } catch (err) {
+              // Verhindert, dass eine unerwartete Ausnahme im Scheduler die
+              // Autoplan-Mutex-Sperre (state.isAutoplanRunning) dauerhaft
+              // gesetzt lässt und damit die gesamte App (Tastatur, Gitter,
+              // Undo/Redo) bis zum Neuladen der Seite blockiert.
+              console.error("computeAutoPlan failed:", err);
               showToast("Fehler bei der Berechnung");
-              state.isAutoplanRunning = false; // Mutex-Sperre freigeben bei Fehler
               localApViewMode = "config";
               renderAutoPlanModal();
-              return;
+            } finally {
+              state.isAutoplanRunning = false; // Mutex-Sperre immer freigeben
             }
-            localAutoPlanResult = result;
-            const activeWeightKey = typeof localWeightProfile === "string" ? localWeightProfile : "custom";
-            localAutoPlanAlternatives = { [activeWeightKey]: result };
-            Object.keys(AUTO_PLAN_WEIGHT_PROFILES).forEach((key) => {
-              if (key === activeWeightKey) return;
-              const altResult = computeAutoPlan(localAutoPlanTargets, key, { strategy: localOptimizationStrategy });
-              if (altResult && typeof altResult.then === "function") {
-                altResult.then((r) => { if (r) localAutoPlanAlternatives[key] = r; });
-              }
-            });
-            await streamProgressLogs(result);
-            state.isAutoplanRunning = false; // Mutex-Sperre freigeben bei Erfolg
           }, 60);
         });
       });
@@ -1191,7 +1205,12 @@ export function applyAutoPlan() {
         DATA[mk].assignments[emp] = {};
       }
       for (const [day, patch] of Object.entries(dayMap)) {
-        DATA[mk].assignments[emp][day] = { ...(DATA[mk].assignments[emp][day] || {}), ...patch };
+        const cell = { ...(DATA[mk].assignments[emp][day] || {}), ...patch };
+        if (Object.keys(cell).length === 0) {
+          delete DATA[mk].assignments[emp][day];
+        } else {
+          DATA[mk].assignments[emp][day] = cell;
+        }
         changed = true;
       }
     }

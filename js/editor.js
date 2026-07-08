@@ -39,6 +39,9 @@ export function isEditorOpen() {
 // Zellen bis dahin ungenutzt war, wurde die Einzel-Auswahl dorthin verschoben,
 // um Strg/Cmd für das dokumentierte direkte Öffnen des Editors freizumachen.
 export function openEditor(emp, day, options = {}) {
+  // Autoplan-Mutex (AGENT.md §4): während einer laufenden Berechnung dürfen
+  // Gitterzellen-Klicks/-Tastatureingaben den Editor nicht öffnen können.
+  if (state.isAutoplanRunning) return;
   const { year: y, month: m } = state;
   const { altKey = false, shiftKey = false } = options;
   const isRbnRow = emp === RBN_ROW_KEY;
@@ -471,6 +474,7 @@ export function refreshEditorChips() {
 }
 
 export function saveEditor() {
+  if (state.isAutoplanRunning) return;
   const { year: y, month: m } = state;
   const { emp, day, isRbnRow } = state.edit;
   const days = Array.isArray(state.edit.days) && state.edit.days.length ? state.edit.days : [day];

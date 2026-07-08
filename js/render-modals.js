@@ -1154,9 +1154,17 @@ export function hideOverlay(id) {
   }
   const el = document.getElementById(id);
   if (!el) return;
-  
+
+  if (id === "modal-print-preview") {
+    // printpreview.js hält mit `.pp-open` an <body> einen eigenen, von den
+    // übrigen Overlays unabhängigen Zustand — der generische hideOverlay()-
+    // Pfad (z. B. über die globale Escape-Taste) muss ihn ebenfalls entfernen,
+    // sonst bleibt die Klasse nach dem Schließen fälschlich am Body hängen.
+    document.body.classList.remove("pp-open");
+  }
+
   removeFocusTrap();
-  
+
   const otherOverlay = Array.from(document.querySelectorAll(".overlay:not([hidden])")).find(o => o !== el);
   if (otherOverlay) {
     setupFocusTrap(otherOverlay);

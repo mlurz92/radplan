@@ -407,7 +407,7 @@ body.is-mobile .overlay {
   .nav-btn:hover { background: none; transform: none; }
   .month-nav:hover { border-color: var(--glass-border); box-shadow: 0 2px 8px rgba(0,0,0,.15); }
   .td-cell:hover::after { opacity: 0; }
-  .td-name:hover { background: var(--bg-a); }
+  .td-name:hover { background: none; }
 }
 
 /* Smooth momentum scrolling globally */

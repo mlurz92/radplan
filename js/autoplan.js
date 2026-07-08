@@ -2548,6 +2548,14 @@ export async function computeAutoPlan(customTargets, weightProfileKey, options =
             const nx = nextCalendarDay(y, m, d);
             if (getScheduledDuty(pv.y, pv.m, e, pv.d, result) === "D") return false;
             if (getScheduledDuty(nx.y, nx.m, e, nx.d, result) === "D") return false;
+            // Auch die Zwangsbelegung darf die harten K.-o.-Kriterien aus
+            // algorithm_rules.md §2.1 (Urlaubs-Puffer, CT-Leitungs-Interdependenz,
+            // Feiertags-Alternanz) nicht brechen — nur die WEICHEN Regeln
+            // (Monatsziel, WE-Limit, Mindestabstand, Ultima-Ratio-Samstag) dürfen
+            // laut escalationNote hier aufgehoben werden.
+            if (isNextDayVacationLike(y, m, e, d, result, externalAssignments)) return false;
+            if (hasCTLeadershipConflict(y, m, e, d, result)) return false;
+            if (hasHolidayBlockConflict(e, d)) return false;
             return true;
           })
           .sort((a, b) => currentBD[a] - currentBD[b]);
@@ -2594,6 +2602,11 @@ export async function computeAutoPlan(customTargets, weightProfileKey, options =
             if (isNoHgFromAaWeekday(e, wd) && isBdAA) return false;
             const conflictBd = getHgConflictBd(e, wd);
             if (conflictBd && bdHolder && conflictBd.includes(bdHolder)) return false;
+            // Auch für HG gültige harte K.-o.-Kriterien (siehe reguläre
+            // HG-Eligibility oben: "gilt auch für HG") dürfen die
+            // Zwangsbelegung nicht umgehen.
+            if (isNextDayVacationLike(y, m, e, d, result, externalAssignments)) return false;
+            if (hasHolidayBlockConflict(e, d)) return false;
             return true;
           })
           .sort((a, b) => currentHG[a] - currentHG[b]);

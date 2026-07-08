@@ -426,6 +426,21 @@ async function doPdfExport() {
     return;
   }
 
+  // Die Bibliotheken sind zwar geladen, aber die eigentliche Generierung
+  // (autoTable/jsPDF-Aufrufe unten) kann bei unerwartetem Zelleninhalt oder
+  // einer Versionsinkompatibilität dennoch werfen — ohne dieses try/catch
+  // bricht der Klick auf "Als PDF speichern" dann lautlos ab (kein Toast,
+  // keine Fehlermeldung), siehe AGENT.md §2.2 zur CDN-Fallback-Absicherung.
+  try {
+    doPdfExportInner(jsPDF, probe);
+  } catch (e) {
+    console.error('PDF-Export fehlgeschlagen:', e);
+    showToast('Fehler beim Erstellen des PDFs');
+  }
+}
+
+function doPdfExportInner(jsPDF, probe) {
+
   const grid = extractGrid(options.includeRbn);
   if (!grid) {
     showToast('Keine Daten zum Exportieren');

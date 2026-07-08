@@ -178,6 +178,7 @@ function runItem(idx) {
 }
 
 export function openCommandPalette() {
+  if (state.isAutoplanRunning) return;
   showOverlay(OVERLAY_ID);
   const input = /** @type {HTMLInputElement} */ (document.getElementById("cmdk-input"));
   if (input) {
