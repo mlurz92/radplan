@@ -49,6 +49,7 @@ import {
 export const DUTY_EXEMPT = SPECIAL_RULES.dutyExempt;
 export const TARGET_WEEKEND_DUTY = 1;
 export const RELAXED_WEEKEND_DUTY_LIMIT = 1.5;
+export const MIN_MONTHLY_BD_TARGET = 3;
 
 // Punkt 18: Zentrale Abstands-Konstanten für die "3-Tage-Abstand"-Regel
 // (Anti-Clustering, siehe algorithm_rules.md §2.2 / Algorithmusregeln.txt,
@@ -733,7 +734,7 @@ function mulberry32(seed) {
 // verschlechternde Tauschversuche zuzulassen, aber niedrig genug, um harte
 // Constraint-Verletzungen (deren Scores um Größenordnungen höher liegen)
 // praktisch nie zu akzeptieren.
-const SA_INITIAL_TEMPERATURE = 1500;
+const SA_INITIAL_TEMPERATURE = 1800;
 // Abkühlung über die Zyklen der äußeren Multi-Zyklus-Schleife (siehe
 // MAX_OPTIMIZATION_CYCLES weiter unten) und zusätzlich innerhalb jeder
 // Deep-Optimize-Phase über deren eigene Pässe – ein klassisches
@@ -826,14 +827,13 @@ export async function computeAutoPlan(customTargets, weightProfileKey, options =
 
   const bdTarget = {};
   emps.forEach((e) => {
-    if (customTargets && customTargets[e] !== undefined) {
-      bdTarget[e] = customTargets[e];
+    if (isDutyExempt(e)) {
+      bdTarget[e] = 0;
+    } else if (customTargets && customTargets[e] !== undefined) {
+      bdTarget[e] = Math.max(MIN_MONTHLY_BD_TARGET, customTargets[e]);
     } else {
-      if (isDutyExempt(e)) bdTarget[e] = 0;
-      else {
-        const reduced = getReducedBdTarget(e);
-        bdTarget[e] = reduced !== undefined ? reduced : 4;
-      }
+      const reduced = getReducedBdTarget(e);
+      bdTarget[e] = Math.max(MIN_MONTHLY_BD_TARGET, reduced !== undefined ? reduced : 4);
     }
   });
 
@@ -1879,10 +1879,10 @@ export async function computeAutoPlan(customTargets, weightProfileKey, options =
   let hgMoves = 0;
   let deepMoves = 0;
 
-  const MAX_OPTIMIZATION_CYCLES = 8;
-  const BD_MAX_PASSES = 20;
-  const HG_MAX_PASSES = 30;
-  const DEEP_MAX_PASSES = 40;
+  const MAX_OPTIMIZATION_CYCLES = 12;
+  const BD_MAX_PASSES = 32;
+  const HG_MAX_PASSES = 44;
+  const DEEP_MAX_PASSES = 64;
 
   function assignBundledHG(emp, d, bindReason, options) {
     options = options || {};
@@ -3100,7 +3100,8 @@ const AUTO_PLAN_RANGE_MAX_MONTHS = 24;
 // nach oben. Als eigenständige, exportierte Funktionen (statt Closures
 // innerhalb von computeAutoPlanRange) direkt unit-testbar.
 export function baseMonthlyBDTarget(emp) {
-  return isDutyExempt(emp) ? 0 : (getReducedBdTarget(emp) ?? 4);
+  if (isDutyExempt(emp)) return 0;
+  return Math.max(MIN_MONTHLY_BD_TARGET, getReducedBdTarget(emp) ?? 4);
 }
 
 /**
@@ -3126,12 +3127,13 @@ export function computeCrossMonthBDTargets(rosterEmps, plannedMonths) {
       }
     });
     const deviation = actualCum - idealCum;
-    // Sanfte Korrektur: höchstens ±1 pro Monat, niemals unter 0 – bewusst
-    // gedämpft statt die gesamte Abweichung sofort auszugleichen, damit ein
+    // Sanfte Korrektur: höchstens ±1 pro Monat, bei Dienstpflichtigen niemals
+    // unter MIN_MONTHLY_BD_TARGET – bewusst gedämpft statt die gesamte
+    // Abweichung sofort auszugleichen, damit ein
     // einzelner dienstreicher Monat (z. B. wegen vieler Abwesenheiten
     // anderer) nicht zu einem abrupten Zielsprung im Folgemonat führt.
     const nudge = deviation > 0.5 ? -1 : deviation < -0.5 ? 1 : 0;
-    targets[emp] = Math.max(0, base + nudge);
+    targets[emp] = Math.max(MIN_MONTHLY_BD_TARGET, base + nudge);
   });
   return targets;
 }
