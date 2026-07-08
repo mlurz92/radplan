@@ -24,8 +24,13 @@ const ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke
 // --- Hilfen ------------------------------------------------------------------
 const hasJsPDF = () => !!(window.jspdf && window.jspdf.jsPDF);
 
+// Schützt gegen CSV-/Formel-Injection: Werte, die mit =, +, -, @, Tab oder CR
+// beginnen, werden von Excel/LibreOffice als Formel interpretiert (z. B. ein
+// per Freitextfeld/Mitarbeitername eingeschleustes "=HYPERLINK(...)"). Ein
+// vorangestelltes Apostroph erzwingt reine Textdarstellung.
 function csvEscape(v) {
-  const s = String(v ?? '');
+  let s = String(v ?? '');
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 function downloadBlob(content, filename, mime) {
@@ -243,8 +248,14 @@ function exportBenchmarkCSV(year) {
     'Δ Equity ggü. Vorjahr', 'Δ CV ggü. Vorjahr', 'Δ Ø Dienstlast ggü. Vorjahr',
   ]]);
   benchmark.years.forEach((y) => {
-    const avgBD = y.meansBD.reduce((a, b) => a + b, 0) / y.meansBD.length;
-    const avgHG = y.meansHG.reduce((a, b) => a + b, 0) / y.meansHG.length;
+    // `meansBD`/`meansHG` sind immer 12 Einträge lang, aber bei einem noch
+    // laufenden Jahr sind die zukünftigen Monate 0 — durch die feste Länge
+    // statt `monthsCovered` zu teilen würde den Durchschnitt künstlich
+    // verwässern (inkonsistent mit dem Jahresgitter-Chart, das dieselben
+    // Rohdaten korrekt auf `monthsCovered` begrenzt).
+    const coveredMonths = y.monthsCovered || y.meansBD.length;
+    const avgBD = y.meansBD.slice(0, coveredMonths).reduce((a, b) => a + b, 0) / coveredMonths;
+    const avgHG = y.meansHG.slice(0, coveredMonths).reduce((a, b) => a + b, 0) / coveredMonths;
     out.push([
       y.year + (y.isCurrentYear ? ' (laufend)' : ''), y.monthsCovered,
       num(Math.round(avgBD * 10) / 10), num(Math.round(avgHG * 10) / 10),

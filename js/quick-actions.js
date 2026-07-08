@@ -46,6 +46,7 @@ function refreshAfterQuickAction(emp, day, affectedCells) {
 }
 
 export function quickToggleWorkplace(emp, day, wpCode) {
+  if (state.isAutoplanRunning) return;
   const { year: y, month: m } = state;
   const days = quickTargetDays(emp, day);
   const multi = days.length > 1;
@@ -88,6 +89,7 @@ export function quickToggleWorkplace(emp, day, wpCode) {
 }
 
 export function quickToggleDuty(emp, day, dutyCode) {
+  if (state.isAutoplanRunning) return;
   const { year: y, month: m } = state;
   const days = quickTargetDays(emp, day);
   const multi = days.length > 1;
@@ -158,6 +160,7 @@ export function quickToggleDuty(emp, day, dutyCode) {
 }
 
 export function moveDutyBadge(srcEmp, srcDay, dstEmp, dstDay) {
+  if (state.isAutoplanRunning) return;
   const { year: y, month: m } = state;
   if (srcEmp === dstEmp && srcDay === dstDay) return;
 
@@ -239,6 +242,7 @@ export function moveDutyBadge(srcEmp, srcDay, dstEmp, dstDay) {
 }
 
 export function quickClearCell(emp, day) {
+  if (state.isAutoplanRunning) return;
   const { year: y, month: m } = state;
   const days = quickTargetDays(emp, day);
   const multi = days.length > 1;
@@ -266,6 +270,7 @@ export function quickClearCell(emp, day) {
 }
 
 export function quickSetStatus(emp, day, statusCode) {
+  if (state.isAutoplanRunning) return;
   const { year: y, month: m } = state;
   const days = quickTargetDays(emp, day);
   const multi = days.length > 1;

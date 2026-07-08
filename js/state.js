@@ -212,12 +212,12 @@ export function applyConflictChoice(path, choice) {
   return true;
 }
 
-function mergePlanDrafts(localPlans, serverPlans, activeKey) {
-  const merged = { ...(serverPlans || {}) };
-  if (activeKey && localPlans[activeKey]) {
-    merged[activeKey] = localPlans[activeKey];
-  }
-  return merged;
+// Defensiv wie mergeThreeWay für `main`: JEDER lokal vorhandene Planentwurf
+// (nicht nur der gerade aktive) überschreibt die Server-Version, damit ein
+// Konflikt/Resync auf einem Monat nicht die unsynchronisierten Planungs-
+// Sessions eines ANDEREN Monats stillschweigend verwirft.
+export function mergePlanDrafts(localPlans, serverPlans) {
+  return { ...(serverPlans || {}), ...(localPlans || {}) };
 }
 
 export function collectLocalPlans() {
@@ -281,6 +281,56 @@ function applyServerSnapshot(serverData) {
   return changedMonths;
 }
 
+// Nicht-destruktiver Vorlauf für `flushSaveToServer`, falls der letzte GET
+// fehlschlug (z. B. App im Offline-Modus gestartet): im Gegensatz zu
+// `forceSyncWithServer` (das DATA komplett durch den Server-Stand ersetzt und
+// ausschließlich für den explizit vom Nutzer bestätigten "Force Sync"-Button
+// gedacht ist) wird hier per `mergeThreeWay` gemergt, damit währenddessen
+// offline vorgenommene, noch ungespeicherte Änderungen NICHT verloren gehen.
+async function reconcileBeforeSave() {
+  try {
+    const res = await fetch(`/api?t=${Date.now()}`, {
+      method: "GET",
+      cache: "no-store"
+    });
+
+    if (!res.ok) {
+      console.error("reconcileBeforeSave HTTP Error:", res.status);
+      return false;
+    }
+
+    const serverData = await res.json();
+    serverFetchSuccessful = true;
+    const serverMain = serverData.main ? serverData.main : serverData;
+    const base = lastSyncedSnapshot || {};
+    const stats = { conflicts: 0, localWins: 0, serverWins: 0, conflictDetails: [] };
+    const mergedMain = mergeThreeWay(base, DATA, serverMain, stats);
+    lastConflictDetails = stats.conflictDetails;
+
+    const changedMonths = computeChangedMonthKeys(DATA, mergedMain);
+    replaceAllData(mergedMain);
+    Object.values(DATA).forEach((md) => normalizeMonthDataShape(md));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
+
+    const mergedPlans = mergePlanDrafts(collectLocalPlans(), serverData.plans || {});
+    replaceLocalPlans(mergedPlans);
+
+    serverLastModified = parseInt(serverData.lastModified, 10) || 0;
+    lastSyncedSnapshot = structuredClone(DATA);
+
+    if (stats.conflicts > 0) {
+      window.dispatchEvent(new CustomEvent("radplan-sync-conflict", { detail: stats }));
+    }
+    if (changedMonths.length) {
+      window.dispatchEvent(new CustomEvent("radplan-sync-update", { detail: { changedMonths } }));
+    }
+    return true;
+  } catch (e) {
+    console.error("reconcileBeforeSave Network/Parse Error:", e);
+    return false;
+  }
+}
+
 async function flushSaveToServer() {
   if (saveInFlight) {
     saveQueuedWhileInFlight = true;
@@ -288,7 +338,7 @@ async function flushSaveToServer() {
   }
 
   if (!serverFetchSuccessful) {
-    const synced = await forceSyncWithServer();
+    const synced = await reconcileBeforeSave();
     if (!synced) {
       window.dispatchEvent(new CustomEvent("radplan-save-error"));
       return;
@@ -329,8 +379,7 @@ async function flushSaveToServer() {
         Object.values(DATA).forEach((md) => normalizeMonthDataShape(md));
         localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
 
-        const activeKey = planMode ? monthKey(state.year, state.month) : null;
-        const mergedPlans = mergePlanDrafts(collectLocalPlans(), conflictData.latestData.plans || {}, activeKey);
+        const mergedPlans = mergePlanDrafts(collectLocalPlans(), conflictData.latestData.plans || {});
         replaceLocalPlans(mergedPlans);
 
         serverLastModified = parseInt(conflictData.latestData.lastModified, 10) || 0;
@@ -442,7 +491,7 @@ export function saveToStorage() {
   
   saveTimeout = setTimeout(() => {
     flushSaveToServer();
-  }, 120);
+  }, 260);
 }
 
 export async function syncWithServer() {

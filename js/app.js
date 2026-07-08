@@ -467,15 +467,19 @@ export function wireEvents() {
     }
     if (e.key === "Escape") {
       let handled = false;
-      [
+      // Nur das oberste Modal schließen (nicht den ganzen Stack auf einmal) —
+      // "modal-score-info" wird z. B. ÜBER "modal-autoplan"/"modal-ap-report"
+      // geöffnet, daher hier zuerst geprüft.
+      const stackOrder = [
+        "modal-score-info", "modal-command-palette", "modal-mobile-menu", "modal-mobile-day",
         "modal-editor", "modal-emps", "modal-import", "modal-dept",
-        "modal-yearplan", "modal-autoplan", "modal-ap-report", "modal-mobile-menu",
-        "modal-mobile-day", "modal-score-info", "modal-command-palette", "modal-print-preview"
-      ].forEach((id) => {
+        "modal-yearplan", "modal-print-preview", "modal-ap-report", "modal-autoplan"
+      ];
+      for (const id of stackOrder) {
         const el = document.getElementById(id);
-        if (el && !el.hasAttribute("hidden")) { hideOverlay(id); handled = true; }
-      });
-      if (isPeriodFlyoutOpen()) { closePeriodFlyout(); handled = true; }
+        if (el && !el.hasAttribute("hidden")) { hideOverlay(id); handled = true; break; }
+      }
+      if (!handled && isPeriodFlyoutOpen()) { closePeriodFlyout(); handled = true; }
       if (!handled && state.multiEdit?.days?.length) {
         clearMultiSelection();
       }

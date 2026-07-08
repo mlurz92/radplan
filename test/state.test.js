@@ -10,6 +10,7 @@ import {
   getLastConflictDetails,
   applyConflictChoice,
   setLastConflictDetails,
+  mergePlanDrafts,
 } from "../js/state.js";
 
 // mergeThreeWay(base, local, server, stats) implementiert den feldweisen
@@ -210,5 +211,35 @@ describe("computeChangedMonthKeys / isMonthAffectedBySync (Issue 4: gezielte His
   test("isMonthAffectedBySync: fehlendes/kein Array (unbekannter Aufrufer) -> konservativ true", () => {
     assert.equal(isMonthAffectedBySync(undefined, 2026, 5), true);
     assert.equal(isMonthAffectedBySync(null, 2026, 5), true);
+  });
+});
+
+// Bug-Hunt-Fix: mergePlanDrafts musste vormals bei einem 409-Konflikt JEDEN
+// lokal ungespeicherten Plan-Entwurf außer dem gerade aktiven stillschweigend
+// durch die (potenziell ältere) Server-Version ersetzen. Jeder lokal
+// vorhandene Entwurf muss unabhängig vom aktiven Monat gewinnen.
+describe("mergePlanDrafts (Plan-Entwürfe bei 409-Konfliktauflösung)", () => {
+  test("ein NICHT aktiver lokaler Plan-Entwurf wird nicht mehr durch die Server-Version verworfen", () => {
+    const localPlans = {
+      "2026-5": { assignments: { local: true } },
+      "2026-6": { assignments: { local: true } },
+    };
+    const serverPlans = {
+      "2026-5": { assignments: { server: true } },
+      "2026-6": { assignments: { server: true } },
+    };
+    const merged = mergePlanDrafts(localPlans, serverPlans);
+    assert.deepEqual(merged["2026-5"], { assignments: { local: true } });
+    assert.deepEqual(merged["2026-6"], { assignments: { local: true } });
+  });
+
+  test("ein server-seitiger Plan-Entwurf ohne lokales Gegenstück bleibt erhalten", () => {
+    const merged = mergePlanDrafts({}, { "2026-7": { assignments: { server: true } } });
+    assert.deepEqual(merged["2026-7"], { assignments: { server: true } });
+  });
+
+  test("akzeptiert fehlendes/undefined serverPlans", () => {
+    const merged = mergePlanDrafts({ "2026-5": { a: 1 } }, undefined);
+    assert.deepEqual(merged, { "2026-5": { a: 1 } });
   });
 });

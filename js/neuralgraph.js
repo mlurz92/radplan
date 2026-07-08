@@ -721,8 +721,13 @@ export class NeuralGraph {
     this.pulseCell(dayIdx, empId, true, true, dutyType);
     this.fireMiniMapPulse(true);
 
+    // Generation-Token: verhindert, dass der Timeout eines FRÜHEREN Fehlers
+    // die Phase zurücksetzt, während bereits ein NEUERER Fehler aktiv ist
+    // (zwei triggerError()-Aufrufe innerhalb von 450ms — bei sehr kurzen
+    // Log-Intervallen im Autoplan-Fortschritt keine Seltenheit).
+    const token = (this._errorToken = (this._errorToken || 0) + 1);
     setTimeout(() => {
-      if (this.phase === 'error') {
+      if (this.phase === 'error' && this._errorToken === token) {
         this.phase = this.basePhase || 'init';
       }
       this.pulseCell(dayIdx, empId, false, false, dutyType);

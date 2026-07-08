@@ -75,7 +75,7 @@ Der Scheduler sucht iterativ nach der Lösung mit dem niedrigsten Gesamt-Score.
 | **BD-Mindestabstand < 3 Tage** | (3-Dist) * 15.000 |
 | **Zweiter Samstags-BD im Monat** | + 80.000 |
 | **Becker-Samstag (Notlösung)** | + 40.000 |
-| **D-F-D-F Muster** | + 1.200 |
+| **D-F-D-F Muster** | + 8.000 (Scoring, `DFDF_PATTERN_SCORE_PENALTY`) / + 20.000 (Objective, `DFDF_PATTERN_OBJECTIVE_PENALTY`) |
 
 > Hinweis zur Doppelzählung bei Coverage-Lücken: `computeGlobalObjective` summiert `computeBDObjective`/`computeHGObjective` (die selbst schon einen Coverage-Malus enthalten) und addiert *zusätzlich* ihre eigene, unabhängig gewichtete Coverage-Prüfung. Das ist keine Inkonsistenz, sondern bewusst so gebaut: In den rollenspezifischen Swap-Pässen (BD-Swap, HG-Swap) zählt nur der jeweils lokale Malus, während der globale Cross-Role-Pass (Deep-Optimize, Zyklus-Vergleich) Deckungslücken zusätzlich verstärkt gewichtet, damit Cross-Role-Swaps niemals eine Deckungslücke zugunsten reiner Fairness in Kauf nehmen. Bei Änderungen an einem der beiden Werte ist zu prüfen, ob die Verstärkung im globalen Pass weiterhin gewünscht ist.
 
