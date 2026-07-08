@@ -179,6 +179,21 @@ describe("computeCrossMonthBDTargets (Vorschlag 2)", () => {
     assert.equal(targets[emp], base);
   });
 
+
+  test("senkt reduzierte Monatsziele niemals unter die Mindestverteilung von 3 BD", () => {
+    resetData();
+    const emp = "Dr. Polednia";
+    const base = baseMonthlyBDTarget(emp);
+    assert.equal(base, 3);
+
+    const assignments = { [emp]: {} };
+    for (let d = 1; d <= base + 3; d++) assignments[emp][d] = { duty: "D" };
+    DATA[monthKey(2026, 0)] = { employees: [emp], assignments, rbn: {}, comments: {} };
+
+    const targets = computeCrossMonthBDTargets([emp], [{ year: 2026, month: 0 }]);
+    assert.equal(targets[emp], 3, "Mehrmonats-Korrektur darf ein nicht befreites Ziel nie unter 3 BD senken");
+  });
+
   test("liefert für dienstbefreite Personen immer 0, unabhängig von der Historie", () => {
     resetData();
     const emp = "Prof. Schäfer"; // per SPECIAL_RULES.dutyExempt typischerweise befreit

@@ -63,7 +63,7 @@ RadPlan ist konsequent als **Single-Page-Application (SPA) ohne Build-Schritt** 
 
 ### 2.1 Frontend-Laufzeit & Sprachen
 
-* **HTML5 (`index.html`):** Das statische Anwendungsgerüst. Enthält alle Skelette der Modal-Dialoge (Editor, Mitarbeitende, Auswertungen, Abteilung, Jahresplan, Import, Autoplan, Befehlspalette …), die feste Kopfzeile, die Planungsleiste, die Statistikleiste, den Tabellen-Container sowie die mobile Navigationsleiste. 
+* **HTML5 (`index.html`):** Das statische Anwendungsgerüst. Enthält alle Skelette der Modal-Dialoge (Editor, Mitarbeitende, Auswertungen, Abteilung, Jahresplan, Import, Autoplan, Befehlspalette …), die feste Kopfzeile, die Planungsleiste, die Statistikleiste, den Tabellen-Container sowie die mobile Navigationsleiste.
 * **Flicker-Schutz (FOUC-Prävention):** Ein Inline-`<script>` im `<head>` liest — noch *vor* dem Rendering des restlichen Dokuments — das gespeicherte Theme aus `localStorage` aus (Fallback auf System-Präferenzen) und setzt `data-theme` sofort synchron. Zusätzlich wird `document.documentElement.style.backgroundColor` sofort auf die exakte Hintergrundfarbe des jeweiligen Themes gesetzt (`#0B131F` für Dark Mode, `#F4F1EA` für Light Mode). Dies unterbindet jegliches weiße Flackern (Flash of Unstyled Content) beim Laden oder Neuladen der Anwendung unter langsamen Netzwerkverbindungen vollständig.
 * **ECMAScript-Module (ESM):** Der gesamte JavaScript-Code (`<script type="module" src="js/app.js">`) ist in klar getrennte, über `import`/`export` verbundene Module aufgeteilt. Es gibt keine globalen Variablen außerhalb dieser Modulgrenzen.
 * **CSS3 als eigenständiges Design-System:** Das Styling ist auf 23 thematisch getrennte Dateien aufgeteilt (Kern-Tokens, Layout, Komponenten, Chips, drei Modal-Dateien nach Dialog getrennt, Views, Kontextmenü, Mobile-Optimierung, Print, Enhancements, Agenda-Ansicht sowie ein Basis- plus neun Modul-Stylesheets für den Auswertungs-Hub). Durchgehender Einsatz von CSS Custom Properties (zweistufiges Primitive-/Semantic-Token-System, siehe [Kapitel 3](#3-das-design-system-visuelle-sprache-&--gestaltungsphilosophie)), von Flexbox/Grid für Layouts, von Container-Queries für adaptive Schriftgrößen in Tabellenzellen und von `@media (display-mode: standalone)` für PWA-spezifische Anpassungen.
@@ -80,7 +80,7 @@ Alle externen Bibliotheken werden über `<script>`-Tags am Ende von `index.html`
 ### 2.3 Edge-Backend & Persistenz
 
 * **Cloudflare Pages Functions (`functions/api.js`):** Eine einzelne, serverlose Handler-Funktion `onRequest(context)`, die alle Anfragen an `/api` beantwortet.
-* **Cloudflare KV (Key-Value-Namespace):** Der persistente Datenspeicher auf Cloudflare-Edge-Servern, gebunden unter dem Namen `RADPLAN_KV`. Der Datenbestand ist **nach Kalenderjahr partitioniert** statt in einem einzigen, unbegrenzt wachsenden JSON-Blob abgelegt: `RADPLAN_META` (`{ years, lastModified }`) verzeichnet die vorhandenen Jahre, jedes Jahr liegt separat unter `RADPLAN_YEAR_<jahr>` (`{ months, lastModified }`), Planungsentwürfe liegen gesammelt unter `RADPLAN_PLANS`. Der Wire-Vertrag gegenüber dem Client bleibt dabei unverändert (`{ main, plans, lastModified }`) — `functions/api.js` setzt die Jahres-Fragmente serverseitig transparent zum flachen `main`-Objekt zusammen bzw. zerlegt es beim Schreiben wieder. 
+* **Cloudflare KV (Key-Value-Namespace):** Der persistente Datenspeicher auf Cloudflare-Edge-Servern, gebunden unter dem Namen `RADPLAN_KV`. Der Datenbestand ist **nach Kalenderjahr partitioniert** statt in einem einzigen, unbegrenzt wachsenden JSON-Blob abgelegt: `RADPLAN_META` (`{ years, lastModified }`) verzeichnet die vorhandenen Jahre, jedes Jahr liegt separat unter `RADPLAN_YEAR_<jahr>` (`{ months, lastModified }`), Planungsentwürfe liegen gesammelt unter `RADPLAN_PLANS`. Der Wire-Vertrag gegenüber dem Client bleibt dabei unverändert (`{ main, plans, lastModified }`) — `functions/api.js` setzt die Jahres-Fragmente serverseitig transparent zum flachen `main`-Objekt zusammen bzw. zerlegt es beim Schreiben wieder.
 * **HTTP-Verhalten:** `GET` liefert den gespeicherten Stand zurück (oder ein leeres Grundgerüst `{main:{}, plans:{}, lastModified:0}`, falls noch nichts gespeichert wurde). `POST` schreibt neue Daten unter einer optimistischen Nebenläufigkeitskontrolle, die dank der Jahres-Partitionierung **pro Jahr** statt für den gesamten Bestand ausgelesen wird: bearbeiten zwei Personen gleichzeitig unterschiedliche Jahre, entsteht serverseitig gar kein Konflikt mehr; alle anderen HTTP-Methoden werden mit `405` abgelehnt. CORS ist mit `*` vollständig offen, alle Antworten tragen `no-cache`-Header.
 
 ---
@@ -474,7 +474,7 @@ Siehe [11.3](#113-separater-planungsmodus-verlauf).
 
 ## 13. Der RadPlan Neural Scheduler (Auto-Plan)
 
-Der automatische Planer (`autoplan.js`) is eine hochspezialisierte Optimierungs-Engine. Sie arbeitet mit einer Kombination aus deterministischen Restriktionen, probabilistischem Scoring und einer mehrzyklischen Metaheuristik, um die optimale Verteilung der Dienste zu berechnen.
+Der automatische Planer (`autoplan.js`) ist eine hochspezialisierte Optimierungs-Engine. Sie arbeitet mit einer Kombination aus deterministischen Restriktionen, probabilistischem Scoring und einer mehrzyklischen Metaheuristik, um die optimale Verteilung der Dienste zu berechnen.
 
 ### 13.1 Gewichtungs-Profile
 
@@ -484,7 +484,21 @@ Vor dem Berechnungsstart kann der Planer den Fokus der Optimierung festlegen:
 * `fairness` (Fairness-optimiert): Priorisiert eine exakt gleichmäßige Verteilung aller Dienste und Wochenenden.
 * `wish` (Wunsch-optimiert): Versucht, so viele persönliche Dienstwünsche wie möglich zu erfüllen.
 
-### 13.2 Die mathematische Fitness-Funktion (NFI)
+Zusätzlich bietet der Dialog einen kontinuierlichen Fairness/Wunsch-Regler sowie den Strategie-Umschalter zwischen **Greedy** und **Simulated Annealing**. Greedy akzeptiert nur strikt bessere Deep-Optimize-Züge; Simulated Annealing darf zu Beginn kontrolliert auch leicht schlechtere Zwischenstände betreten, speichert aber den besten je gefundenen Zustand und stellt ihn am Phasenende wieder her.
+
+### 13.2 Verbindliche BD-Mindestverteilung
+
+Für alle nicht dienstbefreiten Mitarbeitenden gilt im Auto-Plan eine harte monatliche Untergrenze von **mindestens 3 Bereitschaftsdiensten (`D`)**. Diese Mindestverteilung wird an allen Zieleingängen einheitlich erzwungen:
+
+* automatisch berechnete Standardziele,
+* reduzierte personenbezogene Sonderziele,
+* manuell im Auto-Plan-Dialog gesetzte Ziele,
+* programmatisch übergebene Custom-Targets,
+* Mehrmonats-Korrekturen aus `computeCrossMonthBDTargets()`.
+
+Dienstbefreite Personen bleiben ausdrücklich bei Ziel `0`. Die UI lässt die Minus-Schaltfläche bei dienstpflichtigen Personen nicht unter 3 fallen, und die Solver-Kernlogik klemmt dieselbe Grenze zusätzlich server-/testseitig in `computeAutoPlan()` und `baseMonthlyBDTarget()`. Damit kann ein veralteter Dialogzustand, ein Direktaufruf aus Tests oder eine Jahresplanung die Mindestregel nicht umgehen.
+
+### 13.3 Die mathematische Fitness-Funktion (NFI)
 
 Die Qualität eines erzeugten Plans wird über den **Neural Fitness Index (NFI)** auf einer Skala von 0 bis 100 ausgedrückt:
 
@@ -499,7 +513,7 @@ Die Qualität eines erzeugten Plans wird über den **Neural Fitness Index (NFI)*
 
 Ein winziger Feinabzug (Deep-Move-Korrelation) verhindert zusätzlich eine künstliche Score-Inflation durch erzwungene Extrem-Swaps. Die NFI-Anzeige im Auto-Plan-Dialog wird durch einen score-abhängigen Radialglanz visuell verstärkt — je höher der Score, desto sichtbarer der Glanz hinter dem Fortschrittsring.
 
-### 13.3 Detaillierter Ablauf der Optimierungs-Pipeline
+### 13.4 Detaillierter Ablauf der Optimierungs-Pipeline
 
 ```
 [Start Auto-Plan]
@@ -517,11 +531,11 @@ Ein winziger Feinabzug (Deep-Move-Korrelation) verhindert zusätzlich eine küns
 [HG-Rhythmisierung] (HG-Lücken füllen unter Anti-Clustering-Logik)
        |
        v
-[Multi-Zyklus-Optimierung (max. 8 Zyklen, Abbruch bei Konvergenz)]
-  |-- 1. BD-Swap-Pass (max. 20 Durchläufe, Gerechtigkeit glätten)
+[Multi-Zyklus-Optimierung (max. 12 Zyklen, Abbruch bei Konvergenz)]
+  |-- 1. BD-Swap-Pass (max. 32 Durchläufe, Gerechtigkeit glätten)
   |-- 2. HG-Wochenend-Kopplung & HG-Lücken auffüllen
-  |-- 3. HG-Swap-Pass (max. 30 Durchläufe, Abstände optimieren)
-  |-- 4. Deep-Optimize-Pass (max. 40 Durchläufe, rollenübergreifende Swaps)
+  |-- 3. HG-Swap-Pass (max. 44 Durchläufe, Abstände optimieren)
+  |-- 4. Deep-Optimize-Pass (max. 64 Durchläufe, rollenübergreifende Swaps)
   |-- 5. Coverage-Repair (Lücken zwangsbesetzen) — läuft am Ende jedes Zyklus
        |
        v
@@ -535,10 +549,15 @@ Ein winziger Feinabzug (Deep-Move-Korrelation) verhindert zusätzlich eine küns
 2. **Greedy-Konstruktion:** Zuweisung aller Bereitschaftsdienste. Wochenenden und Feiertage werden zuerst besetzt. Manuell gesetzte Fix-Dienste haben absolute Priorität.
 3. **Hintergrund-Bundling (deterministische Kopplungen):** Freitags-Support, Wochenend-Kette (HG-D-HG-Kette), Feiertags-Vortag-Unterstützung.
 4. **Hintergrund-Rhythmisierung:** Verteilung der verbleibenden Hintergrunddienste unter strengen Abstandsanforderungen (Anti-Clustering): Abstands-Malus, Direkt-Folge-Malus, Dichte-Prüfung im rollierenden 7-Tage-Fenster.
-5. **Multi-Zyklus-Optimierung (max. 8 Zyklen):** BD-Swaps, HG-Wochenend-Kopplung, HG-Lückenfüllung, HG-Swaps und eine rollenübergreifende Deep-Optimize-Metaheuristik, jeweils gegen die Gesamt-Fitness (`computeGlobalObjective`) geprüft. Verbessert sich die globale Fitness um weniger als 0,01, gilt der Lauf als konvergiert und bricht vorzeitig ab.
-6. **Validierung:** Abschlussprüfung auf Dienst-Exklusivität und Einhaltung aller K.-o.-Kriterien.
+5. **Multi-Zyklus-Optimierung (max. 12 Zyklen):** BD-Swaps, HG-Wochenend-Kopplung, HG-Lückenfüllung, HG-Swaps, eine rollenübergreifende Deep-Optimize-Metaheuristik sowie Compound-Nachbarschaften (2-Swap und begrenzter 3-Cycle) werden jeweils gegen die globale Gesamt-Fitness (`computeGlobalObjective`) geprüft. Verbessert sich die globale Fitness um weniger als 0,01, gilt der Lauf als konvergiert und bricht vorzeitig ab.
+6. **Staged Coverage Repair:** Noch offene D-/HG-Lücken werden nicht mehr pauschal „zwangsbelegt“, sondern über eine zentrale Eligibility-Matrix stufenweise repariert: strikt, Monatsziel, Wochenende, Abstand/HG-Häufung und erst zuletzt Notfall. Jede Kandidatur wird per Zielfunktions-Delta simuliert, die beste zulässige Reparatur gewinnt und die gelockerte Regel wird im Report transparent benannt.
+7. **Compliance-Gate:** Abschlussprüfung auf Dienst-Exklusivität, harte K.-o.-Kriterien, weiche Eskalationen und Coverage. Das Ergebnis wird als `PASS`, `WARN` oder `FAIL` zusammen mit konkreten Verstoß-Zählern an UI und Score-Modal übergeben.
 
-### 13.4 Mathematische Kostenfaktoren (Objective Penalties)
+### 13.4.1 Top-5-Algorithmusausbau
+
+Die aktuelle Auto-Plan-Generation enthält fünf bewusst getrennte Qualitätsachsen: (1) eine zentrale Constraint-/Eligibility-Auswertung für BD und HG, (2) delta-basiertes Coverage Repair mit expliziten Eskalationsstufen, (3) ein Compliance-Gate für harte und weiche Endzustandsprüfung, (4) Compound-Nachbarschaften als 2-Swap- und 3-Cycle-Suche gegen lokale Optima und (5) eine Benchmark-/Oracle-Testbasis, die NFI-Komponenten, Compliance-Ausgabe und mathematische Idealverteilungen absichert. Dadurch ist jede Zuweisung nicht nur „irgendwie möglich“, sondern technisch nachvollziehbar, bewertbar und auditierbar.
+
+### 13.5 Mathematische Kostenfaktoren (Objective Penalties)
 
 | Metrik / Verstoß | Straffaktor |
 | :--- | :--- |
@@ -555,15 +574,15 @@ Ein winziger Feinabzug (Deep-Move-Korrelation) verhindert zusätzlich eine küns
 | BD-Mindestabstand < 3 Tage | (3 − Distanz) × 15.000 |
 | Zweiter Samstags-BD im Monat | + 80.000 |
 | Becker-Samstag (Notlösung) | + 40.000 |
-| D-F-D-F-Muster | + 1.200 |
+| D-F-D-F-Muster | + 20.000 |
 
-### 13.5 Workload-Fairness-Kalkül (HG-Berechnung)
+### 13.6 Workload-Fairness-Kalkül (HG-Berechnung)
 
 \[\text{Ideal\_HG\_Anzahl} = \text{Monats\_Durchschnitt\_HG} + (\text{Durchschnitt\_BD\_der\_FAs} - \text{Individuelle\_BD\_Anzahl}) \cdot 1.0\]
 
 Ein Facharzt, der einen Bereitschaftsdienst weniger als der Durchschnitt leistet, muss exakt einen Hintergrunddienst mehr als der Durchschnitt übernehmen — und umgekehrt. Die **Überhang-Präferenz** (`SPECIAL_RULES.surplusBdPreference`) lässt Dr. Lurz bevorzugt den ersten unvermeidbaren Überhangdienst übernehmen; die **Wochenend-Fairness** wird zusätzlich zum festen Ziel von 1.0 Äquivalenten gegen die Streuung um den tatsächlichen Gruppendurchschnitt bestraft.
 
-### 13.6 Mutex-Sperre & Visualisierungs-Schutz während der Autoplanung
+### 13.7 Mutex-Sperre & Visualisierungs-Schutz während der Autoplanung
 
 * **Berechnungs-Mutex (`isAutoplanRunning`):** Sobald der Anwender den Rechenlauf startet, wird die globale Variable `state.isAutoplanRunning` auf `true` gesetzt. Dies bewirkt:
   * Alle Tastaturkurzfehleingaben und Shortcuts im Haupt- und Planungsmodus (`app.js` und `render-grid.js`) werden sofort abgefangen (`preventDefault`/`stopPropagation`) und blockiert.
@@ -572,7 +591,7 @@ Ein Facharzt, der einen Bereitschaftsdienst weniger als der Durchschnitt leistet
   * Das Schließen des Fortschritts-Modals (`hideOverlay("modal-autoplan")`) wird unterbunden — der Anwender ist sicher im animierten Fortschrittsfenster gefangen, bis der Lauf beendet ist (oder fehlschlägt), woraufhin der Mutex wieder auf `false` gesetzt wird.
 * **„Neural Constellation"-Visualisierung (`neuralgraph.js`):** Um die Rechenschritte des Schedulers grafisch erlebbar zu machen, rendert die Klasse `NeuralGraph` eine Canvas-Inszenierung während der Berechnung: Die Tage des Monats kreisen als glänzende Netzknoten um einen zentralen, pulsierenden Energiekern; jede Zuweisung eines Dienstes schießt als farbcodiertes Energiepaket (D rot, HG blau) entlang der Synapsen in den Kern. Die Hintergrund-Aurora färbt sich je nach aktiver Phase ein (`init`/`greedy`/`hg`/`deep`/`success`/`error`). Sobald die Optimierung erfolgreich abgeschlossen ist, wird die Kontur jeder final feststehenden Tageskarte durch eine leuchtend grüne Konturlinie nachgezeichnet — zeitlich versetzt ab Tag 1, wellenartig bis zum Monatsende.
 
-### 13.7 Jahresplanung als segmentierte Monatskette (`computeAutoPlanRange`)
+### 13.8 Jahresplanung als segmentierte Monatskette (`computeAutoPlanRange`)
 
 `computeAutoPlan()` ist bewusst auf Monatsgröße ausgelegt. `computeAutoPlanRange(startYear, startMonth, endYear, endMonth, options)` löst eine mehrmonatige Planung stattdessen als **segmentierte Kette**: `computeAutoPlan()` wird einmal pro Monat aufgerufen, die jahresweite Soll/Ist-Fairness trägt sich automatisch fort, weil das Ergebnis jedes Monats vor der Planung des nächsten Monats in `DATA` geschrieben wird.
 
@@ -663,7 +682,7 @@ Prüft den Zeitraum über alle Monatsgrenzen hinweg auf Ruhezeit-Verstöße, Die
 
 ### 15.9 Modul „Prognose" & saisonale Risiko-Monatsanalyse
 
-Lineare Hochrechnung der Dienste auf das Jahresende (Ist-Dienste, Prognose-Gesamt, das FTE-gewichtete Jahresziel und die erwartete Jahresabweichung). 
+Lineare Hochrechnung der Dienste auf das Jahresende (Ist-Dienste, Prognose-Gesamt, das FTE-gewichtete Jahresziel und die erwartete Jahresabweichung).
 * **Saisonale Ausfall-Prognose:** Die Funktion `computeSeasonalAbsenceIndex` berechnet anhand historischer Krankheitstage (`K`, `KK`) pro Kalendermonat rezenzgewichtet (Ausreißer vor 20 Jahren wirken schwächer als das Vorjahr) eine monatliche Ausfallquote. Weicht diese signifikant vom Durchschnitt ab, markiert das System den Monat proaktiv als saisonalen Risikomonat.
 
 ### 15.10 Modul „Berichte"
@@ -747,7 +766,7 @@ Alle modalen Dialoge nutzen `role="dialog"`, `aria-modal="true"` und leiten den 
 
 ### 21.4 Kontext-Hilfe & Mouse-Over-Tooltips
 
-Sämtliche Fachbegriffe, Kennzahlen, Spaltenköpfe, KPI-Kacheln, Legenden und Bedienelemente im Auswertungs-Hub und im Mitarbeitendenbereich sind mit erklärenden Mouse-Over-Tooltips hinterlegt (`js/tooltip.js`, jedes Element mit `data-tooltip`). Jedes Tooltip wird an `<body>` gehängt und intelligent positioniert und dadurch selbst in scrollbaren Modal-Containern **niemals abgeschnitten**. 
+Sämtliche Fachbegriffe, Kennzahlen, Spaltenköpfe, KPI-Kacheln, Legenden und Bedienelemente im Auswertungs-Hub und im Mitarbeitendenbereich sind mit erklärenden Mouse-Over-Tooltips hinterlegt (`js/tooltip.js`, jedes Element mit `data-tooltip`). Jedes Tooltip wird an `<body>` gehängt und intelligent positioniert und dadurch selbst in scrollbaren Modal-Containern **niemals abgeschnitten**.
 
 ### 21.5 Das animierte Markenlogo
 
@@ -795,7 +814,7 @@ Die Anwendung ermittelt alle arbeitsfreien Tage dynamisch ohne externe API-Abfra
 
 * **Bewegliche Feiertage (Gaußsche Osterformel, `easterDate`):** Berechnet das Datum des Ostersonntags. Davon ausgehend werden Karfreitag, Ostermontag, Christi Himmelfahrt und Pfingstmontag ermittelt.
 * **Sächsische Besonderheiten (`getSaxonyHolidays`, mit `getSaxonyHolidaysCached` gecacht):** Reformationstag (31. Oktober) und Buß- und Bettag (Mittwoch vor dem 23. November).
-* **Ruhetags-Automatik & Folgetags-Überschreibschutz:** 
+* **Ruhetags-Automatik & Folgetags-Überschreibschutz:**
   * **Automatischer Pflicht-Ruhetag:** Bereitschaftsdienst (`D`) am letzten Tag eines Monats erzwingt automatisch einen Pflicht-Ruhetag (`F`) am 1. Tag des Folgemonats, um gesetzliche Ruhezeiten einzuhalten.
   * **Überschreibschutz bei Drag-and-Drop:** Verschiebt der Anwender per Drag-and-Drop einen Bereitschaftsdienst auf eine Zelle, deren Folgetag bereits mit einer Modalität/Dienst belegt ist (ungleich leer und ungleich `F`), warnt ein Bestätigungs-Dialog (`confirm`) vor dem Überschreiben. Bricht der Nutzer ab, wird die Verschiebung unterbunden. Bei Annahme verschiebt sich der Dienst, und der F-Tag wird auf dem neuen Folgetag platziert, während der alte F-Tag über `clearCascadedFreeDay` automatisch entfernt wird.
 

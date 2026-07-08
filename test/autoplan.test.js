@@ -14,6 +14,7 @@ import {
   MIN_DUTY_SPACING_DAYS,
   SOFT_DUTY_SPACING_SHORT,
   SOFT_DUTY_SPACING_LONG,
+  MIN_MONTHLY_BD_TARGET,
 } from "../js/autoplan.js";
 import { daysInMonth } from "../js/constants.js";
 
@@ -190,6 +191,27 @@ describe("Punkt 11: Neural Fitness Index (NFI) als gewichtete Komposition", () =
     assert.ok(Number.isFinite(quality.wishFulfillmentRate));
     assert.ok(Number.isFinite(quality.dutyCoverageMisses));
     assert.ok(Number.isFinite(quality.hgCoverageMisses));
+
+    setPlanMode(false);
+    setPlanData(null);
+  });
+
+
+  test("Custom-BD-Ziele werden für nicht befreite Mitarbeitende auf mindestens 3 geklemmt", async () => {
+    const year = 2026;
+    const month = 6;
+    const employees = [
+      "Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Fr. Thaler", "Dr. Becker", "Dr. Martin",
+      "Hr. El Houba", "Hr. Torki", "Hr. Sebastian",
+    ];
+
+    state.year = year;
+    state.month = month;
+    setPlanMode(true);
+    setPlanData(buildFixturePlanData(year, month, employees));
+
+    const result = await computeAutoPlan({ "Dr. Polednia": 1, "Prof. Schäfer": 1 }, "standard");
+    assert.equal(result.summary.bdTarget["Dr. Polednia"], MIN_MONTHLY_BD_TARGET);
 
     setPlanMode(false);
     setPlanData(null);

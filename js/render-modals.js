@@ -1202,21 +1202,31 @@ export function openScoreInfoModal(resultData = null) {
     hgSpread: Number(resultData?.summary?.quality?.hgSpread ?? resultData?.quality?.hgSpread) || 0,
     weSpread: Number(resultData?.summary?.quality?.weekendSpread ?? resultData?.quality?.weekendSpread) || 0,
     wishes: Number(resultData?.summary?.quality?.wishFulfillmentRate ?? resultData?.quality?.wishFulfillmentRate) || 0,
-    deepMoves: Number(resultData?.summary?.quality?.deepMoves ?? resultData?.quality?.deepMoves) || 0
+    deepMoves: Number(resultData?.summary?.quality?.deepMoves ?? resultData?.quality?.deepMoves) || 0,
+    compoundMoves: Number(resultData?.summary?.quality?.compoundMoves ?? resultData?.quality?.compoundMoves) || 0,
+    bdCoverageScore: Number(resultData?.summary?.quality?.bdCoverageScore ?? resultData?.quality?.bdCoverageScore) || 0,
+    hgCoverageScore: Number(resultData?.summary?.quality?.hgCoverageScore ?? resultData?.quality?.hgCoverageScore) || 0,
+    bdFairnessScore: Number(resultData?.summary?.quality?.bdFairnessScore ?? resultData?.quality?.bdFairnessScore) || 0,
+    hgFairnessScore: Number(resultData?.summary?.quality?.hgFairnessScore ?? resultData?.quality?.hgFairnessScore) || 0,
+    weekendFairnessScore: Number(resultData?.summary?.quality?.weekendFairnessScore ?? resultData?.quality?.weekendFairnessScore) || 0,
+    wishScore: Number(resultData?.summary?.quality?.wishScore ?? resultData?.quality?.wishScore) || 0,
+    complianceGate: resultData?.summary?.compliance?.gate || resultData?.compliance?.gate || "unknown",
+    hardConstraintViolations: Number(resultData?.summary?.compliance?.hardConstraintViolations ?? resultData?.compliance?.hardConstraintViolations) || 0,
+    mediumConstraintViolations: Number(resultData?.summary?.compliance?.mediumConstraintViolations ?? resultData?.compliance?.mediumConstraintViolations) || 0
   };
 
   const getRating = (s) => s >= 90 ? "Exzellent" : s >= 80 ? "Sehr Gut" : s >= 70 ? "Gut" : s >= 50 ? "Befriedigend" : "Optimierung empfohlen";
   const getTone = (s) => s >= 80 ? "#22C55E" : s >= 60 ? "#F59E0B" : "#EF4444";
   
   const metrics = [
-    { label: "D-Abdeckung", val: q.dutyGaps === 0 ? "100%" : `${q.dutyGaps} Lücken`, weight: "D-Prio", hint: "Jede Lücke im Bereitschaftsdienst führt zu massiven Penalty-Abzügen (-15 Punkte pro fehlendem Dienst).", pct: Math.max(0, 100 - q.dutyGaps * 20), color: q.dutyGaps === 0 ? "#22C55E" : "#EF4444" },
-    { label: "HG-Abdeckung", val: q.hgGaps === 0 ? "100%" : `${q.hgGaps} Lücken`, weight: "HG-Prio", hint: "Jede Lücke im Hintergrunddienst bestraft den Score (-10 Punkte pro fehlendem Dienst).", pct: Math.max(0, 100 - q.hgGaps * 20), color: q.hgGaps === 0 ? "#22C55E" : "#EF4444" },
-    { label: "BD-Gerechtigkeit", val: `Δ ${q.bdSpread}`, weight: "Spread", hint: "Unterschied zwischen der Person mit den meisten und wenigsten Bereitschaftsdiensten. Exponentieller Abzug ab Δ > 1.", pct: Math.max(0, 100 - q.bdSpread * 15), color: q.bdSpread <= 1 ? "#22C55E" : "#F59E0B" },
-    { label: "HG-Balance", val: `Δ ${q.hgSpread}`, weight: "Spread", hint: "Gleichmäßige Verteilung im Hintergrunddienst. Strafen skalieren mit zunehmender Ungerechtigkeit.", pct: Math.max(0, 100 - q.hgSpread * 20), color: q.hgSpread <= 1 ? "#22C55E" : "#F59E0B" },
-    { label: "WE-Streuung", val: `Δ ${q.weSpread}`, weight: "Spread", hint: "Fairness der Wochenend- und Feiertagsdienste. Diese Dienste sind hoch gewichtet und müssen fair rotieren.", pct: Math.max(0, 100 - q.weSpread * 25), color: q.weSpread <= 1 ? "#22C55E" : "#F59E0B" },
-    { label: "Wunscherfüllung", val: `${Math.round(q.wishes * 100)}%`, weight: "Bonus", hint: "Erfolgsrate der eingetragenen BD/HG-Wünsche. Erfüllte Wünsche generieren Bonuspunkte (bis zu +5.0 auf den Score).", pct: Math.round(q.wishes * 100), color: q.wishes >= 0.8 ? "#22C55E" : "#93C5FD" }
+    { label: "BD-Abdeckung", val: `${q.bdCoverageScore.toFixed(1)}%`, weight: "36%", hint: "Offizielle NFI-Komponente: Tagesabdeckung Bereitschaftsdienst. 100 bedeutet keine BD-Lücke.", pct: q.bdCoverageScore, color: q.bdCoverageScore >= 99 ? "#22C55E" : "#EF4444" },
+    { label: "HG-Abdeckung", val: `${q.hgCoverageScore.toFixed(1)}%`, weight: "24%", hint: "Offizielle NFI-Komponente: Tagesabdeckung Hintergrunddienst. 100 bedeutet keine HG-Lücke.", pct: q.hgCoverageScore, color: q.hgCoverageScore >= 99 ? "#22C55E" : "#EF4444" },
+    { label: "BD-Fairness", val: `${q.bdFairnessScore.toFixed(1)}%`, weight: "16%", hint: "Offizielle NFI-Komponente aus der Standardabweichung der BD-Verteilung.", pct: q.bdFairnessScore, color: q.bdFairnessScore >= 80 ? "#22C55E" : "#F59E0B" },
+    { label: "HG-Fairness", val: `${q.hgFairnessScore.toFixed(1)}%`, weight: "10%", hint: "Offizielle NFI-Komponente aus der Standardabweichung der HG-Verteilung.", pct: q.hgFairnessScore, color: q.hgFairnessScore >= 80 ? "#22C55E" : "#F59E0B" },
+    { label: "WE-Fairness", val: `${q.weekendFairnessScore.toFixed(1)}%`, weight: "8%", hint: "Offizielle NFI-Komponente für Wochenend-/Feiertagsbalance.", pct: q.weekendFairnessScore, color: q.weekendFairnessScore >= 80 ? "#22C55E" : "#F59E0B" },
+    { label: "Wünsche", val: `${q.wishScore.toFixed(1)}%`, weight: "6%", hint: "Offizielle NFI-Komponente: erfüllte BD-/HG-Wünsche.", pct: q.wishScore, color: q.wishScore >= 80 ? "#22C55E" : "#93C5FD" },
+    { label: "Compliance", val: q.complianceGate.toUpperCase(), weight: "Gate", hint: `${q.hardConstraintViolations} harte / ${q.mediumConstraintViolations} weiche Auffälligkeiten im finalen Gate.`, pct: q.complianceGate === "pass" ? 100 : (q.complianceGate === "warn" ? 60 : 20), color: q.complianceGate === "pass" ? "#22C55E" : (q.complianceGate === "warn" ? "#F59E0B" : "#EF4444") }
   ];
-
   let reasoningHtml = "";
   
   if (q.dutyGaps === 0) {
@@ -1262,7 +1272,7 @@ export function openScoreInfoModal(resultData = null) {
         </div>
         <div class="score-dash-info">
           <h3 class="score-dash-rating" style="color: ${getTone(q.score)}">${getRating(q.score)}</h3>
-          <p class="score-dash-desc">Der RadPlan Neural Scheduler hat <strong>${q.deepMoves}</strong> Optimierungs-Schritte durchgeführt, um die harte und weiche Constraint-Matrix in dieses lokale Minimum zu transformieren.</p>
+          <p class="score-dash-desc">Der RadPlan Neural Scheduler hat <strong>${q.deepMoves}</strong> Deep-Moves und <strong>${q.compoundMoves}</strong> Compound-Moves durchgeführt. Das Compliance-Gate steht auf <strong>${q.complianceGate.toUpperCase()}</strong>.</p>
         </div>
       </header>
 
@@ -1286,7 +1296,7 @@ export function openScoreInfoModal(resultData = null) {
 
       <div class="score-math-box-enhanced">
         <div class="score-math-title">Punkte-Analyse &amp; Penalty-Metriken</div>
-        <p class="score-math-text" style="margin-bottom:12px;">Der Algorithmus startet mit einem Basis-Score von 100.0 Punkten. Harte Regelverletzungen sind blockiert (Penalty = &infin;). Weiche Regelverletzungen werden mit spezifischen Gewichten abgezogen.</p>
+        <p class="score-math-text" style="margin-bottom:12px;">Der NFI ist kein geschätzter Bauchgefühl-Score, sondern die gewichtete Summe der final exponierten Komponenten: Abdeckung, Fairness, Wochenend-Balance und Wünsche. Das Compliance-Gate bewertet zusätzlich harte und weiche Regelauffälligkeiten.</p>
         <div class="score-reasoning-list">
           ${reasoningHtml}
         </div>
@@ -1294,7 +1304,7 @@ export function openScoreInfoModal(resultData = null) {
       
       <div class="score-formula-display">
         <span class="formula-lbl">Berechnungs-Basis (NFI):</span>
-        <code>Fitness = 100 - (Lücken × G) - (Spread × G) + (Wünsche × G) - (Rechenkosten)</code>
+        <code>NFI = .36·BD-Coverage + .24·HG-Coverage + .16·BD-Fairness + .10·HG-Fairness + .08·WE-Fairness + .06·Wünsche − DeepMoves·0.005</code>
       </div>
     </div>
   `;
