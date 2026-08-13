@@ -21,7 +21,8 @@ import {
   MOBILE_BREAKPOINT,
   isRbnMonthVisible,
   formatRbnDisplay,
-  WISH_MAP
+  WISH_MAP,
+  getWorkplacesForEmployee
 } from './constants.js';
 
 import {
@@ -580,7 +581,7 @@ function buildQuickPopoverHtml(emp, day) {
     </div>
   `;
 
-  const wpHtml = WORKPLACES.map(wp => cqpChip({
+  const wpHtml = getWorkplacesForEmployee(emp).map(wp => cqpChip({
     code: wp.code, label: wp.label, bg: wp.bg, fg: wp.fg,
     active: parts.includes(wp.code), dataAttr: "wp",
   })).join("");

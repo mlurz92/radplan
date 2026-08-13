@@ -7,12 +7,15 @@ import {
   hasKnownRole,
   SPECIAL_RULES,
   getReducedBdTarget,
+  getMaxBdTarget,
+  getMinBdTarget,
+  getCtCoverageMembersForDate,
+  getCtUnavailableWorkplacesForEmployee,
   isNoBdWeekday,
   isNoHgFromAaWeekday,
   isSaturdayUltimaRatio,
   getSurplusBdPreferenceRank,
   needsSaturdayFza,
-  getCtLeadershipPartner,
   getHgConflictBd,
   getSaxonyHolidaysCached,
   monthKey,
@@ -357,68 +360,57 @@ export function isNextDayVacationLike(y, m, emp, d, assignments, externalAssignm
   return cellHasVacationLikeCode({ ...stored, ...queued });
 }
 
-export function hasCTLeadershipConflict(y, m, emp, day, assignments) {
-  const partner = getCtLeadershipPartner(emp);
-  if (!partner) {
-    return false;
-  }
+function getAssignmentForCtCoverage(y, m, emp, day, assignments) {
+  return assignments?.[emp]?.[day] || {};
+}
 
+export function isCTCoverageMemberAvailable(y, m, emp, day, assignments) {
+  const members = getCtCoverageMembersForDate(y, m);
+  if (!members.includes(emp)) return false;
+  const cell = getAssignmentForCtCoverage(y, m, emp, day, assignments);
+  const codes = (cell.assignment || "").split("/").map((x) => x.trim()).filter(Boolean);
+  if (codes.some((c) => c === "F" || ABSENCE_CODES.includes(c))) return false;
+  const blockedWorkplaces = getCtUnavailableWorkplacesForEmployee(y, m, emp);
+  if (codes.some((c) => blockedWorkplaces.includes(c))) return false;
+  return true;
+}
+
+export function hasCTLeadershipConflict(y, m, emp, day, assignments) {
   const next = nextCalendarDay(y, m, day);
   const hols = getSaxonyHolidaysCached(next.y);
+  if (!isWorkday(next.y, next.m, next.d, hols)) return false;
 
-  if (!isWorkday(next.y, next.m, next.d, hols)) {
-    return false;
-  }
+  const members = getCtCoverageMembersForDate(next.y, next.m);
+  if (!members.includes(emp)) return false;
+  const nextAssignments = next.y === y && next.m === m
+    ? assignments
+    : (DATA[monthKey(next.y, next.m)]?.assignments || {});
 
-  let partnerCell;
-  if (next.y === y && next.m === m) {
-    partnerCell = assignments[partner]?.[next.d] || {};
-  } else {
-    const nk = monthKey(next.y, next.m);
-    partnerCell = DATA[nk]?.assignments?.[partner]?.[next.d] || {};
-  }
-
-  if (partnerCell.assignment) {
-    const codes = partnerCell.assignment.split("/").map((x) => x.trim());
-    // Konflikt, wenn der Partner am Folge-Werktag abwesend ist ODER ebenfalls
-    // ein "F" (Freizeitausgleich/Frei) hat – dann wäre niemand der CT-Leitung
-    // anwesend.
-    if (codes.some((c) => c === "F" || VACATION_CODES.includes(c) || ABSENCE_CODES.includes(c))) {
-      return true;
-    }
-  }
-  return false;
+  // Der neue BD erzeugt für emp am Folgetag einen Ruhetag. Zulässig ist er
+  // daher nur, wenn mindestens ein anderes Poolmitglied an diesem Werktag
+  // für die CT-Vertretung verfügbar bleibt. Ab Oktober zählt Hellmann bei
+  // NRAD-Einsatz ausdrücklich NICHT als CT-verfügbar.
+  return !members.some((member) =>
+    member !== emp && isCTCoverageMemberAvailable(next.y, next.m, member, next.d, nextAssignments)
+  );
 }
 
 /**
- * Prüft die generelle CT-Leitungs-Invariante: an Werktagen muss immer
- * mindestens eine Person jedes Vertretungspaares anwesend sein. Liefert eine
- * Liste der Konflikttage (beide gleichzeitig Urlaub/abwesend/F), unabhängig
- * davon, ob der Konflikt aus einem automatischen F nach D stammt oder aus
- * manuell/importiert gesetzten Abwesenheiten.
+ * Generelle CT-Präsenzinvariante. Bis September 2026 gilt der bisherige
+ * Becker/Martin-Pool; ab Oktober 2026 muss mindestens eine Person aus
+ * Becker/Martin/Hellmann CT-verfügbar sein. Hellmann ist bei NRAD-Einsatz
+ * für diese Invariante nicht verfügbar.
  */
 export function findCTLeadershipPresenceGaps(y, m, assignments) {
   const gaps = [];
   const dim = daysInMonth(y, m);
   const hols = getSaxonyHolidaysCached(y);
+  const members = getCtCoverageMembersForDate(y, m);
 
-  const isOffOnDay = (emp, day) => {
-    const cell = assignments[emp]?.[day];
-    if (!cell?.assignment) return false;
-    return cell.assignment
-      .split("/")
-      .map((x) => x.trim())
-      .some((c) => c === "F" || ABSENCE_CODES.includes(c));
-  };
-
-  for (const pair of SPECIAL_RULES.ctLeadershipPairs) {
-    const [a, b] = pair;
-    for (let d = 1; d <= dim; d++) {
-      if (!isWorkday(y, m, d, hols)) continue;
-      if (isOffOnDay(a, d) && isOffOnDay(b, d)) {
-        gaps.push({ day: d, a, b });
-      }
-    }
+  for (let d = 1; d <= dim; d++) {
+    if (!isWorkday(y, m, d, hols)) continue;
+    const available = members.filter((emp) => isCTCoverageMemberAvailable(y, m, emp, d, assignments));
+    if (!available.length) gaps.push({ day: d, members: [...members] });
   }
   return gaps;
 }
@@ -659,6 +651,27 @@ export function computeGridConflicts(y, m) {
     }
   }
 
+  // Personenbezogene harte BD-Obergrenzen auch bei manuellen/importierten
+  // Plänen sichtbar machen. Nur die überzähligen Dienste werden markiert.
+  for (const emp of emps) {
+    const maxBd = getMaxBdTarget(emp);
+    if (maxBd === undefined) continue;
+    const bdDays = [];
+    for (let d = 1; d <= dim; d++) {
+      if (assignments[emp]?.[d]?.duty === "D") bdDays.push(d);
+    }
+    bdDays.slice(maxBd).forEach((day) => {
+      flag(emp, day, `BD-Monatsmaximum überschritten: maximal ${maxBd} BD erlaubt`);
+    });
+  }
+
+  // CT-Präsenzlücken unabhängig von ihrem Entstehungsweg markieren.
+  findCTLeadershipPresenceGaps(y, m, assignments).forEach(({ day, members }) => {
+    members.filter((emp) => emps.includes(emp)).forEach((emp) => {
+      flag(emp, day, `CT-Vertretung nicht gewährleistet: kein verfügbares Poolmitglied (${members.join(", ")})`);
+    });
+  });
+
   return conflicts;
 }
 
@@ -825,15 +838,22 @@ export async function computeAutoPlan(customTargets, weightProfileKey, options =
   const dutyEmps = emps.filter((e) => !isDutyExempt(e));
   const hgFAs = dutyEmps.filter((e) => isFacharzt(e));
 
+  const clampBdTarget = (emp, requested) => {
+    if (isDutyExempt(emp)) return 0;
+    const min = getMinBdTarget(emp) ?? MIN_MONTHLY_BD_TARGET;
+    const max = getMaxBdTarget(emp) ?? Infinity;
+    return Math.min(max, Math.max(min, requested));
+  };
+
   const bdTarget = {};
   emps.forEach((e) => {
     if (isDutyExempt(e)) {
       bdTarget[e] = 0;
     } else if (customTargets && customTargets[e] !== undefined) {
-      bdTarget[e] = Math.max(MIN_MONTHLY_BD_TARGET, customTargets[e]);
+      bdTarget[e] = clampBdTarget(e, customTargets[e]);
     } else {
       const reduced = getReducedBdTarget(e);
-      bdTarget[e] = Math.max(MIN_MONTHLY_BD_TARGET, reduced !== undefined ? reduced : 4);
+      bdTarget[e] = clampBdTarget(e, reduced !== undefined ? reduced : 4);
     }
   });
 
@@ -1193,7 +1213,17 @@ export async function computeAutoPlan(customTargets, weightProfileKey, options =
     if (dutyCode === "D") {
       if (wd === 6 && !isFacharzt(emp)) addHard("saturday_bd_fa_only", "Samstags-BD ist Fachärzten vorbehalten");
       if (isNoBdWeekday(emp, wd)) addHard("no_bd_weekday", "Persönliche Wochentags-BD-Sperre");
-      if (hasCTLeadershipConflict(y, m, emp, d, assignments)) addHard("ct_conflict", "CT-Leitungs-Interdependenz blockiert den Dienst");
+      if (hasCTLeadershipConflict(y, m, emp, d, assignments)) addHard("ct_conflict", "CT-Präsenzregel blockiert den Dienst");
+      const maxBd = getMaxBdTarget(emp);
+      if (maxBd !== undefined) {
+        let monthlyBdCount = 0;
+        for (let day = 1; day <= dim; day++) {
+          if (assignments[emp]?.[day]?.duty === "D") monthlyBdCount++;
+        }
+        const alreadyThisDuty = assignments[emp]?.[d]?.duty === "D";
+        const projectedBdCount = monthlyBdCount + (alreadyThisDuty ? 0 : 1);
+        if (projectedBdCount > maxBd) addHard("bd_hard_max", `Harte BD-Monatsobergrenze überschritten (${projectedBdCount} > ${maxBd})`);
+      }
       if (assignments[emp]?.[d]?.assignment === "F") addHard("rest_day", "Frei-Ausgleich am selben Tag");
       if (getScheduledDuty(prev.y, prev.m, emp, prev.d, assignments) === "D") addHard("previous_bd", "BD am Vortag");
       if (getScheduledDuty(next.y, next.m, emp, next.d, assignments) === "D") addHard("next_bd", "BD am Folgetag");
@@ -2878,8 +2908,8 @@ export async function computeAutoPlan(customTargets, weightProfileKey, options =
   // Punkt 4: Generelle CT-Leitungs-Invariante prüfen (auch gegen manuell/
   // importiert gesetzte Abwesenheiten): an Werktagen muss immer mindestens
   // eine Person jedes Vertretungspaares anwesend sein.
-  findCTLeadershipPresenceGaps(y, m, result).forEach(({ day, a, b }) => {
-    summary.warnings.push(`Tag ${day}: CT-Leitung – ${a} und ${b} gleichzeitig abwesend/F. Vertretung manuell sicherstellen.`);
+  findCTLeadershipPresenceGaps(y, m, result).forEach(({ day, members }) => {
+    summary.warnings.push(`Tag ${day}: CT-Vertretung – kein verfügbares Poolmitglied (${members.join(", ")}). Vertretung manuell sicherstellen.`);
   });
 
   // Punkt 17: D-F-D-F-Muster im finalen Plan wie andere weiche Verstöße
@@ -3215,7 +3245,9 @@ const AUTO_PLAN_RANGE_MAX_MONTHS = 24;
 // innerhalb von computeAutoPlanRange) direkt unit-testbar.
 export function baseMonthlyBDTarget(emp) {
   if (isDutyExempt(emp)) return 0;
-  return Math.max(MIN_MONTHLY_BD_TARGET, getReducedBdTarget(emp) ?? 4);
+  const min = getMinBdTarget(emp) ?? MIN_MONTHLY_BD_TARGET;
+  const max = getMaxBdTarget(emp) ?? Infinity;
+  return Math.min(max, Math.max(min, getReducedBdTarget(emp) ?? 4));
 }
 
 /**
@@ -3247,7 +3279,9 @@ export function computeCrossMonthBDTargets(rosterEmps, plannedMonths) {
     // einzelner dienstreicher Monat (z. B. wegen vieler Abwesenheiten
     // anderer) nicht zu einem abrupten Zielsprung im Folgemonat führt.
     const nudge = deviation > 0.5 ? -1 : deviation < -0.5 ? 1 : 0;
-    targets[emp] = Math.max(MIN_MONTHLY_BD_TARGET, base + nudge);
+    const min = getMinBdTarget(emp) ?? MIN_MONTHLY_BD_TARGET;
+    const max = getMaxBdTarget(emp) ?? Infinity;
+    targets[emp] = Math.min(max, Math.max(min, base + nudge));
   });
   return targets;
 }

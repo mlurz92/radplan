@@ -31,7 +31,7 @@ Verletzungen dieser Regeln führen zur sofortigen Ablehnung eines Kandidaten in 
 - **BD-Folge-Sperre:** Keine BD-Dienste an zwei aufeinanderfolgenden Tagen (D-D Verbot).
 - **HG-Vortag-Sperre (AA-Regel):** Ein FA darf keinen HG für einen AA leisten, wenn der FA am Folgetag selbst BD hat (späterer Dienstbeginn verhindert rechtzeitige Befundfreigabe).
 - **Spezial-Sperre Dr. Polednia:** Absolutes BD-Verbot an Sonntagen, Dienstagen und Donnerstagen. Ebenso absolutes HG-Verbot für AAs an diesen Tagen (Vermeidung von Kollisionen mit dem Kinder-Ultraschall am Folgetag).
-- **CT-Leitungs-Interdependenz:** Dr. Becker und Dr. Martin dürfen an Werktagen niemals gleichzeitig abwesend (Urlaub/Frei/FZA) sein. Der Algorithmus plant die Dienste (und deren nachgelagerte Ruhetage) proaktiv um diese Vorgabe herum.
+- **CT-Vertretungs-Pool:** Bis einschließlich September 2026 gilt die bisherige Becker/Martin-Interdependenz. **Ab Oktober 2026** muss an jedem Werktag mindestens eine Person aus **Dr. Becker / Dr. Martin / Dr. Hellmann** CT-verfügbar sein. Dr. Hellmann zählt an einem Tag mit Arbeitsplatz **NRAD** ausdrücklich nicht als CT-verfügbar. Der Algorithmus blockiert BD-Kandidaten, deren nachgelagerter Ruhetag diese Präsenzinvariante verletzen würde.
 - **Urlaubs-Puffer:** Kein BD am Tag direkt vor einem Urlaubsantritt.
 - **Feiertags-Alternanz:** Wer an Ostern Dienst hat, wird für Pfingsten gesperrt (und umgekehrt).
 
@@ -50,7 +50,7 @@ Deterministische Verknüpfungen, die noch vor der freien Optimierung gesetzt wer
 ### 2.4 Personelle Sonderregeln (`SPECIAL_RULES`, konstants.js)
 Zusätzlich zu den allgemeinen Regeln gelten datengetrieben konfigurierte, namentliche Sonderfälle:
 - **Prof. Schäfer:** Komplett dienstbefreit (BD-Ziel 0).
-- **Reduzierte BD-Monatsziele:** Dr. Polednia, Dr. Becker und Hr. Sebastian haben ein Standardziel von 3 statt 4 BD/Monat.
+- **Reduzierte BD-Monatsziele:** Dr. Polednia, Dr. Becker und Hr. Sebastian haben ein Standardziel von 3 statt 4 BD/Monat. **Dr. Hellmann hat ab Eintritt ein Standardziel von 2 und zugleich eine harte Obergrenze von maximal 2 BD/Monat**, die auch in Coverage-Eskalationen nicht überschritten werden darf.
 - **Dr. Becker (Samstags-BD als Ultima Ratio):** Erhält einen Samstags-BD nur, wenn keine andere Fachärztin/kein anderer Facharzt verfügbar ist. Nach einem solchen Samstags-BD wird ihr am nächsten regulären Werktag zwingend ein FZA-Tag eingetragen.
 - **Fr. Dalitz vs. Hr. Torki/Hr. Sebastian:** Fr. Dalitz darf sonntags oder montags keinen HG übernehmen, wenn Hr. Torki oder Hr. Sebastian am selben Tag den BD leisten (Mammographie-Schicht am Folgetag kollidiert mit zeitintensiver AA-Befundfreigabe).
 - **Donnerstags-Urlaubsverlängerer:** Donnerstags-BD wird bevorzugt an Personen vergeben, die in der Folgewoche Urlaub haben (das automatische F am Freitag verlängert so das Wochenende bzw. den Urlaubsantritt).

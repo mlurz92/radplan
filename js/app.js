@@ -19,6 +19,7 @@ import {
   ensurePostBDFreiDays,
   clearCell,
   dutyOwner,
+  canAssignBdWithinHardLimit,
   getEmployeesForYear,
   setRbnValue,
 } from './model.js';
@@ -514,14 +515,20 @@ export function wireEvents() {
         return;
       }
       
-      if (noMod && (e.key === "d" || e.key === "D")) { 
-        e.preventDefault(); 
-        const owner = dutyOwner(state.year, state.month, state.edit.day, "D"); 
-        if (!owner || owner === state.edit.emp) { 
-          state.ed.duty = state.ed.duty === "D" ? null : "D"; 
-          refreshEditorChips(); 
-        } 
-        return; 
+      if (noMod && (e.key === "d" || e.key === "D")) {
+        e.preventDefault();
+        const owner = dutyOwner(state.year, state.month, state.edit.day, "D");
+        const removing = state.ed.duty === "D";
+        if (
+          (!owner || owner === state.edit.emp) &&
+          (removing || canAssignBdWithinHardLimit(state.year, state.month, state.edit.emp, state.edit.day))
+        ) {
+          state.ed.duty = removing ? null : "D";
+          refreshEditorChips();
+        } else if (!removing && !canAssignBdWithinHardLimit(state.year, state.month, state.edit.emp, state.edit.day)) {
+          showToast("BD-Monatsmaximum für diese Person erreicht");
+        }
+        return;
       }
       
       if (noMod && (e.key === "h" || e.key === "H")) { 

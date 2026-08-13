@@ -4,14 +4,14 @@
 // Extrahiert aus dem früher monolithischen app.js.
 
 import {
-  WORKPLACES, STATUSES, WISH_TYPES, RBN_ROW_KEY, RBN_ROW_LABEL,
-  getRbnOptionsForDate, VACATION_CODES, weekday, isHoliday, isWeekend,
+  STATUSES, WISH_TYPES, RBN_ROW_KEY, RBN_ROW_LABEL,
+  getRbnOptionsForDate, getWorkplacesForEmployee, getMaxBdTarget, VACATION_CODES, weekday, isHoliday, isWeekend,
   dateKey, DOW_LONG, MONTHS, getSaxonyHolidaysCached, nextCalendarDay, monthKey,
 } from './constants.js';
 import { state, DATA, planMode, planSessions, IS_MOBILE } from './state.js';
 import {
   getCell, setCell, getRbnValue, setRbnValue, getComment, setComment,
-  removeEmployee, dutyOwner, clearCascadedFreeDay,
+  removeEmployee, dutyOwner, clearCascadedFreeDay, canAssignBdWithinHardLimit,
 } from './model.js';
 import {
   render, updateGridCell, updateAllConflicts, updateGridStatsAndHeader,
@@ -105,7 +105,7 @@ export function openEditor(emp, day, options = {}) {
     wp = [cell.assignment];
   } else if (cell.assignment) {
     cell.assignment.split("/").map((x) => x.trim()).forEach((p) => {
-      if (WORKPLACES.find((w) => w.code === p)) {
+      if (getWorkplacesForEmployee(emp).find((w) => w.code === p)) {
         wp.push(p);
       } else if (STATUSES.find((s) => s.code === p)) {
         st = p;
@@ -266,7 +266,9 @@ export function refreshEditorChips() {
       rbnOptions.unshift(state.ed.wp[0]);
     }
     
-    const wpOptions = isRbnRow ? rbnOptions.map((label) => ({ code: label, label, bg: "#E0F2FE", fg: "#0C4A6E" })) : WORKPLACES;
+    const wpOptions = isRbnRow
+      ? rbnOptions.map((label) => ({ code: label, label, bg: "#E0F2FE", fg: "#0C4A6E" }))
+      : getWorkplacesForEmployee(emp);
     
     wpOptions.forEach((w, idx) => {
       const on = wp.includes(w.code);
@@ -287,7 +289,9 @@ export function refreshEditorChips() {
         chip.style.fontWeight = "700";
       }
       
-      const kbdBadge = `<span style="position:absolute;top:2px;right:2px;font-family:var(--font-mono);font-size:7px;font-weight:700;line-height:1;opacity:${dimC ? 0.3 : 0.55};background:rgba(0,0,0,0.12);color:inherit;padding:1px 3px;border-radius:2px;pointer-events:none">${idx + 1}</span>`;
+      const kbdBadge = !isRbnRow && idx < 8
+        ? `<span style="position:absolute;top:2px;right:2px;font-family:var(--font-mono);font-size:7px;font-weight:700;line-height:1;opacity:${dimC ? 0.3 : 0.55};background:rgba(0,0,0,0.12);color:inherit;padding:1px 3px;border-radius:2px;pointer-events:none">${idx + 1}</span>`
+        : "";
       
       if (isRbnRow) {
         chip.innerHTML = `${esc(w.label)}`;
@@ -368,14 +372,19 @@ export function refreshEditorChips() {
       const on = duty === dc;
       const owner = dutyOwner(y, m, day, dc);
       const taken = owner && owner !== emp;
+      const bdHardLimit = dc === "D" && !on && !canAssignBdWithinHardLimit(y, m, emp, day);
+      const blocked = taken || bdHardLimit;
       
       const chip = document.createElement("div");
-      chip.className = `chip-duty ${on ? "duty-" + dc + "-on" : "duty-" + dc + "-off"}${taken ? " blocked" : ""}`;
+      chip.className = `chip-duty ${on ? "duty-" + dc + "-on" : "duty-" + dc + "-off"}${blocked ? " blocked" : ""}`;
       chip.dataset.code = dc;
       chip.innerHTML = `${dc}<span class="duty-sub">${dc === "D" ? "Bereitschaftsdienst" : "Hintergrunddienst"}</span>`;
 
       if (taken) {
         warnParts.push(`${dc} bereits vergeben: ${owner}`);
+      }
+      if (bdHardLimit) {
+        warnParts.push(`BD-Monatsmaximum erreicht: ${emp} darf maximal ${getMaxBdTarget(emp)} BD erhalten`);
       }
       dtC.appendChild(chip);
     });
@@ -496,13 +505,20 @@ export function saveEditor() {
   if (planMode) recordPlanHistory();
   
   let autoFCount = 0;
+  let bdHardMaxSkipped = 0;
+  let savedCount = 0;
   const touchedDays = new Set();
   days.forEach((targetDay) => {
     const hadD = getCell(y, m, emp, targetDay).duty === "D";
+    if (duty === "D" && !hadD && !canAssignBdWithinHardLimit(y, m, emp, targetDay)) {
+      bdHardMaxSkipped++;
+      return;
+    }
     setCell(y, m, emp, targetDay, {
       assignment: assignment || null,
       duty: duty || null,
     });
+    savedCount++;
     touchedDays.add(targetDay);
 
     if (duty === "D") {
@@ -539,7 +555,10 @@ export function saveEditor() {
   state.multiEdit = { emp: null, days: [], anchor: null };
   if (days.length > 1) {
     const fSuffix = autoFCount > 0 ? ` (inkl. ${autoFCount}x F automatisch)` : "";
-    showToast(`${days.length} Tage gespeichert${fSuffix}`);
+    const maxSuffix = bdHardMaxSkipped > 0 ? ` · ${bdHardMaxSkipped} wegen BD-Monatsmaximum übersprungen` : "";
+    showToast(`${savedCount} ${savedCount === 1 ? "Tag" : "Tage"} gespeichert${fSuffix}${maxSuffix}`);
+  } else if (bdHardMaxSkipped > 0) {
+    showToast(`BD nicht gesetzt: Monatsmaximum erreicht`);
   } else if (autoFCount > 0) {
     showToast("F automatisch gesetzt");
   }

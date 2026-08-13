@@ -5,7 +5,7 @@
 
 import { MONTHS, MONTHS_SHORT, DOW_ABBR, DOW_LONG, daysInMonth, weekday,
   isHoliday, isFacharzt, getEmpMeta, posColor, getSaxonyHolidaysCached, dateKey,
-  getReducedBdTarget,
+  getReducedBdTarget, getMaxBdTarget, getMinBdTarget,
 } from './constants.js';
 import { state, DATA, planMode, planData, saveToStorage } from './state.js';
 import { render } from './render-grid.js';
@@ -95,7 +95,9 @@ export function defaultBDTarget(empName) {
   // in constants.js deklarierten Getter aus SPECIAL_RULES.reducedBdTarget
   // gelesen werden — sonst prefillt der Konfigurationsdialog nach einer
   // Änderung an SPECIAL_RULES weiterhin die alten Werte.
-  return Math.max(MIN_MONTHLY_BD_TARGET, getReducedBdTarget(empName) ?? 4);
+  const min = getMinBdTarget(empName) ?? MIN_MONTHLY_BD_TARGET;
+  const max = getMaxBdTarget(empName) ?? 10;
+  return Math.min(max, Math.max(min, getReducedBdTarget(empName) ?? 4));
 }
 
 export function openAutoPlanModal() {
@@ -237,6 +239,8 @@ export async function renderAutoPlanModal(renderToken = null) {
       const pc = posColor(meta.position);
       const h = hist[e] || { bd: 0, weDuty: 0, satBd: 0 };
       const target = localAutoPlanTargets[e] ?? defaultBDTarget(e);
+      const minTarget = getMinBdTarget(e) ?? MIN_MONTHLY_BD_TARGET;
+      const maxTarget = getMaxBdTarget(e) ?? 10;
       
       html += `
         <div class="ap-emp-card">
@@ -247,7 +251,7 @@ export async function renderAutoPlanModal(renderToken = null) {
             </div>
             <div class="ap-input-stepper" data-tooltip="Individuelles Monatsziel an Bereitschaftsdiensten für ${esc(e)}. Der Neural Scheduler versucht, exakt diese Anzahl zuzuteilen.">
               <button type="button" class="ap-step-btn minus" data-emp="${esc(e)}" data-tooltip="BD-Ziel um 1 verringern.">−</button>
-              <input type="number" class="ap-card-input" data-emp="${esc(e)}" value="${target}" min="${MIN_MONTHLY_BD_TARGET}" max="10" step="1" readonly>
+              <input type="number" class="ap-card-input" data-emp="${esc(e)}" value="${target}" min="${minTarget}" max="${maxTarget}" step="1" readonly>
               <button type="button" class="ap-step-btn plus" data-emp="${esc(e)}" data-tooltip="BD-Ziel um 1 erhöhen.">+</button>
             </div>
           </div>
@@ -296,7 +300,9 @@ export async function renderAutoPlanModal(renderToken = null) {
         const emp = btn.dataset.emp;
         const isPlus = btn.classList.contains("plus");
         const current = localAutoPlanTargets[emp] ?? defaultBDTarget(emp);
-        const next = isPlus ? Math.min(10, current + 1) : Math.max(MIN_MONTHLY_BD_TARGET, current - 1);
+        const minTarget = getMinBdTarget(emp) ?? MIN_MONTHLY_BD_TARGET;
+        const maxTarget = getMaxBdTarget(emp) ?? 10;
+        const next = isPlus ? Math.min(maxTarget, current + 1) : Math.max(minTarget, current - 1);
 
         localAutoPlanTargets[emp] = next;
         const input = /** @type {HTMLInputElement} */ (body.querySelector(`.ap-card-input[data-emp="${emp}"]`));
