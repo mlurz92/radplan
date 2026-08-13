@@ -2,9 +2,9 @@
 // Arbeitsplatz-/Dienst-/Status-Toggle, Dienst-Badge per Drag&Drop verschieben,
 // Zelle leeren. Extrahiert aus dem früher monolithischen app.js.
 
-import { WORKPLACES, STATUSES, nextCalendarDay } from './constants.js';
+import { STATUSES, nextCalendarDay, getWorkplacesForEmployee, getMaxBdTarget } from './constants.js';
 import { state, planMode, IS_MOBILE } from './state.js';
-import { getCell, setCell, clearCell, dutyOwner, canMoveDutyBadge, clearCascadedFreeDay } from './model.js';
+import { getCell, setCell, clearCell, dutyOwner, canMoveDutyBadge, clearCascadedFreeDay, canAssignBdWithinHardLimit } from './model.js';
 import {
   render, focusCellAfterRender, updateGridCell, updateAllConflicts,
   updateGridStatsAndHeader, closeCellQuickPopover, syncSelectionClasses,
@@ -50,7 +50,11 @@ export function quickToggleWorkplace(emp, day, wpCode) {
   const { year: y, month: m } = state;
   const days = quickTargetDays(emp, day);
   const multi = days.length > 1;
-  const wp = WORKPLACES.find(w => w.code === wpCode);
+  const wp = getWorkplacesForEmployee(emp).find(w => w.code === wpCode);
+  if (!wp) {
+    showToast(`${wpCode} ist für ${emp} nicht als Arbeitsplatz verfügbar`);
+    return;
+  }
 
   const anchorParts = (getCell(y, m, emp, day).assignment || "").split("/").map(x => x.trim()).filter(Boolean);
   const anchorHasStatus = anchorParts.some(p => STATUSES.find(s => s.code === p));
@@ -67,7 +71,8 @@ export function quickToggleWorkplace(emp, day, wpCode) {
     const cell = getCell(y, m, emp, d);
     const parts = (cell.assignment || "").split("/").map(x => x.trim()).filter(Boolean);
     if (parts.some(p => STATUSES.find(s => s.code === p))) { skipped++; return; }
-    const wps = parts.filter(p => WORKPLACES.find(w => w.code === p));
+    const allowedWorkplaces = getWorkplacesForEmployee(emp);
+    const wps = parts.filter(p => allowedWorkplaces.find(w => w.code === p));
     const next = remove
       ? wps.filter(w => w !== wpCode)
       : (wps.includes(wpCode) ? wps : [...wps, wpCode]);
@@ -102,6 +107,10 @@ export function quickToggleDuty(emp, day, dutyCode) {
       showToast(`${dutyCode} bereits vergeben an: ${owner}`);
       return;
     }
+    if (!remove && dutyCode === "D" && !canAssignBdWithinHardLimit(y, m, emp, day)) {
+      showToast(`${emp} darf maximal ${getMaxBdTarget(emp)} BD pro Monat erhalten`);
+      return;
+    }
   }
 
   if (planMode) recordPlanHistory();
@@ -115,6 +124,7 @@ export function quickToggleDuty(emp, day, dutyCode) {
     if (!remove) {
       const owner = dutyOwner(y, m, d, dutyCode);
       if (owner && owner !== emp) { skipped++; return; }
+      if (dutyCode === "D" && !canAssignBdWithinHardLimit(y, m, emp, d)) { skipped++; return; }
     }
     const hadD = cell.duty === "D";
     const newDuty = remove ? null : dutyCode;
@@ -175,6 +185,7 @@ export function moveDutyBadge(srcEmp, srcDay, dstEmp, dstDay) {
       "occupied-different": `Zielzelle hat bereits ${dstCell.duty}-Dienst`,
       "occupied-same": `Zielzelle hat bereits ${dutyCode}-Dienst`,
       "owner-conflict": `${dutyCode} bereits vergeben an: ${check.owner}`,
+      "bd-hard-max": `${dstEmp} darf maximal ${getMaxBdTarget(dstEmp)} BD pro Monat erhalten`,
     };
     showToast(toastByReason[check.reason] || "Verschieben nicht möglich");
     return;

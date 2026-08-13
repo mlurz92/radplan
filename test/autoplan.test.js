@@ -10,6 +10,8 @@ import {
   computeFairnessSpread,
   averageFromArray,
   hasCTLeadershipConflict,
+  findCTLeadershipPresenceGaps,
+  isCTCoverageMemberAvailable,
   computeAutoPlan,
   MIN_DUTY_SPACING_DAYS,
   SOFT_DUTY_SPACING_SHORT,
@@ -113,6 +115,20 @@ describe("computeGridConflicts", () => {
     const conflicts = computeGridConflicts(2026, 5);
     assert.equal(conflicts.size, 0);
   });
+
+  test("markiert einen dritten Hellmann-BD als Überschreitung der harten Monatsobergrenze", () => {
+    DATA["2026-8"] = buildMonth({
+      "Dr. Becker": {},
+      "Dr. Martin": {},
+      "Dr. Hellmann": {
+        1: { duty: "D" }, 2: { assignment: "F" },
+        5: { duty: "D" }, 6: { assignment: "F" },
+        9: { duty: "D" }, 10: { assignment: "F" },
+      },
+    });
+    const conflicts = computeGridConflicts(2026, 8);
+    assert.ok(conflicts.get(dutyKey("Dr. Hellmann", 9))?.some((r) => r.includes("Monatsmaximum")));
+  });
 });
 
 describe("hasCTLeadershipConflict", () => {
@@ -125,9 +141,36 @@ describe("hasCTLeadershipConflict", () => {
     assert.equal(hasCTLeadershipConflict(2026, 6, "Dr. Becker", 5, assignments), true);
   });
 
-  test("kein Konflikt für Personen ohne CT-Leitungspartner", () => {
+  test("kein Konflikt, wenn das andere Mitglied des bisherigen CT-Paares verfügbar ist", () => {
     const assignments = {};
     assert.equal(hasCTLeadershipConflict(2026, 6, "Dr. Martin", 5, assignments), false);
+  });
+
+  test("ab Oktober zählt Hellmann nur ohne NRAD als CT-Vertretung", () => {
+    // 4.10.2026 ist Sonntag, Folgetag 5.10.2026 ist Montag.
+    const blocked = {
+      "Dr. Martin": { 5: { assignment: "U" } },
+      "Dr. Hellmann": { 5: { assignment: "NRAD" } },
+    };
+    assert.equal(hasCTLeadershipConflict(2026, 9, "Dr. Becker", 4, blocked), true);
+    assert.equal(isCTCoverageMemberAvailable(2026, 9, "Dr. Hellmann", 5, blocked), false);
+
+    const covered = {
+      "Dr. Martin": { 5: { assignment: "U" } },
+      "Dr. Hellmann": { 5: { assignment: "MR" } },
+    };
+    assert.equal(hasCTLeadershipConflict(2026, 9, "Dr. Becker", 4, covered), false);
+    assert.equal(isCTCoverageMemberAvailable(2026, 9, "Dr. Hellmann", 5, covered), true);
+  });
+
+  test("CT-Präsenzgap erkennt Becker F + Martin U + Hellmann NRAD ab Oktober", () => {
+    const assignments = {
+      "Dr. Becker": { 5: { assignment: "F" } },
+      "Dr. Martin": { 5: { assignment: "U" } },
+      "Dr. Hellmann": { 5: { assignment: "NRAD" } },
+    };
+    const gaps = findCTLeadershipPresenceGaps(2026, 9, assignments);
+    assert.ok(gaps.some((gap) => gap.day === 5));
   });
 });
 
@@ -212,6 +255,24 @@ describe("Punkt 11: Neural Fitness Index (NFI) als gewichtete Komposition", () =
 
     const result = await computeAutoPlan({ "Dr. Polednia": 1, "Prof. Schäfer": 1 }, "standard");
     assert.equal(result.summary.bdTarget["Dr. Polednia"], MIN_MONTHLY_BD_TARGET);
+
+    setPlanMode(false);
+    setPlanData(null);
+  });
+
+  test("Hellmann-Ziel und tatsächliche Auto-Plan-Vergabe überschreiten nie 2 BD", async () => {
+    const year = 2026;
+    const month = 8;
+    const employees = ["Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Dr. Becker", "Dr. Hellmann", "Dr. Martin", "Hr. El Houba", "Hr. Sebastian"];
+    state.year = year;
+    state.month = month;
+    setPlanMode(true);
+    setPlanData(buildFixturePlanData(year, month, employees));
+
+    const result = await computeAutoPlan({ "Dr. Hellmann": 10 }, "standard");
+    assert.equal(result.summary.bdTarget["Dr. Hellmann"], 2);
+    const actual = Object.values(result.assignments["Dr. Hellmann"] || {}).filter((cell) => cell.duty === "D").length;
+    assert.ok(actual <= 2, `Hellmann darf maximal 2 BD erhalten, gefunden ${actual}`);
 
     setPlanMode(false);
     setPlanData(null);

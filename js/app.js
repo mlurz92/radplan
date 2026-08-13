@@ -19,6 +19,7 @@ import {
   ensurePostBDFreiDays,
   clearCell,
   dutyOwner,
+  canAssignBdWithinHardLimit,
   getEmployeesForYear,
   setRbnValue,
 } from './model.js';
@@ -146,18 +147,18 @@ export function wireEvents() {
     showTeamScreen();
     setTimeout(() => document.getElementById("emp-search")?.focus(), 80);
   });
-  
-  document.getElementById("month-label-btn")?.addEventListener("click", () => { 
+
+  document.getElementById("month-label-btn")?.addEventListener("click", () => {
     if (isPeriodFlyoutOpen()) {
-      closePeriodFlyout(); 
+      closePeriodFlyout();
     } else {
-      openPeriodFlyout(); 
+      openPeriodFlyout();
     }
   });
-  
+
   document.getElementById("emp-open-period")?.addEventListener("click", openPeriodFlyout);
   document.getElementById("period-flyout-close")?.addEventListener("click", closePeriodFlyout);
-  
+
   document.getElementById("period-month-select")?.addEventListener("change", (e) => {
     state.periodDraft.month = parseInt(/** @type {HTMLSelectElement} */ (e.target).value, 10);
     syncPeriodControls();
@@ -167,39 +168,39 @@ export function wireEvents() {
     state.periodDraft.year = parseInt(/** @type {HTMLInputElement} */ (e.target).value, 10) || state.year;
     syncPeriodControls();
   });
-  
+
   document.getElementById("period-apply")?.addEventListener("click", applyPeriodDraft);
-  
-  document.getElementById("period-today")?.addEventListener("click", () => { 
-    state.periodDraft = { year: TOD_Y, month: TOD_M }; 
-    applyPeriodDraft(); 
-    setTimeout(doScrollToToday, 150); 
+
+  document.getElementById("period-today")?.addEventListener("click", () => {
+    state.periodDraft = { year: TOD_Y, month: TOD_M };
+    applyPeriodDraft();
+    setTimeout(doScrollToToday, 150);
   });
-  
-  document.getElementById("period-prev-month")?.addEventListener("click", () => { 
-    const total = state.periodDraft.year * 12 + state.periodDraft.month - 1; 
-    state.periodDraft.year = Math.floor(total / 12); 
-    state.periodDraft.month = ((total % 12) + 12) % 12; 
-    syncPeriodControls(); 
+
+  document.getElementById("period-prev-month")?.addEventListener("click", () => {
+    const total = state.periodDraft.year * 12 + state.periodDraft.month - 1;
+    state.periodDraft.year = Math.floor(total / 12);
+    state.periodDraft.month = ((total % 12) + 12) % 12;
+    syncPeriodControls();
   });
-  
-  document.getElementById("period-next-month")?.addEventListener("click", () => { 
-    const total = state.periodDraft.year * 12 + state.periodDraft.month + 1; 
-    state.periodDraft.year = Math.floor(total / 12); 
-    state.periodDraft.month = ((total % 12) + 12) % 12; 
-    syncPeriodControls(); 
+
+  document.getElementById("period-next-month")?.addEventListener("click", () => {
+    const total = state.periodDraft.year * 12 + state.periodDraft.month + 1;
+    state.periodDraft.year = Math.floor(total / 12);
+    state.periodDraft.month = ((total % 12) + 12) % 12;
+    syncPeriodControls();
   });
-  
-  document.getElementById("period-prev-year")?.addEventListener("click", () => { 
-    state.periodDraft.year -= 1; 
-    syncPeriodControls(); 
+
+  document.getElementById("period-prev-year")?.addEventListener("click", () => {
+    state.periodDraft.year -= 1;
+    syncPeriodControls();
   });
-  
-  document.getElementById("period-next-year")?.addEventListener("click", () => { 
-    state.periodDraft.year += 1; 
-    syncPeriodControls(); 
+
+  document.getElementById("period-next-year")?.addEventListener("click", () => {
+    state.periodDraft.year += 1;
+    syncPeriodControls();
   });
-  
+
   document.getElementById("emp-search")?.addEventListener("input", (e) => {
     state.employeeDashboard.filter = /** @type {HTMLInputElement} */ (e.target).value;
     renderEmployeeDashboard();
@@ -244,21 +245,21 @@ export function wireEvents() {
     const n = exportEmployeeDashboardCSV();
     showToast(n ? `${n} Mitarbeitende als CSV exportiert` : "Keine Daten zum Export");
   });
-  
+
   document.addEventListener("click", (e) => {
     const flyout = document.getElementById("period-flyout");
     const trigger = document.getElementById("month-label-btn");
     const inlineBtn = document.getElementById("emp-open-period");
-    
+
     if (!isPeriodFlyoutOpen()) return;
     const target = /** @type {Node} */ (e.target);
     if (flyout?.contains(target) || trigger?.contains(target) || inlineBtn?.contains(target)) {
       return;
     }
-    
+
     closePeriodFlyout();
   });
-  
+
   document.getElementById("btn-analytics")?.addEventListener("click", () => {
     openAnalyticsHub();
   });
@@ -293,7 +294,7 @@ export function wireEvents() {
   document.getElementById("btn-import")?.addEventListener("click", () => {
     openImportModal();
   });
-  
+
   document.getElementById("btn-force-sync")?.addEventListener("click", async () => {
     if (!confirm("WARNUNG: Alle lokalen Entwürfe und ungespeicherten Änderungen werden gelöscht und durch den aktuellen Server-Stand ersetzt. Wirklich fortfahren?")) return;
     const success = await forceSyncWithServer();
@@ -305,7 +306,7 @@ export function wireEvents() {
       showToast("Fehler bei der Server-Synchronisation");
     }
   });
-  
+
   initHeaderOverflowMenu();
   initColorblindToggle();
 
@@ -320,32 +321,32 @@ export function wireEvents() {
   document.getElementById("mnav-dept")?.addEventListener("click", () => {
     document.getElementById("btn-employees")?.click();
   });
-  
-  document.getElementById("mnav-plan")?.addEventListener("click", () => { 
+
+  document.getElementById("mnav-plan")?.addEventListener("click", () => {
     if (planMode) {
-      closePlanMode(); 
+      closePlanMode();
     } else {
-      enterPlanMode(); 
+      enterPlanMode();
     }
   });
-  
+
   document.getElementById("mnav-menu")?.addEventListener("click", () => showOverlay("modal-mobile-menu"));
-  
-  document.getElementById("mbtn-employees")?.addEventListener("click", () => { 
-    hideOverlay("modal-mobile-menu"); 
-    setTimeout(() => document.getElementById("btn-employees")?.click(), 180); 
+
+  document.getElementById("mbtn-employees")?.addEventListener("click", () => {
+    hideOverlay("modal-mobile-menu");
+    setTimeout(() => document.getElementById("btn-employees")?.click(), 180);
   });
-  
-  document.getElementById("mbtn-today")?.addEventListener("click", () => { 
-    hideOverlay("modal-mobile-menu"); 
-    setTimeout(handleTodayClick, 180); 
+
+  document.getElementById("mbtn-today")?.addEventListener("click", () => {
+    hideOverlay("modal-mobile-menu");
+    setTimeout(handleTodayClick, 180);
   });
-  
-  document.getElementById("mbtn-export")?.addEventListener("click", () => { 
-    hideOverlay("modal-mobile-menu"); 
-    setTimeout(() => doExport(), 180); 
+
+  document.getElementById("mbtn-export")?.addEventListener("click", () => {
+    hideOverlay("modal-mobile-menu");
+    setTimeout(() => doExport(), 180);
   });
-  
+
   document.getElementById("mbtn-import")?.addEventListener("click", () => {
     hideOverlay("modal-mobile-menu");
     setTimeout(() => openImportModal(), 180);
@@ -382,12 +383,12 @@ export function wireEvents() {
       }
     }, 180);
   });
-  
-  document.getElementById("btn-plan-apply")?.addEventListener("click", () => { 
-    if (!confirm("Planungsentwurf in den Hauptplan übernehmen?")) return; 
-    applyPlanToMain(); 
+
+  document.getElementById("btn-plan-apply")?.addEventListener("click", () => {
+    if (!confirm("Planungsentwurf in den Hauptplan übernehmen?")) return;
+    applyPlanToMain();
   });
-  
+
   document.getElementById("btn-plan-save")?.addEventListener("click", savePlanDraft);
   document.getElementById("btn-plan-abort")?.addEventListener("click", abortPlanChanges);
   document.getElementById("btn-plan-close")?.addEventListener("click", closePlanMode);
@@ -395,13 +396,13 @@ export function wireEvents() {
   document.getElementById("btn-plan-redo")?.addEventListener("click", redoPlan);
   document.getElementById("btn-plan-auto")?.addEventListener("click", openAutoPlanModal);
   document.getElementById("ap-apply")?.addEventListener("click", applyAutoPlan);
-  
+
   document.getElementById("ed-save")?.addEventListener("click", () => {
     saveEditor();
   });
-  
+
   document.getElementById("ed-cancel")?.addEventListener("click", () => hideOverlay("modal-editor"));
-  
+
   document.getElementById("ed-clear")?.addEventListener("click", () => {
     const { year: y, month: m } = state;
     const { emp, day, isRbnRow } = state.edit || {};
@@ -429,35 +430,35 @@ export function wireEvents() {
     updateAllConflicts();
     updateGridStatsAndHeader(isRbnRow ? [day] : days);
   });
-  
+
   document.getElementById("import-confirm")?.addEventListener("click", () => {
     doImport();
   });
-  
+
   document.getElementById("dept-tab-month")?.addEventListener("click", () => {
     setDeptTab("month");
     document.querySelectorAll(".dept-tab").forEach((t) => t.classList.remove("active"));
     document.getElementById("dept-tab-month")?.classList.add("active");
     renderDeptContent();
   });
-  
+
   document.getElementById("dept-tab-year")?.addEventListener("click", () => {
     setDeptTab("year");
     document.querySelectorAll(".dept-tab").forEach((t) => t.classList.remove("active"));
     document.getElementById("dept-tab-year")?.classList.add("active");
     renderDeptContent();
   });
-  
+
   document.querySelectorAll("[data-close]").forEach((/** @type {HTMLElement} */ btn) => {
     btn.addEventListener("click", () => hideOverlay(btn.dataset.close));
   });
-  
+
   document.querySelectorAll(".overlay").forEach((ov) => {
-    ov.addEventListener("click", (e) => { 
-      if (e.target === ov) hideOverlay(ov.id); 
+    ov.addEventListener("click", (e) => {
+      if (e.target === ov) hideOverlay(ov.id);
     });
   });
-  
+
   document.addEventListener("keydown", (e) => {
     if (state.isAutoplanRunning) {
       // Vorschlag 9: Sperrt alle Tastenkombinationen während der Auto-Planung läuft
@@ -485,74 +486,77 @@ export function wireEvents() {
       }
       return;
     }
-    
+
     if (isEditorOpen()) {
       if (state.edit?.isRbnRow) {
         if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && (e.key === "s" || e.key === "S" || e.key === "Enter")) {
-          e.preventDefault(); 
-          saveEditor(); 
+          e.preventDefault();
+          saveEditor();
           return;
         }
       }
-      
+
       const noMod = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
       if (state.edit?.isRbnRow) return;
-      
+
       if (noMod && e.key >= "1" && e.key <= "8") {
         const idx = parseInt(e.key, 10) - 1;
-        if (!state.ed.st) { 
-          e.preventDefault(); 
-          const code = WORKPLACES[idx].code; 
-          const i = state.ed.wp.indexOf(code); 
+        if (!state.ed.st) {
+          e.preventDefault();
+          const code = WORKPLACES[idx].code;
+          const i = state.ed.wp.indexOf(code);
           if (i >= 0) {
-            state.ed.wp.splice(i, 1); 
+            state.ed.wp.splice(i, 1);
           } else {
-            state.ed.wp.push(code); 
+            state.ed.wp.push(code);
           }
-          refreshEditorChips(); 
+          refreshEditorChips();
         }
         return;
       }
-      
-      if (noMod && (e.key === "d" || e.key === "D")) { 
-        e.preventDefault(); 
-        const owner = dutyOwner(state.year, state.month, state.edit.day, "D"); 
-        if (!owner || owner === state.edit.emp) { 
-          state.ed.duty = state.ed.duty === "D" ? null : "D"; 
-          refreshEditorChips(); 
-        } 
-        return; 
+
+      if (noMod && (e.key === "d" || e.key === "D")) {
+        e.preventDefault();
+        const owner = dutyOwner(state.year, state.month, state.edit.day, "D");
+        const removing = state.ed.duty === "D";
+        if ((!owner || owner === state.edit.emp) && (removing || canAssignBdWithinHardLimit(state.year, state.month, state.edit.emp, state.edit.day))) {
+          state.ed.duty = removing ? null : "D";
+          refreshEditorChips();
+        } else if (!removing && !canAssignBdWithinHardLimit(state.year, state.month, state.edit.emp, state.edit.day)) {
+          showToast("BD-Monatsmaximum für diese Person erreicht");
+        }
+        return;
       }
-      
-      if (noMod && (e.key === "h" || e.key === "H")) { 
-        e.preventDefault(); 
-        const owner = dutyOwner(state.year, state.month, state.edit.day, "HG"); 
-        if (!owner || owner === state.edit.emp) { 
-          state.ed.duty = state.ed.duty === "HG" ? null : "HG"; 
-          refreshEditorChips(); 
-        } 
-        return; 
+
+      if (noMod && (e.key === "h" || e.key === "H")) {
+        e.preventDefault();
+        const owner = dutyOwner(state.year, state.month, state.edit.day, "HG");
+        if (!owner || owner === state.edit.emp) {
+          state.ed.duty = state.ed.duty === "HG" ? null : "HG";
+          refreshEditorChips();
+        }
+        return;
       }
-      
-      if (noMod && (e.key === "s" || e.key === "S")) { 
-        e.preventDefault(); 
-        saveEditor(); 
-        return; 
+
+      if (noMod && (e.key === "s" || e.key === "S")) {
+        e.preventDefault();
+        saveEditor();
+        return;
       }
-      
+
       if (e.key === "Enter" && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
         const tag = (document.activeElement?.tagName || "").toUpperCase();
         const isCancel = ["ed-cancel", "ed-clear"].includes(document.activeElement?.id || "");
-        if (tag !== "BUTTON" || (!isCancel && document.activeElement?.id === "ed-save")) { 
-          if (tag !== "BUTTON") { 
-            e.preventDefault(); 
-            saveEditor(); 
-          } 
+        if (tag !== "BUTTON" || (!isCancel && document.activeElement?.id === "ed-save")) {
+          if (tag !== "BUTTON") {
+            e.preventDefault();
+            saveEditor();
+          }
         }
         return;
       }
     }
-    
+
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "s") {
       e.preventDefault();
       if (planMode) {
@@ -595,7 +599,7 @@ export function wireEvents() {
         return;
       }
     }
-    
+
     if (e.altKey && e.key === "ArrowLeft") {
       document.getElementById("btn-prev")?.click();
     }
@@ -603,15 +607,15 @@ export function wireEvents() {
       document.getElementById("btn-next")?.click();
     }
   });
-  
+
   const gridWrapper = document.getElementById("grid-wrapper");
   if (gridWrapper) {
     gridWrapper.addEventListener("wheel", (e) => {
       const isEmployeeCol = /** @type {HTMLElement} */ (e.target).closest('.td-name, .th-corner');
       const scrollingVertical = e.shiftKey || isEmployeeCol;
-      
+
       const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-      
+
       if (delta !== 0) {
         e.preventDefault();
         if (scrollingVertical) {
@@ -622,7 +626,7 @@ export function wireEvents() {
       }
     }, { passive: false });
   }
-  
+
   initDragDrop();
   initGridKeyboardHandlers();
 
@@ -638,20 +642,20 @@ export async function init() {
   initDensity();
   await loadFromStorage();
   ensurePostBDFreiDays();
-  
+
   if (!Object.keys(DATA).length && serverFetchSuccessful && serverLastModified === 0) {
     const k = monthKey(state.year, state.month);
     DATA[k] = {
       employees: [
-        "Prof. Schäfer", "Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Fr. Thaler", 
+        "Prof. Schäfer", "Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Fr. Thaler",
         "Dr. Becker", "Dr. Martin", "Hr. El Houba", "Fr. Licenji", "Hr. Torki", "Hr. Sebastian"
       ].filter((emp) => isEmployeeActiveInMonth(emp, state.year, state.month)),
-      assignments: {}, 
+      assignments: {},
       rbn: {},
     };
     saveToStorage();
   }
-  
+
   populatePeriodMonthSelect();
   syncPeriodControls();
   wireEvents();
@@ -684,15 +688,15 @@ export async function init() {
       });
     }).observe(apModal, { attributes: true });
   }
-  
+
   window.addEventListener("resize", () => {
     queueResponsiveRefresh();
   }, { passive: true });
-  
+
   window.addEventListener("orientationchange", () => {
     queueResponsiveRefresh();
   }, { passive: true });
-  
+
   if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", () => {
       queueResponsiveRefresh();

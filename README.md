@@ -45,7 +45,7 @@ In einer klinischen radiologischen Abteilung müssen an jedem Tag des Jahres zwe
 1. **Bereitschaftsdienst (BD / Code „D")** — Der Arzt vor Ort, der die Akutversorgung trägt, Notfall-CTs und -MRTs befundet, Kontrastmittelüberwachungen durchführt und klinische Anfragen steuert.
 2. **Hintergrunddienst (HG)** — Die fachärztliche Rückfallebene im Hintergrund (Rufbereitschaft), die telefonisch beratend zur Seite steht, komplexe Befunde freigibt, Interventionsentscheidungen trifft und bei personellen Engpässen oder Katastrophenfällen einspringt.
 
-Daneben werden die Ärztinnen und Ärzte der Abteilung an Werktagen auf verschiedene **Arbeitsplätze** (Modalitäten) verteilt: Großgeräte (MRT, CT, Sonographie – US, Angiographie – AN), Spezialbereiche (Mammographie – MA, Kinder-Ultraschall – KUS), der Außenstandort Wermsdorf (W) und die Teleradiologie (T).
+Daneben werden die Ärztinnen und Ärzte der Abteilung an Werktagen auf verschiedene **Arbeitsplätze** (Modalitäten) verteilt: Großgeräte (MRT, CT, Sonographie – US, Angiographie – AN), Spezialbereiche (Mammographie – MA, Kinder-Ultraschall – KUS), der Außenstandort Wermsdorf (W) und die Teleradiologie (T). Für **Dr. Hellmann** steht ab ihrem Eintritt am 01.09.2026 zusätzlich der klinikübergreifende Arbeitsplatz **Neuroradiologie (NRAD)** zur Verfügung; für alle anderen Mitarbeitenden bleibt `NRAD` in den Arbeitsplatz-Auswahlen verborgen.
 
 Die Dienstplanung steht vor der Herausforderung, diese Dienste und Modalitäten unter Beachtung strenger Restriktionen zu verteilen:
 
@@ -234,6 +234,8 @@ Die Hilfsfunktion `isEmployeeActiveInMonth(name, y, m)` prüft diese Bedingung l
 
 ## 5. Stammdaten, Rollen, Qualifikationen & Sonderregeln
 
+> **Personaländerung ab 01.09.2026 — Dr. Hellmann:** Dr. Hellmann wird ab September 2026 automatisch als **Oberärztin / Fachärztin für Radiologie** in den Monatsbestand aufgenommen und im Dienstplan **direkt unter Dr. Becker** einsortiert. Ihre Beschäftigung ist organisatorisch **50 % Klinik für Radiologie & Nuklearmedizin / 50 % Klinik für Neuroradiologie** geteilt. Deshalb besitzt ausschließlich sie den zusätzlichen Arbeitsplatzcode **NRAD**. Ebenfalls ab September 2026 erscheint sie in der manuellen Auswahl der Zeile **RD Neurorad** als **„Dr. Hellmann (RAD/NRAD)“**. Für Bereitschaftsdienste gilt eine **harte Obergrenze von maximal 2 BD pro Monat**; diese Grenze darf auch durch Coverage-Eskalationen des Auto-Planers nicht überschritten werden. **Ab 01.10.2026** wird die CT-Vertretung als Pool **Dr. Becker / Dr. Martin / Dr. Hellmann** geführt: an jedem Werktag muss mindestens eine dieser drei Personen CT-verfügbar sein; Dr. Hellmann zählt an Tagen mit eingetragenem **NRAD** ausdrücklich nicht als CT-verfügbar.
+
 ### 5.1 Mitarbeiter-Stammdaten (`EMP_META`)
 
 In `constants.js` ist das Register `EMP_META` hinterlegt. Jede Person wird dort als strukturiertes Objekt geführt mit den Feldern `fullName` (vollständiger Titel-/Namensstring), `position` (Kürzel, siehe unten), `posLabel` (ausgeschriebene Positionsbezeichnung), `type` (Facharztrichtung, z. B. „FA für Radiologie"), `area` (Schwerpunktbereich) und `deputy` (Standard-Vertretung).
@@ -385,7 +387,7 @@ RadPlan bietet vier verschiedene Interaktionsmodelle, um den unterschiedlichen E
 
 Ein modales Fenster (`#modal-editor`) für detaillierte Zuweisungen:
 
-1. **Einsatz:** Auswahl eines exklusiven Status (z. B. Urlaub) oder freie Kombination mehrerer Arbeitsplätze (z. B. „MR/CT") durch Anklicken der farbigen Chips.
+1. **Einsatz:** Auswahl eines exklusiven Status (z. B. Urlaub) oder freie Kombination mehrerer Arbeitsplätze (z. B. „MR/CT") durch Anklicken der farbigen Chips. Bei Dr. Hellmann wird ab September 2026 zusätzlich der Chip **NRAD – Neuroradiologie** angezeigt; bei allen anderen Personen wird dieser Spezialarbeitsplatz weder im Voll-Editor noch im Desktop-Schnell-Popover angeboten.
 2. **Dienst:** Zuweisung von Bereitschafts- (D) oder Hintergrunddienst (HG). Besetzte Dienste anderer Personen an diesem Tag werden als belegt markiert.
 3. **Planung (nur im Planungsmodus):** Setzen von Dienstwünschen (`NO_DUTY`, `BD_WISH`, `HG_WISH`) und Fixieren der Zelle (Pin).
 4. **Tagesnotiz:** Ein Textfeld für Kommentare (maximal 200 Zeichen).
@@ -488,7 +490,7 @@ Zusätzlich bietet der Dialog einen kontinuierlichen Fairness/Wunsch-Regler sowi
 
 ### 13.2 Verbindliche BD-Mindestverteilung
 
-Für alle nicht dienstbefreiten Mitarbeitenden gilt im Auto-Plan eine harte monatliche Untergrenze von **mindestens 3 Bereitschaftsdiensten (`D`)**. Diese Mindestverteilung wird an allen Zieleingängen einheitlich erzwungen:
+Für nicht dienstbefreite Mitarbeitende gilt im Auto-Plan grundsätzlich eine harte monatliche Untergrenze von **mindestens 3 Bereitschaftsdiensten (`D`)**. **Dr. Hellmann ist abweichend davon als personenbezogene Sonderregel auf maximal 2 BD pro Monat begrenzt**; für sie überschreibt diese harte Obergrenze die allgemeine Mindestverteilung. Diese Mindestverteilung wird an allen Zieleingängen einheitlich erzwungen:
 
 * automatisch berechnete Standardziele,
 * reduzierte personenbezogene Sonderziele,

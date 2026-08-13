@@ -7,7 +7,22 @@ export const WORKPLACES = [
   { code: "KUS", label: "Kinder-US", bg: "#DCFCE7", fg: "#15803D" },
   { code: "W", label: "Wermsdorf", bg: "#FEF9C3", fg: "#854D0E" },
   { code: "T", label: "Teleradiologie", bg: "#E0E7FF", fg: "#3730A3" },
+  { code: "NRAD", label: "Neuroradiologie", bg: "#E0F2FE", fg: "#0369A1" },
 ];
+
+export const SPECIAL_WORKPLACE_ACCESS = {
+  "Dr. Hellmann": ["NRAD"],
+};
+
+export function getWorkplacesForEmployee(empName) {
+  return WORKPLACES.filter((workplace) =>
+    workplace.code !== "NRAD" || (SPECIAL_WORKPLACE_ACCESS[empName] || []).includes("NRAD")
+  );
+}
+
+export function canUseWorkplace(empName, workplaceCode) {
+  return getWorkplacesForEmployee(empName).some((workplace) => workplace.code === workplaceCode);
+}
 
 export const STATUSES = [
   { code: "F", label: "Frei", bg: "#F1F5F9", fg: "#475569" },
@@ -42,6 +57,14 @@ export const RBN_OPTIONS = [
 ];
 
 export const RBN_THALER_LAST_MONTH = { year: 2026, month: 2 };
+export const RBN_HELLMANN_START = { year: 2026, month: 8 };
+export const RBN_HELLMANN_OPTION = "Dr. Hellmann (RAD/NRAD)";
+
+export const EMPLOYEE_ARRIVALS = {
+  // month ist 0-basiert und markiert den ERSTEN Monat MIT der Person.
+  // Dr. Hellmann beginnt zum 1.9.2026 und wird im Raster direkt hinter Dr. Becker einsortiert.
+  "Dr. Hellmann": { year: 2026, month: 8, after: "Dr. Becker", reason: "Eintritt" },
+};
 
 export const EMPLOYEE_DEPARTURES = {
   // month ist 0-basiert und markiert den ERSTEN Monat OHNE die Person.
@@ -52,6 +75,12 @@ export const EMPLOYEE_DEPARTURES = {
 };
 
 export function isEmployeeActiveInMonth(name, y, m) {
+  const arrival = EMPLOYEE_ARRIVALS[name];
+  if (arrival) {
+    const beforeArrival = y < arrival.year || (y === arrival.year && m < arrival.month);
+    if (beforeArrival) return false;
+  }
+
   const departure = EMPLOYEE_DEPARTURES[name];
   if (!departure) return true;
   return y < departure.year || (y === departure.year && m < departure.month);
@@ -66,6 +95,34 @@ export function reconcileEmployeesForMonth(md, y, m) {
     const activeEmployees = md.employees.filter((emp) => isEmployeeActiveInMonth(emp, y, m));
     changed = activeEmployees.length !== md.employees.length;
     md.employees = activeEmployees;
+
+    Object.entries(EMPLOYEE_ARRIVALS).forEach(([name, arrival]) => {
+      if (!isEmployeeActiveInMonth(name, y, m)) return;
+
+      const currentIndex = md.employees.indexOf(name);
+      const anchorIndex = arrival.after ? md.employees.indexOf(arrival.after) : -1;
+
+      // Automatische Eintritte nur in echte bestehende Roster-Strukturen
+      // migrieren. Fehlt der konfigurierte Anker (hier Dr. Becker), handelt
+      // es sich z. B. um isolierte Analyse-/Importdaten; diese dürfen nicht
+      // stillschweigend um zusätzliche Personen erweitert werden.
+      if (currentIndex < 0 && arrival.after && anchorIndex < 0) return;
+
+      const targetIndex = anchorIndex >= 0 ? anchorIndex + 1 : md.employees.length;
+      if (currentIndex < 0) {
+        md.employees.splice(targetIndex, 0, name);
+        changed = true;
+        return;
+      }
+
+      if (arrival.after && currentIndex !== targetIndex) {
+        md.employees.splice(currentIndex, 1);
+        const refreshedAnchorIndex = md.employees.indexOf(arrival.after);
+        const refreshedTargetIndex = refreshedAnchorIndex >= 0 ? refreshedAnchorIndex + 1 : md.employees.length;
+        md.employees.splice(refreshedTargetIndex, 0, name);
+        changed = true;
+      }
+    });
   }
 
   if (md.assignments && typeof md.assignments === "object") {
@@ -99,12 +156,19 @@ export function getRbnOptionsForDate(y, m) {
   const allowThaler =
     y < RBN_THALER_LAST_MONTH.year ||
     (y === RBN_THALER_LAST_MONTH.year && m <= RBN_THALER_LAST_MONTH.month);
-  
-  if (allowThaler) {
-    return [...RBN_OPTIONS];
+  const allowHellmann =
+    y > RBN_HELLMANN_START.year ||
+    (y === RBN_HELLMANN_START.year && m >= RBN_HELLMANN_START.month);
+
+  const options = allowThaler
+    ? [...RBN_OPTIONS]
+    : RBN_OPTIONS.filter((opt) => opt !== "Fr. Thaler (RAD)");
+
+  if (allowHellmann && !options.includes(RBN_HELLMANN_OPTION)) {
+    options.push(RBN_HELLMANN_OPTION);
   }
-  
-  return RBN_OPTIONS.filter((opt) => opt !== "Fr. Thaler (RAD)");
+
+  return options;
 }
 
 export const MONTHS = [
@@ -234,6 +298,18 @@ export const EMP_META = {
     fte: 100,
     phone: "4006",
     tags: ["Radiologie", "Nuklearmedizin", "CT"],
+  },
+  "Dr. Hellmann": {
+    fullName: "Dr. Hellmann",
+    position: "OÄ",
+    posLabel: "Oberärztin",
+    type: "FÄ für Radiologie",
+    area: "50 % Radiologie & Nuklearmedizin · 50 % Neuroradiologie",
+    deputy: "",
+    since: 2026,
+    fte: 100,
+    phone: "",
+    tags: ["Radiologie", "Neuroradiologie", "50 % RAD / 50 % NRAD"],
   },
   "Dr. Martin": {
     fullName: "Dr. med. Arno Martin",
@@ -473,7 +549,13 @@ export const SPECIAL_RULES = {
   // Komplett dienstbefreite Personen (BD-Ziel 0).
   dutyExempt: ["Prof. Schäfer"],
   // Reduzierte Standard-BD-Ziele (sonst Default 4).
-  reducedBdTarget: { "Dr. Polednia": 3, "Dr. Becker": 3, "Hr. Sebastian": 3 },
+  reducedBdTarget: { "Dr. Polednia": 3, "Dr. Becker": 3, "Hr. Sebastian": 3, "Dr. Hellmann": 2 },
+  // Harte personenbezogene Monatsobergrenzen. Diese dürfen auch in Coverage-
+  // Eskalationen nicht überschritten werden.
+  maxBdTarget: { "Dr. Hellmann": 2 },
+  // Personenspezifische Untergrenzen überschreiben die globale Auto-Plan-
+  // Mindestverteilung (3). Für Dr. Hellmann ist nur die Obergrenze bindend.
+  minBdTarget: { "Dr. Hellmann": 0 },
   // Wochentage (0=So…6=Sa), an denen die Person keinen D leisten darf.
   noBdWeekdays: { "Dr. Polednia": [0, 2, 4] },
   // Wochentage, an denen die Person keinen HG übernehmen darf, WENN der
@@ -492,6 +574,14 @@ export const SPECIAL_RULES = {
   // Gegenseitiges Vertretungspaar (CT-Leitung): nie gleichzeitig abwesend/F
   // an Werktagen.
   ctLeadershipPairs: [["Dr. Becker", "Dr. Martin"]],
+  // Ab Oktober 2026 wird die bisherige Becker/Martin-Vertretung zu einem
+  // Dreierpool erweitert. Hellmann zählt für die CT-Präsenz nur dann als
+  // verfügbar, wenn sie nicht am Arbeitsplatz NRAD eingesetzt ist.
+  ctCoverageRule: {
+    start: { year: 2026, month: 9 },
+    members: ["Dr. Becker", "Dr. Martin", "Dr. Hellmann"],
+    unavailableWorkplaces: { "Dr. Hellmann": ["NRAD"] },
+  },
   // HG-Konfliktpaare: Person darf an den genannten Wochentagen keinen HG
   // übernehmen, wenn einer der conflictBd-Personen den BD desselben Tages hat.
   hgConflictRules: [
@@ -505,6 +595,30 @@ export const SPECIAL_RULES = {
 
 export function getReducedBdTarget(empName) {
   return SPECIAL_RULES.reducedBdTarget[empName];
+}
+
+export function getMaxBdTarget(empName) {
+  return SPECIAL_RULES.maxBdTarget?.[empName];
+}
+
+export function getMinBdTarget(empName) {
+  return SPECIAL_RULES.minBdTarget?.[empName];
+}
+
+function isAtOrAfterMonth(y, m, start) {
+  return y > start.year || (y === start.year && m >= start.month);
+}
+
+export function getCtCoverageMembersForDate(y, m) {
+  const rule = SPECIAL_RULES.ctCoverageRule;
+  if (rule && isAtOrAfterMonth(y, m, rule.start)) return [...rule.members];
+  return [...(SPECIAL_RULES.ctLeadershipPairs?.[0] || [])];
+}
+
+export function getCtUnavailableWorkplacesForEmployee(y, m, empName) {
+  const rule = SPECIAL_RULES.ctCoverageRule;
+  if (!rule || !isAtOrAfterMonth(y, m, rule.start)) return [];
+  return [...(rule.unavailableWorkplaces?.[empName] || [])];
 }
 
 export function isNoBdWeekday(empName, wd) {

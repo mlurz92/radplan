@@ -16,6 +16,7 @@ import {
   getSaxonyHolidaysCached,
   getEmpMeta,
   getReducedBdTarget,
+  getMaxBdTarget,
   SPECIAL_RULES,
   isFacharzt
 } from './constants.js';
@@ -267,6 +268,24 @@ export function dutyOwner(y, m, day, dt) {
   return md.employees.find((e) => md.assignments[e]?.[day]?.duty === dt) || null;
 }
 
+export function countEmployeeDuties(y, m, emp, dutyCode) {
+  const md = getMonthData(y, m);
+  const dim = daysInMonth(y, m);
+  let count = 0;
+  for (let d = 1; d <= dim; d++) {
+    if (md.assignments?.[emp]?.[d]?.duty === dutyCode) count++;
+  }
+  return count;
+}
+
+export function canAssignBdWithinHardLimit(y, m, emp, day) {
+  const max = getMaxBdTarget(emp);
+  if (max === undefined) return true;
+  const current = getCell(y, m, emp, day);
+  if (current.duty === "D") return true;
+  return countEmployeeDuties(y, m, emp, "D") < max;
+}
+
 // Vorschlag 26 (Natives Drag-and-Drop): einzige Quelle der Wahrheit dafür, ob
 // ein Dienst-Badge von (srcEmp, srcDay) nach (dstEmp, dstDay) verschoben
 // werden darf. Rein lesend (keine Mutation) – wird sowohl von
@@ -275,12 +294,15 @@ export function dutyOwner(y, m, day, dt) {
 // Live-Vorschau während des Ziehens (render-grid.js dragover-Handler, nutzt
 // nur `ok`) verwendet, damit beide garantiert dieselbe Regel prüfen und nicht
 // auseinanderdriften können.
-// @returns {{ok: boolean, reason: null|"occupied-different"|"occupied-same"|"owner-conflict", owner: string|null}}
+// @returns {{ok: boolean, reason: null|"occupied-different"|"occupied-same"|"owner-conflict"|"bd-hard-max", owner: string|null}}
 export function canMoveDutyBadge(y, m, srcEmp, srcDay, dstEmp, dstDay, dutyCode) {
   if (srcEmp === dstEmp && srcDay === dstDay) return { ok: true, reason: null, owner: null }; // No-op-Drop: harmlos.
   const dstCell = getCell(y, m, dstEmp, dstDay);
   if (dstCell.duty && dstCell.duty !== dutyCode) return { ok: false, reason: "occupied-different", owner: null };
   if (dstCell.duty === dutyCode) return { ok: false, reason: "occupied-same", owner: null };
+  if (dutyCode === "D" && srcEmp !== dstEmp && !canAssignBdWithinHardLimit(y, m, dstEmp, dstDay)) {
+    return { ok: false, reason: "bd-hard-max", owner: null };
+  }
   if (dstDay !== srcDay) {
     const owner = dutyOwner(y, m, dstDay, dutyCode);
     if (owner && owner !== dstEmp && owner !== srcEmp) return { ok: false, reason: "owner-conflict", owner };
@@ -918,6 +940,7 @@ export function ensurePlanSession(y, m) {
   }
   
   normalizeMonthDataShape(planSessions[key]);
+  reconcileEmployeesForMonth(planSessions[key], y, m);
   return planSessions[key];
 }
 

@@ -25,6 +25,13 @@ import {
   monthKey,
   dateKey,
   EMPLOYEE_DEPARTURES,
+  EMPLOYEE_ARRIVALS,
+  getRbnOptionsForDate,
+  getWorkplacesForEmployee,
+  getMaxBdTarget,
+  getMinBdTarget,
+  getCtCoverageMembersForDate,
+  getCtUnavailableWorkplacesForEmployee,
 } from "../js/constants.js";
 
 describe("Kalenderlogik", () => {
@@ -102,6 +109,64 @@ describe("Mitarbeiter-Stammdaten", () => {
     assert.equal(isEmployeeActiveInMonth("Dr. Martin", 2030, 0), true);
   });
 
+  test("Dr. Hellmann wird exakt ab September 2026 aktiv", () => {
+    const arrival = EMPLOYEE_ARRIVALS["Dr. Hellmann"];
+    assert.deepEqual(arrival, { year: 2026, month: 8, after: "Dr. Becker", reason: "Eintritt" });
+    assert.equal(isEmployeeActiveInMonth("Dr. Hellmann", 2026, 7), false);
+    assert.equal(isEmployeeActiveInMonth("Dr. Hellmann", 2026, 8), true);
+    assert.equal(isEmployeeActiveInMonth("Dr. Hellmann", 2027, 0), true);
+  });
+
+  test("reconcileEmployeesForMonth ergänzt Hellmann ab September direkt hinter Becker", () => {
+    const md = { employees: ["Prof. Schäfer", "Dr. Becker", "Dr. Martin"], assignments: {}, comments: {} };
+    assert.equal(reconcileEmployeesForMonth(md, 2026, 8), true);
+    assert.deepEqual(md.employees, ["Prof. Schäfer", "Dr. Becker", "Dr. Hellmann", "Dr. Martin"]);
+    assert.equal(reconcileEmployeesForMonth(md, 2026, 9), false);
+  });
+
+  test("reconcileEmployeesForMonth ergänzt Hellmann nicht in isolierte Daten ohne Becker-Anker", () => {
+    const md = { employees: ["Dr. A", "Dr. B"], assignments: {}, comments: {} };
+    assert.equal(reconcileEmployeesForMonth(md, 2026, 9), false);
+    assert.deepEqual(md.employees, ["Dr. A", "Dr. B"]);
+  });
+
+  test("reconcileEmployeesForMonth entfernt Hellmann vor ihrem Eintritt", () => {
+    const md = {
+      employees: ["Dr. Becker", "Dr. Hellmann", "Dr. Martin"],
+      assignments: { "Dr. Hellmann": { 1: { assignment: "NRAD" } } },
+      comments: { "Dr. Hellmann": { 1: "vor Eintritt" } },
+    };
+    assert.equal(reconcileEmployeesForMonth(md, 2026, 7), true);
+    assert.deepEqual(md.employees, ["Dr. Becker", "Dr. Martin"]);
+    assert.equal(md.assignments["Dr. Hellmann"], undefined);
+    assert.equal(md.comments["Dr. Hellmann"], undefined);
+  });
+
+  test("NRAD ist ausschließlich für Dr. Hellmann auswählbar", () => {
+    assert.equal(getWorkplacesForEmployee("Dr. Hellmann").some((w) => w.code === "NRAD"), true);
+    assert.equal(getWorkplacesForEmployee("Dr. Becker").some((w) => w.code === "NRAD"), false);
+    assert.equal(getWorkplacesForEmployee("Dr. Martin").some((w) => w.code === "NRAD"), false);
+  });
+
+  test("Dr. Hellmann wird ab September 2026 in den RD-Neurorad-Pool aufgenommen", () => {
+    assert.equal(getRbnOptionsForDate(2026, 7).includes("Dr. Hellmann (RAD/NRAD)"), false);
+    assert.equal(getRbnOptionsForDate(2026, 8).includes("Dr. Hellmann (RAD/NRAD)"), true);
+    assert.equal(getRbnOptionsForDate(2027, 0).includes("Dr. Hellmann (RAD/NRAD)"), true);
+  });
+
+  test("Hellmann hat harte BD-Obergrenze 2 und eine spezielle Untergrenze 0", () => {
+    assert.equal(getMaxBdTarget("Dr. Hellmann"), 2);
+    assert.equal(getMinBdTarget("Dr. Hellmann"), 0);
+    assert.equal(getMaxBdTarget("Dr. Martin"), undefined);
+  });
+
+  test("CT-Pool wird ab Oktober 2026 um Hellmann erweitert; NRAD macht sie CT-unverfügbar", () => {
+    assert.deepEqual(getCtCoverageMembersForDate(2026, 8), ["Dr. Becker", "Dr. Martin"]);
+    assert.deepEqual(getCtCoverageMembersForDate(2026, 9), ["Dr. Becker", "Dr. Martin", "Dr. Hellmann"]);
+    assert.deepEqual(getCtUnavailableWorkplacesForEmployee(2026, 8, "Dr. Hellmann"), []);
+    assert.deepEqual(getCtUnavailableWorkplacesForEmployee(2026, 9, "Dr. Hellmann"), ["NRAD"]);
+  });
+
   test("reconcileEmployeesForMonth entfernt ausgeschiedene Personen aus employees/assignments/comments", () => {
     const departure = EMPLOYEE_DEPARTURES["Fr. Thaler"];
     const md = {
@@ -171,6 +236,7 @@ describe("Sonderregeln (SPECIAL_RULES)", () => {
 describe("Diverse Helfer", () => {
   test("cellColor liefert Workplace-Farben und Fallback", () => {
     assert.deepEqual(cellColor("CT"), { bg: "#FFEDD5", fg: "#C2410C" });
+    assert.deepEqual(cellColor("NRAD"), { bg: "#E0F2FE", fg: "#0369A1" });
     assert.deepEqual(cellColor(""), { bg: "transparent", fg: "#374151" });
     assert.deepEqual(cellColor("XX"), { bg: "#F9FAFB", fg: "#374151" });
   });
