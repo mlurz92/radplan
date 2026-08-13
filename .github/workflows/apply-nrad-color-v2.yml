@@ -71,6 +71,7 @@ jobs:
           npm run lint
           npm run typecheck
           node --test test/constants.test.js
+          git config core.whitespace cr-at-eol
           git diff --check
 
       - name: Commit validated change
