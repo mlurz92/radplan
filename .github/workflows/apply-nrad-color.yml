@@ -30,24 +30,34 @@ jobs:
           from pathlib import Path
 
           constants = Path('js/constants.js')
-          text = constants.read_text()
-          old = '{ code: "NRAD", label: "Neuroradiologie", bg: "#E0F2FE", fg: "#0369A1" }'
-          new = '{ code: "NRAD", label: "Neuroradiologie", bg: "#D9F99D", fg: "#3F6212" }'
-          assert old in text, 'expected NRAD color definition not found'
-          constants.write_text(text.replace(old, new, 1))
+          data = constants.read_bytes()
+          old = b'{ code: "NRAD", label: "Neuroradiologie", bg: "#E0F2FE", fg: "#0369A1" }'
+          new = b'{ code: "NRAD", label: "Neuroradiologie", bg: "#D9F99D", fg: "#3F6212" }'
+          assert old in data, 'expected NRAD color definition not found'
+          constants.write_bytes(data.replace(old, new, 1))
 
           tests = Path('test/constants.test.js')
-          text = tests.read_text()
-          old_assert = 'assert.deepEqual(cellColor("NRAD"), { bg: "#E0F2FE", fg: "#0369A1" });'
-          new_assert = 'assert.deepEqual(cellColor("NRAD"), { bg: "#D9F99D", fg: "#3F6212" });'
-          assert old_assert in text, 'expected NRAD color assertion not found'
-          text = text.replace(old_assert, new_assert, 1)
+          data = tests.read_bytes()
+          old_assert = b'assert.deepEqual(cellColor("NRAD"), { bg: "#E0F2FE", fg: "#0369A1" });'
+          new_assert = b'assert.deepEqual(cellColor("NRAD"), { bg: "#D9F99D", fg: "#3F6212" });'
+          assert old_assert in data, 'expected NRAD color assertion not found'
+          data = data.replace(old_assert, new_assert, 1)
 
-          anchor = '''  test("empInitials nutzt Großbuchstaben von Vor-/Nachname, sonst Fallback", () => {'''
-          regression = '''  test("NRAD besitzt eine eigenständige Arbeitsplatz-Farbkombination", () => {\n    const nrad = cellColor("NRAD");\n    for (const code of ["MR", "CT", "US", "AN", "MA", "KUS", "W", "T"]) {\n      assert.notDeepEqual(nrad, cellColor(code), `NRAD darf nicht dieselbe Farbkombination wie ${code} verwenden`);\n    }\n  });\n\n'''
-          assert anchor in text, 'test insertion anchor not found'
-          text = text.replace(anchor, regression + anchor, 1)
-          tests.write_text(text)
+          nl = b'\r\n' if b'\r\n' in data else b'\n'
+          anchor = b'  test("empInitials nutzt Gro\xc3\x9fbuchstaben von Vor-/Nachname, sonst Fallback", () => {'
+          regression_lines = [
+              '  test("NRAD besitzt eine eigenständige Arbeitsplatz-Farbkombination", () => {',
+              '    const nrad = cellColor("NRAD");',
+              '    for (const code of ["MR", "CT", "US", "AN", "MA", "KUS", "W", "T"]) {',
+              '      assert.notDeepEqual(nrad, cellColor(code), `NRAD darf nicht dieselbe Farbkombination wie ${code} verwenden`);',
+              '    }',
+              '  });',
+              '',
+          ]
+          regression = nl.join(line.encode('utf-8') for line in regression_lines)
+          assert anchor in data, 'test insertion anchor not found'
+          data = data.replace(anchor, regression + anchor, 1)
+          tests.write_bytes(data)
           PY
 
       - name: Remove temporary workflow
