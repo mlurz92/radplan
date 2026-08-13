@@ -1,0 +1,72 @@
+name: Apply NRAD workplace color
+
+on:
+  push:
+    branches:
+      - agent/distinct-nrad-workplace-color
+
+permissions:
+  contents: write
+
+jobs:
+  update-validate-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/distinct-nrad-workplace-color
+          fetch-depth: 0
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Apply NRAD color update
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          constants = Path('js/constants.js')
+          text = constants.read_text()
+          old = '{ code: "NRAD", label: "Neuroradiologie", bg: "#E0F2FE", fg: "#0369A1" }'
+          new = '{ code: "NRAD", label: "Neuroradiologie", bg: "#D9F99D", fg: "#3F6212" }'
+          assert old in text, 'expected NRAD color definition not found'
+          constants.write_text(text.replace(old, new, 1))
+
+          tests = Path('test/constants.test.js')
+          text = tests.read_text()
+          old_assert = 'assert.deepEqual(cellColor("NRAD"), { bg: "#E0F2FE", fg: "#0369A1" });'
+          new_assert = 'assert.deepEqual(cellColor("NRAD"), { bg: "#D9F99D", fg: "#3F6212" });'
+          assert old_assert in text, 'expected NRAD color assertion not found'
+          text = text.replace(old_assert, new_assert, 1)
+
+          anchor = '''  test("empInitials nutzt Großbuchstaben von Vor-/Nachname, sonst Fallback", () => {'''
+          regression = '''  test("NRAD besitzt eine eigenständige Arbeitsplatz-Farbkombination", () => {\n    const nrad = cellColor("NRAD");\n    for (const code of ["MR", "CT", "US", "AN", "MA", "KUS", "W", "T"]) {\n      assert.notDeepEqual(nrad, cellColor(code), `NRAD darf nicht dieselbe Farbkombination wie ${code} verwenden`);\n    }\n  });\n\n'''
+          assert anchor in text, 'test insertion anchor not found'
+          text = text.replace(anchor, regression + anchor, 1)
+          tests.write_text(text)
+          PY
+
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/apply-nrad-color.yml
+
+      - name: Install development dependencies
+        run: npm ci
+
+      - name: Validate change
+        run: |
+          npm run lint
+          npm run typecheck
+          node --test test/constants.test.js
+          git diff --check
+
+      - name: Commit validated change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Give NRAD a distinct workplace color"
+          git push origin HEAD:agent/distinct-nrad-workplace-color
