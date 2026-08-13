@@ -7,7 +7,7 @@ export const WORKPLACES = [
   { code: "KUS", label: "Kinder-US", bg: "#DCFCE7", fg: "#15803D" },
   { code: "W", label: "Wermsdorf", bg: "#FEF9C3", fg: "#854D0E" },
   { code: "T", label: "Teleradiologie", bg: "#E0E7FF", fg: "#3730A3" },
-  { code: "NRAD", label: "Neuroradiologie", bg: "#E0F2FE", fg: "#0369A1" },
+  { code: "NRAD", label: "Neuroradiologie", bg: "#D9F99D", fg: "#3F6212" },
 ];
 
 export const SPECIAL_WORKPLACE_ACCESS = {
