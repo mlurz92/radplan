@@ -4,34 +4,27 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="RadPlan — Digitaler Dienstplan für die Klinik für Radiologie & Nuklearmedizin">
-  <meta name="theme-color" content="#0B1929" id="meta-theme-color">
+  <meta name="theme-color" content="#F4F1EA" id="meta-theme-color">
   <script>
     (function () {
+      var theme = 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      document.documentElement.style.backgroundColor = '#F4F1EA';
+      try { localStorage.setItem('radplan_v3_theme', theme); } catch (e) {}
       try {
-        var saved = localStorage.getItem('radplan_v3_theme');
-        var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        var theme = saved === 'light' || saved === 'dark' ? saved : (systemDark ? 'dark' : 'light');
-        document.documentElement.setAttribute('data-theme', theme);
-        // Vorschlag 8: Synchrones Setzen der Hintergrundfarbe zur Vermeidung von FOUC (Flash of Unstyled Content)
-        document.documentElement.style.backgroundColor = theme === 'dark' ? '#0B131F' : '#F4F1EA';
         if (localStorage.getItem('radplan_v3_colorblind') === '1') {
           document.documentElement.setAttribute('data-cb', '1');
         }
-        window.addEventListener('DOMContentLoaded', function() {
-          var favicon = document.querySelector('link[rel="icon"]');
-          if (favicon) {
-            favicon.setAttribute('href', 'img/icon.svg?v=' + Date.now() + '&theme=' + theme);
-          }
-        });
-      } catch (e) {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        document.documentElement.style.backgroundColor = '#0B131F';
-      }
+      } catch (e) {}
+      window.addEventListener('DOMContentLoaded', function() {
+        var favicon = document.querySelector('link[rel="icon"]');
+        if (favicon) favicon.setAttribute('href', 'img/icon.svg?v=grid-light-20260813');
+      });
     })();
   </script>
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="RadPlan">
   <title>RadPlan — Klinik für Radiologie & Nuklearmedizin</title>
   <link rel="icon" type="image/svg+xml" href="img/icon.svg">

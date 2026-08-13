@@ -48,17 +48,8 @@ export function toggleTheme(originEvent) {
 }
 
 export function initTheme() {
-  applyTheme(getTheme());
-  let explicitPreference = false;
-  try { explicitPreference = localStorage.getItem(THEME_STORAGE_KEY) !== null; } catch {}
-  if (!explicitPreference && window.matchMedia) {
-    const mq = window.matchMedia("(prefers-color-scheme: light)");
-    mq.addEventListener?.("change", (e) => {
-      let stillExplicit = false;
-      try { stillExplicit = localStorage.getItem(THEME_STORAGE_KEY) !== null; } catch {}
-      if (!stillExplicit) setTheme(e.matches ? "light" : "dark", false);
-    });
-  }
+  applyTheme("light");
+  try { localStorage.setItem(THEME_STORAGE_KEY, "light"); } catch {}
 }
 
 const DENSITY_STORAGE_KEY = "radplan_v3_density";
