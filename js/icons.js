@@ -31,78 +31,41 @@ export const ICON_PATHS = {
   pin: '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
   star: '<path d="M11.5 3.2a.5.5 0 0 1 .9 0l2.2 4.6 5 .7a.5.5 0 0 1 .3.9l-3.6 3.5.9 5a.5.5 0 0 1-.8.5L12 16.6 7.4 19a.5.5 0 0 1-.8-.5l.9-5L3.9 9.9a.5.5 0 0 1 .3-.9l5-.7z"/>',
 };
-export const ANIMATED_BRAND_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" class="radplan-brand-icon" viewBox="0 0 512 512" width="100%" height="100%" role="img" aria-label="RadPlan Planungsrad animiert">
-<defs>
-  <style>
-    .arc{fill:none;stroke-linecap:round;animation-duration:5.4s;animation-iteration-count:infinite;animation-timing-function:cubic-bezier(.4,0,.2,1)}
-    .arc-a{animation-name:arcA}.arc-b{animation-name:arcB}.arc-c{animation-name:arcC}
-    .node{transform-box:fill-box;transform-origin:center;animation-duration:5.4s;animation-iteration-count:infinite;animation-timing-function:cubic-bezier(.34,1.2,.64,1)}
-    .node-a{animation-name:nodeA}.node-b{animation-name:nodeB}.node-c{animation-name:nodeC}
-    .hub{transform-box:fill-box;transform-origin:center;animation:hubPulse 5.4s ease-in-out infinite}
-    .sweep{transform-origin:256px 256px;animation:sweep 5.4s linear infinite}
-    .halo{animation:halo 5.4s ease-in-out infinite}
-    @keyframes arcA{0%,6%,100%{opacity:.72;stroke-width:30}14%,27%{opacity:1;stroke-width:38}36%{opacity:.72;stroke-width:30}}
-    @keyframes arcB{0%,30%,100%{opacity:.72;stroke-width:30}39%,52%{opacity:1;stroke-width:38}61%{opacity:.72;stroke-width:30}}
-    @keyframes arcC{0%,55%,100%{opacity:.72;stroke-width:30}64%,77%{opacity:1;stroke-width:38}86%{opacity:.72;stroke-width:30}}
-    @keyframes nodeA{0%,6%,100%{transform:scale(1)}18%{transform:scale(1.18)}31%{transform:scale(1)}}
-    @keyframes nodeB{0%,31%,100%{transform:scale(1)}43%{transform:scale(1.18)}56%{transform:scale(1)}}
-    @keyframes nodeC{0%,56%,100%{transform:scale(1)}68%{transform:scale(1.18)}81%{transform:scale(1)}}
-    @keyframes hubPulse{0%,100%{transform:scale(1)}45%{transform:scale(1.035)}72%{transform:scale(.985)}}
-    @keyframes sweep{0%{transform:rotate(0deg);opacity:.08}20%{opacity:.20}80%{opacity:.20}100%{transform:rotate(360deg);opacity:.08}}
-    @keyframes halo{0%,100%{opacity:.65}50%{opacity:1}}
-    @media (prefers-reduced-motion:reduce){.arc,.node,.hub,.sweep,.halo{animation:none!important;transform:none!important}}
-  </style>
-  <linearGradient id="bg" x1="70" y1="46" x2="446" y2="470" gradientUnits="userSpaceOnUse">
-    <stop offset="0" stop-color="#18283F"/>
-    <stop offset=".52" stop-color="#111C2E"/>
-    <stop offset="1" stop-color="#0B131F"/>
-  </linearGradient>
-  <linearGradient id="hubGrad" x1="214" y1="210" x2="306" y2="308" gradientUnits="userSpaceOnUse">
-    <stop offset="0" stop-color="#38BDF8"/>
-    <stop offset=".52" stop-color="#0EA5E9"/>
-    <stop offset="1" stop-color="#6366F1"/>
-  </linearGradient>
-  <radialGradient id="aura" cx="0" cy="0" r="1" gradientTransform="translate(256 246) rotate(90) scale(214)" gradientUnits="userSpaceOnUse">
-    <stop offset="0" stop-color="#0EA5E9" stop-opacity=".18"/>
-    <stop offset=".66" stop-color="#6366F1" stop-opacity=".055"/>
-    <stop offset="1" stop-color="#6366F1" stop-opacity="0"/>
-  </radialGradient>
-  <filter id="shadow" x="40" y="40" width="432" height="432" color-interpolation-filters="sRGB">
-    <feDropShadow dx="0" dy="12" stdDeviation="15" flood-color="#000" flood-opacity=".34"/>
-  </filter>
-</defs>
-
-<rect x="1.5" y="1.5" width="509" height="509" rx="110.5" fill="url(#bg)" stroke="#FFFFFF" stroke-opacity=".10" stroke-width="3"/>
-<rect x="7" y="7" width="498" height="498" rx="105" fill="none" stroke="#FFFFFF" stroke-opacity=".055" stroke-width="2"/>
-<circle cx="256" cy="246" r="214" fill="url(#aura)"/>
-
-<g filter="url(#shadow)">
-  <circle cx="256" cy="256" r="142" fill="#101B2C" stroke="#D9E7F5" stroke-opacity=".92" stroke-width="20"/>
-  <circle cx="256" cy="256" r="112" fill="#0B131F" stroke="#FFFFFF" stroke-opacity=".08" stroke-width="3"/>
-</g>
-
-<path class="sweep" d="M256 256 L256 148 A108 108 0 0 1 349.53 202 Z" fill="#67D4FF" opacity=".13"/>
-
-<path class="arc arc-a" d="M113.53 166.97 A168 168 0 0 1 345.03 113.53" stroke="#0EA5E9" stroke-width="30"/>
-<path class="arc arc-b" d="M404.34 177.13 A168 168 0 0 1 334.87 404.34" stroke="#6366F1" stroke-width="30"/>
-<path class="arc arc-c" d="M250.14 423.90 A168 168 0 0 1 88.10 250.14" stroke="#F97316" stroke-width="30"/>
-
-<g stroke="#DCE8F5" stroke-opacity=".42" stroke-width="12" stroke-linecap="round">
-  <path d="M256 256 L232.61 154.67"/>
-  <path d="M256 256 L355.46 286.41"/>
-  <path d="M256 256 L179.94 326.93"/>
-</g>
-
-<g class="node node-a"><circle cx="232.61" cy="154.67" r="23" fill="#0EA5E9" stroke="#E0F2FE" stroke-width="6"/></g>
-<g class="node node-b"><circle cx="355.46" cy="286.41" r="23" fill="#6366F1" stroke="#EEF2FF" stroke-width="6"/></g>
-<g class="node node-c"><circle cx="179.94" cy="326.93" r="23" fill="#F97316" stroke="#FFF7ED" stroke-width="6"/></g>
-
-<circle class="halo" cx="256" cy="256" r="64" fill="none" stroke="#67D4FF" stroke-opacity=".18" stroke-width="5"/>
-<g class="hub">
-  <circle cx="256" cy="256" r="53" fill="url(#hubGrad)" stroke="#E0F2FE" stroke-opacity=".92" stroke-width="7"/>
-  <circle cx="256" cy="256" r="20" fill="#0B131F"/>
-  <circle cx="249" cy="249" r="6" fill="#FFFFFF" fill-opacity=".78"/>
-</g>
+export const ANIMATED_BRAND_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" class="radplan-brand-icon" viewBox="0 0 512 512" width="100%" height="100%" role="img" aria-label="RadPlan Farbraster animiert">
+  <defs>
+    <style>
+      .tile{transform-box:fill-box;transform-origin:center;animation:tile 5.4s cubic-bezier(.34,1.18,.64,1) infinite}
+      .t1{animation-delay:0s}.t2{animation-delay:.12s}.t3{animation-delay:.24s}.t4{animation-delay:.36s}.t5{animation-delay:.48s}.t6{animation-delay:.60s}.t7{animation-delay:.72s}.t8{animation-delay:.84s}.t9{animation-delay:.96s}
+      .grid-shell{animation:shell 5.4s ease-in-out infinite}
+      @keyframes tile{0%,8%{transform:scale(.78);opacity:.52}16%,76%{transform:scale(1);opacity:1}88%,100%{transform:scale(.92);opacity:.82}}
+      @keyframes shell{0%,100%{transform:scale(1)}48%{transform:scale(1.018)}72%{transform:scale(1)}}
+      @media (prefers-reduced-motion:reduce){.tile,.grid-shell{animation:none!important;transform:none!important;opacity:1!important}}
+    </style>
+    <linearGradient id="bg" x1="52" y1="28" x2="460" y2="486" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.55" stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#EDE7DC"/>
+    </linearGradient>
+    <filter id="shadow" x="46" y="48" width="420" height="420" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#334155" flood-opacity=".15"/>
+    </filter>
+  </defs>
+  <rect x="12" y="12" width="488" height="488" rx="110" fill="url(#bg)" stroke="#CBD5E1" stroke-width="8"/>
+  <rect x="26" y="26" width="460" height="460" rx="96" fill="none" stroke="#FFFFFF" stroke-opacity=".95" stroke-width="4"/>
+  <g class="grid-shell">
+    <rect x="72" y="72" width="368" height="368" rx="64" fill="#FFFFFF" stroke="#D8DEE8" stroke-width="5" filter="url(#shadow)"/>
+    <g stroke="#FFFFFF" stroke-width="8">
+      <rect class="tile t1" x="96" y="96" width="96" height="96" rx="22" fill="#0EA5E9"/>
+      <rect class="tile t2" x="208" y="96" width="96" height="96" rx="22" fill="#6366F1"/>
+      <rect class="tile t3" x="320" y="96" width="96" height="96" rx="22" fill="#F97316"/>
+      <rect class="tile t4" x="96" y="208" width="96" height="96" rx="22" fill="#14B8A6"/>
+      <rect class="tile t5" x="208" y="208" width="96" height="96" rx="22" fill="#EC4899"/>
+      <rect class="tile t6" x="320" y="208" width="96" height="96" rx="22" fill="#EAB308"/>
+      <rect class="tile t7" x="96" y="320" width="96" height="96" rx="22" fill="#22C55E"/>
+      <rect class="tile t8" x="208" y="320" width="96" height="96" rx="22" fill="#8B5CF6"/>
+      <rect class="tile t9" x="320" y="320" width="96" height="96" rx="22" fill="#38BDF8"/>
+    </g>
+  </g>
 </svg>`;
 
 export function icon(name, opts = {}) {

@@ -8,21 +8,21 @@
   "start_url": ".",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0B131F",
-  "theme_color": "#111C2E",
+  "background_color": "#F4F1EA",
+  "theme_color": "#F4F1EA",
   "categories": [
     "medical",
     "productivity"
   ],
   "icons": [
     {
-      "src": "img/icon_pwa.svg",
+      "src": "img/icon_grid_pwa.svg",
       "type": "image/svg+xml",
       "sizes": "any",
       "purpose": "any"
     },
     {
-      "src": "img/icon_pwa_maskable.svg",
+      "src": "img/icon_grid_pwa_maskable.svg",
       "type": "image/svg+xml",
       "sizes": "any",
       "purpose": "maskable"
