@@ -25,10 +25,12 @@ jobs:
           cache: npm
 
       - name: Apply Hellmann update
-        run: node scripts/apply-hellmann-update.mjs
+        run: |
+          node scripts/apply-hellmann-update.mjs
+          node scripts/apply-hellmann-followup.mjs
 
       - name: Remove temporary migration files
-        run: rm -f scripts/apply-hellmann-update.mjs .github/workflows/apply-hellmann-update.yml
+        run: rm -f scripts/apply-hellmann-update.mjs scripts/apply-hellmann-followup.mjs .github/workflows/apply-hellmann-update.yml
 
       - name: Install development dependencies
         run: npm ci
