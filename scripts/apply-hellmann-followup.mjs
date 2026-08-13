@@ -16,6 +16,19 @@ function replaceOnce(text, search, replacement, label) {
 }
 
 {
+  const path = "js/constants.js";
+  const { text: raw, eol } = readFile(path);
+  let text = raw;
+  text = replaceOnce(
+    text,
+    '      const currentIndex = md.employees.indexOf(name);\n      const anchorIndex = arrival.after ? md.employees.indexOf(arrival.after) : -1;\n      const targetIndex = anchorIndex >= 0 ? anchorIndex + 1 : md.employees.length;\n\n      if (currentIndex < 0) {\n        md.employees.splice(targetIndex, 0, name);\n        changed = true;\n        return;\n      }',
+    '      const currentIndex = md.employees.indexOf(name);\n      const anchorIndex = arrival.after ? md.employees.indexOf(arrival.after) : -1;\n\n      // Automatische Eintritte nur in echte bestehende Roster-Strukturen\n      // migrieren. Fehlt der konfigurierte Anker (hier Dr. Becker), handelt\n      // es sich z. B. um isolierte Analyse-/Importdaten; diese dürfen nicht\n      // stillschweigend um zusätzliche Personen erweitert werden.\n      if (currentIndex < 0 && arrival.after && anchorIndex < 0) return;\n\n      const targetIndex = anchorIndex >= 0 ? anchorIndex + 1 : md.employees.length;\n      if (currentIndex < 0) {\n        md.employees.splice(targetIndex, 0, name);\n        changed = true;\n        return;\n      }',
+    "Hellmann-Migration nur bei vorhandenem Becker-Anker"
+  );
+  writeFile(path, text, eol);
+}
+
+{
   const path = "js/editor.js";
   const { text: raw, eol } = readFile(path);
   let text = raw;
@@ -80,6 +93,19 @@ function replaceOnce(text, search, replacement, label) {
     '  const members = getCtCoverageMembersForDate(next.y, next.m);\n  if (!members.includes(emp)) return false;\n\n  // Der neue BD erzeugt für emp am Folgetag einen Ruhetag. Zulässig ist er\n  // daher nur, wenn mindestens ein anderes Poolmitglied an diesem Werktag\n  // für die CT-Vertretung verfügbar bleibt. Ab Oktober zählt Hellmann bei\n  // NRAD-Einsatz ausdrücklich NICHT als CT-verfügbar.\n  return !members.some((member) =>\n    member !== emp && isCTCoverageMemberAvailable(next.y, next.m, member, next.d, assignments)\n  );',
     '  const members = getCtCoverageMembersForDate(next.y, next.m);\n  if (!members.includes(emp)) return false;\n  const nextAssignments = next.y === y && next.m === m\n    ? assignments\n    : (DATA[monthKey(next.y, next.m)]?.assignments || {});\n\n  // Der neue BD erzeugt für emp am Folgetag einen Ruhetag. Zulässig ist er\n  // daher nur, wenn mindestens ein anderes Poolmitglied an diesem Werktag\n  // für die CT-Vertretung verfügbar bleibt. Ab Oktober zählt Hellmann bei\n  // NRAD-Einsatz ausdrücklich NICHT als CT-verfügbar.\n  return !members.some((member) =>\n    member !== emp && isCTCoverageMemberAvailable(next.y, next.m, member, next.d, nextAssignments)\n  );',
     "CT-Konflikt monatsübergreifend korrekt lesen"
+  );
+  writeFile(path, text, eol);
+}
+
+{
+  const path = "test/constants.test.js";
+  const { text: raw, eol } = readFile(path);
+  let text = raw;
+  text = replaceOnce(
+    text,
+    '  test("reconcileEmployeesForMonth entfernt Hellmann vor ihrem Eintritt", () => {',
+    '  test("reconcileEmployeesForMonth ergänzt Hellmann nicht in isolierte Daten ohne Becker-Anker", () => {\n    const md = { employees: ["Dr. A", "Dr. B"], assignments: {}, comments: {} };\n    assert.equal(reconcileEmployeesForMonth(md, 2026, 9), false);\n    assert.deepEqual(md.employees, ["Dr. A", "Dr. B"]);\n  });\n\n  test("reconcileEmployeesForMonth entfernt Hellmann vor ihrem Eintritt", () => {',
+    "Regressionstest isolierte Roster"
   );
   writeFile(path, text, eol);
 }
