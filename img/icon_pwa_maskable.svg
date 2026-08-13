@@ -1,1 +1,51 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%" role="img" aria-label="RadPlan Arbeitsplatzkalender maskable"><defs><linearGradient id="bg" x1="72" y1="44" x2="446" y2="478" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#FFFDF8"/><stop offset="1" stop-color="#EDE4D5"/></linearGradient><linearGradient id="head" x1="88" y1="86" x2="424" y2="166" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0EA5E9"/><stop offset="1" stop-color="#6366F1"/></linearGradient><linearGradient id="ring" x1="0" y1="60" x2="0" y2="122" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#F8FAFC"/><stop offset="1" stop-color="#94A3B8"/></linearGradient><filter id="shadow" x="74" y="72" width="364" height="366" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#0F172A" flood-opacity=".16"/></filter><clipPath id="clip"><rect x="88" y="86" width="336" height="340" rx="40"/></clipPath></defs><rect width="512" height="512" fill="url(#bg)"/><circle cx="256" cy="256" r="238" fill="#FFFFFF" fill-opacity=".28"/><circle cx="256" cy="256" r="224" fill="none" stroke="#FFFFFF" stroke-opacity=".50" stroke-width="4"/><rect x="88" y="86" width="336" height="340" rx="40" fill="#FFFFFF" stroke="#334155" stroke-width="5" filter="url(#shadow)"/><g clip-path="url(#clip)"><rect x="88" y="86" width="336" height="82" fill="url(#head)"/><path d="M106 104h300" stroke="#FFFFFF" stroke-opacity=".68" stroke-width="3" stroke-linecap="round"/></g><rect x="160" y="60" width="30" height="62" rx="15" fill="url(#ring)" stroke="#475569" stroke-width="3"/><rect x="322" y="60" width="30" height="62" rx="15" fill="url(#ring)" stroke="#475569" stroke-width="3"/><g opacity=".76"><circle cx="144" cy="136" r="7" fill="#E0F2FE"/><circle cx="181" cy="136" r="7" fill="#E0F2FE" opacity=".76"/><circle cx="218" cy="136" r="7" fill="#E0F2FE" opacity=".52"/></g><rect x="122" y="192" width="268" height="56" rx="16" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="2"/><rect x="122" y="258" width="268" height="56" rx="16" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="2"/><rect x="122" y="324" width="268" height="56" rx="16" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="2"/><g stroke="#CBD5E1" stroke-width="3" stroke-linecap="round" opacity=".78"><path d="M188 186v200"/><path d="M256 186v200"/><path d="M324 186v200"/></g><rect x="136" y="204" width="110" height="32" rx="10" fill="#0EA5E9"/><rect x="270" y="204" width="96" height="32" rx="10" fill="#6366F1"/><rect x="204" y="270" width="142" height="32" rx="10" fill="#F97316"/><rect x="136" y="336" width="112" height="32" rx="10" fill="#22C55E"/><rect x="274" y="336" width="92" height="32" rx="10" fill="#38BDF8"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%" role="img" aria-label="RadPlan Planungsrad maskable">
+<defs>
+  <linearGradient id="bg" x1="70" y1="46" x2="446" y2="470" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#18283F"/>
+    <stop offset=".52" stop-color="#111C2E"/>
+    <stop offset="1" stop-color="#0B131F"/>
+  </linearGradient>
+  <linearGradient id="hub" x1="214" y1="210" x2="306" y2="308" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#38BDF8"/>
+    <stop offset=".52" stop-color="#0EA5E9"/>
+    <stop offset="1" stop-color="#6366F1"/>
+  </linearGradient>
+  <radialGradient id="aura" cx="0" cy="0" r="1" gradientTransform="translate(256 246) rotate(90) scale(214)" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#0EA5E9" stop-opacity=".18"/>
+    <stop offset=".66" stop-color="#6366F1" stop-opacity=".055"/>
+    <stop offset="1" stop-color="#6366F1" stop-opacity="0"/>
+  </radialGradient>
+  <filter id="shadow" x="40" y="40" width="432" height="432" color-interpolation-filters="sRGB">
+    <feDropShadow dx="0" dy="12" stdDeviation="15" flood-color="#000" flood-opacity=".34"/>
+  </filter>
+</defs>
+
+<rect width="512" height="512" fill="url(#bg)"/>
+<circle cx="256" cy="256" r="238" fill="none" stroke="#FFFFFF" stroke-opacity=".055" stroke-width="4"/>
+<circle cx="256" cy="246" r="214" fill="url(#aura)"/>
+
+<g filter="url(#shadow)">
+  <circle cx="256" cy="256" r="142" fill="#101B2C" stroke="#D9E7F5" stroke-opacity=".92" stroke-width="20"/>
+  <circle cx="256" cy="256" r="112" fill="#0B131F" stroke="#FFFFFF" stroke-opacity=".08" stroke-width="3"/>
+</g>
+
+<path d="M113.53 166.97 A168 168 0 0 1 345.03 113.53" fill="none" stroke="#0EA5E9" stroke-width="32" stroke-linecap="round"/>
+<path d="M404.34 177.13 A168 168 0 0 1 334.87 404.34" fill="none" stroke="#6366F1" stroke-width="32" stroke-linecap="round"/>
+<path d="M250.14 423.90 A168 168 0 0 1 88.10 250.14" fill="none" stroke="#F97316" stroke-width="32" stroke-linecap="round"/>
+
+<g stroke="#DCE8F5" stroke-opacity=".42" stroke-width="12" stroke-linecap="round">
+  <path d="M256 256 L232.61 154.67"/>
+  <path d="M256 256 L355.46 286.41"/>
+  <path d="M256 256 L179.94 326.93"/>
+</g>
+
+<g>
+  <circle cx="232.61" cy="154.67" r="23" fill="#0EA5E9" stroke="#E0F2FE" stroke-width="6"/>
+  <circle cx="355.46" cy="286.41" r="23" fill="#6366F1" stroke="#EEF2FF" stroke-width="6"/>
+  <circle cx="179.94" cy="326.93" r="23" fill="#F97316" stroke="#FFF7ED" stroke-width="6"/>
+</g>
+
+<circle cx="256" cy="256" r="53" fill="url(#hub)" stroke="#E0F2FE" stroke-opacity=".92" stroke-width="7"/>
+<circle cx="256" cy="256" r="20" fill="#0B131F"/>
+<circle cx="249" cy="249" r="6" fill="#FFFFFF" fill-opacity=".78"/>
+</svg>
