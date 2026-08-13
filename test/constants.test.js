@@ -236,11 +236,17 @@ describe("Sonderregeln (SPECIAL_RULES)", () => {
 describe("Diverse Helfer", () => {
   test("cellColor liefert Workplace-Farben und Fallback", () => {
     assert.deepEqual(cellColor("CT"), { bg: "#FFEDD5", fg: "#C2410C" });
-    assert.deepEqual(cellColor("NRAD"), { bg: "#E0F2FE", fg: "#0369A1" });
+    assert.deepEqual(cellColor("NRAD"), { bg: "#D9F99D", fg: "#3F6212" });
     assert.deepEqual(cellColor(""), { bg: "transparent", fg: "#374151" });
     assert.deepEqual(cellColor("XX"), { bg: "#F9FAFB", fg: "#374151" });
   });
 
+  test("NRAD besitzt eine eigenständige Arbeitsplatz-Farbkombination", () => {
+    const nrad = cellColor("NRAD");
+    for (const code of ["MR", "CT", "US", "AN", "MA", "KUS", "W", "T"]) {
+      assert.notDeepEqual(nrad, cellColor(code), `NRAD darf nicht dieselbe Farbkombination wie ${code} verwenden`);
+    }
+  });
   test("empInitials nutzt Großbuchstaben von Vor-/Nachname, sonst Fallback", () => {
     assert.equal(empInitials("Dr. Martin"), "DM");
     assert.equal(empInitials("madeup"), "MA");
