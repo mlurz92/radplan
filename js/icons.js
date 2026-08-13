@@ -31,7 +31,79 @@ export const ICON_PATHS = {
   pin: '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
   star: '<path d="M11.5 3.2a.5.5 0 0 1 .9 0l2.2 4.6 5 .7a.5.5 0 0 1 .3.9l-3.6 3.5.9 5a.5.5 0 0 1-.8.5L12 16.6 7.4 19a.5.5 0 0 1-.8-.5l.9-5L3.9 9.9a.5.5 0 0 1 .3-.9l5-.7z"/>',
 };
-export const ANIMATED_BRAND_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" class="radplan-brand-icon" viewBox="0 0 512 512" width="100%" height="100%" role="img" aria-label="RadPlan Arbeitsplatzkalender animiert"><defs><style>:root {--canvas-top:#18283F;--canvas-mid:#111C2E;--canvas-bot:#0B131F;--canvas-border:rgba(255,255,255,.10);--canvas-inner:rgba(255,255,255,.045);--panel:#111C2E;--panel-border:rgba(255,255,255,.14);--row:rgba(255,255,255,.055);--row-border:rgba(255,255,255,.075);--grid:rgba(255,255,255,.10);--binder-top:#E2E8F0;--binder-bot:#64748B;--binder-stroke:#0F172A;--shine:rgba(255,255,255,.12);--shadow:rgba(0,0,0,.38);}html[data-theme="light"] .radplan-brand-icon {--canvas-top:#E2DCCC;--canvas-mid:#ECE7DC;--canvas-bot:#F4F1EA;--canvas-border:rgba(15,23,42,.14);--canvas-inner:rgba(15,23,42,.055);--panel:#FFFFFF;--panel-border:rgba(15,23,42,.15);--row:rgba(15,23,42,.045);--row-border:rgba(15,23,42,.065);--grid:rgba(15,23,42,.11);--binder-top:#F8FAFC;--binder-bot:#94A3B8;--binder-stroke:#475569;--shine:rgba(255,255,255,.72);--shadow:rgba(15,23,42,.16);}html[data-theme="dark"] .radplan-brand-icon {--canvas-top:#18283F;--canvas-mid:#111C2E;--canvas-bot:#0B131F;--canvas-border:rgba(255,255,255,.10);--canvas-inner:rgba(255,255,255,.045);--panel:#111C2E;--panel-border:rgba(255,255,255,.14);--row:rgba(255,255,255,.055);--row-border:rgba(255,255,255,.075);--grid:rgba(255,255,255,.10);--binder-top:#E2E8F0;--binder-bot:#64748B;--binder-stroke:#0F172A;--shine:rgba(255,255,255,.12);--shadow:rgba(0,0,0,.38);}@media (prefers-color-scheme: light) {:root {--canvas-top:#E2DCCC;--canvas-mid:#ECE7DC;--canvas-bot:#F4F1EA;--canvas-border:rgba(15,23,42,.14);--canvas-inner:rgba(15,23,42,.055);--panel:#FFFFFF;--panel-border:rgba(15,23,42,.15);--row:rgba(15,23,42,.045);--row-border:rgba(15,23,42,.065);--grid:rgba(15,23,42,.11);--binder-top:#F8FAFC;--binder-bot:#94A3B8;--binder-stroke:#475569;--shine:rgba(255,255,255,.72);--shadow:rgba(15,23,42,.16);}}.canvas{fill:url(#canvasGrad);stroke:var(--canvas-border);stroke-width:3}.canvas-inner{fill:none;stroke:var(--canvas-inner);stroke-width:2}.panel{fill:var(--panel);stroke:var(--panel-border);stroke-width:3;filter:url(#panelShadow)}.row{fill:var(--row);stroke:var(--row-border);stroke-width:1.5}.gridline{stroke:var(--grid);stroke-width:3;stroke-linecap:round}.binder{fill:url(#binderGrad);stroke:var(--binder-stroke);stroke-width:2}.slot{transform-box:fill-box;transform-origin:center;animation-duration:5.4s;animation-iteration-count:infinite;animation-timing-function:cubic-bezier(.34,1.18,.64,1)}.slot-a{animation-name:placeA}.slot-b{animation-name:placeB}.slot-c{animation-name:placeC}.slot-d{animation-name:placeD}.slot-e{animation-name:placeE}.today-scan{animation:scan 5.4s cubic-bezier(.4,0,.2,1) infinite;transform-origin:256px 280px}.today-dot{animation:dotPulse 5.4s ease-in-out infinite}.panel-ring{animation:ringPulse 5.4s ease-in-out infinite}@keyframes placeA{0%,5%{opacity:0;transform:translateY(-15px) scale(.78)}12%,88%{opacity:1;transform:none}96%,100%{opacity:0;transform:scale(.92)}}@keyframes placeB{0%,17%{opacity:0;transform:translateY(-15px) scale(.78)}24%,88%{opacity:1;transform:none}96%,100%{opacity:0;transform:scale(.92)}}@keyframes placeC{0%,29%{opacity:0;transform:translateY(-15px) scale(.78)}36%,88%{opacity:1;transform:none}96%,100%{opacity:0;transform:scale(.92)}}@keyframes placeD{0%,41%{opacity:0;transform:translateY(-15px) scale(.78)}48%,88%{opacity:1;transform:none}96%,100%{opacity:0;transform:scale(.92)}}@keyframes placeE{0%,53%{opacity:0;transform:translateY(-15px) scale(.78)}60%,88%{opacity:1;transform:none}96%,100%{opacity:0;transform:scale(.92)}}@keyframes scan{0%,8%{transform:translateX(-64px);opacity:.16}18%{opacity:.58}70%{transform:translateX(64px);opacity:.58}84%,100%{transform:translateX(64px);opacity:.16}}@keyframes dotPulse{0%,58%{opacity:.45;transform:scale(.78)}68%,82%{opacity:1;transform:scale(1.18)}92%,100%{opacity:.55;transform:scale(1)}}@keyframes ringPulse{0%,58%{stroke-opacity:.08}72%{stroke-opacity:.34}88%,100%{stroke-opacity:.12}}@media (prefers-reduced-motion: reduce){.slot,.today-scan,.today-dot,.panel-ring{animation:none!important;transform:none!important;opacity:1!important}}</style><linearGradient id="canvasGrad" x1="72" y1="36" x2="446" y2="472" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="var(--canvas-top)"/><stop offset=".46" stop-color="var(--canvas-mid)"/><stop offset="1" stop-color="var(--canvas-bot)"/></linearGradient><linearGradient id="accentGrad" x1="104" y1="96" x2="408" y2="166" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0EA5E9"/><stop offset="1" stop-color="#6366F1"/></linearGradient><linearGradient id="binderGrad" x1="0" y1="64" x2="0" y2="124" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="var(--binder-top)"/><stop offset="1" stop-color="var(--binder-bot)"/></linearGradient><radialGradient id="aura" cx="0" cy="0" r="1" gradientTransform="translate(256 230) rotate(90) scale(232)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0EA5E9" stop-opacity=".16"/><stop offset=".58" stop-color="#6366F1" stop-opacity=".045"/><stop offset="1" stop-color="#6366F1" stop-opacity="0"/></radialGradient><filter id="panelShadow" x="62" y="64" width="388" height="398" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="13" stdDeviation="13" flood-color="var(--shadow)"/></filter><clipPath id="panelClip"><rect x="100" y="92" width="312" height="330" rx="38"/></clipPath></defs><rect class="canvas" x="1.5" y="1.5" width="509" height="509" rx="110.5"/><rect class="canvas-inner" x="7" y="7" width="498" height="498" rx="105"/><circle cx="256" cy="232" r="232" fill="url(#aura)"/><rect class="panel" x="100" y="92" width="312" height="330" rx="38"/><rect class="panel-ring" x="100" y="92" width="312" height="330" rx="38" fill="none" stroke="#38BDF8" stroke-width="5" stroke-opacity=".10"/><g clip-path="url(#panelClip)"><rect x="100" y="92" width="312" height="76" fill="url(#accentGrad)"/><path d="M112 104h288" stroke="var(--shine)" stroke-width="2" stroke-linecap="round" opacity=".8"/></g><rect class="binder" x="164" y="70" width="26" height="56" rx="13"/><rect class="binder" x="322" y="70" width="26" height="56" rx="13"/><g opacity=".78"><circle cx="144" cy="135" r="6" fill="#E0F2FE"/><circle cx="178" cy="135" r="6" fill="#E0F2FE" opacity=".72"/><circle cx="212" cy="135" r="6" fill="#E0F2FE" opacity=".50"/></g><rect class="row" x="126" y="190" width="260" height="52" rx="14"/><rect class="row" x="126" y="254" width="260" height="52" rx="14"/><rect class="row" x="126" y="318" width="260" height="52" rx="14"/><g opacity=".72"><path class="gridline" d="M192 184v192"/><path class="gridline" d="M256 184v192"/><path class="gridline" d="M320 184v192"/></g><rect class="slot slot-a" x="151" y="201" width="98" height="30" rx="9" fill="#0EA5E9"/><rect class="slot slot-b" x="272" y="201" width="88" height="30" rx="9" fill="#6366F1"/><rect class="slot slot-c" x="207" y="265" width="132" height="30" rx="9" fill="#F97316"/><rect class="slot slot-d" x="143" y="329" width="105" height="30" rx="9" fill="#22C55E"/><rect class="slot slot-e" x="278" y="329" width="82" height="30" rx="9" fill="#38BDF8"/><g class="today-scan"><rect x="253" y="180" width="6" height="200" rx="3" fill="#67D4FF" opacity=".56"/><circle class="today-dot" cx="256" cy="388" r="7" fill="#67D4FF"/></g></svg>`;
+export const ANIMATED_BRAND_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" class="radplan-brand-icon" viewBox="0 0 512 512" width="100%" height="100%" role="img" aria-label="RadPlan Planungsrad animiert">
+<defs>
+  <style>
+    .arc{fill:none;stroke-linecap:round;animation-duration:5.4s;animation-iteration-count:infinite;animation-timing-function:cubic-bezier(.4,0,.2,1)}
+    .arc-a{animation-name:arcA}.arc-b{animation-name:arcB}.arc-c{animation-name:arcC}
+    .node{transform-box:fill-box;transform-origin:center;animation-duration:5.4s;animation-iteration-count:infinite;animation-timing-function:cubic-bezier(.34,1.2,.64,1)}
+    .node-a{animation-name:nodeA}.node-b{animation-name:nodeB}.node-c{animation-name:nodeC}
+    .hub{transform-box:fill-box;transform-origin:center;animation:hubPulse 5.4s ease-in-out infinite}
+    .sweep{transform-origin:256px 256px;animation:sweep 5.4s linear infinite}
+    .halo{animation:halo 5.4s ease-in-out infinite}
+    @keyframes arcA{0%,6%,100%{opacity:.72;stroke-width:30}14%,27%{opacity:1;stroke-width:38}36%{opacity:.72;stroke-width:30}}
+    @keyframes arcB{0%,30%,100%{opacity:.72;stroke-width:30}39%,52%{opacity:1;stroke-width:38}61%{opacity:.72;stroke-width:30}}
+    @keyframes arcC{0%,55%,100%{opacity:.72;stroke-width:30}64%,77%{opacity:1;stroke-width:38}86%{opacity:.72;stroke-width:30}}
+    @keyframes nodeA{0%,6%,100%{transform:scale(1)}18%{transform:scale(1.18)}31%{transform:scale(1)}}
+    @keyframes nodeB{0%,31%,100%{transform:scale(1)}43%{transform:scale(1.18)}56%{transform:scale(1)}}
+    @keyframes nodeC{0%,56%,100%{transform:scale(1)}68%{transform:scale(1.18)}81%{transform:scale(1)}}
+    @keyframes hubPulse{0%,100%{transform:scale(1)}45%{transform:scale(1.035)}72%{transform:scale(.985)}}
+    @keyframes sweep{0%{transform:rotate(0deg);opacity:.08}20%{opacity:.20}80%{opacity:.20}100%{transform:rotate(360deg);opacity:.08}}
+    @keyframes halo{0%,100%{opacity:.65}50%{opacity:1}}
+    @media (prefers-reduced-motion:reduce){.arc,.node,.hub,.sweep,.halo{animation:none!important;transform:none!important}}
+  </style>
+  <linearGradient id="bg" x1="70" y1="46" x2="446" y2="470" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#18283F"/>
+    <stop offset=".52" stop-color="#111C2E"/>
+    <stop offset="1" stop-color="#0B131F"/>
+  </linearGradient>
+  <linearGradient id="hubGrad" x1="214" y1="210" x2="306" y2="308" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#38BDF8"/>
+    <stop offset=".52" stop-color="#0EA5E9"/>
+    <stop offset="1" stop-color="#6366F1"/>
+  </linearGradient>
+  <radialGradient id="aura" cx="0" cy="0" r="1" gradientTransform="translate(256 246) rotate(90) scale(214)" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#0EA5E9" stop-opacity=".18"/>
+    <stop offset=".66" stop-color="#6366F1" stop-opacity=".055"/>
+    <stop offset="1" stop-color="#6366F1" stop-opacity="0"/>
+  </radialGradient>
+  <filter id="shadow" x="40" y="40" width="432" height="432" color-interpolation-filters="sRGB">
+    <feDropShadow dx="0" dy="12" stdDeviation="15" flood-color="#000" flood-opacity=".34"/>
+  </filter>
+</defs>
+
+<rect x="1.5" y="1.5" width="509" height="509" rx="110.5" fill="url(#bg)" stroke="#FFFFFF" stroke-opacity=".10" stroke-width="3"/>
+<rect x="7" y="7" width="498" height="498" rx="105" fill="none" stroke="#FFFFFF" stroke-opacity=".055" stroke-width="2"/>
+<circle cx="256" cy="246" r="214" fill="url(#aura)"/>
+
+<g filter="url(#shadow)">
+  <circle cx="256" cy="256" r="142" fill="#101B2C" stroke="#D9E7F5" stroke-opacity=".92" stroke-width="20"/>
+  <circle cx="256" cy="256" r="112" fill="#0B131F" stroke="#FFFFFF" stroke-opacity=".08" stroke-width="3"/>
+</g>
+
+<path class="sweep" d="M256 256 L256 148 A108 108 0 0 1 349.53 202 Z" fill="#67D4FF" opacity=".13"/>
+
+<path class="arc arc-a" d="M113.53 166.97 A168 168 0 0 1 345.03 113.53" stroke="#0EA5E9" stroke-width="30"/>
+<path class="arc arc-b" d="M404.34 177.13 A168 168 0 0 1 334.87 404.34" stroke="#6366F1" stroke-width="30"/>
+<path class="arc arc-c" d="M250.14 423.90 A168 168 0 0 1 88.10 250.14" stroke="#F97316" stroke-width="30"/>
+
+<g stroke="#DCE8F5" stroke-opacity=".42" stroke-width="12" stroke-linecap="round">
+  <path d="M256 256 L232.61 154.67"/>
+  <path d="M256 256 L355.46 286.41"/>
+  <path d="M256 256 L179.94 326.93"/>
+</g>
+
+<g class="node node-a"><circle cx="232.61" cy="154.67" r="23" fill="#0EA5E9" stroke="#E0F2FE" stroke-width="6"/></g>
+<g class="node node-b"><circle cx="355.46" cy="286.41" r="23" fill="#6366F1" stroke="#EEF2FF" stroke-width="6"/></g>
+<g class="node node-c"><circle cx="179.94" cy="326.93" r="23" fill="#F97316" stroke="#FFF7ED" stroke-width="6"/></g>
+
+<circle class="halo" cx="256" cy="256" r="64" fill="none" stroke="#67D4FF" stroke-opacity=".18" stroke-width="5"/>
+<g class="hub">
+  <circle cx="256" cy="256" r="53" fill="url(#hubGrad)" stroke="#E0F2FE" stroke-opacity=".92" stroke-width="7"/>
+  <circle cx="256" cy="256" r="20" fill="#0B131F"/>
+  <circle cx="249" cy="249" r="6" fill="#FFFFFF" fill-opacity=".78"/>
+</g>
+</svg>`;
 
 export function icon(name, opts = {}) {
   const body = ICON_PATHS[name];
