@@ -16,22 +16,16 @@
   ],
   "icons": [
     {
-      "src": "img/icon.svg",
+      "src": "img/icon_pwa.svg",
       "type": "image/svg+xml",
       "sizes": "any",
       "purpose": "any"
     },
     {
-      "src": "img/icon.svg",
+      "src": "img/icon_pwa_maskable.svg",
       "type": "image/svg+xml",
       "sizes": "any",
       "purpose": "maskable"
-    },
-    {
-      "src": "img/icon_animated.svg",
-      "type": "image/svg+xml",
-      "sizes": "any",
-      "purpose": "any"
     }
   ]
 }
