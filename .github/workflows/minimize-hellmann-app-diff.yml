@@ -35,8 +35,11 @@ jobs:
       - name: Install development dependencies
         run: npm ci
 
-      - name: Verify repository
-        run: npm run verify
+      - name: Verify minimized app diff
+        run: |
+          npm run lint
+          npm run typecheck
+          node --test test/autoplan.test.js test/constants.test.js
 
       - name: Commit minimized diff
         run: |
