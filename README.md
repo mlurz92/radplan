@@ -230,11 +230,31 @@ export const EMPLOYEE_DEPARTURES = {
 
 Die Hilfsfunktion `isEmployeeActiveInMonth(name, y, m)` prüft diese Bedingung live gegen jeden angefragten Monat. Beim Initialisieren oder Speichern eines Monats führt `reconcileEmployeesForMonth(md, y, m)` automatische Bereinigungen durch: ausgeschiedene Personen werden aus der `employees`-Liste eines Monats entfernt, sobald dieser Monat in ihrer Abwesenheitszeit liegt — vergangene Monate bleiben davon unberührt.
 
+### 4.5 Personalzugänge (`EMPLOYEE_ARRIVALS`)
+
+Spiegelbildlich zu den Abgängen werden Neueintritte als strukturiertes Eintrittsdatum modelliert. So bleiben zurückliegende Pläne frei von Personen, die zu diesem Zeitpunkt noch nicht in der Abteilung waren, während künftige Monate die Person automatisch — und an der fachlich korrekten Position im Raster — enthalten:
+
+```js
+export const EMPLOYEE_ARRIVALS = {
+  // month ist 0-basiert und markiert den ERSTEN Monat MIT der Person.
+  "Dr. Hellmann": { year: 2026, month: 8,  after: "Dr. Becker",    reason: "Eintritt" }, // ab 01.09.2026
+  "Hr. Safari":   { year: 2026, month: 10, after: "Hr. Sebastian", reason: "Eintritt" }, // ab 01.11.2026
+};
+```
+
+`isEmployeeActiveInMonth(name, y, m)` liefert für Monate vor dem Eintritt `false`; `reconcileEmployeesForMonth(md, y, m)` setzt daraus drei Verhaltensregeln um:
+
+1. **Vor dem Eintritt** wird die Person aus `employees`, `assignments` und `comments` des Monats entfernt — versehentlich vorab eingetragene Einsätze oder Kommentare können also nicht in die Zeit vor dem Eintritt „durchsickern".
+2. **Ab dem Eintrittsmonat** wird die Person automatisch ergänzt und **direkt hinter der über `after` konfigurierten Ankerperson** einsortiert. Liegt sie an einer anderen Stelle, wird sie genau einmal an die Zielposition umsortiert.
+3. **Fehlt der Anker im Monatsbestand**, bleibt der Bestand unverändert: es wird weder ergänzt noch umsortiert. Damit werden isolierte Analyse- oder Importdatensätze (die den Anker gar nicht enthalten) nicht stillschweigend um zusätzliche Personen erweitert — und der Abgleich meldet in diesem Fall korrekt „keine Änderung", statt bei jedem Render einen erneuten Speicher- und Synchronisationszyklus auszulösen.
+
 ---
 
 ## 5. Stammdaten, Rollen, Qualifikationen & Sonderregeln
 
 > **Personaländerung ab 01.09.2026 — Dr. Hellmann:** Dr. Hellmann wird ab September 2026 automatisch als **Oberärztin / Fachärztin für Radiologie** in den Monatsbestand aufgenommen und im Dienstplan **direkt unter Dr. Becker** einsortiert. Ihre Beschäftigung ist organisatorisch **50 % Klinik für Radiologie & Nuklearmedizin / 50 % Klinik für Neuroradiologie** geteilt. Deshalb besitzt ausschließlich sie den zusätzlichen Arbeitsplatzcode **NRAD**. Ebenfalls ab September 2026 erscheint sie in der manuellen Auswahl der Zeile **RD Neurorad** als **„Dr. Hellmann (RAD/NRAD)“**. Für Bereitschaftsdienste gilt eine **harte Obergrenze von maximal 2 BD pro Monat**; diese Grenze darf auch durch Coverage-Eskalationen des Auto-Planers nicht überschritten werden. **Ab 01.10.2026** wird die CT-Vertretung als Pool **Dr. Becker / Dr. Martin / Dr. Hellmann** geführt: an jedem Werktag muss mindestens eine dieser drei Personen CT-verfügbar sein; Dr. Hellmann zählt an Tagen mit eingetragenem **NRAD** ausdrücklich nicht als CT-verfügbar.
+
+> **Personalzugang ab 01.11.2026 — Hr. Safari:** Hr. Safari wird ab November 2026 automatisch als **Assistenzarzt in Weiterbildung** (`AA`) in den Monatsbestand aufgenommen und im Dienstplan **direkt unter Hr. Sebastian** einsortiert. Er bringt **1,5 Jahre radiologische Vorerfahrung** mit; diese ist in seinen Stammdaten als Qualifikations-Tag hinterlegt und begründet **keine** Sonderrolle. Für ihn gelten damit ausnahmslos **alle regulären AA-Regeln**: `isAssistenzarzt("Hr. Safari") === true`, `isFacharzt("Hr. Safari") === false` — er ist folglich von **Samstags-BD und von jedem HG-Dienst ausgeschlossen** (Qualifikations-Sperre) und löst als BD-Halter die Facharzt-Kopplungen aus (Modell „Freitags-Support“ und „Feiertags-Vortag“: der FA des Folgetags übernimmt zwingend den HG des Vortags). Es gilt das **Standard-BD-Ziel von 4 Diensten pro Monat** — keine reduzierte Zielvorgabe wie bei Hr. Sebastian, keine personenbezogene Ober- oder Untergrenze. Er erhält **keinen** Zugriff auf den Spezialarbeitsplatz **NRAD**, erscheint **nicht** in der Auswahl der Zeile **RD Neurorad**, hat keine BD-/HG-Wochentagssperren, ist weder Teil der HG-Konfliktregel von Fr. Dalitz noch des CT-Vertretungspools und unterliegt keiner Samstags-Ultima-Ratio-Sonderbehandlung.
 
 ### 5.1 Mitarbeiter-Stammdaten (`EMP_META`)
 

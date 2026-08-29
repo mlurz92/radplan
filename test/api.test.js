@@ -151,6 +151,84 @@ describe("functions/api.js — POST", () => {
     assert.deepEqual(json.latestData.main["2026-0"], { employees: ["A", "B"] });
   });
 
+  test("Konflikt wird auch erkannt, wenn beide Schreibzugriffe in dieselbe Millisekunde fallen", async () => {
+    // Regression: `Date.now()` kann für zwei unmittelbar aufeinanderfolgende
+    // Schreibzugriffe denselben Wert liefern. Der Konflikt-Check vergleicht
+    // `storedTimestamp > clientTimestamp` und hätte den zweiten Client dann
+    // fälschlich durchgelassen (stilles Überschreiben fremder Änderungen).
+    const realNow = Date.now;
+    Date.now = () => 1_700_000_000_000;
+    try {
+      const kv = makeKV();
+      await onRequest(makeContext(kv, {
+        method: "POST",
+        body: { main: { "2026-0": { employees: ["A"] } }, plans: {}, lastModified: 0 },
+      }));
+      const afterFirst = await (await onRequest(makeContext(kv))).json();
+
+      await onRequest(makeContext(kv, {
+        method: "POST",
+        body: { main: { "2026-0": { employees: ["A", "B"] } }, plans: {}, lastModified: afterFirst.lastModified },
+      }));
+
+      const res = await onRequest(makeContext(kv, {
+        method: "POST",
+        body: { main: { "2026-0": { employees: ["A", "C"] } }, plans: {}, lastModified: afterFirst.lastModified },
+      }));
+
+      assert.equal(res.status, 409);
+      const final = await (await onRequest(makeContext(kv))).json();
+      assert.deepEqual(final.main["2026-0"], { employees: ["A", "B"] });
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
+  test("ein parallel angelegtes Jahr bleibt in META erhalten und weiterhin lesbar", async () => {
+    // Regression: die Jahresliste wurde aus dem zu BEGINN der Anfrage
+    // gelesenen META-Stand zurückgeschrieben. Legt ein anderer Client
+    // zwischen diesem Read und dem Schreibvorgang ein neues Jahr an, fiel es
+    // beim Zurückschreiben aus META heraus -- und damit aus jedem GET, obwohl
+    // sein KV-Key noch existierte. Der Zeitpunkt wird hier deterministisch
+    // getroffen, indem der konkurrierende Schreibzugriff genau beim Lesen des
+    // Jahres-Keys eingeschoben wird.
+    const kv = makeKV();
+    await onRequest(makeContext(kv, {
+      method: "POST",
+      body: { main: { "2025-0": { employees: ["A"] } }, plans: {}, lastModified: 0 },
+    }));
+    const afterFirst = await (await onRequest(makeContext(kv))).json();
+
+    const originalGet = kv.get.bind(kv);
+    let injected = false;
+    kv.get = async (key) => {
+      if (key === "RADPLAN_YEAR_2025" && !injected) {
+        injected = true;
+        await onRequest(makeContext(kv, {
+          method: "POST",
+          body: {
+            main: { "2025-0": { employees: ["A"] }, "2027-0": { employees: ["Z"] } },
+            plans: {},
+            lastModified: afterFirst.lastModified,
+          },
+        }));
+      }
+      return originalGet(key);
+    };
+
+    const res = await onRequest(makeContext(kv, {
+      method: "POST",
+      body: { main: { "2025-0": { employees: ["A", "B"] } }, plans: {}, lastModified: afterFirst.lastModified },
+    }));
+    assert.equal(res.status, 200);
+    assert.equal(injected, true);
+
+    kv.get = originalGet;
+    const final = await (await onRequest(makeContext(kv))).json();
+    assert.deepEqual(final.main["2025-0"], { employees: ["A", "B"] });
+    assert.deepEqual(final.main["2027-0"], { employees: ["Z"] });
+  });
+
   test("unverändertes Jahr im Payload löst weder Konflikt noch Schreibzugriff aus", async () => {
     const kv = makeKV();
     await onRequest(makeContext(kv, {

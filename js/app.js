@@ -651,7 +651,8 @@ export async function init() {
     DATA[k] = {
       employees: [
         "Prof. Schäfer", "Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Fr. Thaler", 
-        "Dr. Becker", "Dr. Martin", "Hr. El Houba", "Fr. Licenji", "Hr. Torki", "Hr. Sebastian"
+        "Dr. Becker", "Dr. Martin", "Hr. El Houba", "Fr. Licenji", "Hr. Torki", "Hr. Sebastian",
+        "Hr. Safari"
       ].filter((emp) => isEmployeeActiveInMonth(emp, state.year, state.month)),
       assignments: {}, 
       rbn: {},

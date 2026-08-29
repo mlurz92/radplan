@@ -208,3 +208,35 @@ describe("violatesHGHardAntiClusteringRules (Punkt 13, exportierte Kernregel)", 
     assert.equal(violatesHGHardAntiClusteringRules(false, 0.5, false), false);
   });
 });
+
+describe("Hr. Safari (Eintritt 01.11.2026) im vollständigen Solver-Lauf", () => {
+  // Nach dem Eintritt gelten für Hr. Safari ausnahmslos die regulären
+  // AA-Regeln. Der Test plant November 2026 real durch und prüft die
+  // AA-Invarianten an seinem konkreten Ergebnis.
+  const YEAR = 2026;
+  const MONTH = 10; // November 2026
+  const TEAM = FULL_TEAM.filter((e) => e !== "Fr. Thaler" && e !== "Hr. Torki").concat("Hr. Safari");
+
+  test("wird eingeplant, erhält aber weder Samstags-BD noch HG", async () => {
+    const result = await runFullPlan(YEAR, MONTH, TEAM);
+    const dim = daysInMonth(YEAR, MONTH);
+    const days = result.assignments["Hr. Safari"] || {};
+
+    let bdCount = 0;
+    for (let d = 1; d <= dim; d++) {
+      const duty = days[d]?.duty;
+      if (!duty) continue;
+      assert.notEqual(duty, "HG", `HG an Tag ${d}: HG ist Fachärzten vorbehalten`);
+      if (duty === "D") {
+        bdCount++;
+        assert.notEqual(weekday(YEAR, MONTH, d), 6, `Samstags-BD an Tag ${d} ist Fachärzten vorbehalten`);
+        assert.notEqual(days[d + 1]?.duty, "D", `D-D-Folge an Tag ${d}`);
+      }
+    }
+    assert.ok(bdCount > 0, "Hr. Safari muss ab November 2026 tatsächlich BD eingeplant bekommen");
+  });
+
+  test("wird als AA und nicht als FA geführt", () => {
+    assert.equal(isFacharzt("Hr. Safari"), false);
+  });
+});
