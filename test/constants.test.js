@@ -167,6 +167,83 @@ describe("Mitarbeiter-Stammdaten", () => {
     assert.deepEqual(getCtUnavailableWorkplacesForEmployee(2026, 9, "Dr. Hellmann"), ["NRAD"]);
   });
 
+  test("Hr. Safari wird exakt ab November 2026 aktiv", () => {
+    const arrival = EMPLOYEE_ARRIVALS["Hr. Safari"];
+    assert.deepEqual(arrival, { year: 2026, month: 10, after: "Hr. Sebastian", reason: "Eintritt" });
+    assert.equal(isEmployeeActiveInMonth("Hr. Safari", 2026, 9), false);
+    assert.equal(isEmployeeActiveInMonth("Hr. Safari", 2026, 10), true);
+    assert.equal(isEmployeeActiveInMonth("Hr. Safari", 2027, 0), true);
+  });
+
+  test("reconcileEmployeesForMonth ergänzt Safari ab November direkt hinter Sebastian", () => {
+    const md = {
+      employees: ["Dr. Becker", "Dr. Hellmann", "Hr. Sebastian", "Dr. Martin"],
+      assignments: {},
+      comments: {},
+    };
+    assert.equal(reconcileEmployeesForMonth(md, 2026, 10), true);
+    assert.deepEqual(md.employees, [
+      "Dr. Becker", "Dr. Hellmann", "Hr. Sebastian", "Hr. Safari", "Dr. Martin",
+    ]);
+    assert.equal(reconcileEmployeesForMonth(md, 2026, 11), false);
+  });
+
+  test("reconcileEmployeesForMonth ergänzt Safari nicht ohne Sebastian-Anker", () => {
+    const md = { employees: ["Dr. A", "Dr. B"], assignments: {}, comments: {} };
+    assert.equal(reconcileEmployeesForMonth(md, 2026, 10), false);
+    assert.deepEqual(md.employees, ["Dr. A", "Dr. B"]);
+  });
+
+  test("reconcileEmployeesForMonth konvergiert, wenn die Person ohne ihren Anker vorliegt", () => {
+    // Regression: fehlte der Anker (z. B. weil Hr. Sebastian manuell aus dem
+    // Monat entfernt wurde), wurde die Person aus derselben Position heraus-
+    // und wieder hineingeschoben und `changed = true` gemeldet -- bei jedem
+    // Render erneut, was einen dauerhaften Speicher-/Sync-Zyklus auslöste.
+    const md = { employees: ["Dr. A", "Hr. Safari"], assignments: {}, comments: {} };
+    assert.equal(reconcileEmployeesForMonth(md, 2026, 10), false);
+    assert.equal(reconcileEmployeesForMonth(md, 2026, 10), false);
+    assert.deepEqual(md.employees, ["Dr. A", "Hr. Safari"]);
+  });
+
+  test("reconcileEmployeesForMonth sortiert eine falsch platzierte Person genau einmal um", () => {
+    const md = {
+      employees: ["Hr. Safari", "Dr. Becker", "Dr. Hellmann", "Hr. Sebastian"],
+      assignments: {},
+      comments: {},
+    };
+    assert.equal(reconcileEmployeesForMonth(md, 2026, 10), true);
+    assert.deepEqual(md.employees, [
+      "Dr. Becker", "Dr. Hellmann", "Hr. Sebastian", "Hr. Safari",
+    ]);
+    assert.equal(reconcileEmployeesForMonth(md, 2026, 10), false);
+  });
+
+  test("reconcileEmployeesForMonth entfernt Safari vor seinem Eintritt", () => {
+    const md = {
+      employees: ["Hr. Sebastian", "Hr. Safari"],
+      assignments: { "Hr. Safari": { 1: { assignment: "CT" } } },
+      comments: { "Hr. Safari": { 1: "vor Eintritt" } },
+    };
+    assert.equal(reconcileEmployeesForMonth(md, 2026, 9), true);
+    assert.deepEqual(md.employees, ["Hr. Sebastian"]);
+    assert.equal(md.assignments["Hr. Safari"], undefined);
+    assert.equal(md.comments["Hr. Safari"], undefined);
+  });
+
+  test("Hr. Safari gilt vollständig als Assistenzarzt (alle AA-Regeln greifen)", () => {
+    assert.equal(isAssistenzarzt("Hr. Safari"), true);
+    assert.equal(isFacharzt("Hr. Safari"), false);
+    // Keine Sonderrechte/Sonderziele: NRAD gesperrt, Standard-BD-Ziel, kein
+    // RD-Neurorad-Pool, keine personenbezogenen Ober-/Untergrenzen.
+    assert.equal(getWorkplacesForEmployee("Hr. Safari").some((w) => w.code === "NRAD"), false);
+    assert.equal(getReducedBdTarget("Hr. Safari"), undefined);
+    assert.equal(getMaxBdTarget("Hr. Safari"), undefined);
+    assert.equal(getMinBdTarget("Hr. Safari"), undefined);
+    assert.equal(getRbnOptionsForDate(2026, 10).some((opt) => opt.startsWith("Hr. Safari")), false);
+    assert.equal(isNoBdWeekday("Hr. Safari", 0), false);
+    assert.equal(getCtLeadershipPartner("Hr. Safari"), null);
+  });
+
   test("reconcileEmployeesForMonth entfernt ausgeschiedene Personen aus employees/assignments/comments", () => {
     const departure = EMPLOYEE_DEPARTURES["Fr. Thaler"];
     const md = {

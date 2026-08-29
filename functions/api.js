@@ -180,9 +180,29 @@ async function saveIncoming(kv, incomingMain, incomingPlans, clientTimestamp) {
     return { conflict: true };
   }
 
-  const now = Date.now();
+  // Die Konflikterkennung vergleicht `lastModified`-Zeitstempel. Zwei
+  // unmittelbar aufeinanderfolgende Schreibzugriffe können mit Date.now()
+  // denselben Millisekundenwert erhalten; ein danach mit der alten Baseline
+  // speichernder Client würde dann fälschlich als konfliktfrei gelten und den
+  // fremden Stand still überschreiben (`storedTimestamp > clientTimestamp` ist
+  // bei Gleichstand falsch). Deshalb wird der neue Zeitstempel streng monoton
+  // über allen bereits gespeicherten Ständen gewählt.
+  const freshMeta = await readJson(kv, META_KEY);
+  const previousTimestamps = [
+    parseInt(freshMeta?.lastModified, 10) || 0,
+    parseInt(meta?.lastModified, 10) || 0,
+    ...[...storedByYear.values()].map((stored) => parseInt(stored?.lastModified, 10) || 0),
+  ];
+  const now = Math.max(Date.now(), Math.max(...previousTimestamps) + 1);
   const writes = [];
-  const yearsToPersist = new Set(knownYears);
+  // Die Jahresliste wird ebenfalls aus dem frischen META-Stand aufgebaut:
+  // wurde zwischenzeitlich ein neues Jahr angelegt, ginge es sonst beim
+  // Zurückschreiben der zu Beginn gelesenen (veralteten) Liste verloren --
+  // `loadFullState` liest ausschließlich die in META gelisteten Jahre, das
+  // Jahr wäre also trotz vorhandenem KV-Key aus jedem GET verschwunden.
+  const yearsToPersist = new Set(
+    Array.isArray(freshMeta?.years) ? freshMeta.years : [...knownYears]
+  );
 
   for (const [year, incomingMonths] of byYear.entries()) {
     const stored = storedByYear.get(year);

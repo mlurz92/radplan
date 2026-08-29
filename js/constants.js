@@ -64,6 +64,9 @@ export const EMPLOYEE_ARRIVALS = {
   // month ist 0-basiert und markiert den ERSTEN Monat MIT der Person.
   // Dr. Hellmann beginnt zum 1.9.2026 und wird im Raster direkt hinter Dr. Becker einsortiert.
   "Dr. Hellmann": { year: 2026, month: 8, after: "Dr. Becker", reason: "Eintritt" },
+  // Hr. Safari beginnt zum 1.11.2026 als Assistenzarzt (1,5 Jahre radiologische
+  // Vorerfahrung) und wird im Raster direkt hinter Hr. Sebastian einsortiert.
+  "Hr. Safari": { year: 2026, month: 10, after: "Hr. Sebastian", reason: "Eintritt" },
 };
 
 export const EMPLOYEE_DEPARTURES = {
@@ -103,25 +106,29 @@ export function reconcileEmployeesForMonth(md, y, m) {
       const anchorIndex = arrival.after ? md.employees.indexOf(arrival.after) : -1;
 
       // Automatische Eintritte nur in echte bestehende Roster-Strukturen
-      // migrieren. Fehlt der konfigurierte Anker (hier Dr. Becker), handelt
-      // es sich z. B. um isolierte Analyse-/Importdaten; diese dürfen nicht
-      // stillschweigend um zusätzliche Personen erweitert werden.
-      if (currentIndex < 0 && arrival.after && anchorIndex < 0) return;
-
-      const targetIndex = anchorIndex >= 0 ? anchorIndex + 1 : md.employees.length;
+      // migrieren. Fehlt der konfigurierte Anker (z. B. Dr. Becker bzw.
+      // Hr. Sebastian), handelt es sich um isolierte Analyse-/Importdaten;
+      // diese dürfen nicht stillschweigend um zusätzliche Personen erweitert
+      // werden.
       if (currentIndex < 0) {
+        if (arrival.after && anchorIndex < 0) return;
+        const targetIndex = anchorIndex >= 0 ? anchorIndex + 1 : md.employees.length;
         md.employees.splice(targetIndex, 0, name);
         changed = true;
         return;
       }
 
-      if (arrival.after && currentIndex !== targetIndex) {
-        md.employees.splice(currentIndex, 1);
-        const refreshedAnchorIndex = md.employees.indexOf(arrival.after);
-        const refreshedTargetIndex = refreshedAnchorIndex >= 0 ? refreshedAnchorIndex + 1 : md.employees.length;
-        md.employees.splice(refreshedTargetIndex, 0, name);
-        changed = true;
-      }
+      // Umsortierung nur, wenn der Anker tatsächlich vorhanden ist. Fehlt er,
+      // bliebe die Position ohnehin unverändert -- ein trotzdem gemeldetes
+      // `changed = true` würde bei jedem Render einen Speicher-/Sync-Zyklus
+      // auslösen (Endlosschleife aus Dirty-State und POST).
+      if (!arrival.after || anchorIndex < 0) return;
+      if (currentIndex === anchorIndex + 1) return;
+
+      md.employees.splice(currentIndex, 1);
+      const refreshedAnchorIndex = md.employees.indexOf(arrival.after);
+      md.employees.splice(refreshedAnchorIndex + 1, 0, name);
+      changed = true;
     });
   }
 
@@ -370,6 +377,18 @@ export const EMP_META = {
     fte: 100,
     phone: "4011",
     tags: ["Radiologie (WB)"],
+  },
+  "Hr. Safari": {
+    fullName: "Hr. Safari",
+    position: "AA",
+    posLabel: "Assistenzarzt",
+    type: "AA für Radiologie",
+    area: "",
+    deputy: "",
+    since: 2026,
+    fte: 100,
+    phone: "",
+    tags: ["Radiologie (WB)", "1,5 Jahre Vorerfahrung"],
   },
   "Dr. Placzek": {
     fullName: "Dr. Placzek",
