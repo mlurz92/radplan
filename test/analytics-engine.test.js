@@ -128,6 +128,26 @@ describe("computeDutyFairnessForRange (Issue 31)", () => {
     assert.equal(rowYear.bd, 12, "Gesamtjahr sollte weiterhin alle 6 beplanten Monate zusammenzählen");
   });
 
+  test("gestaffelte BD-Ziele gehen als Summe der Monatsziele in das Zeitraum-Soll ein", () => {
+    // Hr. Safari: November 2026 Ziel 0, Dezember 2026 Ziel 3. Über den
+    // Zeitraum beider Monate ist das Soll 3 -- nicht 2 x 4 = 8, wie es die
+    // frühere Rechnung "ein Monatsziel mal aktive Monate" ergeben hätte.
+    buildMonthWithDuties(2026, 10, ["Hr. Safari", "Hr. Sebastian"], []);
+    buildMonthWithDuties(2026, 11, ["Hr. Safari", "Hr. Sebastian"], [8]);
+
+    const range = getRange("quarter", 2026, 10); // Q4 2026 (Okt-Dez)
+    const fair = computeDutyFairnessForRange(range);
+
+    const safari = fair.rows.find((r) => r.emp === "Hr. Safari");
+    assert.equal(safari.activeMonths, 2);
+    assert.equal(safari.bdTargetSum, 3);
+    assert.equal(safari.bdTarget, 3);
+
+    // Konstantes reduziertes Ziel bleibt unverändert: 2 aktive Monate x 3.
+    const sebastian = fair.rows.find((r) => r.emp === "Hr. Sebastian");
+    assert.equal(sebastian.bdTarget, 6);
+  });
+
   test("ein Einzelmonat berücksichtigt ausschließlich diesen Monat", () => {
     const year = 2026;
     buildMonthWithDuties(year, 0, ["Dr. Martin"], [3, 10]);

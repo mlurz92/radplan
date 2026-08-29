@@ -254,7 +254,7 @@ export const EMPLOYEE_ARRIVALS = {
 
 > **Personaländerung ab 01.09.2026 — Dr. Hellmann:** Dr. Hellmann wird ab September 2026 automatisch als **Oberärztin / Fachärztin für Radiologie** in den Monatsbestand aufgenommen und im Dienstplan **direkt unter Dr. Becker** einsortiert. Ihre Beschäftigung ist organisatorisch **50 % Klinik für Radiologie & Nuklearmedizin / 50 % Klinik für Neuroradiologie** geteilt. Deshalb besitzt ausschließlich sie den zusätzlichen Arbeitsplatzcode **NRAD**. Ebenfalls ab September 2026 erscheint sie in der manuellen Auswahl der Zeile **RD Neurorad** als **„Dr. Hellmann (RAD/NRAD)“**. Für Bereitschaftsdienste gilt eine **harte Obergrenze von maximal 2 BD pro Monat**; diese Grenze darf auch durch Coverage-Eskalationen des Auto-Planers nicht überschritten werden. **Ab 01.10.2026** wird die CT-Vertretung als Pool **Dr. Becker / Dr. Martin / Dr. Hellmann** geführt: an jedem Werktag muss mindestens eine dieser drei Personen CT-verfügbar sein; Dr. Hellmann zählt an Tagen mit eingetragenem **NRAD** ausdrücklich nicht als CT-verfügbar.
 
-> **Personalzugang ab 01.11.2026 — Hr. Safari:** Hr. Safari wird ab November 2026 automatisch als **Assistenzarzt in Weiterbildung** (`AA`) in den Monatsbestand aufgenommen und im Dienstplan **direkt unter Hr. Sebastian** einsortiert. Er bringt **1,5 Jahre radiologische Vorerfahrung** mit; diese ist in seinen Stammdaten als Qualifikations-Tag hinterlegt und begründet **keine** Sonderrolle. Für ihn gelten damit ausnahmslos **alle regulären AA-Regeln**: `isAssistenzarzt("Hr. Safari") === true`, `isFacharzt("Hr. Safari") === false` — er ist folglich von **Samstags-BD und von jedem HG-Dienst ausgeschlossen** (Qualifikations-Sperre) und löst als BD-Halter die Facharzt-Kopplungen aus (Modell „Freitags-Support“ und „Feiertags-Vortag“: der FA des Folgetags übernimmt zwingend den HG des Vortags). Es gilt das **Standard-BD-Ziel von 4 Diensten pro Monat** — keine reduzierte Zielvorgabe wie bei Hr. Sebastian, keine personenbezogene Ober- oder Untergrenze. Er erhält **keinen** Zugriff auf den Spezialarbeitsplatz **NRAD**, erscheint **nicht** in der Auswahl der Zeile **RD Neurorad**, hat keine BD-/HG-Wochentagssperren, ist weder Teil der HG-Konfliktregel von Fr. Dalitz noch des CT-Vertretungspools und unterliegt keiner Samstags-Ultima-Ratio-Sonderbehandlung.
+> **Personalzugang ab 01.11.2026 — Hr. Safari:** Hr. Safari wird ab November 2026 automatisch als **Assistenzarzt in Weiterbildung** (`AA`) in den Monatsbestand aufgenommen und im Dienstplan **direkt unter Hr. Sebastian** einsortiert. Er bringt **1,5 Jahre radiologische Vorerfahrung** mit; diese ist in seinen Stammdaten als Qualifikations-Tag hinterlegt und begründet **keine** Sonderrolle. Für ihn gelten damit ausnahmslos **alle regulären AA-Regeln**: `isAssistenzarzt("Hr. Safari") === true`, `isFacharzt("Hr. Safari") === false` — er ist folglich von **Samstags-BD und von jedem HG-Dienst ausgeschlossen** (Qualifikations-Sperre) und löst als BD-Halter die Facharzt-Kopplungen aus (Modell „Freitags-Support“ und „Feiertags-Vortag“: der FA des Folgetags übernimmt zwingend den HG des Vortags). Für die Einarbeitung ist sein BD-Monatsziel zeitlich **gestaffelt**: im **1. Monat (November 2026) 0 Dienste** (harte Obergrenze 0 — reine Einarbeitung, auch manuell nicht überschreibbar), im **2. Monat (Dezember 2026) 3 Dienste** und **ab dem 3. Monat (Januar 2027)** das reguläre **AA-Standardziel von 4 Diensten pro Monat** ohne jede personenbezogene Ober- oder Untergrenze. Er erhält **keinen** Zugriff auf den Spezialarbeitsplatz **NRAD**, erscheint **nicht** in der Auswahl der Zeile **RD Neurorad**, hat keine BD-/HG-Wochentagssperren, ist weder Teil der HG-Konfliktregel von Fr. Dalitz noch des CT-Vertretungspools und unterliegt keiner Samstags-Ultima-Ratio-Sonderbehandlung.
 
 ### 5.1 Mitarbeiter-Stammdaten (`EMP_META`)
 
@@ -287,7 +287,8 @@ Der Scheduler und das Dienstgitter leiten Berechtigungen dynamisch aus der Posit
 Sämtliche Ausnahmen und Spezialkombinationen sind zentral in einem einzigen Objekt `SPECIAL_RULES` in `constants.js` hinterlegt, das sowohl vom Scheduler als auch von der Konformitätsprüfung im Auswertungs-Hub konsumiert wird:
 
 * **`dutyExempt: ["Prof. Schäfer"]`** — Komplette Befreiung von allen Bereitschafts- und Hintergrunddiensten. Das monatliche Dienstziel beträgt hart 0.
-* **`reducedBdTarget: { "Dr. Polednia": 3, "Dr. Becker": 3, "Hr. Sebastian": 3 }`** — Reduziertes monatliches Dienstziel für den Bereitschaftsdienst (Standardziel ist ansonsten **4**).
+* **`reducedBdTarget: { "Dr. Polednia": 3, "Dr. Becker": 3, "Hr. Sebastian": 3, "Dr. Hellmann": 2 }`** — Reduziertes monatliches Dienstziel für den Bereitschaftsdienst (Standardziel ist ansonsten **4**).
+* **`bdTargetSchedule`** — Zeitlich gestaffelte BD-Monatsziele für die Einarbeitung von Neuzugängen; hat Vorrang vor den drei statischen Zielregeln. Siehe [5.5](#55-gestaffelte-bd-ziele-zur-einarbeitung-special_rulesbdtargetschedule).
 * **`noBdWeekdays: { "Dr. Polednia": [0, 2, 4] }`** — Absolutes Verbot für Bereitschaftsdienste an Sonntagen (0), Dienstagen (2) und Donnerstagen (4).
 * **`noHgFromAaWeekdays: { "Dr. Polednia": [0, 2, 4] }`** — Verbot zur Übernahme des Hintergrunddienstes an diesen Tagen, wenn der Bereitschaftsdienst-Halter desselben Tages ein Assistenzarzt ist.
 * **`surplusBdPreference: ["Dr. Lurz"]`** — Priorität bei unvermeidbaren Überhangdiensten.
@@ -296,7 +297,27 @@ Sämtliche Ausnahmen und Spezialkombinationen sind zentral in einem einzigen Obj
 * **`ctLeadershipPairs: [["Dr. Becker", "Dr. Martin"]]`** — Bilden das CT-Leitungsteam. Beide dürfen an Werktagen niemals gleichzeitig abwesend oder dienstfrei sein.
 * **`hgConflictRules`** — Strukturierte Konfliktkopplung für den Hintergrunddienst.
 
-Jede Regel ist über eine dedizierte, reine Prüf-Funktion verfügbar (`getReducedBdTarget`, `isNoBdWeekday`, `isNoHgFromAaWeekday`, `isSaturdayUltimaRatio`, `getSurplusBdPreferenceRank`, `needsSaturdayFza`, `getCtLeadershipPartner`, `getHgConflictBd`) — sowohl der Scheduler als auch die Live-Konflikterkennung im Gitter und der Auswertungs-Hub greifen ausschließlich über diese Funktionen zu, nie direkt auf das Rohobjekt.
+Jede Regel ist über eine dedizierte, reine Prüf-Funktion verfügbar (`getReducedBdTarget`, `getMaxBdTarget`, `getMinBdTarget` — diese drei nehmen zusätzlich den Planmonat `(y, m)` entgegen, siehe 5.5 —, `isNoBdWeekday`, `isNoHgFromAaWeekday`, `isSaturdayUltimaRatio`, `getSurplusBdPreferenceRank`, `needsSaturdayFza`, `getCtLeadershipPartner`, `getHgConflictBd`) — sowohl der Scheduler als auch die Live-Konflikterkennung im Gitter und der Auswertungs-Hub greifen ausschließlich über diese Funktionen zu, nie direkt auf das Rohobjekt.
+
+### 5.5 Gestaffelte BD-Ziele zur Einarbeitung (`SPECIAL_RULES.bdTargetSchedule`)
+
+Neben den statischen Sonderregeln (`reducedBdTarget`, `maxBdTarget`, `minBdTarget`) kann das BD-Monatsziel einer Person **zeitlich gestaffelt** werden — gedacht für die Einarbeitung von Neuzugängen, die nicht ab dem ersten Monat die volle Dienstlast tragen sollen:
+
+```js
+bdTargetSchedule: {
+  "Hr. Safari": [
+    { from: { year: 2026, month: 10 }, target: 0, min: 0, max: 0 }, // 1. Monat: keine Dienste
+    { from: { year: 2026, month: 11 }, target: 3, min: 3, max: 3 }, // 2. Monat: 3 Dienste
+    { from: { year: 2027, month: 0 } },                             // ab dem 3. Monat: Standard (4)
+  ],
+},
+```
+
+Jede Stufe gilt **ab** dem in `from` genannten Monat bis zum Beginn der nächsten Stufe; die Stufen stehen chronologisch aufsteigend. Eine Stufe ohne `target`/`min`/`max` beendet die Staffelung — ab ihr greifen wieder die statischen Regeln bzw. das Standardziel 4. Die Staffel hat Vorrang vor den statischen Werten.
+
+Umgesetzt ist das über die drei Getter `getReducedBdTarget(name, y, m)`, `getMaxBdTarget(name, y, m)` und `getMinBdTarget(name, y, m)`, die den Planmonat entgegennehmen. Sie wirken damit an **allen** Zieleingängen einheitlich: Auto-Plan-Konfigurationsdialog (Vorbelegung und Schrittgrenzen der Regler), Solver-Zielermittlung und harte Obergrenzen-Constraints, Mehrmonats-/Jahresplanung (`computeCrossMonthBDTargets` — das kumulierte Soll wird je bereits geplantem Monat mit dessen eigenem Ziel gebildet), Konfliktmarkierung importierter Pläne, manuelle Zellbearbeitung und Drag-and-Drop von Dienst-Badges sowie die Soll/Ist-Auswertung im Fairness-Bericht (dort als Summe der Monatsziele über die aktiven Monate statt als Produkt).
+
+> **Wichtig für Weiterentwicklungen:** Wird einer dieser Getter **ohne** `(y, m)` aufgerufen, greift bewusst keine Staffelstufe — der Aufruf fällt still auf die statischen Regeln zurück und würde eine Person in ihrem Einarbeitungsmonat mit dem vollen Standardziel verplanen, ohne dass ein Laufzeitfehler auftritt. `test/bd-target-context.test.js` prüft deshalb statisch, dass in `js/` kein einarmiger Aufruf existiert.
 
 ---
 

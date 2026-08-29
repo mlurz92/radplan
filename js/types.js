@@ -38,6 +38,7 @@
  * @property {number} holBd
  * @property {number} holHg
  * @property {number} activeMonths
+ * @property {number} bdTargetSum Summe der Monats-BD-Ziele über die aktiven Monate
  * @property {number} fte
  * @property {number} total
  * @property {number} weekendDuties

@@ -384,7 +384,7 @@ export function refreshEditorChips() {
         warnParts.push(`${dc} bereits vergeben: ${owner}`);
       }
       if (bdHardLimit) {
-        warnParts.push(`BD-Monatsmaximum erreicht: ${emp} darf maximal ${getMaxBdTarget(emp)} BD erhalten`);
+        warnParts.push(`BD-Monatsmaximum erreicht: ${emp} darf maximal ${getMaxBdTarget(emp, y, m)} BD erhalten`);
       }
       dtC.appendChild(chip);
     });

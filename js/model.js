@@ -279,7 +279,7 @@ export function countEmployeeDuties(y, m, emp, dutyCode) {
 }
 
 export function canAssignBdWithinHardLimit(y, m, emp, day) {
-  const max = getMaxBdTarget(emp);
+  const max = getMaxBdTarget(emp, y, m);
   if (max === undefined) return true;
   const current = getCell(y, m, emp, day);
   if (current.duty === "D") return true;
@@ -651,10 +651,17 @@ function fairnessStatus(dev, fairShare) {
 // getrennt nach Gesamt / Wochenende / Feiertag.
 function collectDutyRaw(emp, year, uptoMonth) {
   let bd = 0, hg = 0, weBd = 0, weHg = 0, holBd = 0, holHg = 0, activeMonths = 0;
+  // Das BD-Soll wird pro aktivem Monat aufsummiert statt als ein einziges
+  // Monatsziel mal Monatszahl gerechnet: nur so bleibt es korrekt, wenn für
+  // eine Person zeitlich gestaffelte Ziele hinterlegt sind (Einarbeitung von
+  // Neuzugängen). Bei konstantem Ziel ist die Summe identisch zum bisherigen
+  // Produkt.
+  let bdTargetSum = 0;
   for (let m = 0; m <= uptoMonth; m++) {
     const k = monthKey(year, m);
     if (!DATA[k] || !DATA[k].employees || !DATA[k].employees.includes(emp)) continue;
     activeMonths++;
+    bdTargetSum += getReducedBdTarget(emp, year, m) ?? DEFAULT_BD_TARGET;
     const hols = getSaxonyHolidaysCached(year);
     const dim = daysInMonth(year, m);
     for (let d = 1; d <= dim; d++) {
@@ -674,7 +681,7 @@ function collectDutyRaw(emp, year, uptoMonth) {
       }
     }
   }
-  return { bd, hg, weBd, weHg, holBd, holHg, activeMonths };
+  return { bd, hg, weBd, weHg, holBd, holHg, activeMonths, bdTargetSum };
 }
 
 // Konsolidierte Fairness-Auswertung über alle dienstfähigen Mitarbeitenden
@@ -728,10 +735,9 @@ export function computeDutyFairness(year, { uptoMonth = 11 } = {}) {
     r.weekendDev = r.weekendDuties - r.fairWeekend;
     r.totalDev = r.total - r.fairTotal;
 
-    // Soll/Ist für BD: monatliches Ziel (reduziert oder Default 4), FTE- und
-    // aktivitäts-skaliert über die tatsächlich aktiven Monate.
-    const monthlyTarget = getReducedBdTarget(r.emp) ?? DEFAULT_BD_TARGET;
-    r.bdTarget = Math.round(monthlyTarget * r.activeMonths * (r.fte / 100) * 10) / 10;
+    // Soll/Ist für BD: Summe der Monatsziele (reduziert, gestaffelt oder
+    // Default 4) über die tatsächlich aktiven Monate, FTE-skaliert.
+    r.bdTarget = Math.round(r.bdTargetSum * (r.fte / 100) * 10) / 10;
     r.bdDelta = Math.round((r.bd - r.bdTarget) * 10) / 10;
     r.bdTargetPct = r.bdTarget > 0 ? Math.round((r.bd / r.bdTarget) * 100) : 0;
 

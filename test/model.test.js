@@ -238,3 +238,35 @@ describe("clearCascadedFreeDay", () => {
     assert.equal(clearCascadedFreeDay(2026, 0, "Dr. Martin", 3), null);
   });
 });
+
+describe("computeDutyFairness mit gestaffelten BD-Zielen", () => {
+  beforeEach(resetData);
+
+  test("das BD-Soll summiert die Monatsziele statt ein Ziel hochzurechnen", () => {
+    // Hr. Safari ist von November 2026 bis Januar 2027 gestaffelt: 0 / 3 / 4.
+    // Innerhalb des Kalenderjahres 2026 sind das November (0) und Dezember (3),
+    // also ein Jahres-Soll von 3 -- nicht 2 x 4 = 8 wie bei der früheren
+    // Rechnung "ein Monatsziel mal aktive Monate".
+    DATA["2026-10"] = buildMonth({
+      "Hr. Safari": {},
+      "Hr. Sebastian": { 3: { duty: "D" } },
+    });
+    DATA["2026-11"] = buildMonth({
+      "Hr. Safari": { 8: { duty: "D" } },
+      "Hr. Sebastian": { 3: { duty: "D" } },
+    });
+
+    const report = computeDutyFairness(2026, { uptoMonth: 11 });
+    const safari = report.rows.find((r) => r.emp === "Hr. Safari");
+    assert.equal(safari.activeMonths, 2);
+    assert.equal(safari.bdTargetSum, 3);
+    assert.equal(safari.bdTarget, 3);
+    assert.equal(safari.bdDelta, -2); // 1 Ist gegen 3 Soll
+
+    // Für eine Person mit konstantem Ziel bleibt die Rechnung unverändert
+    // (Hr. Sebastian: reduziertes Ziel 3 in beiden Monaten).
+    const sebastian = report.rows.find((r) => r.emp === "Hr. Sebastian");
+    assert.equal(sebastian.activeMonths, 2);
+    assert.equal(sebastian.bdTarget, 6);
+  });
+});

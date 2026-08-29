@@ -8,8 +8,9 @@ import {
   RELAXED_WEEKEND_DUTY_LIMIT,
   violatesSaturdayUltimaRatio,
   violatesHGHardAntiClusteringRules,
+  baseMonthlyBDTarget,
 } from "../js/autoplan.js";
-import { daysInMonth, isFacharzt, weekday, isoWeekNumber } from "../js/constants.js";
+import { daysInMonth, isFacharzt, weekday, isoWeekNumber, getMaxBdTarget } from "../js/constants.js";
 
 // Regressionstests für die harten Constraints des Auto-Plan-Solvers (Punkt 15).
 // Ziel: jeder dieser Tests MUSS fehlschlagen, sobald die zugehörige Regel im
@@ -211,17 +212,15 @@ describe("violatesHGHardAntiClusteringRules (Punkt 13, exportierte Kernregel)", 
 
 describe("Hr. Safari (Eintritt 01.11.2026) im vollständigen Solver-Lauf", () => {
   // Nach dem Eintritt gelten für Hr. Safari ausnahmslos die regulären
-  // AA-Regeln. Der Test plant November 2026 real durch und prüft die
-  // AA-Invarianten an seinem konkreten Ergebnis.
-  const YEAR = 2026;
-  const MONTH = 10; // November 2026
+  // AA-Regeln, zusätzlich die Einarbeitungs-Staffelung der BD-Ziele:
+  // 1. Monat 0 Dienste, 2. Monat 3, ab dem 3. Monat das Standardziel 4.
   const TEAM = FULL_TEAM.filter((e) => e !== "Fr. Thaler" && e !== "Hr. Torki").concat("Hr. Safari");
 
-  test("wird eingeplant, erhält aber weder Samstags-BD noch HG", async () => {
-    const result = await runFullPlan(YEAR, MONTH, TEAM);
-    const dim = daysInMonth(YEAR, MONTH);
+  // Prüft die AA-Invarianten an Hr. Safaris tatsächlichem Planergebnis und
+  // liefert die Zahl seiner Bereitschaftsdienste im Monat zurück.
+  function assertAaInvariantsAndCountBd(result, year, month) {
+    const dim = daysInMonth(year, month);
     const days = result.assignments["Hr. Safari"] || {};
-
     let bdCount = 0;
     for (let d = 1; d <= dim; d++) {
       const duty = days[d]?.duty;
@@ -229,11 +228,36 @@ describe("Hr. Safari (Eintritt 01.11.2026) im vollständigen Solver-Lauf", () =>
       assert.notEqual(duty, "HG", `HG an Tag ${d}: HG ist Fachärzten vorbehalten`);
       if (duty === "D") {
         bdCount++;
-        assert.notEqual(weekday(YEAR, MONTH, d), 6, `Samstags-BD an Tag ${d} ist Fachärzten vorbehalten`);
+        assert.notEqual(weekday(year, month, d), 6, `Samstags-BD an Tag ${d} ist Fachärzten vorbehalten`);
         assert.notEqual(days[d + 1]?.duty, "D", `D-D-Folge an Tag ${d}`);
       }
     }
-    assert.ok(bdCount > 0, "Hr. Safari muss ab November 2026 tatsächlich BD eingeplant bekommen");
+    return bdCount;
+  }
+
+  test("1. Monat (November 2026): Einarbeitung ohne jeden Bereitschaftsdienst", async () => {
+    const result = await runFullPlan(2026, 10, TEAM);
+    const bdCount = assertAaInvariantsAndCountBd(result, 2026, 10);
+    assert.equal(bdCount, 0, "im Eintrittsmonat darf kein BD vergeben werden (harte Obergrenze 0)");
+  });
+
+  test("2. Monat (Dezember 2026): höchstens 3 Bereitschaftsdienste", async () => {
+    const result = await runFullPlan(2026, 11, TEAM);
+    const bdCount = assertAaInvariantsAndCountBd(result, 2026, 11);
+    assert.ok(bdCount > 0, "ab dem 2. Monat muss Hr. Safari tatsächlich eingeplant werden");
+    assert.ok(bdCount <= 3, `im 2. Monat sind maximal 3 BD zulässig (waren ${bdCount})`);
+  });
+
+  test("3. Monat (Januar 2027): reguläres AA-Standardziel ohne Sonderobergrenze", async () => {
+    // Das Standardziel 4 ist bei diesem bewusst großen Fixture-Team (rund 21
+    // Personen auf 31 Tage) nicht ausschöpfbar; hier wird deshalb geprüft,
+    // dass die Staffelung ausgelaufen ist -- also weder eine Obergrenze noch
+    // ein reduziertes Ziel greift -- und Hr. Safari reguläre BD erhält.
+    assert.equal(getMaxBdTarget("Hr. Safari", 2027, 0), undefined);
+    assert.equal(baseMonthlyBDTarget("Hr. Safari", 2027, 0), 4);
+    const result = await runFullPlan(2027, 0, TEAM);
+    const bdCount = assertAaInvariantsAndCountBd(result, 2027, 0);
+    assert.ok(bdCount > 0, "ab dem 3. Monat wird Hr. Safari regulär eingeplant");
   });
 
   test("wird als AA und nicht als FA geführt", () => {

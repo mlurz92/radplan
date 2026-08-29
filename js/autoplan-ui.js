@@ -88,16 +88,16 @@ export async function runYearAutoPlan() {
   }
 }
 
-export function defaultBDTarget(empName) {
+export function defaultBDTarget(empName, y = state.year, m = state.month) {
   if (isDutyExempt(empName)) return 0;
   // AGENT.md/algorithm_rules.md §2.4: reduzierte BD-Monatsziele dürfen NIE
   // im aufrufenden Code hartkodiert werden, sondern ausschließlich über den
   // in constants.js deklarierten Getter aus SPECIAL_RULES.reducedBdTarget
   // gelesen werden — sonst prefillt der Konfigurationsdialog nach einer
   // Änderung an SPECIAL_RULES weiterhin die alten Werte.
-  const min = getMinBdTarget(empName) ?? MIN_MONTHLY_BD_TARGET;
-  const max = getMaxBdTarget(empName) ?? 10;
-  return Math.min(max, Math.max(min, getReducedBdTarget(empName) ?? 4));
+  const min = getMinBdTarget(empName, y, m) ?? MIN_MONTHLY_BD_TARGET;
+  const max = getMaxBdTarget(empName, y, m) ?? 10;
+  return Math.min(max, Math.max(min, getReducedBdTarget(empName, y, m) ?? 4));
 }
 
 export function openAutoPlanModal() {
@@ -239,8 +239,8 @@ export async function renderAutoPlanModal(renderToken = null) {
       const pc = posColor(meta.position);
       const h = hist[e] || { bd: 0, weDuty: 0, satBd: 0 };
       const target = localAutoPlanTargets[e] ?? defaultBDTarget(e);
-      const minTarget = getMinBdTarget(e) ?? MIN_MONTHLY_BD_TARGET;
-      const maxTarget = getMaxBdTarget(e) ?? 10;
+      const minTarget = getMinBdTarget(e, state.year, state.month) ?? MIN_MONTHLY_BD_TARGET;
+      const maxTarget = getMaxBdTarget(e, state.year, state.month) ?? 10;
       
       html += `
         <div class="ap-emp-card">
@@ -300,8 +300,8 @@ export async function renderAutoPlanModal(renderToken = null) {
         const emp = btn.dataset.emp;
         const isPlus = btn.classList.contains("plus");
         const current = localAutoPlanTargets[emp] ?? defaultBDTarget(emp);
-        const minTarget = getMinBdTarget(emp) ?? MIN_MONTHLY_BD_TARGET;
-        const maxTarget = getMaxBdTarget(emp) ?? 10;
+        const minTarget = getMinBdTarget(emp, state.year, state.month) ?? MIN_MONTHLY_BD_TARGET;
+        const maxTarget = getMaxBdTarget(emp, state.year, state.month) ?? 10;
         const next = isPlus ? Math.min(maxTarget, current + 1) : Math.max(minTarget, current - 1);
 
         localAutoPlanTargets[emp] = next;
