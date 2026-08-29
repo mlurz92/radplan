@@ -601,6 +601,22 @@ export const SPECIAL_RULES = {
     members: ["Dr. Becker", "Dr. Martin", "Dr. Hellmann"],
     unavailableWorkplaces: { "Dr. Hellmann": ["NRAD"] },
   },
+  // Zeitlich gestaffelte BD-Ziele für die Einarbeitung von Neuzugängen.
+  // Jede Stufe gilt AB dem in `from` genannten Monat bis zum Beginn der
+  // nächsten Stufe; die Stufen MÜSSEN chronologisch aufsteigend stehen.
+  // Eine Stufe ohne `target`/`min`/`max` beendet die Staffelung: ab ihr
+  // greifen wieder die statischen Regeln oben (bzw. das Standardziel 4).
+  // Diese Staffel hat Vorrang vor reducedBdTarget/maxBdTarget/minBdTarget.
+  bdTargetSchedule: {
+    "Hr. Safari": [
+      // 1. Monat (November 2026): reine Einarbeitung, noch keine Dienste.
+      { from: { year: 2026, month: 10 }, target: 0, min: 0, max: 0 },
+      // 2. Monat (Dezember 2026): reduziertes Ziel von 3 Diensten.
+      { from: { year: 2026, month: 11 }, target: 3, min: 3, max: 3 },
+      // Ab dem 3. Monat (Januar 2027): reguläres AA-Standardziel von 4.
+      { from: { year: 2027, month: 0 } },
+    ],
+  },
   // HG-Konfliktpaare: Person darf an den genannten Wochentagen keinen HG
   // übernehmen, wenn einer der conflictBd-Personen den BD desselben Tages hat.
   hgConflictRules: [
@@ -612,15 +628,36 @@ export const SPECIAL_RULES = {
   ],
 };
 
-export function getReducedBdTarget(empName) {
+// Liefert die für (y, m) gültige Stufe der BD-Ziel-Staffelung einer Person,
+// oder null, wenn keine Staffel konfiguriert ist bzw. der Monat vor deren
+// erster Stufe liegt. Ohne Monatskontext (y/m nicht übergeben) greift
+// bewusst KEINE Stufe -- die Aufrufer müssen den Planmonat mitgeben.
+function getBdTargetStage(empName, y, m) {
+  const stages = SPECIAL_RULES.bdTargetSchedule?.[empName];
+  if (!stages || !Number.isFinite(y) || !Number.isFinite(m)) return null;
+  let match = null;
+  for (const stage of stages) {
+    if (!isAtOrAfterMonth(y, m, stage.from)) break;
+    match = stage;
+  }
+  return match;
+}
+
+export function getReducedBdTarget(empName, y, m) {
+  const stage = getBdTargetStage(empName, y, m);
+  if (stage && stage.target !== undefined) return stage.target;
   return SPECIAL_RULES.reducedBdTarget[empName];
 }
 
-export function getMaxBdTarget(empName) {
+export function getMaxBdTarget(empName, y, m) {
+  const stage = getBdTargetStage(empName, y, m);
+  if (stage && stage.max !== undefined) return stage.max;
   return SPECIAL_RULES.maxBdTarget?.[empName];
 }
 
-export function getMinBdTarget(empName) {
+export function getMinBdTarget(empName, y, m) {
+  const stage = getBdTargetStage(empName, y, m);
+  if (stage && stage.min !== undefined) return stage.min;
   return SPECIAL_RULES.minBdTarget?.[empName];
 }
 

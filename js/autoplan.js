@@ -654,7 +654,7 @@ export function computeGridConflicts(y, m) {
   // Personenbezogene harte BD-Obergrenzen auch bei manuellen/importierten
   // Plänen sichtbar machen. Nur die überzähligen Dienste werden markiert.
   for (const emp of emps) {
-    const maxBd = getMaxBdTarget(emp);
+    const maxBd = getMaxBdTarget(emp, y, m);
     if (maxBd === undefined) continue;
     const bdDays = [];
     for (let d = 1; d <= dim; d++) {
@@ -840,8 +840,8 @@ export async function computeAutoPlan(customTargets, weightProfileKey, options =
 
   const clampBdTarget = (emp, requested) => {
     if (isDutyExempt(emp)) return 0;
-    const min = getMinBdTarget(emp) ?? MIN_MONTHLY_BD_TARGET;
-    const max = getMaxBdTarget(emp) ?? Infinity;
+    const min = getMinBdTarget(emp, y, m) ?? MIN_MONTHLY_BD_TARGET;
+    const max = getMaxBdTarget(emp, y, m) ?? Infinity;
     return Math.min(max, Math.max(min, requested));
   };
 
@@ -852,7 +852,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey, options =
     } else if (customTargets && customTargets[e] !== undefined) {
       bdTarget[e] = clampBdTarget(e, customTargets[e]);
     } else {
-      const reduced = getReducedBdTarget(e);
+      const reduced = getReducedBdTarget(e, y, m);
       bdTarget[e] = clampBdTarget(e, reduced !== undefined ? reduced : 4);
     }
   });
@@ -1214,7 +1214,7 @@ export async function computeAutoPlan(customTargets, weightProfileKey, options =
       if (wd === 6 && !isFacharzt(emp)) addHard("saturday_bd_fa_only", "Samstags-BD ist Fachärzten vorbehalten");
       if (isNoBdWeekday(emp, wd)) addHard("no_bd_weekday", "Persönliche Wochentags-BD-Sperre");
       if (hasCTLeadershipConflict(y, m, emp, d, assignments)) addHard("ct_conflict", "CT-Präsenzregel blockiert den Dienst");
-      const maxBd = getMaxBdTarget(emp);
+      const maxBd = getMaxBdTarget(emp, y, m);
       if (maxBd !== undefined) {
         let monthlyBdCount = 0;
         for (let day = 1; day <= dim; day++) {
@@ -3243,30 +3243,32 @@ const AUTO_PLAN_RANGE_MAX_MONTHS = 24;
 // sanft (max. ±1) nach unten korrigiert, und umgekehrt bei Unterversorgung
 // nach oben. Als eigenständige, exportierte Funktionen (statt Closures
 // innerhalb von computeAutoPlanRange) direkt unit-testbar.
-export function baseMonthlyBDTarget(emp) {
+export function baseMonthlyBDTarget(emp, y, m) {
   if (isDutyExempt(emp)) return 0;
-  const min = getMinBdTarget(emp) ?? MIN_MONTHLY_BD_TARGET;
-  const max = getMaxBdTarget(emp) ?? Infinity;
-  return Math.min(max, Math.max(min, getReducedBdTarget(emp) ?? 4));
+  const min = getMinBdTarget(emp, y, m) ?? MIN_MONTHLY_BD_TARGET;
+  const max = getMaxBdTarget(emp, y, m) ?? Infinity;
+  return Math.min(max, Math.max(min, getReducedBdTarget(emp, y, m) ?? 4));
 }
 
 /**
  * @param {string[]} rosterEmps Mitarbeitende des als Nächstes zu planenden Monats
  * @param {{year: number, month: number}[]} plannedMonths bereits geplante Monate DIESES Laufs, in chronologischer Reihenfolge
+ * @param {number} [targetYear] Jahr des als Nächstes zu planenden Monats (für zeitlich gestaffelte BD-Ziele)
+ * @param {number} [targetMonth] Monat (0-basiert) des als Nächstes zu planenden Monats
  * @returns {Object<string, number>} pro Person sanft an die kumulierte Ist/Soll-Differenz angepasstes BD-Monatsziel
  */
-export function computeCrossMonthBDTargets(rosterEmps, plannedMonths) {
+export function computeCrossMonthBDTargets(rosterEmps, plannedMonths, targetYear, targetMonth) {
   /** @type {Object<string, number>} */
   const targets = {};
   rosterEmps.forEach((emp) => {
-    const base = baseMonthlyBDTarget(emp);
+    const base = baseMonthlyBDTarget(emp, targetYear, targetMonth);
     if (base === 0) { targets[emp] = 0; return; }
     let idealCum = 0;
     let actualCum = 0;
     plannedMonths.forEach(({ year: py, month: pm }) => {
       const pmd = DATA[monthKey(py, pm)];
       if (!pmd?.employees?.includes(emp)) return;
-      idealCum += baseMonthlyBDTarget(emp);
+      idealCum += baseMonthlyBDTarget(emp, py, pm);
       const pDim = daysInMonth(py, pm);
       for (let d = 1; d <= pDim; d++) {
         if (pmd.assignments?.[emp]?.[d]?.duty === "D") actualCum++;
@@ -3279,8 +3281,8 @@ export function computeCrossMonthBDTargets(rosterEmps, plannedMonths) {
     // einzelner dienstreicher Monat (z. B. wegen vieler Abwesenheiten
     // anderer) nicht zu einem abrupten Zielsprung im Folgemonat führt.
     const nudge = deviation > 0.5 ? -1 : deviation < -0.5 ? 1 : 0;
-    const min = getMinBdTarget(emp) ?? MIN_MONTHLY_BD_TARGET;
-    const max = getMaxBdTarget(emp) ?? Infinity;
+    const min = getMinBdTarget(emp, targetYear, targetMonth) ?? MIN_MONTHLY_BD_TARGET;
+    const max = getMaxBdTarget(emp, targetYear, targetMonth) ?? Infinity;
     targets[emp] = Math.min(max, Math.max(min, base + nudge));
   });
   return targets;
@@ -3380,7 +3382,7 @@ export async function computeAutoPlanRange(startYear, startMonth, endYear, endMo
       setPlanData(createPlanSession(year, month));
 
       const monthCustomTargets = customTargets
-        || (i === 0 ? undefined : computeCrossMonthBDTargets(planData.employees, sequence.slice(0, i)));
+        || (i === 0 ? undefined : computeCrossMonthBDTargets(planData.employees, sequence.slice(0, i), year, month));
 
       const result = await computeAutoPlan(monthCustomTargets, weightProfileKey, { strategy: rangeStrategy });
       if (!result) {

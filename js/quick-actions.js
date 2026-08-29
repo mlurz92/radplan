@@ -108,7 +108,7 @@ export function quickToggleDuty(emp, day, dutyCode) {
       return;
     }
     if (!remove && dutyCode === "D" && !canAssignBdWithinHardLimit(y, m, emp, day)) {
-      showToast(`${emp} darf maximal ${getMaxBdTarget(emp)} BD pro Monat erhalten`);
+      showToast(`${emp} darf maximal ${getMaxBdTarget(emp, y, m)} BD pro Monat erhalten`);
       return;
     }
   }
@@ -185,7 +185,7 @@ export function moveDutyBadge(srcEmp, srcDay, dstEmp, dstDay) {
       "occupied-different": `Zielzelle hat bereits ${dstCell.duty}-Dienst`,
       "occupied-same": `Zielzelle hat bereits ${dutyCode}-Dienst`,
       "owner-conflict": `${dutyCode} bereits vergeben an: ${check.owner}`,
-      "bd-hard-max": `${dstEmp} darf maximal ${getMaxBdTarget(dstEmp)} BD pro Monat erhalten`,
+      "bd-hard-max": `${dstEmp} darf maximal ${getMaxBdTarget(dstEmp, y, m)} BD pro Monat erhalten`,
     };
     showToast(toastByReason[check.reason] || "Verschieben nicht möglich");
     return;

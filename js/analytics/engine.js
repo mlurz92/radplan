@@ -336,10 +336,16 @@ export function computeDutyFairnessForRange(range) {
 
   const raw = employees.map((emp) => {
     let bd = 0, hg = 0, weBd = 0, weHg = 0, holBd = 0, holHg = 0, activeMonths = 0;
+    // Das BD-Soll wird pro aktivem Monat aufsummiert (nicht als ein Monatsziel
+    // mal Monatszahl), damit zeitlich gestaffelte Ziele -- Einarbeitung von
+    // Neuzugängen, SPECIAL_RULES.bdTargetSchedule -- korrekt eingehen. Bei
+    // konstantem Ziel ist die Summe identisch zum bisherigen Produkt.
+    let bdTargetSum = 0;
     range.months.forEach(({ year, month }) => {
       const md = getMonthData(year, month);
       if (!md?.employees?.includes(emp)) return;
       activeMonths++;
+      bdTargetSum += getReducedBdTarget(emp, year, month) ?? _RANGE_DEFAULT_BD_TARGET;
       const hols = getSaxonyHolidaysCached(year);
       const dim = daysInMonth(year, month);
       for (let d = 1; d <= dim; d++) {
@@ -352,7 +358,7 @@ export function computeDutyFairnessForRange(range) {
         else { hg++; if (heavy) weHg++; if (hol) holHg++; }
       }
     });
-    return { emp, meta: getEmpMeta(emp), bd, hg, weBd, weHg, holBd, holHg, activeMonths };
+    return { emp, meta: getEmpMeta(emp), bd, hg, weBd, weHg, holBd, holHg, activeMonths, bdTargetSum };
   }).filter((r) => r.activeMonths > 0);
 
   const rows = /** @type {DutyFairnessRow[]} */ (raw.map((r) => ({
@@ -383,10 +389,9 @@ export function computeDutyFairnessForRange(range) {
     r.weekendDev = r.weekendDuties - r.fairWeekend;
     r.totalDev = r.total - r.fairTotal;
 
-    // Soll/Ist BD: monatliches Ziel (reduziert oder Default 4), FTE- und
-    // aktivitäts-skaliert über die im Zeitraum tatsächlich aktiven Monate.
-    const monthlyTarget = getReducedBdTarget(r.emp) ?? _RANGE_DEFAULT_BD_TARGET;
-    r.bdTarget = Math.round(monthlyTarget * r.activeMonths * (r.fte / 100) * 10) / 10;
+    // Soll/Ist BD: Summe der Monatsziele (reduziert, gestaffelt oder Default 4)
+    // über die im Zeitraum tatsächlich aktiven Monate, FTE-skaliert.
+    r.bdTarget = Math.round(r.bdTargetSum * (r.fte / 100) * 10) / 10;
     r.bdDelta = Math.round((r.bd - r.bdTarget) * 10) / 10;
     r.bdTargetPct = r.bdTarget > 0 ? Math.round((r.bd / r.bdTarget) * 100) : 0;
 
@@ -984,8 +989,9 @@ export function computeForecast(year) {
     const projHg = Math.round(r.hg * factor);
 
     // yearTarget: r.bdTarget (aus der Fairness-Berechnung) ist bereits
-    // korrekt auf r.activeMonths anteilig berechnet (monatliches Soll ×
-    // activeMonths × FTE). Ist r.activeMonths < rosterMonths, heißt das: für
+    // korrekt auf r.activeMonths anteilig berechnet (Summe der Monatsziele
+    // über die aktiven Monate × FTE; die Division unten liefert daher das
+    // mittlere Monatsziel). Ist r.activeMonths < rosterMonths, heißt das: für
     // Monate, in denen laut Roster ANDERE Mitarbeitende bereits geführt
     // wurden, taucht DIESE Person nicht auf — typischerweise unterjähriger
     // Ein-/Austritt bzw. Teilzeit mit begrenzter Beschäftigungsspanne (kein

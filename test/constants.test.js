@@ -244,6 +244,38 @@ describe("Mitarbeiter-Stammdaten", () => {
     assert.equal(getCtLeadershipPartner("Hr. Safari"), null);
   });
 
+  test("Hr. Safari: gestaffeltes BD-Ziel 0 / 3 / 4 ab dem Eintritt", () => {
+    // 1. Monat (November 2026): reine Einarbeitung, harte Obergrenze 0.
+    assert.equal(getReducedBdTarget("Hr. Safari", 2026, 10), 0);
+    assert.equal(getMinBdTarget("Hr. Safari", 2026, 10), 0);
+    assert.equal(getMaxBdTarget("Hr. Safari", 2026, 10), 0);
+    // 2. Monat (Dezember 2026): genau 3 Dienste.
+    assert.equal(getReducedBdTarget("Hr. Safari", 2026, 11), 3);
+    assert.equal(getMinBdTarget("Hr. Safari", 2026, 11), 3);
+    assert.equal(getMaxBdTarget("Hr. Safari", 2026, 11), 3);
+    // Ab dem 3. Monat (Januar 2027): Standardziel 4, keine Sondergrenzen.
+    assert.equal(getReducedBdTarget("Hr. Safari", 2027, 0), undefined);
+    assert.equal(getMinBdTarget("Hr. Safari", 2027, 0), undefined);
+    assert.equal(getMaxBdTarget("Hr. Safari", 2027, 0), undefined);
+    assert.equal(getReducedBdTarget("Hr. Safari", 2028, 5), undefined);
+  });
+
+  test("die Staffelung greift nicht vor dem Eintritt und nicht bei anderen Personen", () => {
+    assert.equal(getReducedBdTarget("Hr. Safari", 2026, 9), undefined);
+    assert.equal(getMaxBdTarget("Hr. Safari", 2026, 9), undefined);
+    // Statische Sonderregeln bleiben monatsunabhängig unverändert.
+    assert.equal(getReducedBdTarget("Hr. Sebastian", 2026, 10), 3);
+    assert.equal(getReducedBdTarget("Hr. Sebastian", 2027, 0), 3);
+    assert.equal(getMaxBdTarget("Dr. Hellmann", 2026, 10), 2);
+    assert.equal(getMinBdTarget("Dr. Hellmann", 2026, 10), 0);
+  });
+
+  test("ohne Monatskontext greift keine Staffelung (Aufrufer müssen den Monat mitgeben)", () => {
+    assert.equal(getReducedBdTarget("Hr. Safari"), undefined);
+    assert.equal(getMaxBdTarget("Hr. Safari"), undefined);
+    assert.equal(getMinBdTarget("Hr. Safari"), undefined);
+  });
+
   test("reconcileEmployeesForMonth entfernt ausgeschiedene Personen aus employees/assignments/comments", () => {
     const departure = EMPLOYEE_DEPARTURES["Fr. Thaler"];
     const md = {
