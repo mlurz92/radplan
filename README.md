@@ -28,6 +28,7 @@
 18. [Benachrichtigungszentrum](#18-benachrichtigungszentrum)
 19. [Drucken & PDF-Export](#19-drucken--pdf-export)
 20. [Import & Export von Daten](#20-import--export-von-daten)
+    - [20.1 PDF-Monatsdienstplan importieren](#201-pdf-monatsdienstplan-importieren)
 21. [Theming, Animationen & Barrierefreiheit](#21-theming-animationen--barrierefreiheit)
 22. [Mobile-, Touch- & PWA-Erfahrung](#22-mobile--touch--pwa-erfahrung)
 23. [Kalender- & Feiertagslogik](#23-kalender-&--feiertagslogik)
@@ -780,13 +781,29 @@ Die Anwendung erzeugt über jsPDF + jspdf-autotable direkt im Browser hochauflö
 ## 20. Import & Export von Daten
 
 * **Export:** Der gesamte Datenbestand der Anwendung kann jederzeit als strukturierte JSON-Datei exportiert werden.
-* **Import:** Über einen Importdialog können JSON-Dateien per Drag & Drop hineingezogen oder als Text eingefügt werden.
+* **Import:** Über einen Importdialog können JSON-Dateien per Drag & Drop hineingezogen oder als Text eingefügt werden. Zusätzlich akzeptiert derselbe Dialog **PDF-Monatsdienstpläne** (siehe [20.1](#201-pdf-monatsdienstplan-importieren)).
 * **Poka-Yoke-Schema- & Integritätsvalidierung:** Vor dem eigentlichen Laden neuer Importdaten führt `validateImportSchema` eine strenge Vorabprüfung durch:
   * Jeder Schlüssel muss dem regulären Monats-Muster YYYY-M entsprechen.
   * Das Feld `employees` muss zwingend ein Array aus Strings sein.
   * Die Felder `assignments`, `rbn` und `comments` müssen valide JSON-Objekte sein.
   Dies verhindert jegliche Zustandsbeschädigung durch korruptierte Datenstrukturen.
 * **Import-Cleanup:** Der Import verwendet die Funktion `replaceAllData` in `state.js`, um den Zustand komplett zu leeren, bevor die neuen Fragmente eingelesen werden.
+
+### 20.1 PDF-Monatsdienstplan importieren
+
+Im Importdialog kann statt einer JSON-Datei auch ein **PDF-Monatsdienstplan** abgelegt werden (z. B. `Dienstplan_202610.pdf`). Erwartet wird eine Tabelle mit der Kopfzeile `Tag | Wochentag | BD | HG | RBN | 2. RBN`; `Wochentag` und `2. RBN` sind optional.
+
+* **Was übernommen wird:** die Spalte `BD` als Bereitschaftsdienst (Dienstcode `D`), die Spalte `HG` als Hintergrunddienst und die **erste** `RBN`-Spalte als RBN-Besetzung des Tages. Die Spalte `2. RBN` wird bewusst **nicht** importiert, weil RadPlan je Tag genau eine RBN-Besetzung führt.
+* **Was unangetastet bleibt:** Arbeitsplatzcodes (MR, CT, …), Statuscodes (Urlaub, Krank, FZA …) und Kommentare. Ersetzt werden ausschließlich sämtliche `D`-/`HG`-Dienste und alle RBN-Einträge des betroffenen Monats — der PDF-Plan ist für diesen Monat maßgeblich.
+* **Zweistufiger Ablauf (Poka-Yoke):** Das Ablegen der Datei wertet das PDF nur aus und zeigt eine Zusammenfassung (Monat, Anzahl D/HG/RBN, zu ergänzende Personen, Hinweise, Fehler). Erst der Klick auf „Dienstplan übernehmen" schreibt in den Plan. Enthält das PDF nicht auflösbare Angaben, bleibt der Import gesperrt und die Fehler werden einzeln benannt.
+* **Namensauflösung:** Das PDF führt nur Nachnamen („Schüngel", „El Houba"). `nameMatchKeys()` in `js/pdf-schedule.js` entfernt Titel und Klammerzusätze und normalisiert Umlaute (`ü` ≙ `ue`). Gesucht wird zuerst im Monatsteam, danach im gesamten Personalstamm (`EMP_META`, gefiltert über `isEmployeeActiveInMonth`); eine dabei gefundene Person wird dem Monatsteam hinzugefügt. Mehrdeutige oder unbekannte Namen sind ein **Fehler**, kein stiller Fallback. RBN-Namen werden gegen `getRbnOptionsForDate(y, m)` aufgelöst.
+* **Geprüft wird u. a.:** vollständige Tagesabdeckung des Monats, identische BD-/HG-Besetzung am selben Tag (Fehler), aufeinanderfolgende Bereitschaftsdienste derselben Person (Hinweis), leere BD-/HG-Zellen (Hinweis) sowie Dienste, die auf eine bereits erfasste Abwesenheit (Urlaub, Krank, FZA …) fallen (Hinweis — der Dienst wird gesetzt, die Abwesenheit bleibt stehen und wird im Raster als Konflikt sichtbar).
+* **Nachbereitung:** Nach dem Schreiben stellt `ensurePostBDFreiDays()` den Pflicht-Ruhetag (`F`) nach jedem Bereitschaftsdienst wieder her — auch über die Monatsgrenze hinweg. Beim Entfernen alter Dienste wird ein dadurch erzeugter Ruhetag entsprechend zurückgenommen. Der Import ist idempotent.
+* **Sperren:** Während einer laufenden Auto-Plan-Berechnung und im Planungsmodus ist der PDF-Import blockiert (ein Plan-Entwurf darf nicht unbemerkt überschrieben werden).
+
+**PDF-Auswertung ohne Fremdbibliothek:** `js/pdf-text.js` ist ein abhängigkeitsfreier Textextraktor. Er scannt die Objekte der Datei (unabhängig von der Querverweistabelle, damit auch inkrementell fortgeschriebene PDFs lesbar bleiben), löst Objektströme (`/ObjStm`) auf und dekodiert `FlateDecode` (über die native `DecompressionStream`-API), `ASCIIHexDecode`, `ASCII85Decode`, `RunLengthDecode` sowie PNG-/TIFF-Prädiktoren. Aus den Inhaltsströmen liefert er je Textfragment Position, Schriftgröße und Text — dekodiert über WinAnsi-/MacRoman-/Standard-Encoding, `/Differences` und `/ToUnicode`-CMaps. Verschlüsselte PDFs, `LZWDecode` und reine Scans ohne Textebene werden mit einer klaren Meldung abgelehnt.
+
+`js/pdf-schedule.js` baut daraus die Tabelle wieder auf: Spalten werden über die erkannte Kopfzeile bestimmt (ein Fragment gehört zu der Spalte, deren Kopf zuletzt links davon beginnt — das trägt auch zentrierte Tagesnummern), Zeilen über die Tagesnummern als Anker (mehrzeilige Feiertagszellen werden korrekt derselben Zeile zugeschlagen). Ein Statistikblock unterhalb der Tabelle mit eigenen `BD`-/`HG`-Überschriften wird nicht als Tabellenkopf missverstanden: Kandidaten müssen mindestens drei erkannte Spalten führen, und die Tagesnummern müssen streng aufsteigen.
 * **Microsoft Excel Kompatibilität (Umlaute):** Alle CSV-Exporte (Mitarbeiterdaten-Tabelle, Fairness-Report, Prognosen) schreiben beim Export ein explizites Unicode-BOM-Zeichen (`\uFEFF`) als Escape-Sequenz direkt an den Anfang der Textblobs. Dies stellt sicher, dass Microsoft Excel unter Windows Umlaute (ä, ö, ü, ß) und Sonderzeichen fehlerfrei als UTF-8 liest statt unleserlichen Zeichensalat anzuzeigen.
 
 ---
@@ -934,7 +951,9 @@ radplan/
 │   ├── editor.js                   # Der Zellen-Editor (#modal-editor)
 │   ├── autoplan-ui.js              # Auto-Plan-Konfigurationsdialog, Fortschrittsanzeige, „Warum X?"-Bericht, Jahresplanung
 │   ├── mobile.js                   # Mobile Tages-Detailkarte mit Swipe-Navigation und Radial-Schnellmenü
-│   ├── import-export.js            # JSON-Export/-Import inkl. Drag & Drop und Preflight Schema-Validierung
+│   ├── import-export.js            # JSON-Export/-Import inkl. Drag & Drop, PDF-Dienstplan-Import und Preflight Schema-Validierung
+│   ├── pdf-text.js                 # Abhängigkeitsfreier PDF-Textextraktor (Position, Encoding, Filter, Objektströme)
+│   ├── pdf-schedule.js             # Auswertung von PDF-Monatsdienstplänen (Tabellenrekonstruktion, Namensauflösung)
 │   ├── quick-actions.js            # Schnellaktionen für (mehrfach ausgewählte) Zellen
 │   ├── constants.js                # Stammdaten, SPECIAL_RULES, Codes/Farben, Kalender-/Feiertagsmathematik
 │   ├── state.js                    # Verwaltet DATA, LocalStorage-Zugriffe und Server-Synchronisation
