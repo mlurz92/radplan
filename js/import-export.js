@@ -1,11 +1,22 @@
 // RadPlan — Drucken, JSON-Export/-Import (inkl. Drag & Drop) für den
 // gesamten Datenbestand. Extrahiert aus dem früher monolithischen app.js.
 
-import { DATA, replaceAllData, saveToStorage, collectLocalPlans } from './state.js';
-import { ensurePostBDFreiDays } from './model.js';
-import { normalizeMonthDataShape } from './constants.js';
+import { DATA, state, planMode, replaceAllData, saveToStorage, collectLocalPlans } from './state.js';
+import { ensurePostBDFreiDays, getMonthData, applyPdfDutySchedule } from './model.js';
+import {
+  normalizeMonthDataShape,
+  ABSENCE_CODES,
+  EMP_META,
+  MONTHS,
+  isEmployeeActiveInMonth,
+  getRbnOptionsForDate,
+  isRbnMonthVisible,
+} from './constants.js';
 import { render } from './render-grid.js';
 import { showOverlay, hideOverlay, showToast } from './render-modals.js';
+import { extractPdfTextItems } from './pdf-text.js';
+import { parseDutySchedulePages, resolveDutySchedule } from './pdf-schedule.js';
+import { switchPeriod } from './period.js';
 
 const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
@@ -50,6 +61,7 @@ export function openImportModal() {
   if (fn) fn.textContent = "";
   if (fi) fi.value = "";
 
+  clearPendingPdfImport();
   showOverlay("modal-import");
 }
 
@@ -85,6 +97,11 @@ export function validateImportSchema(mainData) {
 }
 
 export function doImport() {
+  if (pendingPdfImport) {
+    applyPendingPdfImport();
+    return;
+  }
+
   const ta = /** @type {HTMLTextAreaElement} */ (document.getElementById("import-ta"));
   if (!ta) return;
   
@@ -189,11 +206,18 @@ export function handleDroppedFile(file) {
   
   if (errEl) errEl.style.display = "none";
   if (dz) dz.classList.remove("has-file");
-  
-  if (!file.name.toLowerCase().endsWith(".json") && file.type !== "application/json") {
+  clearPendingPdfImport();
+
+  const lowerName = file.name.toLowerCase();
+  if (lowerName.endsWith(".pdf") || file.type === "application/pdf") {
+    void stageDutySchedulePdf(file);
+    return;
+  }
+
+  if (!lowerName.endsWith(".json") && file.type !== "application/json") {
     if (errEl) {
       errEl.style.display = "block";
-      errEl.textContent = "Fehler: Nur .json-Dateien";
+      errEl.textContent = "Fehler: Nur .json- oder .pdf-Dateien";
     }
     return;
   }
@@ -218,3 +242,227 @@ export function handleDroppedFile(file) {
   reader.readAsText(file, "UTF-8");
 }
 
+// ── PDF-Monatsdienstplan importieren ────────────────────────────────────────
+// Aus einem PDF nach dem Schema "Tag | Wochentag | BD | HG | RBN | 2. RBN"
+// werden die Bereitschaftsdienste (BD → "D"), die Hintergrunddienste (HG) und
+// die erste RBN-Spalte für den im PDF genannten Monat übernommen. Die Spalte
+// "2. RBN" wird bewusst nicht importiert, weil RadPlan je Tag genau eine
+// RBN-Besetzung führt.
+//
+// Der Ablauf ist zweistufig: Ablegen der Datei wertet das PDF nur aus und
+// zeigt eine Zusammenfassung; erst "Importieren" schreibt in den Plan.
+
+/** @type {{ resolved: any, fileName: string, monthLabel: string }|null} */
+let pendingPdfImport = null;
+
+function clearPendingPdfImport() {
+  pendingPdfImport = null;
+  const box = document.getElementById("import-pdf-summary");
+  if (box) {
+    box.textContent = "";
+    box.hidden = true;
+  }
+  setJsonInputVisible(true);
+  setImportButtonLabel("Importieren");
+}
+
+function setJsonInputVisible(visible) {
+  const divider = document.getElementById("import-json-divider");
+  const ta = document.getElementById("import-ta");
+  if (divider) divider.hidden = !visible;
+  if (ta) ta.hidden = !visible;
+}
+
+function setImportButtonLabel(label) {
+  const btn = document.getElementById("import-confirm");
+  if (btn) btn.textContent = label;
+}
+
+function showImportError(message) {
+  const errEl = document.getElementById("import-err");
+  if (!errEl) return;
+  errEl.style.display = "block";
+  errEl.textContent = message;
+}
+
+function appendSummaryList(parent, title, entries, variant) {
+  if (!entries.length) return;
+  const block = document.createElement("div");
+  block.className = `pdf-summary-block pdf-summary-${variant}`;
+
+  const head = document.createElement("div");
+  head.className = "pdf-summary-block-title";
+  head.textContent = `${title} (${entries.length})`;
+  block.appendChild(head);
+
+  const list = document.createElement("ul");
+  list.className = "pdf-summary-list";
+  // Sehr lange Listen abschneiden, damit der Dialog bedienbar bleibt.
+  const MAX = 12;
+  entries.slice(0, MAX).forEach((text) => {
+    const li = document.createElement("li");
+    li.textContent = text;
+    list.appendChild(li);
+  });
+  if (entries.length > MAX) {
+    const li = document.createElement("li");
+    li.textContent = `… und ${entries.length - MAX} weitere`;
+    list.appendChild(li);
+  }
+  block.appendChild(list);
+  parent.appendChild(block);
+}
+
+function renderPdfSummary(resolved, fileName, monthLabel) {
+  const box = document.getElementById("import-pdf-summary");
+  if (!box) return;
+  box.textContent = "";
+  box.hidden = false;
+
+  const head = document.createElement("div");
+  head.className = "pdf-summary-head";
+  const title = document.createElement("strong");
+  title.textContent = `Monatsdienstplan ${monthLabel}`;
+  head.appendChild(title);
+  const sub = document.createElement("span");
+  sub.textContent = fileName;
+  head.appendChild(sub);
+  box.appendChild(head);
+
+  const stats = document.createElement("div");
+  stats.className = "pdf-summary-stats";
+  const counts = [
+    ["Tage", String(resolved.entries.length)],
+    ["BD (D)", String(resolved.entries.filter((e) => e.bd).length)],
+    ["HG", String(resolved.entries.filter((e) => e.hg).length)],
+    ["RBN", String(resolved.entries.filter((e) => e.rbn).length)],
+  ];
+  counts.forEach(([label, value]) => {
+    const chip = document.createElement("span");
+    chip.className = "pdf-summary-chip";
+    const strong = document.createElement("strong");
+    strong.textContent = value;
+    chip.appendChild(strong);
+    chip.appendChild(document.createTextNode(` ${label}`));
+    stats.appendChild(chip);
+  });
+  box.appendChild(stats);
+
+  const note = document.createElement("p");
+  note.className = "pdf-summary-note";
+  note.textContent =
+    "Beim Import werden alle vorhandenen D-, HG- und RBN-Einträge dieses Monats ersetzt. " +
+    "Arbeitsplätze, Status (Urlaub, Krank …) und Kommentare bleiben erhalten. " +
+    'Die Spalte "2. RBN" wird nicht übernommen.';
+  box.appendChild(note);
+
+  if (resolved.newEmployees.length) {
+    appendSummaryList(box, "Wird dem Monatsteam hinzugefügt", resolved.newEmployees, "info");
+  }
+  appendSummaryList(box, "Hinweise", resolved.warnings, "warn");
+
+  const errors = resolved.errors || [];
+  if (errors.length) {
+    appendSummaryList(box, "Fehler — Import nicht möglich", errors, "error");
+  }
+}
+
+// Bereits erfasste Abwesenheiten (Urlaub, Krank, FZA …) je Person und Tag —
+// Grundlage für den Hinweis auf Dienste, die laut Plan auf eine Abwesenheit
+// fallen.
+function collectAbsences(md) {
+  /** @type {Record<string, Record<string, string>>} */
+  const out = {};
+  for (const [emp, days] of Object.entries(md.assignments || {})) {
+    for (const [day, cell] of Object.entries(days || {})) {
+      const code = cell && cell.assignment;
+      if (!code || !ABSENCE_CODES.includes(code)) continue;
+      if (!out[emp]) out[emp] = {};
+      out[emp][day] = code;
+    }
+  }
+  return out;
+}
+
+async function stageDutySchedulePdf(file) {
+  const dz = document.getElementById("import-dropzone");
+  const fnEl = document.getElementById("dz-filename");
+
+  if (state.isAutoplanRunning) {
+    showImportError("Fehler: Während einer laufenden Auto-Plan-Berechnung ist kein Import möglich.");
+    return;
+  }
+  if (planMode) {
+    showImportError("Fehler: Bitte zuerst den Planungsmodus verlassen, dann den PDF-Dienstplan importieren.");
+    return;
+  }
+
+  setJsonInputVisible(false);
+  if (fnEl) fnEl.textContent = `${file.name} · wird gelesen …`;
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const { pages } = await extractPdfTextItems(buffer);
+    const parsed = parseDutySchedulePages(pages, { fileName: file.name });
+
+    const md = getMonthData(parsed.year, parsed.month);
+    const knownEmployees = Object.keys(EMP_META).filter((name) => isEmployeeActiveInMonth(name, parsed.year, parsed.month));
+    const rbnOptions = isRbnMonthVisible(parsed.year, parsed.month) ? getRbnOptionsForDate(parsed.year, parsed.month) : [];
+
+    const resolved = resolveDutySchedule(parsed, {
+      rosterEmployees: md.employees || [],
+      knownEmployees,
+      rbnOptions,
+      absences: collectAbsences(md),
+    });
+
+    if (!isRbnMonthVisible(parsed.year, parsed.month) && parsed.rows.some((r) => r.rbn)) {
+      resolved.warnings.unshift("Für diesen Monat führt RadPlan keine RBN-Zeile — die RBN-Spalte wird ignoriert.");
+    }
+
+    const monthLabel = `${MONTHS[parsed.month]} ${parsed.year}`;
+    if (fnEl) fnEl.textContent = file.name;
+    if (dz) dz.classList.add("has-file");
+    renderPdfSummary(resolved, file.name, monthLabel);
+
+    if (resolved.errors.length) {
+      showImportError(`Fehler: Der PDF-Dienstplan enthält ${resolved.errors.length} nicht auflösbare Angabe(n) — siehe Liste oben.`);
+      setImportButtonLabel("Importieren");
+      return;
+    }
+
+    pendingPdfImport = { resolved, fileName: file.name, monthLabel };
+    setImportButtonLabel("Dienstplan übernehmen");
+  } catch (e) {
+    if (dz) dz.classList.remove("has-file");
+    if (fnEl) fnEl.textContent = "";
+    setJsonInputVisible(true);
+    showImportError("Fehler: " + (e && e.message ? e.message : String(e)));
+  }
+}
+
+function applyPendingPdfImport() {
+  if (!pendingPdfImport) return;
+  const { resolved, monthLabel } = pendingPdfImport;
+
+  try {
+    const stats = applyPdfDutySchedule(resolved);
+    clearPendingPdfImport();
+    hideOverlay("modal-import");
+
+    // In den importierten Monat wechseln; switchPeriod rendert bereits neu.
+    if (state.year !== resolved.year || state.month !== resolved.month) {
+      switchPeriod(resolved.year, resolved.month);
+    } else {
+      render();
+    }
+
+    const parts = [`${stats.setBd} BD`, `${stats.setHg} HG`];
+    if (stats.setRbn) parts.push(`${stats.setRbn} RBN`);
+    if (stats.addedEmployees.length) parts.push(`${stats.addedEmployees.length} Person(en) ergänzt`);
+    if (stats.restDays) parts.push(`${stats.restDays} Ruhetage`);
+    showToast(`Dienstplan ${monthLabel} importiert · ${parts.join(" · ")}`);
+  } catch (e) {
+    showImportError("Fehler: " + (e && e.message ? e.message : String(e)));
+  }
+}

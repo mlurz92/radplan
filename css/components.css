@@ -1037,6 +1037,86 @@ body.plan-mode-active #btn-plan {
   display: none;
 }
 
+/* Zusammenfassung eines eingelesenen PDF-Monatsdienstplans im Import-Dialog.
+   Wie .or-divider bewusst mit den Grau-Tokens gestylt, weil die Modal-Fläche
+   in beiden Themes hell ist. */
+.pdf-summary {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  background: var(--gray-50);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.pdf-summary-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13.5px;
+  color: var(--gray-800);
+}
+
+.pdf-summary-head span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gray-500);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-summary-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pdf-summary-chip {
+  background: var(--accent-xs);
+  color: var(--steel);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.pdf-summary-chip strong {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdf-summary-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+
+.pdf-summary-block-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 4px;
+}
+
+.pdf-summary-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--gray-600);
+}
+
+.pdf-summary-info .pdf-summary-block-title { color: var(--steel); }
+.pdf-summary-warn .pdf-summary-block-title { color: var(--orange); }
+.pdf-summary-error .pdf-summary-block-title { color: var(--red-dark); }
+
 #toast {
   position: fixed;
   bottom: 24px;

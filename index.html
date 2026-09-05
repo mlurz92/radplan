@@ -185,7 +185,7 @@
       <span class="hmenu-lbl">Exportieren</span>
       <span class="hmenu-kbd">Strg S</span>
     </button>
-    <button type="button" class="hmenu-item" id="btn-import" role="menuitem" data-icon="upload" data-tooltip="Öffnet den Import-Dialog, um eine zuvor exportierte JSON-Datei wieder einzuspielen (überschreibt den aktuellen Datenbestand nach Bestätigung).">
+    <button type="button" class="hmenu-item" id="btn-import" role="menuitem" data-icon="upload" data-tooltip="Öffnet den Import-Dialog: eine zuvor exportierte JSON-Datei wieder einspielen (überschreibt den gesamten Datenbestand nach Bestätigung) oder einen PDF-Monatsdienstplan einlesen (setzt D, HG und RBN für den Monat der PDF).">
       <span class="hmenu-ico" aria-hidden="true"></span>
       <span class="hmenu-lbl">Importieren</span>
     </button>
@@ -764,13 +764,13 @@
       <div class="modal-hd">
         <div>
           <div class="modal-hd-title" id="import-title">Daten importieren</div>
-          <div class="modal-hd-sub">JSON-Datei ablegen oder Text einfügen</div>
+          <div class="modal-hd-sub">JSON-Gesamtdaten oder PDF-Monatsdienstplan</div>
         </div>
         <button type="button" class="modal-x" data-close="modal-import" aria-label="Import schließen">✕</button>
       </div>
       <div class="modal-bd">
-        <div id="import-dropzone" class="dropzone" role="button" tabindex="0" aria-label="JSON-Datei ablegen">
-          <input type="file" id="import-file-input" accept=".json,application/json" style="display:none">
+        <div id="import-dropzone" class="dropzone" role="button" tabindex="0" aria-label="JSON- oder PDF-Datei ablegen">
+          <input type="file" id="import-file-input" accept=".json,application/json,.pdf,application/pdf" style="display:none">
           <div class="dz-icon" aria-hidden="true">
             <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -778,11 +778,12 @@
               <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
             </svg>
           </div>
-          <p class="dz-main">JSON-Datei hier ablegen</p>
-          <p class="dz-hint" id="dz-hint-text">.json &middot; Klicken zum Durchsuchen</p>
+          <p class="dz-main">JSON- oder PDF-Datei hier ablegen</p>
+          <p class="dz-hint" id="dz-hint-text">.json (Gesamtdaten) &middot; .pdf (Monatsdienstplan) &middot; Klicken zum Durchsuchen</p>
           <span class="dz-filename" id="dz-filename" aria-live="polite"></span>
         </div>
-        <div class="or-divider" role="separator"><span>oder JSON-Text direkt einfügen</span></div>
+        <div class="pdf-summary" id="import-pdf-summary" aria-live="polite" hidden></div>
+        <div class="or-divider" id="import-json-divider" role="separator"><span>oder JSON-Text direkt einfügen</span></div>
         <textarea class="json-ta" id="import-ta" spellcheck="false" placeholder='{ "main": { ... } }'></textarea>
         <div class="import-err" id="import-err" role="alert" style="display:none"></div>
       </div>

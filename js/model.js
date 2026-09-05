@@ -955,3 +955,105 @@ export function loadPlanSessionForState(y, m) {
   syncPlanSessionRefs(session);
   return session;
 }
+
+// ── PDF-Monatsdienstplan in den Plan übernehmen ─────────────────────────────
+// Wird von js/import-export.js nach dem Auswerten eines PDF-Dienstplans
+// aufgerufen (siehe js/pdf-schedule.js). Der PDF-Plan ist für den betroffenen
+// Monat maßgeblich: alle vorhandenen D-/HG-Dienste und RBN-Einträge dieses
+// Monats werden zuerst entfernt und danach exakt nach PDF neu gesetzt.
+// Arbeitsplatz-/Statuscodes der Zellen bleiben unangetastet.
+//
+// Bewusst ohne die Einzelzell-Helfer (setCell/setRbnValue): diese schreiben bei
+// jedem Aufruf den kompletten Datenbestand in den localStorage. Hier wird
+// stattdessen einmal am Ende gespeichert.
+
+function rawMonth(y, m) {
+  return DATA[monthKey(y, m)] || null;
+}
+
+// Entfernt einen ausschließlich durch einen Bereitschaftsdienst erzeugten
+// Ruhetag ("F") am Folgetag — analog zu clearCascadedFreeDay(), aber ohne
+// Speichervorgang.
+function stripCascadedFreeDayRaw(y, m, emp, day) {
+  const next = nextCalendarDay(y, m, day);
+  const md = next.y === y && next.m === m ? rawMonth(y, m) : rawMonth(next.y, next.m);
+  const cell = md?.assignments?.[emp]?.[next.d];
+  if (!cell || cell.assignment !== "F") return false;
+  delete cell.assignment;
+  if (!Object.keys(cell).length) delete md.assignments[emp][next.d];
+  return true;
+}
+
+function setDutyRaw(md, emp, day, duty) {
+  if (!md.assignments[emp]) md.assignments[emp] = {};
+  if (!md.assignments[emp][day]) md.assignments[emp][day] = {};
+  md.assignments[emp][day].duty = duty;
+}
+
+/**
+ * @param {{ year: number, month: number, entries: {day: number, bd: string|null, hg: string|null, rbn: string|null}[], newEmployees?: string[] }} schedule
+ * @returns {{ addedEmployees: string[], clearedDuties: number, clearedRbn: number, setBd: number, setHg: number, setRbn: number, restDays: number }}
+ */
+export function applyPdfDutySchedule(schedule) {
+  const { year, month, entries } = schedule;
+  const md = getMonthDataRaw(year, month);
+  const dim = daysInMonth(year, month);
+
+  // 1) Im Monat aktive, aber noch nicht geführte Personen ergänzen.
+  const addedEmployees = [];
+  for (const name of schedule.newEmployees || []) {
+    if (!isEmployeeActiveInMonth(name, year, month)) continue;
+    if (md.employees.includes(name)) continue;
+    md.employees.push(name);
+    addedEmployees.push(name);
+  }
+
+  // 2) Alle bisherigen Dienste des Monats entfernen.
+  let clearedDuties = 0;
+  const removedBdDays = [];
+  for (const emp of Object.keys(md.assignments)) {
+    const perEmp = md.assignments[emp];
+    if (!perEmp || typeof perEmp !== "object") continue;
+    for (const dayKey of Object.keys(perEmp)) {
+      const cell = perEmp[dayKey];
+      if (!cell || !cell.duty) continue;
+      if (cell.duty === "D") removedBdDays.push({ emp, day: parseInt(dayKey, 10) });
+      delete cell.duty;
+      clearedDuties++;
+      if (!Object.keys(cell).length) delete perEmp[dayKey];
+    }
+  }
+  for (const { emp, day } of removedBdDays) stripCascadedFreeDayRaw(year, month, emp, day);
+
+  // 3) RBN-Zeile des Monats leeren.
+  const clearedRbn = Object.keys(md.rbn).length;
+  md.rbn = {};
+
+  // 4) Neuen Stand aus dem PDF setzen.
+  let setBd = 0;
+  let setHg = 0;
+  let setRbn = 0;
+  for (const entry of entries) {
+    if (!Number.isInteger(entry.day) || entry.day < 1 || entry.day > dim) continue;
+    if (entry.bd) {
+      if (!md.employees.includes(entry.bd)) md.employees.push(entry.bd);
+      setDutyRaw(md, entry.bd, entry.day, "D");
+      setBd++;
+    }
+    if (entry.hg && entry.hg !== entry.bd) {
+      if (!md.employees.includes(entry.hg)) md.employees.push(entry.hg);
+      setDutyRaw(md, entry.hg, entry.day, "HG");
+      setHg++;
+    }
+    if (entry.rbn) {
+      md.rbn[entry.day] = entry.rbn;
+      setRbn++;
+    }
+  }
+
+  // 5) Pflicht-Ruhetag nach jedem Bereitschaftsdienst wiederherstellen.
+  const restDays = ensurePostBDFreiDays();
+  saveToStorage();
+
+  return { addedEmployees, clearedDuties, clearedRbn, setBd, setHg, setRbn, restDays };
+}
