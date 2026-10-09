@@ -216,6 +216,7 @@ Zusätzlich zur personenbezogenen Matrix existiert eine globale Planungszeile **
 * **Sichtbarkeit:** Die Zeile erscheint erst ab Juni 2025 (`RBN_ROW_START = { year: 2025, month: 5 }`, 0-basiert = Juni).
 * **Auswahlpool (`RBN_OPTIONS`):** Prof. Schob (NRAD), Dr. Maybaum (NRAD), Dr. Bailis (NRAD), Dr. Schüngel (NRAD), Fr. Dalitz (RAD), Fr. Thaler (RAD), Dr. Martin (RAD), Hr. El Houba (RAD).
 * **Dynamische Gültigkeit:** *Fr. Thaler (RAD)* steht nur bis einschließlich März 2026 zur Auswahl (`RBN_THALER_LAST_MONTH = { year: 2026, month: 2 }`, 0-basiert = März) und wird ab April automatisch aus der Dropdown-Liste ausgeblendet (`getRbnOptionsForDate`).
+* **Dynamische Gültigkeit (Hr. El Houba):** *Hr. El Houba (RAD)* steht nur bis einschließlich September 2026 zur Auswahl (`RBN_EL_HOUBA_LAST_MONTH = { year: 2026, month: 8 }`, 0-basiert = September) und wird ab Oktober 2026 automatisch ausgeblendet.
 
 ### 4.4 Personalabgänge (`EMPLOYEE_DEPARTURES`)
 
@@ -226,10 +227,13 @@ export const EMPLOYEE_DEPARTURES = {
   // month ist 0-basiert und markiert den ERSTEN Monat OHNE die Person.
   "Fr. Thaler": { year: 2026, month: 3, reason: "ausgeschieden" }, // aktiv bis inkl. März 2026
   "Hr. Torki":  { year: 2026, month: 6, reason: "gekündigt"    }, // aktiv bis inkl. Juni 2026
+  "Hr. El Houba": { year: 2026, month: 9, reason: "ausgeschieden" }, // aktiv bis inkl. September 2026
 };
 ```
 
 Die Hilfsfunktion `isEmployeeActiveInMonth(name, y, m)` prüft diese Bedingung live gegen jeden angefragten Monat. Beim Initialisieren oder Speichern eines Monats führt `reconcileEmployeesForMonth(md, y, m)` automatische Bereinigungen durch: ausgeschiedene Personen werden aus der `employees`-Liste eines Monats entfernt, sobald dieser Monat in ihrer Abwesenheitszeit liegt — vergangene Monate bleiben davon unberührt.
+
+> **Personaländerung zum 01.10.2026 — Hr. El Houba:** Hr. El Houba (Assistenzarzt) ist zum 01.10.2026 aus dem Team ausgeschieden. Er bleibt in allen Plänen bis einschließlich September 2026 erhalten; ab Oktober 2026 wird er automatisch aus dem Monatsbestand entfernt, vom Auto-Planer nicht mehr berücksichtigt, beim PDF-Import nicht mehr als Person aufgelöst und in der Zeile **RD Neurorad** nicht mehr zur Auswahl angeboten.
 
 ### 4.5 Personalzugänge (`EMPLOYEE_ARRIVALS`)
 

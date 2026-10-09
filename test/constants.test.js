@@ -105,6 +105,13 @@ describe("Mitarbeiter-Stammdaten", () => {
     assert.equal(isEmployeeActiveInMonth("Fr. Thaler", departure.year + 1, 0), false);
   });
 
+  test("Hr. El Houba ist zum 1.10.2026 ausgeschieden", () => {
+    assert.deepEqual(EMPLOYEE_DEPARTURES["Hr. El Houba"], { year: 2026, month: 9, reason: "ausgeschieden" });
+    assert.equal(isEmployeeActiveInMonth("Hr. El Houba", 2026, 8), true);
+    assert.equal(isEmployeeActiveInMonth("Hr. El Houba", 2026, 9), false);
+    assert.equal(isEmployeeActiveInMonth("Hr. El Houba", 2027, 0), false);
+  });
+
   test("isEmployeeActiveInMonth ist true für Personen ohne Austrittseintrag", () => {
     assert.equal(isEmployeeActiveInMonth("Dr. Martin", 2030, 0), true);
   });
@@ -152,6 +159,12 @@ describe("Mitarbeiter-Stammdaten", () => {
     assert.equal(getRbnOptionsForDate(2026, 7).includes("Dr. Hellmann (RAD/NRAD)"), false);
     assert.equal(getRbnOptionsForDate(2026, 8).includes("Dr. Hellmann (RAD/NRAD)"), true);
     assert.equal(getRbnOptionsForDate(2027, 0).includes("Dr. Hellmann (RAD/NRAD)"), true);
+  });
+
+  test("Hr. El Houba ist ab Oktober 2026 nicht mehr im RD-Neurorad-Pool", () => {
+    assert.equal(getRbnOptionsForDate(2026, 8).includes("Hr. El Houba (RAD)"), true);
+    assert.equal(getRbnOptionsForDate(2026, 9).includes("Hr. El Houba (RAD)"), false);
+    assert.equal(getRbnOptionsForDate(2027, 0).includes("Hr. El Houba (RAD)"), false);
   });
 
   test("Hellmann hat harte BD-Obergrenze 2 und eine spezielle Untergrenze 0", () => {

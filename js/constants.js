@@ -57,6 +57,7 @@ export const RBN_OPTIONS = [
 ];
 
 export const RBN_THALER_LAST_MONTH = { year: 2026, month: 2 };
+export const RBN_EL_HOUBA_LAST_MONTH = { year: 2026, month: 8 };
 export const RBN_HELLMANN_START = { year: 2026, month: 8 };
 export const RBN_HELLMANN_OPTION = "Dr. Hellmann (RAD/NRAD)";
 
@@ -75,6 +76,8 @@ export const EMPLOYEE_DEPARTURES = {
   "Fr. Thaler": { year: 2026, month: 3, reason: "ausgeschieden" },
   // Hr. Torki hat die Abteilung zum 1.7.2026 verlassen → ab Juli (m=6) inaktiv.
   "Hr. Torki": { year: 2026, month: 6, reason: "gekündigt" },
+  // Hr. El Houba ist zum 1.10.2026 ausgeschieden → ab Oktober (m=9) inaktiv.
+  "Hr. El Houba": { year: 2026, month: 9, reason: "ausgeschieden" },
 };
 
 export function isEmployeeActiveInMonth(name, y, m) {
@@ -163,13 +166,17 @@ export function getRbnOptionsForDate(y, m) {
   const allowThaler =
     y < RBN_THALER_LAST_MONTH.year ||
     (y === RBN_THALER_LAST_MONTH.year && m <= RBN_THALER_LAST_MONTH.month);
+  const allowElHouba =
+    y < RBN_EL_HOUBA_LAST_MONTH.year ||
+    (y === RBN_EL_HOUBA_LAST_MONTH.year && m <= RBN_EL_HOUBA_LAST_MONTH.month);
   const allowHellmann =
     y > RBN_HELLMANN_START.year ||
     (y === RBN_HELLMANN_START.year && m >= RBN_HELLMANN_START.month);
 
-  const options = allowThaler
-    ? [...RBN_OPTIONS]
-    : RBN_OPTIONS.filter((opt) => opt !== "Fr. Thaler (RAD)");
+  const options = RBN_OPTIONS.filter(
+    (opt) =>
+      (allowThaler || opt !== "Fr. Thaler (RAD)") && (allowElHouba || opt !== "Hr. El Houba (RAD)"),
+  );
 
   if (allowHellmann && !options.includes(RBN_HELLMANN_OPTION)) {
     options.push(RBN_HELLMANN_OPTION);
