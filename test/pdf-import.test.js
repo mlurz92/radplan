@@ -85,7 +85,7 @@ describe("parseDutySchedulePages", () => {
     // Zweistellige Tage stehen zentriert weiter links — dürfen die Spalte nicht wechseln.
     assert.equal(parsed.rows[30].day, 31);
     assert.equal(parsed.rows[30].bd, "Dalitz");
-    assert.equal(parsed.rows[30].hg, "El Houba");
+    assert.equal(parsed.rows[30].hg, "Martin");
   });
 
   test("übernimmt keine Zahlen aus dem Statistikblock unterhalb der Tabelle", async () => {
@@ -204,7 +204,6 @@ describe("resolveDutySchedule", () => {
         "Fr. Dalitz",
         "Dr. Becker",
         "Dr. Martin",
-        "Hr. El Houba",
         "Fr. Licenji",
         "Hr. Sebastian",
       ],
@@ -350,7 +349,7 @@ describe("applyPdfDutySchedule", () => {
 
   test("setzt D, HG und RBN für den gesamten Monat", async () => {
     DATA["2026-9"] = {
-      employees: ["Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Dr. Becker", "Dr. Martin", "Hr. El Houba", "Fr. Licenji", "Hr. Sebastian"],
+      employees: ["Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Dr. Becker", "Dr. Martin", "Fr. Licenji", "Hr. Sebastian"],
       assignments: {},
       rbn: {},
       comments: {},
@@ -380,7 +379,7 @@ describe("applyPdfDutySchedule", () => {
 
   test("ersetzt alte Dienste, lässt Arbeitsplätze und Status unberührt", async () => {
     DATA["2026-9"] = {
-      employees: ["Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Dr. Becker", "Dr. Martin", "Hr. El Houba", "Fr. Licenji", "Hr. Sebastian"],
+      employees: ["Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Dr. Becker", "Dr. Martin", "Fr. Licenji", "Hr. Sebastian"],
       assignments: {
         "Dr. Lurz": {
           1: { assignment: "MR", duty: "D" }, // veralteter BD → muss verschwinden
@@ -409,7 +408,7 @@ describe("applyPdfDutySchedule", () => {
 
   test("erzeugt nach jedem Bereitschaftsdienst den Pflicht-Ruhetag", async () => {
     DATA["2026-9"] = {
-      employees: ["Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Dr. Becker", "Dr. Martin", "Hr. El Houba", "Fr. Licenji", "Hr. Sebastian"],
+      employees: ["Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Dr. Becker", "Dr. Martin", "Fr. Licenji", "Hr. Sebastian"],
       assignments: {},
       rbn: {},
       comments: {},
@@ -427,7 +426,7 @@ describe("applyPdfDutySchedule", () => {
 
   test("überschreibt eine bestehende Belegung nicht mit einem Ruhetag", async () => {
     DATA["2026-9"] = {
-      employees: ["Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Dr. Becker", "Dr. Martin", "Hr. El Houba", "Fr. Licenji", "Hr. Sebastian"],
+      employees: ["Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Dr. Becker", "Dr. Martin", "Fr. Licenji", "Hr. Sebastian"],
       assignments: { "Hr. Sebastian": { 2: { assignment: "U" } } },
       rbn: {},
       comments: {},
@@ -438,7 +437,7 @@ describe("applyPdfDutySchedule", () => {
 
   test("ist idempotent: zweimaliger Import ergibt denselben Stand", async () => {
     DATA["2026-9"] = {
-      employees: ["Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Dr. Becker", "Dr. Martin", "Hr. El Houba", "Fr. Licenji", "Hr. Sebastian"],
+      employees: ["Dr. Lurz", "Dr. Polednia", "Fr. Dalitz", "Dr. Becker", "Dr. Martin", "Fr. Licenji", "Hr. Sebastian"],
       assignments: {},
       rbn: {},
       comments: {},
